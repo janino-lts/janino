@@ -108,6 +108,30 @@ class Compiler extends AbstractCompiler {
         this.compile(sourceResources, null);
     }
 
+    /**
+     * Maps a location in the compiled source code to the location in the original document, according to the
+     * <var>offsets</var> (see {@code SimpleCompiler.addOffset(String)}).
+     */
+    static Location
+    applyOffsets(Location loc, @Nullable SortedSet<Location> offsets) {
+
+        if (offsets == null) return loc;
+
+        SortedSet<Location> hs = offsets.headSet(loc);
+        if (hs.isEmpty()) return loc;
+
+        Location co = hs.last();
+        return new Location(
+            co.getFileName(),
+            loc.getLineNumber() - co.getLineNumber() + 1,
+            (
+                loc.getLineNumber() == co.getLineNumber()
+                ? loc.getColumnNumber() - co.getColumnNumber() + 1
+                : loc.getColumnNumber()
+            )
+        );
+    }
+
     public void
     compile(final Resource[] sourceResources, @Nullable SortedSet<Location> offsets) throws CompileException, IOException {
 
@@ -307,21 +331,7 @@ class Compiler extends AbstractCompiler {
                 );
 
                 // Manipulate the diagnostic location to accomodate for the "offsets" (see "addOffset(String)"):
-                if (offsets != null) {
-                    SortedSet<Location> hs = offsets.headSet(loc);
-                    if (!hs.isEmpty()) {
-                        Location co = hs.last();
-                        loc = new Location(
-                            co.getFileName(),
-                            loc.getLineNumber() - co.getLineNumber() + 1,
-                            (
-                                loc.getLineNumber() == co.getLineNumber()
-                                ? loc.getColumnNumber() - co.getColumnNumber() + 1
-                                : loc.getColumnNumber()
-                            )
-                        );
-                    }
-                }
+                loc = Compiler.applyOffsets(loc, offsets);
 
                 String message = diagnostic.getMessage(null) + " (" + diagnostic.getCode() + ")";
 

@@ -296,13 +296,14 @@ class JavaSourceClassLoader extends AbstractJavaSourceClassLoader {
             if (sourceFileObject == null) throw new DiagnosticException("Source for '" + className + "' not found");
         }
 
-        // Compose the effective compiler options.
+        // Compose the effective compiler options. (Violations of a sandbox policy are reported with source locations,
+        // which requires debugging information.)
         List<String> options = new ArrayList<>(this.compilerOptions);
         {
             List<String> l = new ArrayList<>();
-            if (this.debuggingInfoLines)  l.add("lines");
-            if (this.debuggingInfoSource) l.add("source");
-            if (this.debuggingInfoVars)   l.add("vars");
+            if (this.debuggingInfoLines || this.sandboxPolicy != null)  l.add("lines");
+            if (this.debuggingInfoSource || this.sandboxPolicy != null) l.add("source");
+            if (this.debuggingInfoVars)                                 l.add("vars");
             if (l.isEmpty()) l.add("none");
 
             Iterator<String> it = l.iterator();

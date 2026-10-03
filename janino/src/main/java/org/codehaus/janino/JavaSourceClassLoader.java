@@ -280,9 +280,12 @@ class JavaSourceClassLoader extends AbstractJavaSourceClassLoader {
             for (UnitCompiler uc : this.iClassLoader.getUnitCompilers()) {
                 if (!this.compiledUnitCompilers.contains(uc)) {
                     try {
+
+                        // Violations of a sandbox policy are reported with source locations, which requires debugging
+                        // information.
                         uc.compileUnit(
-                            this.debugSource,
-                            this.debugLines,
+                            this.debugSource || this.sandboxPolicy != null,
+                            this.debugLines || this.sandboxPolicy != null,
                             this.debugVars,
                             new ClassFileConsumer() {
 

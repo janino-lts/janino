@@ -13,8 +13,8 @@ Code that uses anything else is rejected at compile time.
 IExpressionEvaluator ee = CompilerFactoryFactory.getDefaultCompilerFactory(classLoader).newExpressionEvaluator();
 ee.setSandboxPolicy(SandboxPolicy.JAVA_LANG_BASIC);
 ee.cook("System.getProperty(\"user.home\")");
-// => CompileException: Sandbox violation:
-//      SC: Access to java.lang.System.getProperty(java.lang.String) is not permitted by the sandbox policy
+// => CompileException: Line 1: Access to java.lang.System.getProperty(java.lang.String) is not permitted by the
+//    sandbox policy
 ```
 
 ---
@@ -114,7 +114,7 @@ try {
 
         // The expression uses APIs that the policy does not allow.
         for (SandboxViolation v : ((SandboxViolationException) ce.getCause()).getViolations()) {
-            System.err.println(v.getClassName() + ": " + v.getMessage());
+            System.err.println(v); // E.g. "Line 1: Access to ... is not permitted by the sandbox policy"
         }
     } else {
 
@@ -127,16 +127,25 @@ try {
 Object result = ee.evaluate(new Object[] { 3, 4 });
 ```
 
-The message of the `CompileException` lists all violations, e.g.:
+Each violation carries its location in the cooked document: the file name (if you cooked the document with one)
+and the line number, but no column (`SandboxViolation.getLocation()`, `getFileName()`, `getLineNumber()`). The
+`CompileException` is located at the first violation; if there is more than one violation, then its message lists
+all of them, ordered by line, e.g. for a script cooked as `"script.txt"`:
 
 ```
-Sandbox violations:
-  SC: Access to java.lang.System.getProperty(java.lang.String) is not permitted by the sandbox policy
-  SC: Access to java.lang.Runtime.getRuntime() is not permitted by the sandbox policy
+File 'script.txt', Line 2: Sandbox violations:
+  File 'script.txt', Line 2: Access to java.lang.System.getProperty(java.lang.String) is not permitted by the sandbox policy
+  File 'script.txt', Line 4: Access to java.lang.Runtime.getRuntime() is not permitted by the sandbox policy
 ```
 
-The class name (`SC` in this example) is the name of the generated class. Violations do not (yet) carry a source
-line number.
+A violation that concerns a generated class as a whole (e.g. a forbidden superclass) has no location; its message
+names the generated class instead, e.g. `SC: Extending java.lang.Thread is not permitted by the sandbox policy`. If
+you set a compile error handler (`setCompileErrorHandler()`), then each violation is also reported through it, like
+a compile error; cooking fails nevertheless.
+
+To determine the line numbers, JANINO reads the line number tables of the generated class files. Therefore, when a
+policy is set, the compilers always generate the necessary debugging information (source file and line numbers, like
+`javac -g:source,lines`), regardless of `setDebuggingInformation()`.
 
 **Extended classes and implemented interfaces.** If you let the generated class extend a class or implement
 interfaces - through `setExtendedClass(...)`, `setImplementedInterfaces(...)`, or `createFastEvaluator(...)` with an
@@ -342,7 +351,7 @@ that returns only the values that scripts need is almost always the better solut
 - **Objects passed in by the host.** Code may call any *allowed* method on objects that your application passes to
   it. Since the checks apply to the declaring class, a method that your policy allows on an interface (e.g.
   `List.get()`) can be invoked on any implementation that you pass in.
-- **No source locations.** Violations name the generated class and the member, but not the line in the source code.
+- **No column numbers.** Violations carry the source file and the line, but not the column (see 3.1).
 - **Behavior change compared to the legacy sandbox:** `Class.forName(...)` is never allowed (the legacy sandbox
   allowed loading some classes this way). Class literals (`String.class`) remain usable.
 
@@ -481,7 +490,7 @@ new Sandbox(permissions).confine(pa);   // runtime: only the system property "fo
 | `ICookable.setSandboxPolicy(SandboxPolicy)`                      | Restricts expressions, scripts, class bodies, compilation units |
 | `AbstractJavaSourceClassLoader.setSandboxPolicy(SandboxPolicy)`  | Restricts classes loaded from source files                |
 | `BytecodeVerifier`                                               | Verifies class files against a policy                     |
-| `SandboxViolation`                                               | One violation: class name and message                     |
+| `SandboxViolation`                                               | One violation: class name, message and location (`getLocation()`) |
 | `SandboxViolationException`                                      | Cause of the `CompileException` / `ClassNotFoundException`; `getViolations()` |
 | `org.codehaus.commons.compiler.Sandbox`, `Sandbox.isSupported()` | The security-manager-based sandbox (section 7)            |
 | `ICookable.setProtectionDomain(ProtectionDomain)`, `AbstractJavaSourceClassLoader.setProtectionDomainFactory(...)` | Defines the generated classes with restricted permissions (section 7) |

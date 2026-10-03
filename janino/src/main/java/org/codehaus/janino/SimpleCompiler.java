@@ -277,8 +277,12 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
             unitCompiler.setCompileErrorHandler(this.compileErrorHandler);
             unitCompiler.setWarningHandler(this.warningHandler);
 
+            // Violations of a sandbox policy are reported with source locations, which requires debugging information.
+            boolean debugSource = this.debugSource || this.sandboxPolicy != null;
+            boolean debugLines  = this.debugLines || this.sandboxPolicy != null;
+
             final Collection<ClassFile> cfs = new ArrayList<>();
-            unitCompiler.compileUnit(this.debugSource, this.debugLines, this.debugVars, new ClassFileConsumer() {
+            unitCompiler.compileUnit(debugSource, debugLines, this.debugVars, new ClassFileConsumer() {
 
                 @Override public void
                 consume(ClassFile classFile) {
@@ -292,7 +296,15 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
             });
 
             SandboxPolicy sandboxPolicy = this.sandboxPolicy;
-            if (sandboxPolicy != null) SimpleCompiler.verify(cfs, sandboxPolicy, this.parentClassLoader);
+            if (sandboxPolicy != null) {
+                SimpleCompiler.verify(
+                    cfs,
+                    sandboxPolicy,
+                    this.parentClassLoader,
+                    abstractCompilationUnit.fileName,
+                    this.compileErrorHandler
+                );
+            }
 
             this.classFiles = cfs;
         } catch (CompileException ce) {
@@ -304,21 +316,32 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
     }
 
     /**
-     * Verifies the <var>classFiles</var> against the <var>sandboxPolicy</var>.
+     * Verifies the <var>classFiles</var> against the <var>sandboxPolicy</var>, and reports the violations through the
+     * <var>compileErrorHandler</var> (if any).
      *
+     * @param fileName The name of the cooked document, which replaces the source file names of the class files
+     *                 (which JANINO derives from the class names if the document has no name)
      * @throws CompileException The class files violate the policy; the cause is a {@link SandboxViolationException}
      */
     private static void
-    verify(Collection<ClassFile> classFiles, SandboxPolicy sandboxPolicy, ClassLoader hostClassLoader)
-    throws CompileException {
+    verify(
+        Collection<ClassFile>  classFiles,
+        SandboxPolicy          sandboxPolicy,
+        ClassLoader            hostClassLoader,
+        @Nullable String       fileName,
+        @Nullable ErrorHandler compileErrorHandler
+    ) throws CompileException {
 
         Map<String /*className*/, byte[] /*bytecode*/> bytecodes = new HashMap<>();
         for (ClassFile cf : classFiles) bytecodes.put(cf.getThisClassName(), cf.toByteArray());
 
         List<SandboxViolation> violations = new BytecodeVerifier(sandboxPolicy).verify(bytecodes, hostClassLoader);
         if (!violations.isEmpty()) {
-            SandboxViolationException sve = new SandboxViolationException(violations);
-            throw new CompileException(sve.getMessage(), null, sve);
+            List<SandboxViolation> violations2 = new ArrayList<>();
+            for (SandboxViolation v : violations) {
+                violations2.add(v.getLineNumber() == -1 ? v : v.withLocation(fileName, v.getLineNumber()));
+            }
+            throw new SandboxViolationException(violations2).toCompileException(compileErrorHandler);
         }
     }
 

@@ -149,6 +149,11 @@ interface ICookable {
      * <p>
      *   Must be called before cooking. {@code null} (the default) means that the generated code is not restricted.
      * </p>
+     * <p>
+     *   If a policy is set, then the generated classes always contain debugging information about the source file and
+     *   the line numbers, so that the violations can be reported with their locations in the cooked document (see
+     *   {@link org.codehaus.commons.compiler.sandbox.SandboxViolation#getLocation()}).
+     * </p>
      *
      * @throws UnsupportedOperationException The implementation does not support sandbox policies
      * @see SandboxPolicy

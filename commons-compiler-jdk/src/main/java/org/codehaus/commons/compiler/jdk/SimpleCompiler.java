@@ -29,6 +29,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.security.ProtectionDomain;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -78,6 +79,11 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
 
     @Nullable private SandboxPolicy    sandboxPolicy;
     @Nullable private ProtectionDomain protectionDomain;
+    @Nullable private ErrorHandler     compileErrorHandler;
+
+    private boolean debugSource;
+    private boolean debugLines;
+    private boolean debugVars;
 
     // See "addOffset(String)".
     private final LineAndColumnTracker tracker = LineAndColumnTracker.create();
@@ -174,9 +180,14 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
         ));
         this.compiler.setClassFileCreator(new MapResourceCreator(bcs));
 
+        // Violations of a sandbox policy are reported with source locations, which requires debugging information.
+        SandboxPolicy sandboxPolicy = this.sandboxPolicy;
+        this.compiler.setDebugSource(this.debugSource || sandboxPolicy != null);
+        this.compiler.setDebugLines(this.debugLines || sandboxPolicy != null);
+        this.compiler.setDebugVars(this.debugVars);
+
         this.compiler.compile(new Resource[] { compilationUnit }, this.offsets);
 
-        SandboxPolicy sandboxPolicy = this.sandboxPolicy;
         if (sandboxPolicy != null) {
             List<SandboxViolation> violations = new BytecodeVerifier(sandboxPolicy).verify(
                 bcs,
@@ -187,17 +198,31 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
                 // Make sure that the rejected classes can never be loaded.
                 bcs.clear();
 
-                SandboxViolationException sve = new SandboxViolationException(violations);
-                throw new CompileException(sve.getMessage(), null, sve);
+                // Map the source lines of the compiled code to the lines of the cooked document, like the locations
+                // of compile errors. (A violation in a line belongs to the last offset in or before that line.)
+                List<SandboxViolation> mappedViolations = new ArrayList<>();
+                for (SandboxViolation v : violations) {
+                    Location l = v.getLocation();
+                    if (l != null) {
+                        l = Compiler.applyOffsets(
+                            new Location(compilationUnit.getFileName(), l.getLineNumber(), Integer.MAX_VALUE),
+                            this.offsets
+                        );
+                        v = v.withLocation(l.getFileName(), l.getLineNumber());
+                    }
+                    mappedViolations.add(v);
+                }
+
+                throw new SandboxViolationException(mappedViolations).toCompileException(this.compileErrorHandler);
             }
         }
     }
 
     @Override public void
     setDebuggingInformation(boolean debugSource, boolean debugLines, boolean debugVars) {
-        this.compiler.setDebugSource(debugSource);
-        this.compiler.setDebugLines(debugLines);
-        this.compiler.setDebugVars(debugVars);
+        this.debugSource = debugSource;
+        this.debugLines  = debugLines;
+        this.debugVars   = debugVars;
     }
 
     @Override public void
@@ -219,6 +244,7 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
 
     @Override public void
     setCompileErrorHandler(@Nullable ErrorHandler compileErrorHandler) {
+        this.compileErrorHandler = compileErrorHandler;
         this.compiler.setCompileErrorHandler(compileErrorHandler);
     }
 

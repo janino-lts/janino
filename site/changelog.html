@@ -70,6 +70,13 @@ h5 {
         they got a different protection domain, which caused a <code>SecurityException</code> ("signer information
         does not match") with the signed JANINO JARs.
       </li>
+      <li>
+        Sandbox policy violations now carry their location in the cooked document (file name and line number), see
+        <code>SandboxViolation.getLocation()</code>; the <code>CompileException</code> is located at the first
+        violation, and all violations are reported through the compile error handler, if one is set. To determine the
+        line numbers, the compilers generate debugging information (source file and line numbers) automatically when a
+        sandbox policy is set. <code>Location.toString()</code> omits the column if it is 0 ("the entire line").
+      </li>
     </ul>
 
     <h4>Version 3.1.13-SNAPSHOT-1 (pre-release)</h4>

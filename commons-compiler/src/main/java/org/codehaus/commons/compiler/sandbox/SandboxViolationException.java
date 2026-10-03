@@ -28,6 +28,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.codehaus.commons.compiler.CompileException;
+import org.codehaus.commons.compiler.ErrorHandler;
+import org.codehaus.commons.compiler.Location;
+import org.codehaus.commons.nullanalysis.Nullable;
+
 /**
  * Indicates that one or more classes were rejected by a {@link BytecodeVerifier}.
  */
@@ -48,6 +53,34 @@ class SandboxViolationException extends RuntimeException {
     }
 
     public List<SandboxViolation> getViolations() { return this.violations; }
+
+    /**
+     * Reports the violations through the <var>compileErrorHandler</var> (if any), one by one, and returns a {@link
+     * CompileException} for the caller to throw, with this exception as its cause.
+     * <p>
+     *   The returned exception is located at the first violation that has a location. If there is exactly one
+     *   violation, then the message of the exception is that of the violation; otherwise it lists all violations.
+     * </p>
+     *
+     * @throws CompileException The <var>compileErrorHandler</var> threw it
+     */
+    public CompileException
+    toCompileException(@Nullable ErrorHandler compileErrorHandler) throws CompileException {
+
+        Location location = null;
+        for (SandboxViolation v : this.violations) {
+            Location l = v.getLocation();
+            if (compileErrorHandler != null) {
+                compileErrorHandler.handleError(l != null ? v.getMessage() : v.toString(), l);
+            }
+            if (location == null) location = l;
+        }
+
+        if (this.violations.size() == 1 && location != null) {
+            return new CompileException(((SandboxViolation) this.violations.get(0)).getMessage(), location, this);
+        }
+        return new CompileException(this.getMessage(), location, this);
+    }
 
     /**
      * @return A message that lists all <var>violations</var>, one per line

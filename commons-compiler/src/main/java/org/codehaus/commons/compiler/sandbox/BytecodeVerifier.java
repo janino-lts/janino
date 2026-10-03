@@ -37,6 +37,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.function.Supplier;
 
@@ -183,7 +184,8 @@ class BytecodeVerifier {
      *                        "pkg.Foo"} or resource names like {@code "pkg/Foo.class"})
      * @param hostClassLoader Loads the classes that the verified classes refer to (other than themselves); typically
      *                        the parent class loader of the class loader that will define the verified classes
-     * @return                All violations; empty if the classes comply with the policy
+     * @return                All violations, ordered by source file and line (violations without a line number
+     *                        first); empty if the classes comply with the policy
      * @throws ClassFormatError One of the <var>classes</var> is not a valid class file
      */
     public List<SandboxViolation>
@@ -206,7 +208,8 @@ class BytecodeVerifier {
      *                            through it
      * @param pendingClasses      Class name =&gt; class file; classes that the <var>definingClassLoader</var>
      *                            generated, but has not yet defined
-     * @return                    All violations; empty if the classes comply with the policy
+     * @return                    All violations, ordered by source file and line (violations without a line
+     *                            number first); empty if the classes comply with the policy
      * @throws ClassFormatError   One of the <var>classes</var> is not a valid class file
      */
     public List<SandboxViolation>
@@ -231,7 +234,34 @@ class BytecodeVerifier {
 
         Run run = new Run(classFiles, classLoader, generatedClassLoader, pendingClasses);
         for (ClassFileReader cfr : classFiles.values()) run.verify(cfr);
-        return run.violations;
+
+        // Order the violations by source file and line, so that e.g. the violations in an anonymous class appear
+        // between those of the enclosing class. (A stable insertion sort; the lists are short.)
+        List<SandboxViolation> result = new ArrayList<SandboxViolation>();
+        for (SandboxViolation v : run.violations) {
+            int i = result.size();
+            while (i > 0 && BytecodeVerifier.compareLocations((SandboxViolation) result.get(i - 1), v) > 0) i--;
+            result.add(i, v);
+        }
+        return result;
+    }
+
+    /**
+     * Violations without a line number are "less" than violations with a line number; the latter are ordered by file
+     * name and line number.
+     */
+    private static int
+    compareLocations(SandboxViolation v1, SandboxViolation v2) {
+
+        int l1 = v1.getLineNumber(), l2 = v2.getLineNumber();
+        if (l1 == -1 || l2 == -1) return (l1 == -1 ? 0 : 1) - (l2 == -1 ? 0 : 1);
+
+        String f1 = v1.getFileName(), f2 = v2.getFileName();
+        if (f1 == null ? f2 != null : !f1.equals(f2)) {
+            return f1 == null ? -1 : f2 == null ? 1 : f1.compareTo(f2);
+        }
+
+        return l1 < l2 ? -1 : l1 > l2 ? 1 : 0;
     }
 
     /**
@@ -294,12 +324,17 @@ class BytecodeVerifier {
                 }
             }
 
+            // The violations that concern the use of members are reported per source line.
+            String      sourceFileName = cfr.getSourceFileName();
+            Set<String> reported       = new HashSet<String>();
+
             // Verify all field and method references. (That includes the members referenced by method handles,
             // because these refer to the same constant pool entries.)
-            Set<String> reported = new HashSet<String>();
             for (MemberReference mr : cfr.getMemberReferences()) {
                 String message = this.check(mr);
-                if (message != null && reported.add(message)) this.violation(className, message);
+                if (message != null) {
+                    this.violation(className, message, sourceFileName, cfr.getLineNumbers(mr), reported);
+                }
             }
 
             // Verify the bootstrap methods of INVOKEDYNAMIC instructions and dynamically-computed constants.
@@ -313,7 +348,32 @@ class BytecodeVerifier {
                         + bsm.getName()
                         + " is not permitted by the sandbox policy"
                     );
-                    if (reported.add(message)) this.violation(className, message);
+                    this.violation(className, message, sourceFileName, cfr.getLineNumbers(dr), reported);
+                }
+            }
+        }
+
+        /**
+         * Reports one violation for each of the <var>lineNumbers</var> (or one violation without a line number iff
+         * the <var>lineNumbers</var> are empty), unless the same message was already reported for the same line.
+         */
+        private void
+        violation(
+            String             className,
+            String             message,
+            @Nullable String   fileName,
+            SortedSet<Integer> lineNumbers,
+            Set<String>        reported
+        ) {
+            if (lineNumbers.isEmpty()) {
+                if (reported.add(-1 + ":" + message)) {
+                    this.violations.add(new SandboxViolation(className, message, fileName, -1));
+                }
+                return;
+            }
+            for (Integer lineNumber : lineNumbers) {
+                if (reported.add(lineNumber + ":" + message)) {
+                    this.violations.add(new SandboxViolation(className, message, fileName, lineNumber.intValue()));
                 }
             }
         }
@@ -512,7 +572,7 @@ class BytecodeVerifier {
 
         private void
         violation(String className, String message) {
-            this.violations.add(new SandboxViolation(className, message));
+            this.violations.add(new SandboxViolation(className, message, null, -1));
         }
     }
 

@@ -1526,8 +1526,8 @@ public class SandboxPolicyDemo {
         se.setSandboxPolicy(policy);
 
         // Cooking a script that reads a system property fails with
-        //    org.codehaus.commons.compiler.CompileException: Sandbox violation:
-        //      SC: Access to java.lang.System.getProperty(java.lang.String) is not permitted by the sandbox policy
+        //    org.codehaus.commons.compiler.CompileException: Line 1: Access to
+        //    java.lang.System.getProperty(java.lang.String) is not permitted by the sandbox policy
         try {
             se.cook("System.getProperty(\"user.home\");");
         } catch (CompileException ce) {
