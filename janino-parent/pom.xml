@@ -11,18 +11,15 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
     <!--
-      JANINO still retains backwards compatibility with JRE 7:
+      JANINO retains backwards compatibility with JRE 8. "release" (as opposed to "source" and "target") also
+      verifies that only JRE 8 APIs are used.
     -->
-    <maven.compiler.source>1.7</maven.compiler.source>
-    <maven.compiler.target>1.7</maven.compiler.target>
+    <maven.compiler.release>8</maven.compiler.release>
 
     <!--
-      If you want to enforce a particular JAVAC executable to be used, set these two properties:
+      Some tests verify the texts of compiler error messages, so the tests must run with an English locale.
     -->
-    <!-- -->
-    <maven.compiler.executable>C:\dev\Java\adopt_openjdk-8.0.292.10-hotspot</maven.compiler.executable>
-    <maven.compiler.fork>false</maven.compiler.fork>
-    <!-- -->
+    <test.locale.argLine>-Duser.language=en -Duser.country=US</test.locale.argLine>
   </properties>
 
   <artifactId>janino-parent</artifactId>
@@ -80,13 +77,10 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.19.1</version>
-<!--
+        <version>3.5.2</version>
         <configuration>
-          <source>${maven.compiler.source}</source>
-          <target>${maven.compiler.target}</target>
+          <argLine>${test.locale.argLine}</argLine>
         </configuration>
--->
       </plugin>
 
       <plugin>
@@ -150,11 +144,10 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>2.10.4</version>
+        <version>3.11.2</version>
         <configuration>
           <quiet>true</quiet>
-          <javadocExecutable>C:/dev/Java/adopt_openjdk-8.0.292.10-hotspot/bin/javadoc.exe </javadocExecutable>
-          <additionalparam>-Xdoclint:none</additionalparam>
+          <doclint>none</doclint>
         </configuration>
         <executions>
           <execution>
@@ -183,7 +176,14 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>2.3</version>
+        <version>3.13.0</version>
+        <configuration>
+          <compilerArgs>
+
+            <!-- Suppress the warning "source value 8 is obsolete and will be removed in a future release". -->
+            <arg>-Xlint:-options</arg>
+          </compilerArgs>
+        </configuration>
       </plugin>
 
       <plugin>

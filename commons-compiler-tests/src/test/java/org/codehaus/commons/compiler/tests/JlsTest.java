@@ -134,7 +134,12 @@ class JlsTest extends CommonsCompilerTestSuite {
         this.assertExpressionEvaluatesTrue("17 == 021L");
         this.assertExpressionUncookable(
             "17 == 029",
-            "Digit '9' not allowed in octal literal|compiler.err.int.number.too.large|';' expected"
+            (
+                "Digit '9' not allowed in octal literal"
+                + "|compiler.err.int.number.too.large"
+                + "|';' expected"
+                + "|illegal digit in an octal literal"
+            )
         );
     }
 
@@ -923,7 +928,8 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "public class Foo { public static boolean main() { return new B().isTrue(); } }\n"
         );
 
-        {
+        // JAVAC 20+ no longer supports source version 7.
+        if (!this.isJdk || CommonsCompilerTestSuite.JVM_VERSION < 20) {
             SimpleCompilerTest sct = new SimpleCompilerTest(cu, "Foo");
             sct.setSourceVersion(7);
             sct.assertUncookable((
@@ -982,7 +988,8 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "public class Foo { public static boolean main() { return new MyInterface() {}.isTrue(); } }\n"
         );
 
-        {
+        // JAVAC 20+ no longer supports source version 7.
+        if (!this.isJdk || CommonsCompilerTestSuite.JVM_VERSION < 20) {
             SimpleCompilerTest sct = new SimpleCompilerTest(cu, "Foo");
             sct.setSourceVersion(7);
             sct.assertUncookable("Default interface methods only available for source version 8+|default methods are not supported in -source (1\\.)?7|compiler\\.err\\.illegal\\.start\\.of\\.type");
@@ -1013,7 +1020,8 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "public class Foo { public static boolean main() { return MyInterface.isTrue(); } }\n"
         );
 
-        {
+        // JAVAC 20+ no longer supports source version 7.
+        if (!this.isJdk || CommonsCompilerTestSuite.JVM_VERSION < 20) {
             SimpleCompilerTest sct = new SimpleCompilerTest(cu, "Foo");
             sct.setSourceVersion(7);
             sct.assertUncookable(

@@ -50,8 +50,8 @@
           <additionalClasspathElements>
 
             <!-- No way to add *modules* to the classpath, only pathes: -->
-            <additionalClasspathElement>../janino/target/classes</additionalClasspathElement>
-            <additionalClasspathElement>../commons-compiler-jdk/target/classes</additionalClasspathElement>
+            <additionalClasspathElement>${project.basedir}/../janino/target/classes</additionalClasspathElement>
+            <additionalClasspathElement>${project.basedir}/../commons-compiler-jdk/target/classes</additionalClasspathElement>
           </additionalClasspathElements>
         </configuration>
       </plugin>
