@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
 
+import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
 import org.codehaus.commons.compiler.util.resource.ResourceFinder;
 import org.codehaus.commons.nullanalysis.NotNullByDefault;
 import org.codehaus.commons.nullanalysis.Nullable;
@@ -53,6 +54,11 @@ class AbstractJavaSourceClassLoader extends ClassLoader {
      * @see ClassLoader#defineClass(String, byte[], int, int, ProtectionDomain)
      */
     @Nullable protected ProtectionDomainFactory protectionDomainFactory;
+
+    /**
+     * @see #setSandboxPolicy(SandboxPolicy)
+     */
+    @Nullable protected SandboxPolicy sandboxPolicy;
 
     public
     AbstractJavaSourceClassLoader() {}
@@ -105,6 +111,21 @@ class AbstractJavaSourceClassLoader extends ClassLoader {
      */
     public void
     setTargetVersion(int version) {}
+
+    /**
+     * Restricts the APIs that the loaded classes may use. If set, then each generated class is verified against the
+     * <var>policy</var> before it is defined, and loading fails with a {@link ClassNotFoundException} (whose cause is
+     * a {@link org.codehaus.commons.compiler.sandbox.SandboxViolationException}) if the class uses any field, method
+     * or constructor that the policy does not allow.
+     * <p>
+     *   Must be called before the first class is loaded. {@code null} (the default) means that the loaded classes are
+     *   not restricted.
+     * </p>
+     *
+     * @see SandboxPolicy
+     */
+    public final void
+    setSandboxPolicy(@Nullable SandboxPolicy policy) { this.sandboxPolicy = policy; }
 
     /**
      * @see ClassLoader#defineClass(String, byte[], int, int, ProtectionDomain)

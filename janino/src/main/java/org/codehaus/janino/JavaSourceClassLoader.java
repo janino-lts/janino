@@ -30,6 +30,7 @@ import java.io.Reader;
 import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -39,6 +40,10 @@ import org.codehaus.commons.compiler.ErrorHandler;
 import org.codehaus.commons.compiler.InternalCompilerException;
 import org.codehaus.commons.compiler.WarningHandler;
 import org.codehaus.commons.compiler.lang.ClassLoaders;
+import org.codehaus.commons.compiler.sandbox.BytecodeVerifier;
+import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
+import org.codehaus.commons.compiler.sandbox.SandboxViolation;
+import org.codehaus.commons.compiler.sandbox.SandboxViolationException;
 import org.codehaus.commons.compiler.util.Disassembler;
 import org.codehaus.commons.compiler.util.resource.DirectoryResourceFinder;
 import org.codehaus.commons.compiler.util.resource.PathResourceFinder;
@@ -191,6 +196,10 @@ class JavaSourceClassLoader extends AbstractJavaSourceClassLoader {
             {
                 Map<String /*name*/, byte[] /*bytecode*/> bytecodes = this.generateBytecodes(name);
                 if (bytecodes == null) throw new ClassNotFoundException(name);
+
+                SandboxPolicy sandboxPolicy = this.sandboxPolicy;
+                if (sandboxPolicy != null) this.verify(bytecodes, sandboxPolicy);
+
                 this.precompiledClasses.putAll(bytecodes);
             }
 
@@ -209,6 +218,42 @@ class JavaSourceClassLoader extends AbstractJavaSourceClassLoader {
 
         return this.defineBytecode(name, bytecode);
     }
+
+    /**
+     * Verifies the <var>bytecodes</var> against the <var>sandboxPolicy</var>.
+     *
+     * @throws ClassNotFoundException The bytecodes violate the policy; the cause is a {@link
+     *                                SandboxViolationException}
+     */
+    private void
+    verify(Map<String /*name*/, byte[] /*bytecode*/> bytecodes, SandboxPolicy sandboxPolicy)
+    throws ClassNotFoundException {
+
+        // While the bytecodes are being verified, other classes may be loaded (and verified) that refer to them,
+        // so make the bytecodes available as "pending classes".
+        this.classesBeingVerified.putAll(bytecodes);
+        try {
+            Map<String /*name*/, byte[] /*bytecode*/> pendingClasses = new HashMap<>(this.precompiledClasses);
+            pendingClasses.putAll(this.classesBeingVerified);
+
+            List<SandboxViolation> violations = new BytecodeVerifier(sandboxPolicy).verify(
+                bytecodes,
+                this,
+                pendingClasses
+            );
+            if (!violations.isEmpty()) {
+                SandboxViolationException sve = new SandboxViolationException(violations);
+                throw new ClassNotFoundException(sve.getMessage(), sve);
+            }
+        } finally {
+            this.classesBeingVerified.keySet().removeAll(bytecodes.keySet());
+        }
+    }
+
+    /**
+     * The classes that are currently being verified.
+     */
+    private final Map<String /*name*/, byte[] /*bytecode*/> classesBeingVerified = new HashMap<>();
 
     private final Set<UnitCompiler> compiledUnitCompilers = new HashSet<>();
 

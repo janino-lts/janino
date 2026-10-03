@@ -33,8 +33,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
@@ -50,6 +52,10 @@ import org.codehaus.commons.compiler.ICompilerFactory;
 import org.codehaus.commons.compiler.jdk.util.JavaFileManagers;
 import org.codehaus.commons.compiler.jdk.util.JavaFileObjects.ByteArrayJavaFileObject;
 import org.codehaus.commons.compiler.lang.ClassLoaders;
+import org.codehaus.commons.compiler.sandbox.BytecodeVerifier;
+import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
+import org.codehaus.commons.compiler.sandbox.SandboxViolation;
+import org.codehaus.commons.compiler.sandbox.SandboxViolationException;
 import org.codehaus.commons.compiler.util.Disassembler;
 import org.codehaus.commons.compiler.util.resource.DirectoryResourceFinder;
 import org.codehaus.commons.compiler.util.resource.PathResourceFinder;
@@ -183,7 +189,7 @@ class JavaSourceClassLoader extends AbstractJavaSourceClassLoader {
     }
 
     private Class<?>
-    findClass2(String className) throws IOException {
+    findClass2(String className) throws IOException, ClassNotFoundException {
 
         // Find or generate the .class file.
         JavaFileObject classFileObject = this.findClassFile(className);
@@ -218,6 +224,9 @@ class JavaSourceClassLoader extends AbstractJavaSourceClassLoader {
 
         if (Boolean.getBoolean("disasm")) Disassembler.disassembleToStdout(ba);
 
+        SandboxPolicy sandboxPolicy = this.sandboxPolicy;
+        if (sandboxPolicy != null) this.verify(className, Arrays.copyOf(ba, size), sandboxPolicy);
+
         // Invoke "ClassLoader.defineClass()", as the ClassLoader API requires.
         return this.defineClass(className, ba, 0, size, (
             this.protectionDomainFactory != null
@@ -227,6 +236,38 @@ class JavaSourceClassLoader extends AbstractJavaSourceClassLoader {
             : null
         ));
     }
+
+    /**
+     * Verifies the <var>classFile</var> against the <var>sandboxPolicy</var>.
+     *
+     * @throws ClassNotFoundException The class file violates the policy; the cause is a {@link
+     *                                SandboxViolationException}
+     */
+    private void
+    verify(String className, byte[] classFile, SandboxPolicy sandboxPolicy) throws ClassNotFoundException {
+
+        // While the class file is being verified, other classes may be loaded (and verified) that refer to it, so
+        // make it available as a "pending class".
+        this.classesBeingVerified.put(className, classFile);
+        try {
+            List<SandboxViolation> violations = new BytecodeVerifier(sandboxPolicy).verify(
+                Collections.singletonMap(className, classFile),
+                this,
+                new HashMap<>(this.classesBeingVerified)
+            );
+            if (!violations.isEmpty()) {
+                SandboxViolationException sve = new SandboxViolationException(violations);
+                throw new ClassNotFoundException(sve.getMessage(), sve);
+            }
+        } finally {
+            this.classesBeingVerified.remove(className);
+        }
+    }
+
+    /**
+     * The classes that are currently being verified.
+     */
+    private final Map<String /*className*/, byte[] /*classFile*/> classesBeingVerified = new HashMap<>();
 
     private JavaFileObject
     findClassFile(String className) throws IOException {

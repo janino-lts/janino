@@ -188,6 +188,39 @@ class BytecodeVerifier {
      */
     public List<SandboxViolation>
     verify(Map<String, byte[]> classes, ClassLoader hostClassLoader) {
+        return this.verify2(classes, hostClassLoader, null, Collections.<String, byte[]>emptyMap());
+    }
+
+    /**
+     * Verifies classes that a class loader is about to define, typically a class loader that compiles classes on
+     * demand (like a {@code JavaSourceClassLoader}), and thus defines the generated classes one at a time.
+     * <p>
+     *   Classes that the <var>definingClassLoader</var> has already defined, and the <var>pendingClasses</var>, are
+     *   regarded as generated classes, like the <var>classes</var> themselves; i.e. their members are allowed, and
+     *   they may be extended. This is safe as long as the class loader verifies every class before it defines it.
+     * </p>
+     *
+     * @param classes             The class files to verify; the keys are ignored
+     * @param definingClassLoader The class loader that will define the <var>classes</var>; classes that the verified
+     *                            classes refer to (other than themselves and the <var>pendingClasses</var>) are loaded
+     *                            through it
+     * @param pendingClasses      Class name =&gt; class file; classes that the <var>definingClassLoader</var>
+     *                            generated, but has not yet defined
+     * @return                    All violations; empty if the classes comply with the policy
+     * @throws ClassFormatError   One of the <var>classes</var> is not a valid class file
+     */
+    public List<SandboxViolation>
+    verify(Map<String, byte[]> classes, ClassLoader definingClassLoader, Map<String, byte[]> pendingClasses) {
+        return this.verify2(classes, definingClassLoader, definingClassLoader, pendingClasses);
+    }
+
+    private List<SandboxViolation>
+    verify2(
+        Map<String, byte[]>   classes,
+        ClassLoader           classLoader,
+        @Nullable ClassLoader generatedClassLoader,
+        Map<String, byte[]>   pendingClasses
+    ) {
 
         // Parse all class files; sort them by name to make the order of the violations deterministic.
         Map<String, ClassFileReader> classFiles = new TreeMap<String, ClassFileReader>();
@@ -196,7 +229,7 @@ class BytecodeVerifier {
             classFiles.put(cfr.getClassName(), cfr);
         }
 
-        Run run = new Run(classFiles, hostClassLoader);
+        Run run = new Run(classFiles, classLoader, generatedClassLoader, pendingClasses);
         for (ClassFileReader cfr : classFiles.values()) run.verify(cfr);
         return run.violations;
     }
@@ -208,13 +241,22 @@ class BytecodeVerifier {
     class Run {
 
         private final Map<String, ClassFileReader> classFiles;
-        private final ClassLoader                  hostClassLoader;
+        private final ClassLoader                  classLoader;
+        @Nullable private final ClassLoader        generatedClassLoader;
+        private final Map<String, byte[]>          pendingClasses;
         private final Map<String, TypeInfo>        typeInfos  = new HashMap<String, TypeInfo>();
         final List<SandboxViolation>               violations = new ArrayList<SandboxViolation>();
 
-        Run(Map<String, ClassFileReader> classFiles, ClassLoader hostClassLoader) {
-            this.classFiles      = classFiles;
-            this.hostClassLoader = hostClassLoader;
+        Run(
+            Map<String, ClassFileReader> classFiles,
+            ClassLoader                  classLoader,
+            @Nullable ClassLoader        generatedClassLoader,
+            Map<String, byte[]>          pendingClasses
+        ) {
+            this.classFiles           = classFiles;
+            this.classLoader          = classLoader;
+            this.generatedClassLoader = generatedClassLoader;
+            this.pendingClasses       = pendingClasses;
         }
 
         void
@@ -226,15 +268,15 @@ class BytecodeVerifier {
             String superclassName = cfr.getSuperclassName();
             if (
                 superclassName != null
-                && !this.classFiles.containsKey(superclassName)
                 && !BytecodeVerifier.IMPLICITLY_EXTENDABLE.contains(superclassName)
                 && !BytecodeVerifier.this.policy.isSubclassingAllowed(superclassName)
+                && !this.isGenerated(superclassName)
             ) {
                 this.violation(className, "Extending " + superclassName + " is not permitted by the sandbox policy");
             }
             for (String interfaceName : cfr.getInterfaceNames()) {
                 if (
-                    !this.classFiles.containsKey(interfaceName)
+                    !this.isGenerated(interfaceName)
                     && !BytecodeVerifier.IMPLICITLY_IMPLEMENTABLE.contains(interfaceName)
                     && !BytecodeVerifier.this.policy.isSubclassingAllowed(interfaceName)
                 ) {
@@ -310,8 +352,8 @@ class BytecodeVerifier {
             }
             if (declaringClassName == null) return "Cannot resolve " + BytecodeVerifier.format(mr);
 
-            // Members of the verified classes themselves.
-            if (this.classFiles.containsKey(declaringClassName)) return null;
+            // Members of generated classes, e.g. of the verified classes themselves.
+            if (this.isGenerated(declaringClassName)) return null;
 
             if (BytecodeVerifier.IMPLICIT_MEMBERS.contains(declaringClassName + '#' + name)) return null;
 
@@ -426,16 +468,25 @@ class BytecodeVerifier {
 
             TypeInfo result;
 
-            ClassFileReader cfr = (ClassFileReader) this.classFiles.get(className);
+            ClassFileReader cfr     = (ClassFileReader) this.classFiles.get(className);
+            byte[]          pending = (byte[]) this.pendingClasses.get(className);
             if (cfr != null) {
                 result = TypeInfo.of(cfr);
-            } else {
+            } else
+            if (pending != null) {
+                result = TypeInfo.of(new ClassFileReader(pending));
+            } else
+            {
                 result = (TypeInfo) Privileged.run(new Supplier<TypeInfo>() {
 
                     @Override @Nullable public TypeInfo
                     get() {
                         try {
-                            return TypeInfo.of(Class.forName(className, false, Run.this.hostClassLoader));
+                            Class<?>    clazz = Class.forName(className, false, Run.this.classLoader);
+                            ClassLoader gcl   = Run.this.generatedClassLoader;
+
+                            // Notice: Classes loaded by the bootstrap class loader have a NULL class loader.
+                            return TypeInfo.of(clazz, gcl != null && clazz.getClassLoader() == gcl);
                         } catch (ClassNotFoundException cnfe) {
                             return null;
                         } catch (LinkageError le) {
@@ -447,6 +498,16 @@ class BytecodeVerifier {
 
             this.typeInfos.put(className, result);
             return result;
+        }
+
+        /**
+         * @return Whether the named class is a generated class, i.e. one of the verified classes, a pending class, or
+         *         a class that the generated class loader defined
+         */
+        private boolean
+        isGenerated(String className) {
+            TypeInfo ti = this.getTypeInfo(className);
+            return ti != null && ti.generated;
         }
 
         private void
@@ -461,23 +522,29 @@ class BytecodeVerifier {
     private static final
     class TypeInfo {
 
+        final boolean          generated;
         @Nullable final String superclassName;
         final List<String>     interfaceNames;
         final Set<String>      fields;  // "name"
         final Set<String>      methods; // "name" + descriptor, including constructors ("<init>")
 
         TypeInfo(
+            boolean          generated,
             @Nullable String superclassName,
             List<String>     interfaceNames,
             Set<String>      fields,
             Set<String>      methods
         ) {
+            this.generated      = generated;
             this.superclassName = superclassName;
             this.interfaceNames = interfaceNames;
             this.fields         = fields;
             this.methods        = methods;
         }
 
+        /**
+         * @return The type info of a generated class
+         */
         static TypeInfo
         of(ClassFileReader cfr) {
 
@@ -487,11 +554,11 @@ class BytecodeVerifier {
             Set<String> methods = new HashSet<String>();
             for (MemberDeclaration md : cfr.getMethods()) methods.add(md.getName() + md.getDescriptor());
 
-            return new TypeInfo(cfr.getSuperclassName(), cfr.getInterfaceNames(), fields, methods);
+            return new TypeInfo(true, cfr.getSuperclassName(), cfr.getInterfaceNames(), fields, methods);
         }
 
         static TypeInfo
-        of(Class<?> clazz) {
+        of(Class<?> clazz, boolean generated) {
 
             Set<String> fields = new HashSet<String>();
             for (Field f : clazz.getDeclaredFields()) fields.add(f.getName());
@@ -511,7 +578,13 @@ class BytecodeVerifier {
             for (Class<?> i : clazz.getInterfaces()) interfaceNames.add(i.getName());
 
             Class<?> superclass = clazz.getSuperclass();
-            return new TypeInfo(superclass == null ? null : superclass.getName(), interfaceNames, fields, methods);
+            return new TypeInfo(
+                generated,
+                superclass == null ? null : superclass.getName(),
+                interfaceNames,
+                fields,
+                methods
+            );
         }
     }
 
