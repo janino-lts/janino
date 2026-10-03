@@ -243,6 +243,71 @@
 
   <profiles>
 
+    <!--
+      Assembles the project website (the files under "site/", plus the aggregated JAVADOC under "apidocs/") in
+      "janino-parent/target/website":
+        mvn -f janino-parent/pom.xml -P website
+      To preview it locally, use the simple web server of the JDK (18+):
+        jwebserver -d <absolute-path>/janino-parent/target/website -p 8000
+      and open "http://localhost:8000/".
+    -->
+    <profile>
+      <id>website</id>
+      <properties>
+        <skipTests>true</skipTests>
+      </properties>
+      <build>
+
+        <!--
+          The aggregated JAVADOC needs the compiled modules, so the "aggregate" goal must run after the reactor has
+          been built, and thus cannot be bound to a lifecycle phase of this (parent) project. (Copying "site/", on the
+          other hand, is bound to the "package" phase, see below.)
+        -->
+        <defaultGoal>clean install javadoc:aggregate@website-apidocs</defaultGoal>
+
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>website-apidocs</id>
+                <configuration>
+
+                  <!-- The plugin appends "apidocs". -->
+                  <outputDirectory>${project.build.directory}/website</outputDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-resources-plugin</artifactId>
+            <version>3.3.1</version>
+            <executions>
+              <execution>
+                <id>website-site</id>
+                <inherited>false</inherited>
+                <phase>package</phase>
+                <goals>
+                  <goal>copy-resources</goal>
+                </goals>
+                <configuration>
+                  <outputDirectory>${project.build.directory}/website</outputDirectory>
+                  <resources>
+                    <resource>
+                      <directory>${project.basedir}/../site</directory>
+                    </resource>
+                  </resources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
     <!-- Signs all artifacts with GPG (oss.sonatype.org requires that). -->
     <profile>
       <id>have_gpg</id>
