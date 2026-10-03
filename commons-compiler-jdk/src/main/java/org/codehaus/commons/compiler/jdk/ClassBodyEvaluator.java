@@ -33,6 +33,7 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.Buffer;
 import java.nio.CharBuffer;
+import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -107,6 +108,11 @@ class ClassBodyEvaluator extends Cookable implements IClassBodyEvaluator {
 
     @Override public void
     setSandboxPolicy(@Nullable SandboxPolicy policy) { this.sc.setSandboxPolicy(policy); }
+
+    @Override public void
+    setProtectionDomain(@Nullable ProtectionDomain protectionDomain) {
+        this.sc.setProtectionDomain(protectionDomain);
+    }
 
     @Override public void
     setDebuggingInformation(boolean debugSource, boolean debugLines, boolean debugVars) {

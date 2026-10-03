@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.io.StringReader;
+import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -220,6 +221,11 @@ class ClassBodyEvaluator extends Cookable implements IClassBodyEvaluator {
 
     @Override public void
     setSandboxPolicy(@Nullable SandboxPolicy policy) { this.sc.setSandboxPolicy(policy); }
+
+    @Override public void
+    setProtectionDomain(@Nullable ProtectionDomain protectionDomain) {
+        this.sc.setProtectionDomain(protectionDomain);
+    }
 
     @Override public void
     setDebuggingInformation(boolean debugSource, boolean debugLines, boolean debugVars) {

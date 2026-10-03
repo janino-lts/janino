@@ -49,6 +49,29 @@ h5 {
 
     <a href="index.html">Back to the JANINO home page</a>
 
+    <h4>Version 3.1.13-SNAPSHOT-2 (pre-release)</h4>
+    <ul>
+      <li>
+        Mitigated <a href="https://github.com/janino-compiler/janino/issues/226">issue #226</a> of the original project
+        (code that runs inside <code>Sandbox.confine()</code> can escape from the sandbox by calling
+        <code>AccessController.doPrivileged()</code> itself): The new method
+        <code>ICookable.setProtectionDomain()</code> defines the generated classes with a restricted protection
+        domain; see <a href="index.html#security-manager-sandbox-protection-domain">Security</a>. The default behavior
+        is unchanged.
+      </li>
+      <li>
+        Sandbox policies now never allow <code>AccessController</code>, <code>AccessControlContext</code>,
+        <code>ProtectionDomain</code>, <code>Policy</code>, <code>Security</code> and
+        <code>javax.security.auth.Subject</code> through class-wide rules.
+      </li>
+      <li>
+        Classes that are loaded lazily while the generated code executes inside <code>Sandbox.confine()</code> (e.g.
+        anonymous classes) are now defined with the same protection domain as the other generated classes. Before,
+        they got a different protection domain, which caused a <code>SecurityException</code> ("signer information
+        does not match") with the signed JANINO JARs.
+      </li>
+    </ul>
+
     <h4>Version 3.1.13-SNAPSHOT-1 (pre-release)</h4>
     <ul>
       <li>

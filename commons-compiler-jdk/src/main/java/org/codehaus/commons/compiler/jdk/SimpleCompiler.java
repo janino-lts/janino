@@ -28,6 +28,7 @@ package org.codehaus.commons.compiler.jdk;
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
+import java.security.ProtectionDomain;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -75,7 +76,8 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
      */
     @Nullable private Map<String, byte[]> bytecodes;
 
-    @Nullable private SandboxPolicy sandboxPolicy;
+    @Nullable private SandboxPolicy    sandboxPolicy;
+    @Nullable private ProtectionDomain protectionDomain;
 
     // See "addOffset(String)".
     private final LineAndColumnTracker tracker = LineAndColumnTracker.create();
@@ -109,6 +111,9 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
     @Override public void
     setSandboxPolicy(@Nullable SandboxPolicy policy) { this.sandboxPolicy = policy; }
 
+    @Override public void
+    setProtectionDomain(@Nullable ProtectionDomain protectionDomain) { this.protectionDomain = protectionDomain; }
+
     @Override public Map<String /*className*/, byte[] /*bytecode*/>
     getBytecodes() { return this.assertCooked(); }
 
@@ -135,8 +140,9 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
             @Override public ClassLoader
             get() {
                 return new ByteArrayClassLoader(
-                    bytecode,                             // classes
-                    SimpleCompiler.this.parentClassLoader // parent
+                    bytecode,                              // classes
+                    SimpleCompiler.this.parentClassLoader, // parent
+                    SimpleCompiler.this.protectionDomain   // protectionDomain
                 );
             }
         });

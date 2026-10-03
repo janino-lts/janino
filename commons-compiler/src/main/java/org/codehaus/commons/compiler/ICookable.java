@@ -29,6 +29,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
+import java.security.ProtectionDomain;
 import java.util.Map;
 
 import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
@@ -155,5 +156,37 @@ interface ICookable {
     default void
     setSandboxPolicy(@Nullable SandboxPolicy policy) {
         throw new UnsupportedOperationException("setSandboxPolicy");
+    }
+
+    /**
+     * Sets the {@link ProtectionDomain} with which the generated classes are defined.
+     * <p>
+     *   Must be called before cooking. {@code null} (the default) means that the generated classes are defined with
+     *   the protection domain of the compiler itself, i.e. that they have the same permissions as the compiler.
+     * </p>
+     * <p>
+     *   Use this when the cooked code is executed in a {@link Sandbox}: Without it, the cooked code could call {@code
+     *   AccessController.doPrivileged()} and would then run with the permissions of the compiler, not with the
+     *   permissions of the sandbox. To prevent that, define the generated classes with the same permissions as the
+     *   sandbox, through a protection domain with <em>static</em> permissions (i.e. one that is created with the
+     *   two-argument constructor {@link ProtectionDomain#ProtectionDomain(java.security.CodeSource,
+     *   java.security.PermissionCollection)}, which does not consult the global {@link java.security.Policy}):
+     * </p>
+     * <pre>
+     *     Sandbox sandbox = new Sandbox(permissions);
+     *     scriptEvaluator.setProtectionDomain(new ProtectionDomain(null, permissions));
+     *     scriptEvaluator.cook(script);
+     *     sandbox.confine(...);
+     * </pre>
+     * <p>
+     *   On JVMs without a security manager, protection domains have no effect.
+     * </p>
+     *
+     * @throws UnsupportedOperationException The implementation does not support setting the protection domain
+     * @see Sandbox
+     */
+    default void
+    setProtectionDomain(@Nullable ProtectionDomain protectionDomain) {
+        throw new UnsupportedOperationException("setProtectionDomain");
     }
 }

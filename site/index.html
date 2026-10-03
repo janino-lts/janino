@@ -1482,8 +1482,8 @@ UnparseVisitor.unparse(cu, new OutputStreamWriter(System.out));</pre></div>
           <li>
             The <a href="#security-manager-sandbox">sandbox based on the Java security manager</a> confines code at
             runtime to a set of permissions. It works only on JREs that still support the security manager (Java 8
-            through 17, and Java 18 through 23 with <code>-Djava.security.manager=allow</code>), and it has a
-            <a href="#security-manager-sandbox-escape">known weakness</a> that lets code escape from it.
+            through 17, and Java 18 through 23 with <code>-Djava.security.manager=allow</code>), and, by default, it
+            has a <a href="#security-manager-sandbox-escape">known weakness</a> that lets code escape from it.
           </li>
         </ul>
 
@@ -1566,14 +1566,16 @@ public class SandboxPolicyDemo {
         </p>
 
         <p id="security-manager-sandbox-escape" style="border:solid 1px; padding:12px">
-          <b>Warning: Code can escape from this sandbox.</b> Code that runs inside <code>Sandbox.confine()</code> can
-          call <code>java.security.AccessController.doPrivileged(...)</code> itself, and thus perform actions that the
-          sandbox's permissions do not allow - even with no permissions at all (reported as
-          <a href="https://github.com/janino-compiler/janino/issues/226">issue #226</a> of the original project).
-          The reason is that the generated classes are defined with the protection domain of JANINO itself, and the
-          sandbox grants all permissions to all code outside <code>confine()</code>. Therefore, do not rely on this
-          sandbox alone to run untrusted code: combine it with a <a href="#sandbox-policy">sandbox policy</a>, which
-          rejects such code at compile time (see below), or use a sandbox policy instead.
+          <b>Warning: By default, code can escape from this sandbox.</b> Code that runs inside
+          <code>Sandbox.confine()</code> can call <code>java.security.AccessController.doPrivileged(...)</code> itself,
+          and thus perform actions that the sandbox's permissions do not allow - even with no permissions at all
+          (reported as <a href="https://github.com/janino-compiler/janino/issues/226">issue #226</a> of the original
+          project). The reason is that, by default, the generated classes are defined with the protection domain of
+          JANINO itself, and the sandbox grants all permissions to all code outside <code>confine()</code>. To close
+          the escape, define the generated classes with the permissions of the sandbox (see
+          <a href="#security-manager-sandbox-protection-domain">below</a>), and combine the sandbox with a
+          <a href="#sandbox-policy">sandbox policy</a>, which rejects such code at compile time - or use a sandbox
+          policy instead.
         </p>
 
         <p>
@@ -1619,6 +1621,26 @@ public class SandboxDemo {
     }
 }</pre></div>
 
+        <p id="security-manager-sandbox-protection-domain">
+          To prevent the escape described in the warning above, define the generated classes with a protection domain
+          that has the same permissions as the sandbox. Create it with the two-argument constructor, so that its
+          permissions are <em>static</em>, i.e. the global policy (which grants everything) is not consulted, and set
+          it before cooking:
+        </p>
+
+        <div class="highlight highlight-text-xml"><pre class="brush: java">
+se.setProtectionDomain(new java.security.ProtectionDomain(null, permissions));
+PrivilegedAction&lt;?> pa = se.createFastEvaluator(...);
+new Sandbox(permissions).confine(pa);</pre></div>
+
+        <p>
+          A <code>doPrivileged(...)</code> call in the script then only has the permissions of the sandbox. Privileged
+          actions of the JRE itself are not affected. <code>setProtectionDomain()</code> is available on all
+          <code>SimpleCompiler</code>s, <code>ClassBodyEvaluator</code>s, <code>ScriptEvaluator</code>s and
+          <code>ExpressionEvaluator</code>s; for classes that are loaded from source files, use
+          <code>AbstractJavaSourceClassLoader.setProtectionDomainFactory()</code>.
+        </p>
+
         <p>
           The official documentation of the Java security manager is <a
           href="https://docs.oracle.com/javase/tutorial/essential/environment/security.html">ORACLE: Java Essentials:
@@ -1663,8 +1685,9 @@ public class SandboxDemo {
         <p>
           On JREs that support the security manager, both ways can be combined: set a sandbox policy on the evaluator,
           and execute the compiled code inside <code>Sandbox.confine()</code>. The sandbox policy then rejects
-          forbidden APIs at compile time, including <code>AccessController.doPrivileged(...)</code>, which closes the
-          escape described above; the permissions restrict the allowed APIs at runtime. See <a
+          forbidden APIs at compile time, including <code>AccessController.doPrivileged(...)</code>; the permissions
+          restrict the allowed APIs at runtime, and the protection domain closes the escape described above also at
+          runtime. See <a
           href="https://github.com/stefan-zobel/janino/blob/HEAD/SANDBOX.md#7-the-security-manager-based-sandbox">Restricting
           Untrusted Code with a Sandbox Policy</a> for an example.
         </p>

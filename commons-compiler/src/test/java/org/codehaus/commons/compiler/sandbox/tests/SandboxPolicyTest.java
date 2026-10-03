@@ -195,6 +195,74 @@ class SandboxPolicyTest {
         Assert.assertFalse(SandboxPolicy.isNeverAllowed(MemberRef.method("java.lang.String", "length", "()I")));
     }
 
+    /**
+     * Verifies that the access control APIs, which allow sandboxed code to escape from a {@code Sandbox} through
+     * {@code AccessController.doPrivileged()}, are never allowed, unless they are named explicitly.
+     */
+    @SuppressWarnings("static-method") @Test public void
+    testAccessControlIsNeverAllowed() {
+        MemberRef doPrivileged = MemberRef.method(
+            "java.security.AccessController",
+            "doPrivileged",
+            "(Ljava/security/PrivilegedAction;)Ljava/lang/Object;"
+        );
+        MemberRef doAsPrivileged = MemberRef.method(
+            "javax.security.auth.Subject",
+            "doAsPrivileged",
+            (
+                "(Ljavax/security/auth/Subject;Ljava/security/PrivilegedAction;Ljava/security/AccessControlContext;)"
+                + "Ljava/lang/Object;"
+            )
+        );
+        MemberRef getPolicy = MemberRef.method("java.security.Policy", "getPolicy", "()Ljava/security/Policy;");
+        MemberRef setProperty = MemberRef.method(
+            "java.security.Security",
+            "setProperty",
+            "(Ljava/lang/String;Ljava/lang/String;)V"
+        );
+        MemberRef newAccessControlContext = MemberRef.method(
+            "java.security.AccessControlContext",
+            "<init>",
+            "([Ljava/security/ProtectionDomain;)V"
+        );
+        MemberRef getPermissions = MemberRef.method(
+            "java.security.ProtectionDomain",
+            "getPermissions",
+            "()Ljava/security/PermissionCollection;"
+        );
+
+        for (MemberRef member : new MemberRef[] {
+            doPrivileged, doAsPrivileged, getPolicy, setProperty, newAccessControlContext, getPermissions,
+        }) {
+            Assert.assertTrue(member.toString(), SandboxPolicy.isNeverAllowed(member));
+        }
+
+        // Class-wide rules do not enable them.
+        SandboxPolicy classWide = SandboxPolicy.builder()
+            .allowAllMembers(
+                "java.security.AccessControlContext",
+                "java.security.AccessController",
+                "java.security.Policy",
+                "java.security.ProtectionDomain",
+                "java.security.Security",
+                "javax.security.auth.Subject"
+            )
+            .allowConstructors("java.security.AccessControlContext")
+            .build();
+        for (MemberRef member : new MemberRef[] {
+            doPrivileged, doAsPrivileged, getPolicy, setProperty, newAccessControlContext, getPermissions,
+        }) {
+            Assert.assertFalse(member.toString(), classWide.isAllowed(member));
+        }
+
+        // Explicit rules do.
+        SandboxPolicy explicit = SandboxPolicy.builder()
+            .allowMethods("java.security.AccessController", "doPrivileged")
+            .build();
+        Assert.assertTrue(explicit.isAllowed(doPrivileged));
+        Assert.assertFalse(explicit.isAllowed(doAsPrivileged));
+    }
+
     @SuppressWarnings("static-method") @Test public void
     testInvalidArguments() {
         try {

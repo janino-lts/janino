@@ -50,11 +50,12 @@ import java.util.Set;
  * </p>
  * <p>
  *   Some members are <em>never allowed</em> (see {@link #isNeverAllowed(MemberRef)}), because they would allow
- *   sandboxed code to escape the sandbox or to affect the entire JVM, e.g. reflection, class loading, threads, file
- *   and network access, and system properties. Class-wide rules ({@link Builder#allowAllMembers(String...)}, {@link
- *   Builder#allowConstructors(String...)}) never enable them; a host that really wants to allow such a member must
- *   name it explicitly ({@link Builder#allowMethod(String, String, String)}, {@link Builder#allowMethods(String,
- *   String...)}, {@link Builder#allowField(String, String)}).
+ *   sandboxed code to escape the sandbox or to affect the entire JVM, e.g. reflection, class loading, access control
+ *   ({@code AccessController.doPrivileged()}), threads, file and network access, and system properties. Class-wide
+ *   rules ({@link Builder#allowAllMembers(String...)}, {@link Builder#allowConstructors(String...)}) never enable
+ *   them; a host that really wants to allow such a member must name it explicitly ({@link
+ *   Builder#allowMethod(String, String, String)}, {@link Builder#allowMethods(String, String...)}, {@link
+ *   Builder#allowField(String, String)}).
  * </p>
  */
 public final
@@ -138,7 +139,12 @@ class SandboxPolicy {
         SandboxPolicy.neverAllowed(m, "java.lang.Thread");
         SandboxPolicy.neverAllowed(m, "java.lang.ThreadGroup");
         SandboxPolicy.neverAllowed(m, "java.lang.ref.Cleaner");
+        SandboxPolicy.neverAllowed(m, "java.security.AccessControlContext");
+        SandboxPolicy.neverAllowed(m, "java.security.AccessController"); // "doPrivileged()" escapes from a "Sandbox".
+        SandboxPolicy.neverAllowed(m, "java.security.Policy");
+        SandboxPolicy.neverAllowed(m, "java.security.ProtectionDomain");
         SandboxPolicy.neverAllowed(m, "java.security.SecureClassLoader");
+        SandboxPolicy.neverAllowed(m, "java.security.Security"); // Changes JVM-global state.
         SandboxPolicy.neverAllowed(m, "java.sql.DriverManager");
         SandboxPolicy.neverAllowed(m, "java.util.ServiceLoader");
         SandboxPolicy.neverAllowed(m, "java.util.Timer");
@@ -150,6 +156,7 @@ class SandboxPolicy {
         SandboxPolicy.neverAllowed(m, "java.util.concurrent.ThreadPoolExecutor");
         SandboxPolicy.neverAllowed(m, "java.util.jar.JarFile");
         SandboxPolicy.neverAllowed(m, "java.util.zip.ZipFile");
+        SandboxPolicy.neverAllowed(m, "javax.security.auth.Subject"); // "doAsPrivileged()" escapes from a "Sandbox".
         NEVER_ALLOWED_CLASSES = Collections.unmodifiableMap(m);
 
         // "className#methodName".

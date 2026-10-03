@@ -43,8 +43,8 @@ deprecated (Java 17) and permanently disabled (Java 24), so that class only work
 `Sandbox.isSupported()` tells whether the legacy sandbox can be used on the running JVM. For new code, and for any
 code that must run on current JVMs, use the sandbox policy.
 
-**Notice:** The legacy sandbox has a known weakness that lets code escape from it; see the warning in
-[section 7](#7-the-security-manager-based-sandbox).
+**Notice:** By default, the legacy sandbox has a known weakness that lets code escape from it; see the warning in
+[section 7](#7-the-security-manager-based-sandbox), which also explains how to close it.
 
 ---
 
@@ -295,7 +295,8 @@ the whole JVM - even if a preset or your own rule allows "all members" of the cl
 | Reflection and dynamic invocation | `java.lang.reflect.*`, `java.lang.invoke.*`, `Class.forName()`, `Class.getDeclaredMethods()` and all other members of `Class` except `getName()`, `getSimpleName()`, `isInstance()` and `cast()` |
 | Class loading and modules        | `ClassLoader`, `SecureClassLoader`, `Module`, `ModuleLayer`, `ServiceLoader`, `java.lang.instrument.*` |
 | Threads and concurrency          | `Thread`, `ThreadGroup`, `InheritableThreadLocal`, executors, `ForkJoinPool`, `ForkJoinTask`, `CompletableFuture`, `Timer`, `Collection.parallelStream()`, `Arrays.parallelSort()` and friends, `Object.wait()`/`notify()` |
-| Processes and the runtime        | `System` (except `nanoTime()`, `currentTimeMillis()`, `arraycopy()`, `identityHashCode()`, `lineSeparator()`), `Runtime`, `ProcessBuilder`, `Process`, `ProcessHandle`, `StackWalker`, `SecurityManager`, `java.lang.management.*` |
+| Processes and the runtime        | `System` (except `nanoTime()`, `currentTimeMillis()`, `arraycopy()`, `identityHashCode()`, `lineSeparator()`), `Runtime`, `ProcessBuilder`, `Process`, `ProcessHandle`, `StackWalker`, `java.lang.management.*` |
+| Access control                   | `AccessController` (e.g. `doPrivileged()`), `AccessControlContext`, `ProtectionDomain`, `Policy`, `Security`, `SecurityManager`, `javax.security.auth.Subject` (e.g. `doAsPrivileged()`) |
 | Files and I/O                    | `File`, `FileInputStream`, `FileOutputStream`, `FileReader`, `FileWriter`, `RandomAccessFile`, `FileDescriptor`, the constructors of `PrintStream` and `PrintWriter`, `java.nio.file.*`, `java.nio.channels.*`, `ZipFile`, `JarFile` |
 | Network and remote access        | `java.net.*`, `java.rmi.*`, `javax.naming.*` (JNDI), `java.sql.DriverManager`          |
 | Serialization                    | `ObjectInputStream`, `ObjectOutputStream`, `java.beans.*`                              |
@@ -363,14 +364,14 @@ Applications that run on JVMs with security manager support (Java 8 through 17, 
 `-Djava.security.manager=allow`) can still use the sandbox of earlier versions. Instead of verifying the code at
 compile time, it confines the code **at runtime** to a set of `java.security` permissions.
 
-> **Warning: Code can escape from this sandbox.** Code that runs inside `Sandbox.confine()` can call
+> **Warning: By default, code can escape from this sandbox.** Code that runs inside `Sandbox.confine()` can call
 > `java.security.AccessController.doPrivileged(...)` itself, and thus perform actions that the sandbox's permissions
 > do not allow - even with no permissions at all (reported as
-> [issue #226](https://github.com/janino-compiler/janino/issues/226) of the original project). The reason is that
-> the generated classes are defined with the protection domain of JANINO itself, and the sandbox grants all
-> permissions to all code outside `confine()`. Therefore, do not rely on this sandbox alone to run untrusted code:
-> combine it with a sandbox policy, which rejects such code at compile time (see the end of this section), or use a
-> sandbox policy instead.
+> [issue #226](https://github.com/janino-compiler/janino/issues/226) of the original project). The reason is that,
+> by default, the generated classes are defined with the protection domain of JANINO itself, and the sandbox grants
+> all permissions to all code outside `confine()`. To close the escape, define the generated classes with the
+> permissions of the sandbox (see [below](#closing-the-doprivileged-escape)), and combine the sandbox with a sandbox
+> policy, which rejects such code at compile time (see the end of this section) - or use a sandbox policy instead.
 
 Example:
 
@@ -402,6 +403,35 @@ sandbox.confine(pa);
 On JVMs without security manager support, the `Sandbox` constructor throws an `UnsupportedOperationException` that
 explains the requirements; check `Sandbox.isSupported()` beforehand if your application runs on different JVMs.
 
+### Closing the `doPrivileged()` escape
+
+To prevent the escape described in the warning above, define the generated classes with a protection domain that has
+the same permissions as the sandbox. Create it with the two-argument constructor, so that its permissions are
+*static*, i.e. the global policy (which grants everything) is not consulted, and set it before cooking:
+
+```java
+import java.security.ProtectionDomain;
+
+ScriptEvaluator se = new ScriptEvaluator();
+se.setProtectionDomain(new ProtectionDomain(null, permissions));
+PrivilegedAction<?> pa = se.createFastEvaluator(script, PrivilegedAction.class, new String[0]);
+new Sandbox(permissions).confine(pa);
+```
+
+A `doPrivileged(...)` call in the script then only has the permissions of the script's own protection domain, i.e.
+those of the sandbox. Privileged actions of the JRE itself (for example in class initializers) are not affected.
+
+`setProtectionDomain()` (declared by `ICookable`) is available on the `SimpleCompiler`, `ClassBodyEvaluator`,
+`ScriptEvaluator` and `ExpressionEvaluator` of both implementations. For classes that are loaded from source files,
+use the protection domain factory of the class loader:
+
+```java
+jscl.setProtectionDomainFactory(sourceResourceName -> new ProtectionDomain(null, permissions));
+```
+
+By default (without a protection domain), the generated classes are defined with the protection domain of JANINO,
+as in earlier versions.
+
 How the two mechanisms differ:
 
 | Aspect                         | `Sandbox` (security manager)                                 | Sandbox policy                                       |
@@ -412,16 +442,16 @@ How the two mechanisms differ:
 | Scope                          | Only code executed *inside* `confine()`; threads started there inherit the restrictions | All code of the compiled classes, also when invoked later |
 | Effect on the JVM              | Installs a security manager (with a permissive policy for all other code) when the class is first used | None                     |
 | Memory, CPU time               | Not restricted                                               | Not restricted                                       |
-| Known weaknesses               | Code can escape by calling `AccessController.doPrivileged()` (see the warning above) | Not affected: the presets do not allow `AccessController` |
+| Known weaknesses               | By default, code can escape by calling `AccessController.doPrivileged()` (see the warning above); `setProtectionDomain()` closes that | Not affected: `AccessController` and `Subject` are on the never-allowed list |
 
 Notice the scope: if a script returns an object (e.g. a `Runnable`), and the application invokes it later outside
 of `confine()`, that code runs with the full permissions of the application.
 
 On JVMs that support both, the two mechanisms can be combined: set a sandbox policy on the cookable, and execute the
 compiled code inside `Sandbox.confine()`. The policy then rejects forbidden APIs at compile time, including
-`AccessController.doPrivileged(...)`, which closes the escape described in the warning above; the permissions
-restrict the allowed APIs at runtime. Because the example above lets the script implement `PrivilegedAction`, the
-policy must allow that (see 3.1):
+`AccessController.doPrivileged(...)`; the permissions restrict the allowed APIs at runtime, and the protection
+domain closes the escape described in the warning above also at runtime. Because the example above lets the script
+implement `PrivilegedAction`, the policy must allow that (see 3.1):
 
 ```java
 SandboxPolicy policy = SandboxPolicy.builder()
@@ -432,6 +462,7 @@ SandboxPolicy policy = SandboxPolicy.builder()
 
 ScriptEvaluator se = new ScriptEvaluator();
 se.setSandboxPolicy(policy);   // compile time: only JAVA_LANG_BASIC and System.getProperty(String)
+se.setProtectionDomain(new ProtectionDomain(null, permissions));   // runtime: no escape through doPrivileged()
 PrivilegedAction<?> pa = se.createFastEvaluator(script, PrivilegedAction.class, new String[0]);
 new Sandbox(permissions).confine(pa);   // runtime: only the system property "foo"
 ```
@@ -453,3 +484,4 @@ new Sandbox(permissions).confine(pa);   // runtime: only the system property "fo
 | `SandboxViolation`                                               | One violation: class name and message                     |
 | `SandboxViolationException`                                      | Cause of the `CompileException` / `ClassNotFoundException`; `getViolations()` |
 | `org.codehaus.commons.compiler.Sandbox`, `Sandbox.isSupported()` | The security-manager-based sandbox (section 7)            |
+| `ICookable.setProtectionDomain(ProtectionDomain)`, `AbstractJavaSourceClassLoader.setProtectionDomainFactory(...)` | Defines the generated classes with restricted permissions (section 7) |

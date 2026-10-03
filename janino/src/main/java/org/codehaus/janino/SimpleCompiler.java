@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.lang.reflect.Method;
+import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -82,7 +83,8 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
 //    @Nullable private ClassLoader    result;
     @Nullable private ErrorHandler   compileErrorHandler;
     @Nullable private WarningHandler warningHandler;
-    @Nullable private SandboxPolicy  sandboxPolicy;
+    @Nullable private SandboxPolicy    sandboxPolicy;
+    @Nullable private ProtectionDomain protectionDomain;
 
     private boolean debugSource   = Boolean.getBoolean(Scanner.SYSTEM_PROPERTY_SOURCE_DEBUGGING_ENABLE);
     private boolean debugLines    = this.debugSource;
@@ -348,6 +350,9 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
     @Override public void
     setSandboxPolicy(@Nullable SandboxPolicy policy) { this.sandboxPolicy = policy; }
 
+    @Override public void
+    setProtectionDomain(@Nullable ProtectionDomain protectionDomain) { this.protectionDomain = protectionDomain; }
+
     @Override public Map<String /*className*/, byte[] /*bytecode*/>
     getBytecodes() {
         if (this.getBytecodesCache != null) return this.getBytecodesCache;
@@ -384,8 +389,9 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
             @Override public ClassLoader
             get() {
                 return new ByteArrayClassLoader(
-                    bytecode,                             // classes
-                    SimpleCompiler.this.parentClassLoader // parent
+                    bytecode,                              // classes
+                    SimpleCompiler.this.parentClassLoader, // parent
+                    SimpleCompiler.this.protectionDomain   // protectionDomain
                 );
             }
         });

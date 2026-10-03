@@ -30,6 +30,7 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.security.ProtectionDomain;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Map;
@@ -274,6 +275,11 @@ class ExpressionEvaluator extends MultiCookable implements IExpressionEvaluator 
 
     @Override public void
     setSandboxPolicy(@Nullable SandboxPolicy policy) { this.se.setSandboxPolicy(policy); }
+
+    @Override public void
+    setProtectionDomain(@Nullable ProtectionDomain protectionDomain) {
+        this.se.setProtectionDomain(protectionDomain);
+    }
 
     @Override public void
     setDebuggingInformation(boolean debugSource, boolean debugLines, boolean debugVars) {

@@ -69,6 +69,26 @@ import org.codehaus.commons.nullanalysis.Nullable;
  *   Use {@link #isSupported()} to check whether the sandbox can be used on the running JVM. If it cannot, the {@link
  *   #Sandbox(PermissionCollection) constructor} throws an {@link UnsupportedOperationException}.
  * </p>
+ * <p>
+ *   <b>Notice:</b> Code that is confined by the sandbox can call {@code AccessController.doPrivileged()} itself,
+ *   and then runs with the permissions of its own protection domain. By default, JANINO defines the generated classes
+ *   with the protection domain of the compiler, and the policy that this class installs grants all permissions to
+ *   that domain, so that the confined code can escape from the sandbox. To prevent that, define the generated classes
+ *   with the same permissions as the sandbox, through a protection domain with <em>static</em> permissions:
+ * </p>
+ * <pre>
+ *     Sandbox sandbox = new Sandbox(permissions);
+ *     scriptEvaluator.setProtectionDomain(new ProtectionDomain(null, permissions));
+ *     scriptEvaluator.cook(script);
+ *     sandbox.confine(...);
+ * </pre>
+ * <p>
+ *   See {@link ICookable#setProtectionDomain(ProtectionDomain)}, and, for the {@link AbstractJavaSourceClassLoader},
+ *   {@link AbstractJavaSourceClassLoader#setProtectionDomainFactory(
+ *   AbstractJavaSourceClassLoader.ProtectionDomainFactory)}.
+ *   Alternatively, a {@link org.codehaus.commons.compiler.sandbox.SandboxPolicy} rejects such code already at
+ *   compile time.
+ * </p>
  *
  * @see <a href="https://docs.oracle.com/javase/tutorial/essential/environment/security.html">ORACLE: Java Essentials:
  *      The Security Manager</a>
