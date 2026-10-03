@@ -49,9 +49,44 @@ h5 {
 
     <a href="index.html">Back to the JANINO home page</a>
 
-    <h4>Version 3.1.13 (only available as source code)</h4>
+    <h4>Version 3.1.13-SNAPSHOT-1 (pre-release)</h4>
     <ul>
-      <li>...</li>
+      <li>
+        First pre-release of an experimental fork (a proof of concept) of JANINO, derived from
+        <a href="https://github.com/janino-compiler/janino">janino-compiler/janino</a>.
+      </li>
+      <li>Pull request #214: Correctly parse and unparse annotated wildcards.</li>
+      <li>Fixed some JAVADOC typos and warnings.</li>
+      <li>
+        JANINO now requires Java 8 or later (formerly Java 7). It is built with JDK 25 and tested on Java 8, 17, 21
+        and 25.
+      </li>
+      <li>
+        New: <a href="index.html#sandbox-policy">Sandbox policies</a> restrict the APIs that compiled code may use, on
+        all JREs from Java 8 on: <code>ICookable.setSandboxPolicy()</code>,
+        <code>AbstractJavaSourceClassLoader.setSandboxPolicy()</code>, and the new package <a
+        href="apidocs/org/codehaus/commons/compiler/sandbox/package-summary.html"><code>org.codehaus.commons.compiler.sandbox</code></a>
+        (<code>SandboxPolicy</code>, <code>BytecodeVerifier</code>, ...). Unlike the security-manager-based sandbox, a
+        sandbox policy never allows <code>Class.forName()</code>.
+      </li>
+      <li>
+        The <a href="index.html#security-manager-sandbox">security-manager-based sandbox</a>
+        (<code>org.codehaus.commons.compiler.Sandbox</code>) now fails with a descriptive
+        <code>UnsupportedOperationException</code> (instead of an <code>ExceptionInInitializerError</code>) on JREs
+        without security manager support (Java 24 and later, and Java 18 through 23 without
+        <code>-Djava.security.manager=allow</code>). New method <code>Sandbox.isSupported()</code>.
+      </li>
+      <li>New method <code>AbstractJavaSourceClassLoader.setTargetVersion(int)</code>.</li>
+      <li>
+        Calls to <code>AccessController.doPrivileged()</code> are now made through
+        <code>org.codehaus.commons.compiler.util.Privileged</code>, so that JANINO keeps working on future JREs that no
+        longer provide that API.
+      </li>
+      <li>JAVADOC overview: Fixed some inline tags that current JAVADOC tools did not render.</li>
+      <li>
+        Build: Upgraded the MAVEN compiler, surefire and javadoc plugins. The website, including the aggregated
+        JAVADOC, is now built with MAVEN (profile "website") instead of ANT.
+      </li>
     </ul>
 
     <h4>Version 3.1.12 2024-02-06</h4>
