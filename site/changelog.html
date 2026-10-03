@@ -1,7 +1,7 @@
 <html>
   <head>
     <title>Janino download page</title>
-    <link rel="SHORTCUT ICON" href="favicon.ico">
+    <link rel="icon" type="image/gif" href="logo/logo_48x48.gif">
     <style type="text/css">
 body {
     font-family:  Lucida,Verdana;
@@ -47,7 +47,7 @@ h5 {
   <body marginheight="0" marginwidth="0">
     <h3>Downloads and change log</h3>
 
-    <a href="http://janino-compiler.github.io/janino/">Back to the JANINO home page</a>
+    <a href="index.html">Back to the JANINO home page</a>
 
     <h4>Version 3.1.13 (only available as source code)</h4>
     <ul>
@@ -994,7 +994,7 @@ h5 {
     <ul>
       <li><code>janino.jar</code> is now signed with a dummy certificate.</li>
       <li>
-        <code>janino.jar</code> is now published as <a href="lib/janino.jar">http://www.janino.net/lib/janino.jar</a>,
+        <code>janino.jar</code> is now published as <code>http://www.janino.net/lib/janino.jar</code>,
         so remote systems can always download the latest version from a fixed URL.
       </li>
       <li>JANINO-78: Implement Superclass field access</li>
@@ -1525,8 +1525,8 @@ h5 {
       <li>Fixed one very stupid <code>NullPointerException</code> in the <code>AntCompilerAdapter</code>.</li>
       <li>
         Improved the JAVADOC of the <a
-        href="javadoc/net/janino/ExpressionEvaluator.html"><code>ExpressionEvaluator</code></a> and the <a
-        href="javadoc/net/janino/ScriptEvaluator.html"><code>ScriptEvaluator</code></a>.
+        href="apidocs/org/codehaus/janino/ExpressionEvaluator.html"><code>ExpressionEvaluator</code></a> and the <a
+        href="apidocs/org/codehaus/janino/ScriptEvaluator.html"><code>ScriptEvaluator</code></a>.
       </li>
     </ul>
 
@@ -1573,8 +1573,8 @@ h5 {
     <h4>Version 1.0.13, January 8, 2004</h4>
     <ul>
       <li>
-        <a href="javadoc/net/janino/Compiler.html"><CODE>Compiler</CODE></A> and <a
-        href="javadoc/net/janino/AntCompilerAdapter.html"><CODE>AntCompilerAdapter</CODE></A> now provide for the
+        <a href="apidocs/org/codehaus/janino/Compiler.html"><CODE>Compiler</CODE></A> and <a
+        href="apidocs/org/codehaus/janino/AntCompilerAdapter.html"><CODE>AntCompilerAdapter</CODE></A> now provide for the
         "extdirs" and "bootclasspath" features.
       </li>
       <li>#873297 <a href="https://sourceforge.net/p/janino/bugs/29/">"Unknown variable or type X" if class X is already compiled</a></li>
@@ -1583,7 +1583,7 @@ h5 {
 
     <h4>Version 1.0.12, January 7, 2004</h4>
     <ul>
-      <li>The <a href="javadoc/net/janino/AntCompilerAdapter.html"><code>AntCompilerAdapter</code></a> now honors most of the options that ANT passes to it.</li>
+      <li>The <a href="apidocs/org/codehaus/janino/AntCompilerAdapter.html"><code>AntCompilerAdapter</code></a> now honors most of the options that ANT passes to it.</li>
     </ul>
 
     <h4>Version 1.0.11, January 6, 2004</h4>
@@ -1741,19 +1741,19 @@ h5 {
         base class "EvaluatorBase".
       </li>
       <li>
-        The generated class files and the <a href="javadoc/net/janino/IClassLoader.html"><code>IClassLoader</code></a>
+        The generated class files and the <a href="apidocs/org/codehaus/janino/IClassLoader.html"><code>IClassLoader</code></a>
         used to load classes defined outside the current compilation unit are now stored in thread-local globals. The
-        <a href="javadoc/net/janino/IClassLoader.html"><CODE>IClassLoader</CODE></A> also holds the formerly global <a
-        href="javadoc/net/janino/IClass.html"><CODE>IClass</CODE></A> cache, which caused a memory leak (reported by
+        <a href="apidocs/org/codehaus/janino/IClassLoader.html"><CODE>IClassLoader</CODE></A> also holds the formerly global <a
+        href="apidocs/org/codehaus/janino/IClass.html"><CODE>IClass</CODE></A> cache, which caused a memory leak (reported by
         Fabrice Carnet 2003-05-20).
       </li>
       <li>
-        <a href="javadoc/net/janino/IClass.html#isAssignableFrom(net.janino.IClass)"><code>IClass.isAssignableFrom(net.janino.IClass)</code></a>
+        <a href="apidocs/org/codehaus/janino/IClass.html#isAssignableFrom(org.codehaus.janino.IClass)"><code>IClass.isAssignableFrom(net.janino.IClass)</code></a>
         did not handle primitive types (reported by Fabrice Carnet 2003-05-20).
       </li>
       <li>
         Multiple expressions, scripts and class bodies can now be loaded into the same <code>ClassLoader</code>, if
-        that is a <a href="javadoc/net/janino/ByteArrayClassLoader.html"><CODE>ByteArrayClassLoader</CODE></A>. This is
+        that is a <a href="apidocs/org/codehaus/commons/compiler/util/reflect/ByteArrayClassLoader.html"><CODE>ByteArrayClassLoader</CODE></A>. This is
         necessary if the expressions, scripts and classes need to refer to each other. (Requested by Fabirce Carnet
         2003-05-20.)
       </li>
@@ -1763,10 +1763,10 @@ h5 {
       </li>
       <li>
         The <code>net.janino.ClassLoaderIClassLoader.ReflectionIClass</code> holds a map that guarantees that
-        <code>java.lang.Class</code>es and <a href="javadoc/net/janino/IClass.html"><CODE>IClass</CODE></A>es map
+        <code>java.lang.Class</code>es and <a href="apidocs/org/codehaus/janino/IClass.html"><CODE>IClass</CODE></A>es map
         one-to-one. This posed a memory leak. (Reported by Fabrice Carnet 2003-05-20.)
       </li>
-      <li>Documented the <a href="javadoc/net/janino/ClassBodyEvaluator.html"><code>ClassBodyEvaluator</code></a>.</li>
+      <li>Documented the <a href="apidocs/org/codehaus/janino/ClassBodyEvaluator.html"><code>ClassBodyEvaluator</code></a>.</li>
     </ul>
 
     <h4>Version 0.3.10, April 22, 2003</h4>
