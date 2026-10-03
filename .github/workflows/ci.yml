@@ -2,16 +2,30 @@
 #
 # The code is compiled with JDK 25 (for Java 8, see "maven.compiler.release" in "janino-parent/pom.xml"), and the
 # tests are executed on Java 8, 17, 21 and 25 (through surefire's "jvm" parameter).
+#
+# The workflow runs
+#  * for pull requests, before they are merged: when a pull request is opened or reopened, and when new commits are
+#    pushed to it (it then tests the result of merging the pull request into its base branch), and
+#  * when started manually ("Actions" > "CI" > "Run workflow", for any branch).
+# It does NOT run on plain pushes.
+#
+# To make a successful run a precondition for merging, add the four "Build with JDK 25, test on Java ..." checks as
+# required status checks of the base branch ("Settings" > "Branches" or "Rules"; available for public repositories,
+# and for private repositories with a plan that supports branch protection).
 
 name: CI
 
 on:
-  push:
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+# When new commits are pushed to a pull request, cancel the runs for its previous commits.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
