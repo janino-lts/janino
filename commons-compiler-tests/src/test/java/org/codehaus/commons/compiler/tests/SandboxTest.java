@@ -34,6 +34,7 @@ import java.security.AccessControlException;
 import java.security.AllPermission;
 import java.security.PermissionCollection;
 import java.security.Permissions;
+import java.security.PrivilegedAction;
 import java.security.PrivilegedExceptionAction;
 import java.util.List;
 
@@ -44,6 +45,7 @@ import org.codehaus.commons.compiler.ISimpleCompiler;
 import org.codehaus.commons.compiler.Sandbox;
 import org.codehaus.commons.nullanalysis.NotNullByDefault;
 import org.codehaus.commons.nullanalysis.Nullable;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
@@ -313,6 +315,48 @@ class SandboxTest extends CommonsCompilerTestSuite {
             + "if (result[0] instanceof Exception) throw (Exception) result[0];\n"
             + "return result[0] == null;\n"
         ), permissions).assertResultTrue();
+    }
+
+    /**
+     * Verifies that {@link ISimpleCompiler#getClassLoader()} works in the no-permissions sandbox, i.e. that the
+     * compiler creates its class loader with its own privileges.
+     */
+    @Test public void
+    testGetClassLoaderInSandbox() throws Exception {
+
+        final ISimpleCompiler sc = this.compilerFactory.newSimpleCompiler();
+        sc.cook("public class Foo { public static boolean meth() { return true; } }");
+
+        ClassLoader cl = new Sandbox(SandboxTest.NO_PERMISSIONS).confine(new PrivilegedAction<ClassLoader>() {
+            @Override public ClassLoader run() { return sc.getClassLoader(); }
+        });
+
+        Assert.assertEquals(Boolean.TRUE, cl.loadClass("Foo").getMethod("meth").invoke(null));
+    }
+
+    /**
+     * Verifies that {@link ICompilerFactory#newJavaSourceClassLoader()} and {@link
+     * ICompilerFactory#newJavaSourceClassLoader(ClassLoader)} work in the no-permissions sandbox, i.e. that the
+     * compiler factory creates the class loaders with its own privileges.
+     */
+    @Test public void
+    testNewJavaSourceClassLoaderInSandbox() throws Exception {
+
+        final ClassLoader parent = this.getClass().getClassLoader();
+
+        Sandbox sandbox = new Sandbox(SandboxTest.NO_PERMISSIONS);
+
+        Assert.assertNotNull(sandbox.confine(new PrivilegedAction<ClassLoader>() {
+
+            @Override public ClassLoader
+            run() { return SandboxTest.this.compilerFactory.newJavaSourceClassLoader(); }
+        }));
+
+        Assert.assertNotNull(sandbox.confine(new PrivilegedAction<ClassLoader>() {
+
+            @Override public ClassLoader
+            run() { return SandboxTest.this.compilerFactory.newJavaSourceClassLoader(parent); }
+        }));
     }
 
     // ====================================== END OF TEST CASES ======================================

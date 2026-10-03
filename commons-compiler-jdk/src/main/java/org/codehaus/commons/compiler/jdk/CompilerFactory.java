@@ -25,8 +25,7 @@
 
 package org.codehaus.commons.compiler.jdk;
 
-import java.security.AccessController;
-import java.security.PrivilegedAction;
+import java.util.function.Supplier;
 
 import org.codehaus.commons.compiler.AbstractCompilerFactory;
 import org.codehaus.commons.compiler.AbstractJavaSourceClassLoader;
@@ -35,6 +34,7 @@ import org.codehaus.commons.compiler.ICompiler;
 import org.codehaus.commons.compiler.IExpressionEvaluator;
 import org.codehaus.commons.compiler.IScriptEvaluator;
 import org.codehaus.commons.compiler.ISimpleCompiler;
+import org.codehaus.commons.compiler.util.Privileged;
 
 /**
  * The {@link CompilerFactory} implementation for {@code org.codehaus.commons.compiler.jdk}.
@@ -68,15 +68,15 @@ class CompilerFactory extends AbstractCompilerFactory {
 
     @Override public AbstractJavaSourceClassLoader
     newJavaSourceClassLoader() {
-        return AccessController.doPrivileged(new PrivilegedAction<JavaSourceClassLoader>() {
-            @Override public JavaSourceClassLoader run() { return new JavaSourceClassLoader(); }
+        return Privileged.run(new Supplier<JavaSourceClassLoader>() {
+            @Override public JavaSourceClassLoader get() { return new JavaSourceClassLoader(); }
         });
     }
 
     @Override public AbstractJavaSourceClassLoader
     newJavaSourceClassLoader(final ClassLoader parentClassLoader) {
-        return AccessController.doPrivileged(new PrivilegedAction<JavaSourceClassLoader>() {
-            @Override public JavaSourceClassLoader run() { return new JavaSourceClassLoader(parentClassLoader); }
+        return Privileged.run(new Supplier<JavaSourceClassLoader>() {
+            @Override public JavaSourceClassLoader get() { return new JavaSourceClassLoader(parentClassLoader); }
         });
     }
 }

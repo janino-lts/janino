@@ -23,62 +23,37 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.codehaus.commons.compiler.tests;
+package org.codehaus.commons.compiler.util.tests;
 
-import java.security.Permissions;
+import java.util.function.Supplier;
 
-import org.codehaus.commons.compiler.Sandbox;
+import org.codehaus.commons.compiler.util.Privileged;
 import org.junit.Assert;
 import org.junit.Test;
 
-import util.CommonsCompilerTestSuite;
+// SUPPRESS CHECKSTYLE Javadoc:9999
 
-/**
- * Verifies whether {@link Sandbox} is available on the running JVM, and that it fails in a well-defined manner if it
- * is not.
- */
 public
-class SandboxAvailabilityTest {
+class PrivilegedTest {
 
-    /**
-     * Verifies that {@link Sandbox#isSupported()} reflects the security manager support of the running JVM.
-     */
-    @Test public void
-    testIsSupported() {
-
-        int jvmVersion = CommonsCompilerTestSuite.JVM_VERSION;
-        if (jvmVersion <= 17) {
-            Assert.assertTrue(Sandbox.isSupported());
-        } else
-        if (jvmVersion <= 23) {
-            Assert.assertEquals(
-                "allow".equals(System.getProperty("java.security.manager")),
-                Sandbox.isSupported()
-            );
-        } else
-        {
-            Assert.assertFalse(Sandbox.isSupported());
-        }
+    @SuppressWarnings("static-method") @Test public void
+    testReturnValue() {
+        Assert.assertEquals("foo", Privileged.run(new Supplier<String>() {
+            @Override public String get() { return "foo"; }
+        }));
     }
 
-    /**
-     * Verifies that the {@link Sandbox} constructor throws an {@link UnsupportedOperationException} on JVMs that do
-     * not support the security manager.
-     */
-    @Test public void
-    testConstructorFailsIfUnsupported() {
+    @SuppressWarnings("static-method") @Test public void
+    testRuntimeExceptionIsPropagated() {
 
-        if (Sandbox.isSupported()) {
-            new Sandbox(new Permissions());
-            return;
-        }
-
+        final IllegalStateException ise = new IllegalStateException();
         try {
-            new Sandbox(new Permissions());
-            Assert.fail("UnsupportedOperationException expected");
-        } catch (UnsupportedOperationException uoe) {
-            Assert.assertTrue(uoe.getMessage(), uoe.getMessage().contains("security manager"));
-            Assert.assertTrue(uoe.getCause() instanceof UnsupportedOperationException);
+            Privileged.run(new Supplier<Object>() {
+                @Override public Object get() { throw ise; }
+            });
+            Assert.fail("IllegalStateException expected");
+        } catch (IllegalStateException ise2) {
+            Assert.assertSame(ise, ise2);
         }
     }
 }

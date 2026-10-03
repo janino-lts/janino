@@ -28,13 +28,12 @@ package org.codehaus.commons.compiler.jdk;
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.function.Supplier;
 
 import javax.tools.JavaCompiler;
 
@@ -46,6 +45,7 @@ import org.codehaus.commons.compiler.Location;
 import org.codehaus.commons.compiler.WarningHandler;
 import org.codehaus.commons.compiler.io.Readers;
 import org.codehaus.commons.compiler.util.LineAndColumnTracker;
+import org.codehaus.commons.compiler.util.Privileged;
 import org.codehaus.commons.compiler.util.reflect.ByteArrayClassLoader;
 import org.codehaus.commons.compiler.util.resource.MapResourceCreator;
 import org.codehaus.commons.compiler.util.resource.MapResourceFinder;
@@ -120,10 +120,10 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
         final Map<String, byte[]> bytecode = this.getBytecodes();
 
         // Create a ClassLoader that loads the generated classes.
-        result = AccessController.doPrivileged(new PrivilegedAction<ClassLoader>() {
+        result = Privileged.run(new Supplier<ClassLoader>() {
 
             @Override public ClassLoader
-            run() {
+            get() {
                 return new ByteArrayClassLoader(
                     bytecode,                             // classes
                     SimpleCompiler.this.parentClassLoader // parent

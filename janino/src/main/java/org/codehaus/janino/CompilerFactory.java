@@ -25,8 +25,7 @@
 
 package org.codehaus.janino;
 
-import java.security.AccessController;
-import java.security.PrivilegedAction;
+import java.util.function.Supplier;
 
 import org.codehaus.commons.compiler.AbstractCompilerFactory;
 import org.codehaus.commons.compiler.AbstractJavaSourceClassLoader;
@@ -36,6 +35,7 @@ import org.codehaus.commons.compiler.ICompilerFactory;
 import org.codehaus.commons.compiler.IExpressionEvaluator;
 import org.codehaus.commons.compiler.IScriptEvaluator;
 import org.codehaus.commons.compiler.ISimpleCompiler;
+import org.codehaus.commons.compiler.util.Privileged;
 
 /**
  * The JANINO implementation of {@link ICompilerFactory}.
@@ -70,22 +70,18 @@ class CompilerFactory extends AbstractCompilerFactory {
     @Override public AbstractJavaSourceClassLoader
     newJavaSourceClassLoader() {
 
-        return (AbstractJavaSourceClassLoader) AccessController.doPrivileged(
-            new PrivilegedAction<AbstractJavaSourceClassLoader>() {
-                @Override public AbstractJavaSourceClassLoader run() { return new JavaSourceClassLoader(); }
-            }
-        );
+        return (AbstractJavaSourceClassLoader) Privileged.run(new Supplier<AbstractJavaSourceClassLoader>() {
+            @Override public AbstractJavaSourceClassLoader get() { return new JavaSourceClassLoader(); }
+        });
     }
 
     @Override public AbstractJavaSourceClassLoader
     newJavaSourceClassLoader(final ClassLoader parentClassLoader) {
 
-        return (AbstractJavaSourceClassLoader) AccessController.doPrivileged(
-            new PrivilegedAction<AbstractJavaSourceClassLoader>() {
+        return (AbstractJavaSourceClassLoader) Privileged.run(new Supplier<AbstractJavaSourceClassLoader>() {
 
-                @Override public AbstractJavaSourceClassLoader
-                run() { return new JavaSourceClassLoader(parentClassLoader); }
-            }
-        );
+            @Override public AbstractJavaSourceClassLoader
+            get() { return new JavaSourceClassLoader(parentClassLoader); }
+        });
     }
 }
