@@ -156,6 +156,30 @@
               <goal>jar</goal>
             </goals>
           </execution>
+
+          <!--
+            The JAVADOC of all modules, for publication on the project website. Not bound to a phase; run it with
+              mvn -f janino-parent/pom.xml install javadoc:aggregate@website-apidocs
+            The result is in "janino-parent/target/reports/apidocs".
+          -->
+          <execution>
+            <id>website-apidocs</id>
+            <inherited>false</inherited>
+            <goals>
+              <goal>aggregate</goal>
+            </goals>
+            <configuration>
+              <doctitle>JANINO ${project.version}</doctitle>
+              <windowtitle>JANINO ${project.version}</windowtitle>
+              <overview>${project.basedir}/../janino/src/main/javadoc/overview.html</overview>
+              <notimestamp>true</notimestamp>
+
+              <!-- Relative to "src/main/javadoc"; formats the ASCII art diagrams of the overview. -->
+              <addStylesheets>
+                <addStylesheet>additional-stylesheet.css</addStylesheet>
+              </addStylesheets>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
 

@@ -57,8 +57,8 @@
     The {@link org.codehaus.janino.Parser org.codehaus.janino.Parser} (abbreviated as "{@code o.c.j.Parser}" in the
     figure above) parses the compilation unit, understands the Java grammar, and creates a tree of objects <em>that
     exactly reflects the contents of the compilation unit</em> (except some irrelevant aspects like
-    (non-JAVADOC) comments). The class names of the objects of the syntax tree are all "{@code
-    org.codehaus.janino.Java.*}".
+    (non-JAVADOC) comments). The class names of the objects of the syntax tree are all
+    "{@code org.codehaus.janino.Java.*}".
   </p>
   <p>
     Like the {@link org.codehaus.janino.Java.CompilationUnit} structure is a one-to-one representation of the parsed
@@ -69,10 +69,10 @@
   </p>
   <p>
     The {@link org.codehaus.janino.UnitCompiler}'s job is to translate the compilation unit into class files. For
-    example, a {@link org.codehaus.janino.Java.MethodDeclarator} is transformed into a {@link
-    org.codehaus.janino.util.ClassFile.MethodInfo}, the {@link org.codehaus.janino.Java.BlockStatement}s of the method
-    declarator into a {@link org.codehaus.janino.util.ClassFile.CodeAttribute} of the {@link
-    org.codehaus.janino.util.ClassFile.MethodInfo} object, and so forth.
+    example, a {@link org.codehaus.janino.Java.MethodDeclarator} is transformed into a
+    {@link org.codehaus.janino.util.ClassFile.MethodInfo}, the {@link org.codehaus.janino.Java.BlockStatement}s of the method
+    declarator into a {@link org.codehaus.janino.util.ClassFile.CodeAttribute} of the
+    {@link org.codehaus.janino.util.ClassFile.MethodInfo} object, and so forth.
   </p>
   <p>
     After processing all input files this way, we have a set of class files that are ready to be loaded into a JVM.
@@ -119,8 +119,8 @@
     class Car { ... }
   </pre>
   <p>
-    , the type names "{@code String}", "{@code Person}" and "{@code Car}" have not yet been resolved into "{@code
-    java.lang.String}", "{@code com.acme.Person}" and "{@code my.package.Car}".
+    , the type names "{@code String}", "{@code Person}" and "{@code Car}" have not yet been resolved into
+    "{@code java.lang.String}", "{@code com.acme.Person}" and "{@code my.package.Car}".
   </p>
   <p>
     Therefore, a <em>third</em> representation of a class/interface must be introduced, which (for JANINO) is the
@@ -200,20 +200,20 @@ o.c.j.UnitCompiler.resolve()              v                                     
   }</pre>
   <ol>
     <li>
-      To resove "{@code Car}" (declared in the same compilation unit), the {@code UnitCompiler} uses its "{@link
-      org.codehaus.janino.UnitCompiler#resolve}" method (bottom left), which wraps a parsed type declaration as an
+      To resove "{@code Car}" (declared in the same compilation unit), the {@code UnitCompiler} uses its
+      "{@link org.codehaus.janino.UnitCompiler#resolve}" method (bottom left), which wraps a parsed type declaration as an
       {@link org.codehaus.janino.IClass}.
     </li>
     <li>
       To resolve "{@code java.lang.String}" (found on the compilation classpath), the {@code UnitCompiler} uses an
       animal called the "{@link org.codehaus.janino.ResourceFinderIClassLoader
-      org.codehaus.janino.ResourceFinderIClassLoader}", which searches the classpath for a resource named "{@code
-      java/lang/String.class}", loads it via "{@link org.codehaus.janino.util.ClassFile#ClassFile(java.io.InputStream)}"
+      org.codehaus.janino.ResourceFinderIClassLoader}", which searches the classpath for a resource named
+      "{@code java/lang/String.class}", loads it via "{@link org.codehaus.janino.util.ClassFile#ClassFile(java.io.InputStream)}"
       and wraps it as an {@link org.codehaus.janino.IClass} (bottom right).
     </li>
     <li>
-      To resolve "{@code com.acme.Person}" (declared in a <em>different</em> compilation unit), the {@code
-      UnitCompiler} searches and finds a resource "{@code com/acme/Person.java}" on the sourcepath, parses it (center)
+      To resolve "{@code com.acme.Person}" (declared in a <em>different</em> compilation unit), the
+      {@code UnitCompiler} searches and finds a resource "{@code com/acme/Person.java}" on the sourcepath, parses it (center)
       and uses "{@link org.codehaus.janino.UnitCompiler#resolve}" to wrap the type declaration "{@code Person}" as an
       {@link org.codehaus.janino.IClass}.
     </li>
