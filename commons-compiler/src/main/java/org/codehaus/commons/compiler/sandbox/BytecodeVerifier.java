@@ -422,15 +422,15 @@ class BytecodeVerifier {
         @Nullable private TypeInfo
         getTypeInfo(final String className) {
 
-            if (this.typeInfos.containsKey(className)) return this.typeInfos.get(className);
+            if (this.typeInfos.containsKey(className)) return (TypeInfo) this.typeInfos.get(className);
 
             TypeInfo result;
 
-            ClassFileReader cfr = this.classFiles.get(className);
+            ClassFileReader cfr = (ClassFileReader) this.classFiles.get(className);
             if (cfr != null) {
                 result = TypeInfo.of(cfr);
             } else {
-                result = Privileged.run(new Supplier<TypeInfo>() {
+                result = (TypeInfo) Privileged.run(new Supplier<TypeInfo>() {
 
                     @Override @Nullable public TypeInfo
                     get() {

@@ -356,7 +356,7 @@ class ClassFileReader {
      */
     public BootstrapMethod
     getBootstrapMethod(DynamicReference dynamicReference) {
-        return this.bootstrapMethods.get(dynamicReference.getBootstrapMethodIndex());
+        return (BootstrapMethod) this.bootstrapMethods.get(dynamicReference.getBootstrapMethodIndex());
     }
 
     private void

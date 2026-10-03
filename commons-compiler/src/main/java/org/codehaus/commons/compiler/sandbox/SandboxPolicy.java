@@ -383,7 +383,7 @@ class SandboxPolicy {
             if (className.startsWith(packagePrefix)) return true;
         }
 
-        Set<String> exemptMemberNames = SandboxPolicy.NEVER_ALLOWED_CLASSES.get(className);
+        Set<String> exemptMemberNames = (Set<String>) SandboxPolicy.NEVER_ALLOWED_CLASSES.get(className);
         if (exemptMemberNames != null && !exemptMemberNames.contains(member.getName())) return true;
 
         return (

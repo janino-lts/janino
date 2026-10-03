@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.util.Map;
 
+import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
 import org.codehaus.commons.nullanalysis.Nullable;
 
 /**
@@ -139,4 +140,20 @@ interface ICookable {
      * @throws IllegalStateException This IClassBodyEvaluator is not yet cooked
      */
     Map<String /*className*/, byte[] /*bytes*/> getBytecodes();
+
+    /**
+     * Restricts the APIs that the cooked code may use. If set, then all generated classes are verified against the
+     * <var>policy</var> before they are loaded, and cooking fails with a {@link CompileException} that lists all
+     * violations if the code uses any field, method or constructor that the policy does not allow.
+     * <p>
+     *   Must be called before cooking. {@code null} (the default) means that the generated code is not restricted.
+     * </p>
+     *
+     * @throws UnsupportedOperationException The implementation does not support sandbox policies
+     * @see SandboxPolicy
+     */
+    default void
+    setSandboxPolicy(@Nullable SandboxPolicy policy) {
+        throw new UnsupportedOperationException("setSandboxPolicy");
+    }
 }

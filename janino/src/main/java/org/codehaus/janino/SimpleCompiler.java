@@ -35,6 +35,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
@@ -46,6 +47,10 @@ import org.codehaus.commons.compiler.ISimpleCompiler;
 import org.codehaus.commons.compiler.InternalCompilerException;
 import org.codehaus.commons.compiler.Location;
 import org.codehaus.commons.compiler.WarningHandler;
+import org.codehaus.commons.compiler.sandbox.BytecodeVerifier;
+import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
+import org.codehaus.commons.compiler.sandbox.SandboxViolation;
+import org.codehaus.commons.compiler.sandbox.SandboxViolationException;
 import org.codehaus.commons.compiler.util.Disassembler;
 import org.codehaus.commons.compiler.util.Privileged;
 import org.codehaus.commons.compiler.util.SystemProperties;
@@ -77,6 +82,7 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
 //    @Nullable private ClassLoader    result;
     @Nullable private ErrorHandler   compileErrorHandler;
     @Nullable private WarningHandler warningHandler;
+    @Nullable private SandboxPolicy  sandboxPolicy;
 
     private boolean debugSource   = Boolean.getBoolean(Scanner.SYSTEM_PROPERTY_SOURCE_DEBUGGING_ENABLE);
     private boolean debugLines    = this.debugSource;
@@ -283,12 +289,34 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
                 }
             });
 
+            SandboxPolicy sandboxPolicy = this.sandboxPolicy;
+            if (sandboxPolicy != null) SimpleCompiler.verify(cfs, sandboxPolicy, this.parentClassLoader);
+
             this.classFiles = cfs;
         } catch (CompileException ce) {
             this.classFiles = Collections.emptyList(); // Mark this SimpleCompiler as "cooked".
             throw ce;
         } finally {
             this.classLoaderIClassLoader = null;
+        }
+    }
+
+    /**
+     * Verifies the <var>classFiles</var> against the <var>sandboxPolicy</var>.
+     *
+     * @throws CompileException The class files violate the policy; the cause is a {@link SandboxViolationException}
+     */
+    private static void
+    verify(Collection<ClassFile> classFiles, SandboxPolicy sandboxPolicy, ClassLoader hostClassLoader)
+    throws CompileException {
+
+        Map<String /*className*/, byte[] /*bytecode*/> bytecodes = new HashMap<>();
+        for (ClassFile cf : classFiles) bytecodes.put(cf.getThisClassName(), cf.toByteArray());
+
+        List<SandboxViolation> violations = new BytecodeVerifier(sandboxPolicy).verify(bytecodes, hostClassLoader);
+        if (!violations.isEmpty()) {
+            SandboxViolationException sve = new SandboxViolationException(violations);
+            throw new CompileException(sve.getMessage(), null, sve);
         }
     }
 
@@ -316,6 +344,9 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
      */
     @Override public void
     setTargetVersion(int version) { this.targetVersion = version; }
+
+    @Override public void
+    setSandboxPolicy(@Nullable SandboxPolicy policy) { this.sandboxPolicy = policy; }
 
     @Override public Map<String /*className*/, byte[] /*bytecode*/>
     getBytecodes() {

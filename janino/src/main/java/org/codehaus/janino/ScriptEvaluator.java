@@ -50,6 +50,7 @@ import org.codehaus.commons.compiler.InternalCompilerException;
 import org.codehaus.commons.compiler.Location;
 import org.codehaus.commons.compiler.MultiCookable;
 import org.codehaus.commons.compiler.WarningHandler;
+import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
 import org.codehaus.commons.nullanalysis.Nullable;
 import org.codehaus.janino.Java.AbstractClassDeclaration;
 import org.codehaus.janino.Java.AbstractCompilationUnit.ImportDeclaration;
@@ -138,6 +139,9 @@ class ScriptEvaluator extends MultiCookable implements IScriptEvaluator {
 
     @Override public void
     setParentClassLoader(@Nullable ClassLoader parentClassLoader) { this.cbe.setParentClassLoader(parentClassLoader); }
+
+    @Override public void
+    setSandboxPolicy(@Nullable SandboxPolicy policy) { this.cbe.setSandboxPolicy(policy); }
 
     @Override public void
     setDebuggingInformation(boolean debugSource, boolean debugLines, boolean debugVars) {

@@ -95,6 +95,18 @@ class AbstractJavaSourceClassLoader extends ClassLoader {
     public abstract void setDebuggingInfo(boolean lines, boolean vars, boolean source);
 
     /**
+     * Generates class files that target a specified release of the virtual machine, in analogy with JAVAC's {@code
+     * -target} command line option.
+     * May be ignored by an implementation.
+     * Allowed values, and the default value, depend on the implementation.
+     * {@code -1} means to use a default version.
+     *
+     * @see ICookable#setTargetVersion(int)
+     */
+    public void
+    setTargetVersion(int version) {}
+
+    /**
      * @see ClassLoader#defineClass(String, byte[], int, int, ProtectionDomain)
      */
     public final void

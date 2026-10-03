@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -44,6 +45,10 @@ import org.codehaus.commons.compiler.ISimpleCompiler;
 import org.codehaus.commons.compiler.Location;
 import org.codehaus.commons.compiler.WarningHandler;
 import org.codehaus.commons.compiler.io.Readers;
+import org.codehaus.commons.compiler.sandbox.BytecodeVerifier;
+import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
+import org.codehaus.commons.compiler.sandbox.SandboxViolation;
+import org.codehaus.commons.compiler.sandbox.SandboxViolationException;
 import org.codehaus.commons.compiler.util.LineAndColumnTracker;
 import org.codehaus.commons.compiler.util.Privileged;
 import org.codehaus.commons.compiler.util.reflect.ByteArrayClassLoader;
@@ -69,6 +74,8 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
      * Is {@code null} iff this {@link SimpleCompiler} is not yet cooked.
      */
     @Nullable private Map<String, byte[]> bytecodes;
+
+    @Nullable private SandboxPolicy sandboxPolicy;
 
     // See "addOffset(String)".
     private final LineAndColumnTracker tracker = LineAndColumnTracker.create();
@@ -98,6 +105,9 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
 
     @Override public void
     setTargetVersion(int version) { this.compiler.setTargetVersion(version); }
+
+    @Override public void
+    setSandboxPolicy(@Nullable SandboxPolicy policy) { this.sandboxPolicy = policy; }
 
     @Override public Map<String /*className*/, byte[] /*bytecode*/>
     getBytecodes() { return this.assertCooked(); }
@@ -159,6 +169,22 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
         this.compiler.setClassFileCreator(new MapResourceCreator(bcs));
 
         this.compiler.compile(new Resource[] { compilationUnit }, this.offsets);
+
+        SandboxPolicy sandboxPolicy = this.sandboxPolicy;
+        if (sandboxPolicy != null) {
+            List<SandboxViolation> violations = new BytecodeVerifier(sandboxPolicy).verify(
+                bcs,
+                this.parentClassLoader
+            );
+            if (!violations.isEmpty()) {
+
+                // Make sure that the rejected classes can never be loaded.
+                bcs.clear();
+
+                SandboxViolationException sve = new SandboxViolationException(violations);
+                throw new CompileException(sve.getMessage(), null, sve);
+            }
+        }
     }
 
     @Override public void

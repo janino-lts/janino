@@ -72,6 +72,9 @@ class JavaSourceClassLoaderTest {
             new File("../commons-compiler/src/main/java"),
         });
 
+        // The sources use Java 8 language features, e.g. default methods.
+        jscl.setTargetVersion(8);
+
         // Load the "Compiler" class.
         jscl.loadClass("org.codehaus.janino.Compiler");
 

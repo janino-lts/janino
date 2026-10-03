@@ -47,6 +47,7 @@ import org.codehaus.commons.compiler.InternalCompilerException;
 import org.codehaus.commons.compiler.Location;
 import org.codehaus.commons.compiler.MultiCookable;
 import org.codehaus.commons.compiler.WarningHandler;
+import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
 import org.codehaus.commons.nullanalysis.Nullable;
 import org.codehaus.janino.util.AbstractTraverser;
 
@@ -270,6 +271,9 @@ class ExpressionEvaluator extends MultiCookable implements IExpressionEvaluator 
     setParentClassLoader(@Nullable ClassLoader parentClassLoader) {
         this.se.setParentClassLoader(parentClassLoader);
     }
+
+    @Override public void
+    setSandboxPolicy(@Nullable SandboxPolicy policy) { this.se.setSandboxPolicy(policy); }
 
     @Override public void
     setDebuggingInformation(boolean debugSource, boolean debugLines, boolean debugVars) {

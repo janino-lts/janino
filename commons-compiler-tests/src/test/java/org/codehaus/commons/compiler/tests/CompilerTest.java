@@ -284,6 +284,14 @@ class CompilerTest {
 //        compiler.setClassPath(new File[0]);
         CompilerTest.invoke1(compiler, "setClassPath", new File[0].getClass(), new File[0]);
 
+        // The sources use Java 8 language features (e.g. default methods), which JANINO compiles only for target
+        // version 8+.
+        if (compiler.getClass().getName().startsWith("org.codehaus.janino.")) {
+
+//            compiler.setTargetVersion(8);
+            CompilerTest.invoke1(compiler, "setTargetVersion", int.class, 8);
+        }
+
         final Map<String, byte[]> result = new HashMap<>();
 
 //        compiler.setClassFileCreator(new MapResourceCreator(result));

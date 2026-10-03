@@ -45,6 +45,7 @@ import org.codehaus.commons.compiler.ErrorHandler;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.WarningHandler;
 import org.codehaus.commons.compiler.io.Readers;
+import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
 import org.codehaus.commons.nullanalysis.Nullable;
 
 /**
@@ -103,6 +104,9 @@ class ClassBodyEvaluator extends Cookable implements IClassBodyEvaluator {
 
     @Override public void
     setParentClassLoader(@Nullable ClassLoader parentClassLoader) { this.sc.setParentClassLoader(parentClassLoader); }
+
+    @Override public void
+    setSandboxPolicy(@Nullable SandboxPolicy policy) { this.sc.setSandboxPolicy(policy); }
 
     @Override public void
     setDebuggingInformation(boolean debugSource, boolean debugLines, boolean debugVars) {
