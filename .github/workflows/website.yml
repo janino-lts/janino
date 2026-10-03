@@ -1,0 +1,65 @@
+# Builds the project website (the files under "site/", plus the aggregated JAVADOC) and publishes it on GitHub Pages.
+#
+# The workflow only runs when started manually ("Actions" > "Website" > "Run workflow"); it is never triggered
+# automatically.
+#
+# Before the first run:
+#  * The repository must be public (or the account must have a plan that supports GitHub Pages for private
+#    repositories; the published site is public in any case).
+#  * "Settings" > "Pages" > "Build and deployment" > "Source" must be set to "GitHub Actions".
+#
+# Notice: GitHub creates an environment "github-pages", which, by default, allows deployments only from the default
+# branch. If the default branch changes, or if this workflow is ever triggered by a release (i.e. by a tag), adjust
+# "Settings" > "Environments" > "github-pages" > "Deployment branches and tags" accordingly.
+#
+# Links from the website into the repository use "blob/HEAD/..." and "tree/HEAD/...", which always refer to the
+# default branch.
+
+name: Website
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never cancel a deployment that is in progress.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      # Assembles the website in "janino-parent/target/website"; see profile "website" in "janino-parent/pom.xml".
+      - name: Assemble the website
+        run: mvn -B -f janino-parent/pom.xml -P website
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: janino-parent/target/website
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

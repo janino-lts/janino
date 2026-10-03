@@ -1,0 +1,45 @@
+# Builds JANINO and runs all tests.
+#
+# The code is compiled with JDK 25 (for Java 8, see "maven.compiler.release" in "janino-parent/pom.xml"), and the
+# tests are executed on Java 8, 17, 21 and 25 (through surefire's "jvm" parameter).
+
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build with JDK 25, test on Java ${{ matrix.test-java }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test-java: [ 8, 17, 21, 25 ]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # The JDK that executes the tests.
+      - name: Set up Java ${{ matrix.test-java }} for the tests
+        id: test-java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.test-java }}
+
+      # The JDK that runs MAVEN and compiles the code; set up last, so that it becomes JAVA_HOME.
+      - name: Set up JDK 25 for the build
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Build and test
+        run: mvn -B -f janino-parent/pom.xml install "-Djvm=${{ steps.test-java.outputs.path }}/bin/java"
