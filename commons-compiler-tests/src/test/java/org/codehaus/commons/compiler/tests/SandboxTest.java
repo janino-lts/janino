@@ -44,6 +44,8 @@ import org.codehaus.commons.compiler.ISimpleCompiler;
 import org.codehaus.commons.compiler.Sandbox;
 import org.codehaus.commons.nullanalysis.NotNullByDefault;
 import org.codehaus.commons.nullanalysis.Nullable;
+import org.junit.Assume;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -77,6 +79,14 @@ class SandboxTest extends CommonsCompilerTestSuite {
 
     public
     SandboxTest(ICompilerFactory compilerFactory) throws Exception { super(compilerFactory); }
+
+    /**
+     * Skips all test cases on JVMs that do not support the security manager.
+     *
+     * @see SandboxAvailabilityTest
+     */
+    @Before public void
+    assumeSandboxIsSupported() { Assume.assumeTrue(Sandbox.isSupported()); }
 
     /**
      * Verifies that a trivial script works in the no-permissions sandbox.

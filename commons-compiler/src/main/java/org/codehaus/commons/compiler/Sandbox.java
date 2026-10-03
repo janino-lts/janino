@@ -38,6 +38,7 @@ import java.security.PrivilegedExceptionAction;
 import java.security.ProtectionDomain;
 
 import org.codehaus.commons.nullanalysis.NotNullByDefault;
+import org.codehaus.commons.nullanalysis.Nullable;
 
 /**
  * Executes a {@link PrivilegedAction} or {@link PrivilegedExceptionAction} in a context with restricted permissions.
@@ -53,6 +54,21 @@ import org.codehaus.commons.nullanalysis.NotNullByDefault;
  *         &#64;Override public Object run() throws Exception { new java.io.File("xxx").delete(); return null; }
  *     });
  * </pre>
+ * <p>
+ *   The sandbox relies on the security manager, which is not available on all JVMs:
+ * </p>
+ * <ul>
+ *   <li>Java 8 through 17: Supported.</li>
+ *   <li>
+ *     Java 18 through 23: Supported only if the JVM was started with {@code -Djava.security.manager=allow}, or if
+ *     a security manager is already installed.
+ *   </li>
+ *   <li>Java 24 and later: Not supported (the security manager was permanently disabled).</li>
+ * </ul>
+ * <p>
+ *   Use {@link #isSupported()} to check whether the sandbox can be used on the running JVM. If it cannot, the {@link
+ *   #Sandbox(PermissionCollection) constructor} throws an {@link UnsupportedOperationException}.
+ * </p>
  *
  * @see <a href="https://docs.oracle.com/javase/tutorial/essential/environment/security.html">ORACLE: Java Essentials:
  *      The Security Manager</a>
@@ -60,22 +76,35 @@ import org.codehaus.commons.nullanalysis.NotNullByDefault;
 public final
 class Sandbox {
 
-    static {
+    /**
+     * The reason why the security manager cannot be used on the running JVM, or {@code null} iff it can be used.
+     */
+    @Nullable private static final UnsupportedOperationException UNSUPPORTED_REASON = Sandbox.installSecurityManager();
 
-        if (System.getSecurityManager() == null) {
+    /**
+     * Installs a security manager (with an "all permissions" policy), unless a security manager is already installed.
+     *
+     * @return The reason why the security manager cannot be used, or {@code null} iff it is installed
+     */
+    @Nullable private static UnsupportedOperationException
+    installSecurityManager() {
 
-            // Before installing the security manager, configure a decent ("positive") policy. Otherwise a policy is
-            // determine automatically as follows:
-            // (1) If seccurity property "policy.provider" is set: Load a class with that name, and cast it to "Policy".
-            // (2) Otherwise, use class "sun.security.provider.PolicyFile" as the policy. That class reads a plethora
-            //     of "*.policy" files:
-            //         jre/lib/security/java[ws].policy     (Java 6, 8)
-            //         conf/security/javaws.policy          (Java 9)
-            //         conf/security/java.policy            (Java 9, 10, 11, 12)
-            //         conf/security/policy/[un]limited/**  (Java 9, 10, 11, 12)
-            //         lib/security/default.policy          (Java 9, 10, 11, 12)
-            //     That eventually leads to a very restricted policy which typically allows applications to read only
-            //     a small set of system properties and nothing else.
+        if (System.getSecurityManager() != null) return null;
+
+        // Before installing the security manager, configure a decent ("positive") policy. Otherwise a policy is
+        // determine automatically as follows:
+        // (1) If seccurity property "policy.provider" is set: Load a class with that name, and cast it to "Policy".
+        // (2) Otherwise, use class "sun.security.provider.PolicyFile" as the policy. That class reads a plethora
+        //     of "*.policy" files:
+        //         jre/lib/security/java[ws].policy     (Java 6, 8)
+        //         conf/security/javaws.policy          (Java 9)
+        //         conf/security/java.policy            (Java 9, 10, 11, 12)
+        //         conf/security/policy/[un]limited/**  (Java 9, 10, 11, 12)
+        //         lib/security/default.policy          (Java 9, 10, 11, 12)
+        //     That eventually leads to a very restricted policy which typically allows applications to read only
+        //     a small set of system properties and nothing else.
+        Policy previousPolicy = Policy.getPolicy();
+        try {
             Policy.setPolicy(new Policy() {
 
                 @Override @NotNullByDefault(false) public PermissionCollection
@@ -101,19 +130,51 @@ class Sandbox {
                 @Override @NotNullByDefault(false) public boolean
                 implies(ProtectionDomain domain, Permission permission) { return true; }
             });
+        } catch (UnsupportedOperationException uoe) {
 
-            System.setSecurityManager(new SecurityManager());
+            // Java 24+: The security manager is permanently disabled.
+            return uoe;
         }
+
+        try {
+            System.setSecurityManager(new SecurityManager());
+        } catch (UnsupportedOperationException uoe) {
+
+            // Java 18 through 23 without "-Djava.security.manager=allow": Undo the policy change.
+            Policy.setPolicy(previousPolicy);
+            return uoe;
+        }
+
+        return null;
     }
 
     private final AccessControlContext accessControlContext;
 
     /**
-     * @param permissions Will be applied on later calls to {@link #confine(PrivilegedAction)} and {@link
-     *                    #confine(PrivilegedExceptionAction)}
+     * @return Whether the sandbox can be used on the running JVM, i.e. whether a security manager is installed
+     */
+    public static boolean
+    isSupported() { return Sandbox.UNSUPPORTED_REASON == null; }
+
+    /**
+     * @param permissions                    Will be applied on later calls to {@link #confine(PrivilegedAction)} and
+     *                                       {@link #confine(PrivilegedExceptionAction)}
+     * @throws UnsupportedOperationException The running JVM does not support the security manager (see {@link
+     *                                       #isSupported()})
      */
     public
     Sandbox(PermissionCollection permissions) {
+
+        UnsupportedOperationException unsupportedReason = Sandbox.UNSUPPORTED_REASON;
+        if (unsupportedReason != null) {
+            throw new UnsupportedOperationException((
+                "The sandbox requires a security manager, which is not available on this JVM (Java "
+                + System.getProperty("java.specification.version")
+                + "); it is supported on Java 8 through 17, and on Java 18 through 23 with "
+                + "\"-Djava.security.manager=allow\""
+            ), unsupportedReason);
+        }
+
         this.accessControlContext = new AccessControlContext(new ProtectionDomain[] {
             new ProtectionDomain(null, permissions)
         });
