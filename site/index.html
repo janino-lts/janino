@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Janino by janino-compiler</title>
+    <title>Janino - A super-small, super-fast Java compiler</title>
     <link rel="icon" type="image/gif" href="logo/logo_48x48.gif">
 
     <link rel="stylesheet" href="stylesheets/styles.css">
@@ -37,22 +37,28 @@
       <header>
         <h1>Janino</h1>
         <p>A super-small, super-fast Java compiler</p>
-        <p class="view"><a href="https://github.com/janino-compiler/janino">
-          View the Project on GitHub <small>janino-compiler/janino</small></a>
+        <p class="view"><a href="https://github.com/stefan-zobel/janino">
+          View the Project on GitHub <small>stefan-zobel/janino</small></a>
         </p>
         <ul>
-          <li><a href="#download">Download <strong>ZIP File</strong></a></li>
+          <li><a href="#download">Download <strong>JAR Files</strong></a></li>
           <li><a href="apidocs/">Browse <strong>JAVADOC</strong></a></li>
-          <li><a href="https://github.com/janino-compiler/janino">View On <strong>GitHub</strong></a></li>
+          <li><a href="https://github.com/stefan-zobel/janino">View On <strong>GitHub</strong></a></li>
         </ul>
       </header>
       <section>
         <div style="border:solid 1px; padding:12px;margin-bottom:12px;font-weight:bold">
           <div style="font-size:24px">Important</div>
           <div style="margin-bottom:8px">
-            As of 2025, I have discontinued my software development activities and marked all my
-            repositories as archived and read-only. A big thank you goes to all the contributors, who
-            made the work a lot of fun!
+            This is a continuation of JANINO, derived from
+            <a href="https://github.com/janino-compiler/janino">janino-compiler/janino</a>. Its author, Arno Unkrig,
+            has discontinued its development and archived the original repository. A big thank you goes to him and
+            to all the contributors!
+          </div>
+          <div>
+            New in this continuation: JANINO now requires Java 8 or later, is tested on current JREs up to Java 25,
+            and offers a <a href="#sandbox-policy">sandbox policy</a> that, unlike the
+            <a href="#security-manager-sandbox">security-manager-based sandbox</a>, works on all current JREs.
           </div>
         </div>
         <div style="float:right;clear:right;position:relative;margin:0.5em 0 0.8em 1.4em">
@@ -127,7 +133,14 @@
                   <li><a href="#alternative-compiler-implementations"  >Alternative Compiler Implementations</a></li>
                 </ul>
               </li>
-              <li><a href="#security" >Security</a></li>
+              <li>
+                <a href="#security">Security</a>
+                <ul>
+                  <li><a href="#sandbox-policy"          >Sandbox policy (Java 8 and later)</a></li>
+                  <li><a href="#security-manager-sandbox">Sandbox based on the Java security manager (Java 8 - 17)</a></li>
+                  <li><a href="#memory-and-cpu-time"     >Memory and CPU time</a></li>
+                </ul>
+              </li>
               <li><a href="#debugging">Debugging</a></li>
             </ul>
           </li>
@@ -364,7 +377,7 @@
         </h2>
 
         <p>
-          JANINO only requires a Java 7 (or later) JRE or later, not a JDK. It has no dependencies whatsoever on any
+          JANINO only requires a Java 8 (or later) JRE, not a JDK. It has no dependencies whatsoever on any
           third-party libraries.
         </p>
 
@@ -372,11 +385,11 @@
           JANINO is routinely tested against the following JREs:
         </p>
         <table border="1">
-          <tr><th>Java version</th><th>JRE version</th>                     <th>Release Date</th><th>Status</th></tr>
-          <tr><td>7</td>           <td>jdk1.7.0_21 (32 bit)</td>            <td>2011-07-28</td>  <td>passed</td></tr>
-          <tr><td>8</td>           <td>adopt_openjdk-8.0.292.10-hotspot</td><td>?</td>           <td>passed</td></tr>
-          <tr><td>11</td>          <td>adopt_openjdk-11.0.11.9-hotspot</td> <td>?</td>           <td>passed</td></tr>
-          <tr><td>17</td>          <td>adopt_openjdk-17.0.1+12</td>         <td>?</td>           <td>passed</td></tr>
+          <tr><th>Java version</th><th>JRE version</th>   <th>Status</th></tr>
+          <tr><td>8</td>           <td>1.8.0_482</td>     <td>passed</td></tr>
+          <tr><td>17</td>          <td>Zulu 17.0.8+7</td> <td>passed</td></tr>
+          <tr><td>21</td>          <td>21.0.3</td>        <td>passed</td></tr>
+          <tr><td>25</td>          <td>Zulu 25.0.2</td>   <td>passed</td></tr>
         </table>
 
         <h2>
@@ -598,31 +611,31 @@ System.out.println(ee.evaluate()); // Prints "7".</pre></div>
 
         <p>
           The <a
-          href="https://github.com/janino-compiler/janino/blob/master/commons-compiler/src/main/java/org/codehaus/commons/compiler/samples/ShippingCost.java">ShippingCost</a>
+          href="https://github.com/stefan-zobel/janino/blob/HEAD/commons-compiler/src/main/java/org/codehaus/commons/compiler/samples/ShippingCost.java">ShippingCost</a>
           class demonstrates how easy it is to use Janino as an expression evaluator.
         </p>
 
         <p>
           The <a
-          href="https://github.com/janino-compiler/janino/blob/master/commons-compiler/src/main/java/org/codehaus/commons/compiler/samples/ExpressionDemo.java">ExpressionDemo</a>
+          href="https://github.com/stefan-zobel/janino/blob/HEAD/commons-compiler/src/main/java/org/codehaus/commons/compiler/samples/ExpressionDemo.java">ExpressionDemo</a>
           class implements a command line-based test environment for the expression evaluator.
         </p>
 
         <p>
           The <a
-          href="https://github.com/janino-compiler/janino/blob/master/commons-compiler/src/main/java/org/codehaus/commons/compiler/samples/ScriptDemo.java">ScriptDemo</a>
+          href="https://github.com/stefan-zobel/janino/blob/HEAD/commons-compiler/src/main/java/org/codehaus/commons/compiler/samples/ScriptDemo.java">ScriptDemo</a>
           class implements a command line-based test environment for the script evaluator.
         </p>
 
         <p>
           The <a
-          href="https://github.com/janino-compiler/janino/blob/master/commons-compiler/src/main/java/org/codehaus/commons/compiler/samples/ClassBodyDemo.java">ClassBodyDemo</a>
+          href="https://github.com/stefan-zobel/janino/blob/HEAD/commons-compiler/src/main/java/org/codehaus/commons/compiler/samples/ClassBodyDemo.java">ClassBodyDemo</a>
           class implements a command line-based test environment for the class body evaluator.
         </p>
 
         <p>
           The <a
-          href="https://github.com/janino-compiler/janino/blob/master/janino/src/main/java/org/codehaus/janino/samples/DeclarationCounter.java">DeclarationCounter</a>
+          href="https://github.com/stefan-zobel/janino/blob/HEAD/janino/src/main/java/org/codehaus/janino/samples/DeclarationCounter.java">DeclarationCounter</a>
           class implements a command-line utility that counts class, interface, field and local variable declarations
           in a set of Java source files.
         </p>
@@ -910,7 +923,7 @@ public class Main {
 
         <p>
           There is a sample program "ExpressionDemo" that you can use to play around with the ExpressionEvaluator, or
-          you can study <a href="http://janino.unkrig.de/samples/ExpressionDemo.java">ExpressionDemo's source code</a>
+          you can study <a href="https://github.com/stefan-zobel/janino/blob/HEAD/commons-compiler/src/main/java/org/codehaus/commons/compiler/samples/ExpressionDemo.java">ExpressionDemo's source code</a>
           to learn about ExpressionEvaluator's API:
         </p>
 
@@ -1021,7 +1034,7 @@ Result = (null)
 $</pre></div>
 
         <p>
-          Check <a href="http://janino.unkrig.de/samples/ScriptDemo.java">the source code of ScriptDemo</a> to learn
+          Check <a href="https://github.com/stefan-zobel/janino/blob/HEAD/commons-compiler/src/main/java/org/codehaus/commons/compiler/samples/ScriptDemo.java">the source code of ScriptDemo</a> to learn
           more about the ScriptEvaluator API.
         </p>
 
@@ -1265,7 +1278,7 @@ Object o = cl.loadClass("pkg1.A").newInstance();
         </h4>
 
         <p>
-          The <a href="http://janino.unkrig.de/javadoc/org/codehaus/janino/Compiler.html">Compiler</a> class mimics the
+          The <a href="apidocs/org/codehaus/janino/Compiler.html">Compiler</a> class mimics the
           behavior of ORACLE's javac tool. It compiles a set of "compilation units" (i.e. Java source files) into a
           set of class files.
         </p>
@@ -1277,7 +1290,7 @@ Object o = cl.loadClass("pkg1.A").newInstance();
 
         <p>
           The BASH script "<a
-          href="https://github.com/janino-compiler/janino/blob/master/janino/bin/janinoc">bin/janinoc</a>" implements a
+          href="https://github.com/stefan-zobel/janino/blob/HEAD/janino/bin/janinoc">bin/janinoc</a>" implements a
           drop-in replacement for ORACLE's JAVAC utility:
         </p>
 
@@ -1314,7 +1327,7 @@ $</pre></div>
 
         <p>
           You can plug JANINO into the ANT utility through the <a
-          href="http://janino.unkrig.de/javadoc/org/codehaus/janino/AntCompilerAdapter.html">AntCompilerAdapter</a>
+          href="apidocs/org/codehaus/janino/AntCompilerAdapter.html">AntCompilerAdapter</a>
           class. Just make sure that janino.jar is on the class path, then run ANT with the following command-line
           option:
         </p>
@@ -1347,7 +1360,7 @@ $</pre></div>
         <p>
           Apart from compiling Java code, JANINO can be used for static code analysis: Based on the AST
           ("abstract syntax tree") produced by the parser, the <a
-          href="http://janino.unkrig.de/javadoc/org/codehaus/janino/util/Traverser.html">Traverser</a> walks through
+          href="apidocs/org/codehaus/janino/util/Traverser.html">Traverser</a> walks through
           all nodes of the AST, and derived classes can do all kinds of analyses on them, e.g. count declarations:
         </p>
 
@@ -1384,7 +1397,7 @@ UnparseVisitor.unparse(cu, new OutputStreamWriter(System.out));</pre></div>
 
         <p>
           The <a
-          href="https://github.com/janino-compiler/janino/blob/master/janino/src/test/java/org/codehaus/janino/tests/AstTest.java#LC359"><code>AstTest.testMoveLocalVariablesToFields()</code></a>
+          href="https://github.com/stefan-zobel/janino/blob/HEAD/janino/src/test/java/org/codehaus/janino/tests/AstTest.java#L364"><code>AstTest.testMoveLocalVariablesToFields()</code></a>
           test case demostrates how to manipulate an AST.
         </p>
 
@@ -1442,11 +1455,6 @@ UnparseVisitor.unparse(cu, new OutputStreamWriter(System.out));</pre></div>
         </h3>
 
         <p>
-          <b>Warning: JRE 17 reports "System::setSecurityManager will be removed in a future release", so you should not
-          use the Janino sandbox with JRE 17+.</b>
-        </p>
-
-        <p>
           Because the bytecode generated by JANINO has full access to the JRE, security problems can arise if the
           expression, script, class body or compilation unit being compiled and executed contains user input.
         </p>
@@ -1456,6 +1464,99 @@ UnparseVisitor.unparse(cu, new OutputStreamWriter(System.out));</pre></div>
           accordance with documentation and caveats you provide; however if the user is an intranet or internet user,
           no assumtions should be made about how clumsy, frivolous, creative, single-minded or even malicious he or she
           could be.
+        </p>
+
+        <p>
+          JANINO offers two ways to restrict what such code may do:
+        </p>
+        <ul>
+          <li>
+            A <a href="#sandbox-policy">sandbox policy</a> verifies the generated bytecode against an allowlist of APIs.
+            It works on every JRE from Java 8 on and is the recommended way.
+          </li>
+          <li>
+            The <a href="#security-manager-sandbox">sandbox based on the Java security manager</a> confines code at
+            runtime to a set of permissions. It works only on JREs that still support the security manager (Java 8
+            through 17, and Java 18 through 23 with <code>-Djava.security.manager=allow</code>).
+          </li>
+        </ul>
+
+        <h4>
+          <a id="sandbox-policy" class="anchor" href="#sandbox-policy" aria-hidden="true"><span aria-hidden="true"
+          class="octicon octicon-link"></span></a>Sandbox policy (Java 8 and later)
+        </h4>
+
+        <p>
+          JANINO can restrict the APIs that compiled code may use with a <em>sandbox policy</em>: an allowlist of the
+          fields, methods and constructors that the code may use. Before any generated class is loaded, JANINO verifies
+          its bytecode against the policy, and code that uses anything else is rejected at compile time with a
+          <code>CompileException</code>. Because the restriction is part of the compiled code, it also applies when your
+          application invokes that code later, e.g. a <code>Runnable</code> that a script returned. The mechanism works
+          on every JRE from Java 8 on, does not depend on the Java security manager, and is off unless you set a
+          policy:
+        </p>
+
+        <div class="highlight highlight-text-xml"><pre class="brush: java">
+import org.codehaus.commons.compiler.CompileException;
+import org.codehaus.commons.compiler.CompilerFactoryFactory;
+import org.codehaus.commons.compiler.IScriptEvaluator;
+import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
+
+public class SandboxPolicyDemo {
+
+    public static void
+    main(String[] args) throws Exception {
+
+        // Allow basic "java.lang" functionality and the core collections, and nothing else.
+        SandboxPolicy policy = SandboxPolicy.builder()
+            .include(SandboxPolicy.JAVA_LANG_BASIC)
+            .include(SandboxPolicy.COLLECTIONS)
+            .build();
+
+        // The example works as fine with ExpressionEvaluators, ClassBodyEvaluators and SimpleCompilers.
+        IScriptEvaluator se = CompilerFactoryFactory.getDefaultCompilerFactory(
+            SandboxPolicyDemo.class.getClassLoader()
+        ).newScriptEvaluator();
+        se.setSandboxPolicy(policy);
+
+        // Cooking a script that reads a system property fails with
+        //    org.codehaus.commons.compiler.CompileException: Sandbox violation:
+        //      SC: Access to java.lang.System.getProperty(java.lang.String) is not permitted by the sandbox policy
+        try {
+            se.cook("System.getProperty(\"user.home\");");
+        } catch (CompileException ce) {
+            System.err.println(ce.getMessage());
+        }
+    }
+}</pre></div>
+
+        <p>
+          Your own APIs, and further JDK classes, can be added to a policy with methods like
+          <code>allowAllMembers(...)</code> and <code>allowMethods(...)</code>. Some members are never allowed by such
+          class-wide rules, because they would let code escape the sandbox or affect the whole JVM: reflection, class
+          loading, threads, processes, file and network access, system properties, and changes to JVM-global state.
+        </p>
+
+        <p>
+          For details - how it works, the presets, how to add permissions, and the complete list of forbidden APIs -
+          see <a href="https://github.com/stefan-zobel/janino/blob/HEAD/SANDBOX.md">Restricting Untrusted Code with a
+          Sandbox Policy</a> and the JAVADOC of the package <a
+          href="apidocs/org/codehaus/commons/compiler/sandbox/package-summary.html"><code>org.codehaus.commons.compiler.sandbox</code></a>.
+        </p>
+
+        <h4>
+          <a id="security-manager-sandbox" class="anchor" href="#security-manager-sandbox" aria-hidden="true"><span
+          aria-hidden="true" class="octicon octicon-link"></span></a>Sandbox based on the Java security manager (Java 8
+          through 17)
+        </h4>
+
+        <p>
+          <b>The Java security manager was deprecated for removal in Java 17 and permanently disabled in Java 24. This
+          sandbox works on Java 8 through 17, and on Java 18 through 23 only if the JVM is started with
+          <code>-Djava.security.manager=allow</code>. On all other JVMs, the <code>Sandbox</code> constructor throws an
+          <code>UnsupportedOperationException</code>; <code>Sandbox.isSupported()</code> tells whether the sandbox can
+          be used on the running JVM. For code that must run on current JVMs, use a <a href="#sandbox-policy">sandbox
+          policy</a>.</b>
         </p>
 
         <p>
@@ -1537,7 +1638,26 @@ public class SandboxDemo {
           allowing <code>new RuntimePermission("accessDeclaredMembers")</code>.
         </p>
         <p>
-          Memory allocation can not be guarded, however,
+          Notice that the permissions only apply while the code executes <em>inside</em>
+          <code>Sandbox.confine()</code>. If a script returns an object (e.g. a <code>Runnable</code>), and your
+          application invokes it later outside of <code>confine()</code>, then that code runs with the full permissions
+          of your application. (A sandbox policy does not have this limitation.)
+        </p>
+        <p>
+          On JREs that support the security manager, both ways can be combined: set a sandbox policy on the evaluator,
+          and execute the compiled code inside <code>Sandbox.confine()</code>. See <a
+          href="https://github.com/stefan-zobel/janino/blob/HEAD/SANDBOX.md#7-the-security-manager-based-sandbox">Restricting
+          Untrusted Code with a Sandbox Policy</a> for an example.
+        </p>
+
+        <h4>
+          <a id="memory-and-cpu-time" class="anchor" href="#memory-and-cpu-time" aria-hidden="true"><span
+          aria-hidden="true" class="octicon octicon-link"></span></a>Memory and CPU time
+        </h4>
+
+        <p>
+          Neither way restricts how much memory or CPU time the code consumes. Run untrusted code on a separate thread
+          with a timeout.
           <code>com.sun.management.ThreadMXBean.getThreadAllocatedBytes(long threadId)</code> appears to <em>count the
           number of bytes ever allocated by a thread</em>, and may thus be a good measure to detect excessive memory
           allocation by a running script.
@@ -1606,7 +1726,7 @@ $ java \
             problem with a JUNIT unit test, or with the ExpressionDemo/ScriptDemo/ClassBodyDemo command-line tools.
           </li>
           <li>
-            Sign up at GITHUB and create an issue <a href="https://github.com/janino-compiler/janino/issues">there</a>.
+            Sign up at GITHUB and create an issue <a href="https://github.com/stefan-zobel/janino/issues">there</a>.
             Please state which version of Janino you were using, what you did, what you expected to happen and what
             actually happened.
           </li>
@@ -1618,7 +1738,7 @@ $ java \
         </h3>
 
         <p>
-          If you require support, <a href="https://github.com/janino-compiler/janino/issues">this</a> is the place
+          If you require support, <a href="https://github.com/stefan-zobel/janino/issues">this</a> is the place
           to ask for it.
         </p>
 
@@ -1628,7 +1748,7 @@ $ java \
         </h3>
 
         <p>
-          Feel free to submit feature requests <a href="https://github.com/janino-compiler/janino/issues">here</a>.
+          Feel free to submit feature requests <a href="https://github.com/stefan-zobel/janino/issues">here</a>.
         </p>
 
         <h3>
@@ -1652,16 +1772,16 @@ $ java \
         </h3>
 
         <p>
-          The JANINO code repository is <a href="https://github.com/janino-compiler/janino">here</a>. You have to check
+          The JANINO code repository is <a href="https://github.com/stefan-zobel/janino">here</a>. You have to check
           out at least the following projects:
         </p>
 
         <ul>
-          <li><a href="https://github.com/janino-compiler/janino/tree/master/janino-parent">janino-parent</a></li>
+          <li><a href="https://github.com/stefan-zobel/janino/tree/HEAD/janino-parent">janino-parent</a></li>
           <li>
-            <a href="https://github.com/janino-compiler/janino/tree/master/commons-compiler">commons-compiler</a>
+            <a href="https://github.com/stefan-zobel/janino/tree/HEAD/commons-compiler">commons-compiler</a>
           </li>
-          <li><a href="https://github.com/janino-compiler/janino/tree/master/janino">janino</a></li>
+          <li><a href="https://github.com/stefan-zobel/janino/tree/HEAD/janino">janino</a></li>
         </ul>
 
         <p>Optional:</p>
@@ -1669,11 +1789,11 @@ $ java \
         <ul>
           <li>
             <a
-            href="https://github.com/janino-compiler/janino/tree/master/commons-compiler-jdk">commons-compiler-jdk</a>
+            href="https://github.com/stefan-zobel/janino/tree/HEAD/commons-compiler-jdk">commons-compiler-jdk</a>
           </li>
           <li>
             <a
-            href="https://github.com/janino-compiler/janino/tree/master/commons-compiler-tests">commons-compiler-tests</a>
+            href="https://github.com/stefan-zobel/janino/tree/HEAD/commons-compiler-tests">commons-compiler-tests</a>
           </li>
           <li>
             <a href="https://github.com/aunkrig/jdisasm/tree/master/jdisasm">jdisasm</a>
@@ -1682,7 +1802,13 @@ $ java \
 
         <p>
           Then you can build the JAR files, the source archives and the JAVADOC archives by running <code>mvn
-          install</code> in the <code>janino-parent</code> project.
+          install</code> in the <code>janino-parent</code> project. This requires a JDK that can compile for Java 8
+          (<code>--release 8</code>), e.g. JDK 25.
+        </p>
+
+        <p>
+          <code>mvn -f janino-parent/pom.xml -P website</code> assembles this website, including the JAVADOC, in
+          <code>janino-parent/target/website</code>.
         </p>
 
         <h3>
@@ -1691,13 +1817,15 @@ $ java \
         </h3>
 
         <p>
-          If you want to contribute, turn to me: arno att unkrig dott de. Any support is welcome, be it bug reports,
-          feature requests, documentation reviews or other work. Help building a better world with JANINO!
+          If you want to contribute, create an <a href="https://github.com/stefan-zobel/janino/issues">issue</a> or a
+          <a href="https://github.com/stefan-zobel/janino/pulls">pull request</a>. Any support is welcome, be it bug
+          reports, feature requests, documentation reviews or other work. Help building a better world with JANINO!
         </p>
       </section>
     </div>
     <footer>
-      <p>Project maintained by <a href="https://github.com/janino-compiler">janino-compiler</a></p>
+      <p>Project maintained by <a href="https://github.com/stefan-zobel">stefan-zobel</a></p>
+      <p>Originally created by Arno Unkrig (<a href="https://github.com/janino-compiler">janino-compiler</a>)</p>
       <p>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></p>
     </footer>
 

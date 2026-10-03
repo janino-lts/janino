@@ -30,9 +30,9 @@ ee.cook("System.getProperty(\"user.home\")");
 
 ### Relationship to the legacy `Sandbox` class
 
-Earlier versions offered `org.codehaus.commons.compiler.Sandbox`, which is based on the Java security manager. The
-security manager has been deprecated (Java 17) and permanently disabled (Java 24), so that class only works on
-older JVMs:
+JANINO also still offers the sandbox of earlier versions, `org.codehaus.commons.compiler.Sandbox`, which is based on
+the Java security manager (see [section 7](#7-the-security-manager-based-sandbox)). The security manager has been
+deprecated (Java 17) and permanently disabled (Java 24), so that class only works on older JVMs:
 
 | JVM          | Legacy `Sandbox`                                                                  | Sandbox policy |
 |--------------|-----------------------------------------------------------------------------------|----------------|
@@ -134,6 +134,22 @@ Sandbox violations:
 
 The class name (`SC` in this example) is the name of the generated class. Violations do not (yet) carry a source
 line number.
+
+**Extended classes and implemented interfaces.** If you let the generated class extend a class or implement
+interfaces - through `setExtendedClass(...)`, `setImplementedInterfaces(...)`, or `createFastEvaluator(...)` with an
+interface - the policy must allow that with `allowSubclassing(...)`, e.g.
+
+```java
+SandboxPolicy policy = SandboxPolicy.builder()
+    .include(SandboxPolicy.JAVA_LANG_BASIC)
+    .allowSubclassing("com.acme.script.Calculator")
+    .build();
+se.setSandboxPolicy(policy);
+Calculator c = (Calculator) se.createFastEvaluator(script, Calculator.class, new String[] { "a", "b" });
+```
+
+Otherwise cooking fails with `Implementing com.acme.script.Calculator is not permitted by the sandbox policy`.
+(`Runnable`, `Comparable`, `Iterable` and a few others are already allowed by `JAVA_LANG_BASIC`.)
 
 ### 3.2 Loading classes from source files
 
@@ -338,7 +354,75 @@ level:
 
 ---
 
-## 7. API reference (package `org.codehaus.commons.compiler.sandbox`)
+## 7. The security-manager-based sandbox
+
+Applications that run on JVMs with security manager support (Java 8 through 17, or Java 18 through 23 with
+`-Djava.security.manager=allow`) can still use the sandbox of earlier versions. Instead of verifying the code at
+compile time, it confines the code **at runtime** to a set of `java.security` permissions:
+
+```java
+import java.security.Permissions;
+import java.security.PrivilegedAction;
+import java.util.PropertyPermission;
+
+import org.codehaus.commons.compiler.Sandbox;
+import org.codehaus.janino.ScriptEvaluator;
+
+// Allow reading the system property "foo", and forbid everything else.
+Permissions permissions = new Permissions();
+permissions.add(new PropertyPermission("foo", "read"));
+
+ScriptEvaluator se = new ScriptEvaluator();
+PrivilegedAction<?> pa = se.createFastEvaluator((
+    "System.getProperty(\"foo\");\n" +
+    "System.getProperty(\"bar\");\n" +
+    "return null;\n"
+), PrivilegedAction.class, new String[0]);
+
+// Reading "foo" succeeds; reading "bar" throws
+//    java.security.AccessControlException: access denied ("java.util.PropertyPermission" "bar" "read")
+Sandbox sandbox = new Sandbox(permissions);
+sandbox.confine(pa);
+```
+
+On JVMs without security manager support, the `Sandbox` constructor throws an `UnsupportedOperationException` that
+explains the requirements; check `Sandbox.isSupported()` beforehand if your application runs on different JVMs.
+
+How the two mechanisms differ:
+
+| Aspect                         | `Sandbox` (security manager)                                 | Sandbox policy                                       |
+|--------------------------------|--------------------------------------------------------------|------------------------------------------------------|
+| JVMs                           | Java 8 - 17 (18 - 23 with `-Djava.security.manager=allow`)   | Java 8 and later                                     |
+| When                           | At runtime, for each guarded operation                       | Once, at compile time                                |
+| Granularity                    | Permissions, including parameters (e.g. file paths, hosts)   | Fields, methods and constructors                     |
+| Scope                          | Only code executed *inside* `confine()`; threads started there inherit the restrictions | All code of the compiled classes, also when invoked later |
+| Effect on the JVM              | Installs a security manager (with a permissive policy for all other code) when the class is first used | None                     |
+| Memory, CPU time               | Not restricted                                               | Not restricted                                       |
+
+Notice the scope: if a script returns an object (e.g. a `Runnable`), and the application invokes it later outside
+of `confine()`, that code runs with the full permissions of the application.
+
+On JVMs that support both, the two mechanisms can be combined: set a sandbox policy on the cookable, and execute the
+compiled code inside `Sandbox.confine()`. The policy then rejects forbidden APIs at compile time, and the permissions
+restrict the allowed APIs at runtime. Because the example above lets the script implement `PrivilegedAction`, the
+policy must allow that (see 3.1):
+
+```java
+SandboxPolicy policy = SandboxPolicy.builder()
+    .include(SandboxPolicy.JAVA_LANG_BASIC)
+    .allowMethod("java.lang.System", "getProperty", "(Ljava/lang/String;)Ljava/lang/String;")
+    .allowSubclassing("java.security.PrivilegedAction")
+    .build();
+
+ScriptEvaluator se = new ScriptEvaluator();
+se.setSandboxPolicy(policy);   // compile time: only JAVA_LANG_BASIC and System.getProperty(String)
+PrivilegedAction<?> pa = se.createFastEvaluator(script, PrivilegedAction.class, new String[0]);
+new Sandbox(permissions).confine(pa);   // runtime: only the system property "foo"
+```
+
+---
+
+## 8. API reference (package `org.codehaus.commons.compiler.sandbox`)
 
 | Type / method                                                    | Purpose                                                   |
 |------------------------------------------------------------------|-----------------------------------------------------------|
@@ -352,3 +436,4 @@ level:
 | `BytecodeVerifier`                                               | Verifies class files against a policy                     |
 | `SandboxViolation`                                               | One violation: class name and message                     |
 | `SandboxViolationException`                                      | Cause of the `CompileException` / `ClassNotFoundException`; `getViolations()` |
+| `org.codehaus.commons.compiler.Sandbox`, `Sandbox.isSupported()` | The security-manager-based sandbox (section 7)            |
