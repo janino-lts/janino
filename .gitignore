@@ -5,6 +5,8 @@
 
 # ignore .project since everyone's different!
 **/.project
+**/.settings/
+**/.classpath
 
 # ignore temp files
 *~
