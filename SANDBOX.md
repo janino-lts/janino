@@ -43,6 +43,9 @@ deprecated (Java 17) and permanently disabled (Java 24), so that class only work
 `Sandbox.isSupported()` tells whether the legacy sandbox can be used on the running JVM. For new code, and for any
 code that must run on current JVMs, use the sandbox policy.
 
+**Notice:** The legacy sandbox has a known weakness that lets code escape from it; see the warning in
+[section 7](#7-the-security-manager-based-sandbox).
+
 ---
 
 ## 2. How it works
@@ -358,7 +361,18 @@ level:
 
 Applications that run on JVMs with security manager support (Java 8 through 17, or Java 18 through 23 with
 `-Djava.security.manager=allow`) can still use the sandbox of earlier versions. Instead of verifying the code at
-compile time, it confines the code **at runtime** to a set of `java.security` permissions:
+compile time, it confines the code **at runtime** to a set of `java.security` permissions.
+
+> **Warning: Code can escape from this sandbox.** Code that runs inside `Sandbox.confine()` can call
+> `java.security.AccessController.doPrivileged(...)` itself, and thus perform actions that the sandbox's permissions
+> do not allow - even with no permissions at all (reported as
+> [issue #226](https://github.com/janino-compiler/janino/issues/226) of the original project). The reason is that
+> the generated classes are defined with the protection domain of JANINO itself, and the sandbox grants all
+> permissions to all code outside `confine()`. Therefore, do not rely on this sandbox alone to run untrusted code:
+> combine it with a sandbox policy, which rejects such code at compile time (see the end of this section), or use a
+> sandbox policy instead.
+
+Example:
 
 ```java
 import java.security.Permissions;
@@ -398,12 +412,14 @@ How the two mechanisms differ:
 | Scope                          | Only code executed *inside* `confine()`; threads started there inherit the restrictions | All code of the compiled classes, also when invoked later |
 | Effect on the JVM              | Installs a security manager (with a permissive policy for all other code) when the class is first used | None                     |
 | Memory, CPU time               | Not restricted                                               | Not restricted                                       |
+| Known weaknesses               | Code can escape by calling `AccessController.doPrivileged()` (see the warning above) | Not affected: the presets do not allow `AccessController` |
 
 Notice the scope: if a script returns an object (e.g. a `Runnable`), and the application invokes it later outside
 of `confine()`, that code runs with the full permissions of the application.
 
 On JVMs that support both, the two mechanisms can be combined: set a sandbox policy on the cookable, and execute the
-compiled code inside `Sandbox.confine()`. The policy then rejects forbidden APIs at compile time, and the permissions
+compiled code inside `Sandbox.confine()`. The policy then rejects forbidden APIs at compile time, including
+`AccessController.doPrivileged(...)`, which closes the escape described in the warning above; the permissions
 restrict the allowed APIs at runtime. Because the example above lets the script implement `PrivilegedAction`, the
 policy must allow that (see 3.1):
 

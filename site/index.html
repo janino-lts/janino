@@ -1482,7 +1482,8 @@ UnparseVisitor.unparse(cu, new OutputStreamWriter(System.out));</pre></div>
           <li>
             The <a href="#security-manager-sandbox">sandbox based on the Java security manager</a> confines code at
             runtime to a set of permissions. It works only on JREs that still support the security manager (Java 8
-            through 17, and Java 18 through 23 with <code>-Djava.security.manager=allow</code>).
+            through 17, and Java 18 through 23 with <code>-Djava.security.manager=allow</code>), and it has a
+            <a href="#security-manager-sandbox-escape">known weakness</a> that lets code escape from it.
           </li>
         </ul>
 
@@ -1562,6 +1563,17 @@ public class SandboxPolicyDemo {
           <code>UnsupportedOperationException</code>; <code>Sandbox.isSupported()</code> tells whether the sandbox can
           be used on the running JVM. For code that must run on current JVMs, use a <a href="#sandbox-policy">sandbox
           policy</a>.</b>
+        </p>
+
+        <p id="security-manager-sandbox-escape" style="border:solid 1px; padding:12px">
+          <b>Warning: Code can escape from this sandbox.</b> Code that runs inside <code>Sandbox.confine()</code> can
+          call <code>java.security.AccessController.doPrivileged(...)</code> itself, and thus perform actions that the
+          sandbox's permissions do not allow - even with no permissions at all (reported as
+          <a href="https://github.com/janino-compiler/janino/issues/226">issue #226</a> of the original project).
+          The reason is that the generated classes are defined with the protection domain of JANINO itself, and the
+          sandbox grants all permissions to all code outside <code>confine()</code>. Therefore, do not rely on this
+          sandbox alone to run untrusted code: combine it with a <a href="#sandbox-policy">sandbox policy</a>, which
+          rejects such code at compile time (see below), or use a sandbox policy instead.
         </p>
 
         <p>
@@ -1650,7 +1662,9 @@ public class SandboxDemo {
         </p>
         <p>
           On JREs that support the security manager, both ways can be combined: set a sandbox policy on the evaluator,
-          and execute the compiled code inside <code>Sandbox.confine()</code>. See <a
+          and execute the compiled code inside <code>Sandbox.confine()</code>. The sandbox policy then rejects
+          forbidden APIs at compile time, including <code>AccessController.doPrivileged(...)</code>, which closes the
+          escape described above; the permissions restrict the allowed APIs at runtime. See <a
           href="https://github.com/stefan-zobel/janino/blob/HEAD/SANDBOX.md#7-the-security-manager-based-sandbox">Restricting
           Untrusted Code with a Sandbox Policy</a> for an example.
         </p>
