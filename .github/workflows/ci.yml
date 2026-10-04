@@ -37,7 +37,7 @@ jobs:
         test-java: [ 8, 17, 21, 25 ]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # The JDK that executes the tests.
       - name: Set up Java ${{ matrix.test-java }} for the tests
