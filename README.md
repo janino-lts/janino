@@ -8,6 +8,10 @@ that compiled code may use, enforced by a bytecode verifier before the classes a
 (CPU time and memory) for executing the compiled code. JANINO requires Java 8 or later and is tested on Java 8, 17,
 21 and 25.
 
+JANINO is used by several large Apache projects, among others [Apache Spark](https://spark.apache.org/),
+[Apache Calcite](https://calcite.apache.org/), [Apache Flink](https://flink.apache.org/) and
+[Apache Hive](https://hive.apache.org/). (They use the original JANINO 3.1.12 from Maven Central, not this fork.)
+
 Please visit the [project homepage](https://stefan-zobel.github.io/janino/).
 
 To restrict what untrusted code that is compiled at runtime may do, see
