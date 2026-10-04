@@ -558,6 +558,8 @@ class SandboxPolicy {
     private final Set<String> allMembersClasses;
     private final Set<String> subclassableClasses;
 
+    private final boolean executorRequired;
+
     private
     SandboxPolicy(Builder builder) {
         this.methods             = Collections.unmodifiableSet(new HashSet<String>(builder.methods));
@@ -566,6 +568,7 @@ class SandboxPolicy {
         this.constructorClasses  = Collections.unmodifiableSet(new HashSet<String>(builder.constructorClasses));
         this.allMembersClasses   = Collections.unmodifiableSet(new HashSet<String>(builder.allMembersClasses));
         this.subclassableClasses = Collections.unmodifiableSet(new HashSet<String>(builder.subclassableClasses));
+        this.executorRequired    = builder.executorRequired;
     }
 
     /**
@@ -606,6 +609,13 @@ class SandboxPolicy {
     isSubclassingAllowed(String className) { return this.subclassableClasses.contains(className); }
 
     /**
+     * @return Whether code that JANINO compiles with this policy may only be executed by a {@link SandboxExecutor};
+     *         see {@link Builder#requireExecutor()}
+     */
+    public boolean
+    isExecutorRequired() { return this.executorRequired; }
+
+    /**
      * @return Whether the <var>member</var> is one of the members that are never allowed unless a policy names them
      *         explicitly; see {@link SandboxPolicy the class documentation}
      */
@@ -640,6 +650,7 @@ class SandboxPolicy {
         private final Set<String> constructorClasses  = new HashSet<String>();
         private final Set<String> allMembersClasses   = new HashSet<String>();
         private final Set<String> subclassableClasses = new HashSet<String>();
+        private boolean           executorRequired;
 
         Builder() {}
 
@@ -716,7 +727,28 @@ class SandboxPolicy {
         }
 
         /**
-         * Adds all rules of the given <var>policy</var>, e.g. of {@link SandboxPolicy#JAVA_LANG_BASIC}.
+         * Requires that code that JANINO compiles with this policy is executed only by a {@link SandboxExecutor}.
+         * <p>
+         *   By default, the resource limit checks that JANINO inserts do nothing outside of a {@link
+         *   SandboxExecutor}. That concerns e.g. static initializers and constructors that run when the host
+         *   instantiates a generated class, and methods like {@code toString()} that the host calls on an object
+         *   that the sandboxed code returned. With this option, these checks throw an {@link
+         *   IllegalStateException} instead, so that sandboxed code cannot run without limits.
+         * </p>
+         * <p>
+         *   This option has no effect on the JDK back end ({@code commons-compiler-jdk}), which does not insert
+         *   resource limit checks.
+         * </p>
+         */
+        public Builder
+        requireExecutor() {
+            this.executorRequired = true;
+            return this;
+        }
+
+        /**
+         * Adds all rules of the given <var>policy</var>, e.g. of {@link SandboxPolicy#JAVA_LANG_BASIC}, and requires
+         * an executor if the <var>policy</var> does.
          */
         public Builder
         include(SandboxPolicy policy) {
@@ -726,6 +758,7 @@ class SandboxPolicy {
             this.constructorClasses.addAll(policy.constructorClasses);
             this.allMembersClasses.addAll(policy.allMembersClasses);
             this.subclassableClasses.addAll(policy.subclassableClasses);
+            this.executorRequired |= policy.executorRequired;
             return this;
         }
 

@@ -477,4 +477,21 @@ class SandboxPolicyTest {
             "(Ljava/util/TimeZone;)V"
         )));
     }
+
+    @SuppressWarnings("static-method") @Test public void
+    testRequireExecutor() {
+        Assert.assertFalse(SandboxPolicy.JAVA_LANG_BASIC.isExecutorRequired());
+
+        SandboxPolicy strict = SandboxPolicy.builder()
+            .include(SandboxPolicy.JAVA_LANG_BASIC)
+            .requireExecutor()
+            .build();
+        Assert.assertTrue(strict.isExecutorRequired());
+
+        // "include()" takes over the requirement.
+        Assert.assertTrue(SandboxPolicy.builder().include(strict).build().isExecutorRequired());
+        Assert.assertTrue(
+            SandboxPolicy.builder().include(strict).include(SandboxPolicy.COLLECTIONS).build().isExecutorRequired()
+        );
+    }
 }

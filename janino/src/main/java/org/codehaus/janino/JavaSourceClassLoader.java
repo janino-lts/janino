@@ -287,7 +287,9 @@ class JavaSourceClassLoader extends AbstractJavaSourceClassLoader {
     generateBytecodes(String name) throws ClassNotFoundException {
 
         // Code that is compiled with a sandbox policy checks the resource limits of a "SandboxExecutor".
-        this.iClassLoader.setSandboxInstrumentation(this.sandboxPolicy != null);
+        SandboxPolicy policy = this.sandboxPolicy;
+        this.iClassLoader.setSandboxInstrumentation(policy != null);
+        this.iClassLoader.setSandboxExecutorRequired(policy != null && policy.isExecutorRequired());
 
         if (this.iClassLoader.loadIClass(Descriptor.fromClassName(name)) == null) return null;
 

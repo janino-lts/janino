@@ -62,6 +62,16 @@ h5 {
         Sandbox Policy</a>.
       </li>
       <li>
+        <code>SandboxPolicy.Builder.requireExecutor()</code>: The checks that JANINO inserts throw an
+        <code>IllegalStateException</code> if the code is executed outside of a <code>SandboxExecutor</code> (e.g. a
+        static initializer when the application instantiates the generated class, or the <code>toString()</code>
+        method of a returned object), so that sandboxed code cannot run without limits by accident.
+      </li>
+      <li>
+        The sandbox verifier rejects classes that declare a <code>finalize()</code> method, because the JVM calls it
+        on its finalizer thread, outside of any <code>SandboxExecutor</code>.
+      </li>
+      <li>
         <code>DeepCopier</code> can now be compiled by JANINO itself.
       </li>
       <li>

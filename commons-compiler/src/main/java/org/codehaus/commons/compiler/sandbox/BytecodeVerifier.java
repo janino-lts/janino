@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.function.Supplier;
 
 import org.codehaus.commons.compiler.sandbox.ClassFileReader.DynamicReference;
@@ -55,6 +56,10 @@ import org.codehaus.commons.nullanalysis.Nullable;
  * <ul>
  *   <li>its superclass and interfaces (see {@link SandboxPolicy#isSubclassingAllowed(String)}),</li>
  *   <li>that it declares no {@code native} methods,</li>
+ *   <li>
+ *     that it declares no {@code finalize()} method (which the JVM would call outside of any {@link
+ *     SandboxExecutor}),
+ *   </li>
  *   <li>
  *     every field and method reference in its constant pool (including those referenced by method handles), and
  *   </li>
@@ -170,8 +175,11 @@ class BytecodeVerifier {
 
         // The resource limit checks that JANINO inserts (see "Guard"); the other members of "Guard" are not public.
         "org.codehaus.commons.compiler.sandbox.Guard#arrayLength",
+        "org.codehaus.commons.compiler.sandbox.Guard#arrayLengthStrict",
         "org.codehaus.commons.compiler.sandbox.Guard#newArray",
-        "org.codehaus.commons.compiler.sandbox.Guard#tick"
+        "org.codehaus.commons.compiler.sandbox.Guard#newArrayStrict",
+        "org.codehaus.commons.compiler.sandbox.Guard#tick",
+        "org.codehaus.commons.compiler.sandbox.Guard#tickStrict"
     );
 
     private final SandboxPolicy policy;
@@ -332,6 +340,27 @@ class BytecodeVerifier {
             // The violations that concern the use of members are reported per source line.
             String      sourceFileName = cfr.getSourceFileName();
             Set<String> reported       = new HashSet<String>();
+
+            // The JVM calls "finalize()" on its finalizer thread, i.e. outside of any "SandboxExecutor", so that the
+            // resource limits would not apply, and a non-terminating finalizer would block finalization in the whole
+            // JVM.
+            for (MemberDeclaration md : cfr.getMethods()) {
+                if (
+                    "finalize".equals(md.getName())
+                    && "()V".equals(md.getDescriptor())
+                    && (md.getAccessFlags() & Modifier.STATIC) == 0
+                ) {
+                    SortedSet<Integer> lineNumbers = new TreeSet<Integer>();
+                    if (md.getLineNumber() != -1) lineNumbers.add(Integer.valueOf(md.getLineNumber()));
+                    this.violation(
+                        className,
+                        "Declaring finalize() is not permitted, because the JVM calls it outside of the sandbox",
+                        sourceFileName,
+                        lineNumbers,
+                        reported
+                    );
+                }
+            }
 
             // Verify all field and method references. (That includes the members referenced by method handles,
             // because these refer to the same constant pool entries.)

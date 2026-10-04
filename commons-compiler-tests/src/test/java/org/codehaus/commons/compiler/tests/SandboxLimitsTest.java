@@ -25,6 +25,7 @@
 package org.codehaus.commons.compiler.tests;
 
 import java.io.File;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
@@ -32,7 +33,9 @@ import java.util.concurrent.TimeUnit;
 
 import org.codehaus.commons.compiler.AbstractJavaSourceClassLoader;
 import org.codehaus.commons.compiler.CompileException;
+import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
+import org.codehaus.commons.compiler.IExpressionEvaluator;
 import org.codehaus.commons.compiler.IScriptEvaluator;
 import org.codehaus.commons.compiler.sandbox.SandboxExecutor;
 import org.codehaus.commons.compiler.sandbox.SandboxLimitExceededException;
@@ -40,6 +43,7 @@ import org.codehaus.commons.compiler.sandbox.SandboxLimits;
 import org.codehaus.commons.compiler.sandbox.SandboxLimits.Limit;
 import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
 import org.codehaus.commons.compiler.sandbox.SandboxViolationException;
+import org.codehaus.commons.nullanalysis.Nullable;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Rule;
@@ -64,6 +68,19 @@ class SandboxLimitsTest {
         .include(SandboxPolicy.COLLECTIONS)
         .allowMethods("java.lang.System", "nanoTime")
         .build();
+
+    private static final SandboxPolicy STRICT_POLICY = SandboxPolicy.builder()
+        .include(SandboxLimitsTest.POLICY)
+        .requireExecutor()
+        .build();
+
+    // A class body with a static initializer that counts to ten.
+    private static final String COUNTING_CLASS_BODY = (
+        ""
+        + "static int n;\n"
+        + "static { for (int i = 0; i < 10; i++) n++; }\n"
+        + "public String toString() { return \"\" + n; }\n"
+    );
 
     private static final SandboxLimits TICK_LIMITS = SandboxLimits.builder()
         .timeout(30, TimeUnit.SECONDS)
@@ -296,6 +313,141 @@ class SandboxLimitsTest {
             // Only JANINO inserts the checks, which stop the code.
             Assert.assertEquals(this.isJanino(), slee.isThreadTerminated());
         }
+    }
+
+    /**
+     * Without {@link SandboxPolicy.Builder#requireExecutor()}, generated code runs without limits outside of the
+     * executor, e.g. a static initializer when the host instantiates the class.
+     */
+    @Test public void
+    testStaticInitializerOutsideOfExecutor() throws Exception {
+        IClassBodyEvaluator cbe = this.newClassBodyEvaluator(SandboxLimitsTest.POLICY, (
+            ""
+            + "static int n;\n"
+            + "static { for (int i = 0; i < 10000; i++) n++; }\n"
+            + "public String toString() { return \"\" + n; }\n"
+        ));
+        Assert.assertEquals("10000", cbe.getClazz().getConstructor().newInstance().toString());
+    }
+
+    /**
+     * With {@link SandboxPolicy.Builder#requireExecutor()}, the code that JANINO generates throws an {@link
+     * IllegalStateException} outside of the executor.
+     */
+    @Test public void
+    testRequireExecutor() throws Exception {
+        this.assumeJanino();
+
+        SandboxExecutor executor   = new SandboxExecutor(SandboxLimitsTest.TICK_LIMITS);
+        String          classBody1 = SandboxLimitsTest.COUNTING_CLASS_BODY;
+
+        // A static initializer, executed when the host instantiates the class.
+        try {
+            this.newClassBodyEvaluator(SandboxLimitsTest.STRICT_POLICY, classBody1)
+            .getClazz()
+            .getConstructor()
+            .newInstance();
+            Assert.fail("ExceptionInInitializerError expected");
+        } catch (ExceptionInInitializerError eiie) {
+            SandboxLimitsTest.assertExecutorRequired(eiie.getCause());
+        }
+        final IClassBodyEvaluator cbe1 = this.newClassBodyEvaluator(SandboxLimitsTest.STRICT_POLICY, classBody1);
+        Assert.assertEquals(
+            "10",
+            executor.call(() -> cbe1.getClazz().getConstructor().newInstance().toString())
+        );
+
+        // An endless static initializer, executed by the executor.
+        final IClassBodyEvaluator cbe2 = this.newClassBodyEvaluator(
+            SandboxLimitsTest.STRICT_POLICY,
+            "static int n; static { while (n >= 0) n = 1; }"
+        );
+        try {
+            executor.call(() -> cbe2.getClazz().getConstructor().newInstance());
+            Assert.fail("SandboxLimitExceededException expected");
+        } catch (SandboxLimitExceededException slee) {
+            Assert.assertEquals(Limit.TICKS, slee.getLimit());
+        }
+
+        // An instance field initializer, which runs before the constructor body.
+        try {
+            this.newClassBodyEvaluator(SandboxLimitsTest.STRICT_POLICY, "long[] a = new long[3];")
+            .getClazz()
+            .getConstructor()
+            .newInstance();
+            Assert.fail("InvocationTargetException expected");
+        } catch (InvocationTargetException ite) {
+            SandboxLimitsTest.assertExecutorRequired(ite.getCause());
+        }
+
+        // A script.
+        final IScriptEvaluator se = this.newScriptEvaluator();
+        se.setSandboxPolicy(SandboxLimitsTest.STRICT_POLICY);
+        se.cook(
+            ""
+            + "return new Object() {\n"
+            + "    public String toString() { String s = \"\"; for (int i = 0; i < 3; i++) s += i; return s; }\n"
+            + "};\n"
+        );
+        try {
+            se.evaluate();
+            Assert.fail("InvocationTargetException expected");
+        } catch (InvocationTargetException ite) {
+            SandboxLimitsTest.assertExecutorRequired(ite.getCause());
+        }
+
+        // A callback on the result of the script.
+        final Object result = executor.call(() -> se.evaluate());
+        try {
+            result.toString();
+            Assert.fail("IllegalStateException expected");
+        } catch (IllegalStateException ise) {
+            SandboxLimitsTest.assertExecutorRequired(ise);
+        }
+        Assert.assertEquals("012", executor.call(() -> result.toString()));
+
+        // An expression without loops; the method entry is checked.
+        final IExpressionEvaluator ee = this.compilerFactory.newExpressionEvaluator();
+        ee.setSandboxPolicy(SandboxLimitsTest.STRICT_POLICY);
+        ee.cook("1 + 2");
+        try {
+            ee.evaluate();
+            Assert.fail("InvocationTargetException expected");
+        } catch (InvocationTargetException ite) {
+            SandboxLimitsTest.assertExecutorRequired(ite.getCause());
+        }
+        Assert.assertEquals(3, executor.call(() -> ee.evaluate()));
+    }
+
+    /**
+     * The JDK back end does not insert any checks, so {@link SandboxPolicy.Builder#requireExecutor()} has no effect.
+     */
+    @Test public void
+    testRequireExecutorWithoutChecks() throws Exception {
+        Assume.assumeFalse("Not JANINO", this.isJanino());
+
+        IClassBodyEvaluator cbe = this.newClassBodyEvaluator(
+            SandboxLimitsTest.STRICT_POLICY,
+            SandboxLimitsTest.COUNTING_CLASS_BODY
+        );
+        Assert.assertEquals("10", cbe.getClazz().getConstructor().newInstance().toString());
+    }
+
+    private static void
+    assertExecutorRequired(@Nullable Throwable t) {
+        if (!(t instanceof IllegalStateException)) {
+            Assert.fail("IllegalStateException expected, but got " + t);
+            return;
+        }
+        Assert.assertEquals("Sandboxed code must be executed by a SandboxExecutor", t.getMessage());
+    }
+
+    private IClassBodyEvaluator
+    newClassBodyEvaluator(SandboxPolicy policy, String classBody) throws Exception {
+        IClassBodyEvaluator cbe = this.compilerFactory.newClassBodyEvaluator();
+        cbe.setSandboxPolicy(policy);
+        cbe.cook(classBody);
+        return cbe;
     }
 
     private Object

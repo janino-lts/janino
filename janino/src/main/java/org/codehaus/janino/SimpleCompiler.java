@@ -284,9 +284,12 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
         try {
 
             // Code that is compiled with a sandbox policy checks the resource limits of a "SandboxExecutor".
-            Java.AbstractCompilationUnit acu = (
-                this.sandboxPolicy != null
-                ? new SandboxInstrumenter().copyAbstractCompilationUnit(abstractCompilationUnit)
+            SandboxPolicy                policy = this.sandboxPolicy;
+            Java.AbstractCompilationUnit acu    = (
+                policy != null
+                ? new SandboxInstrumenter(policy.isExecutorRequired()).copyAbstractCompilationUnit(
+                    abstractCompilationUnit
+                )
                 : abstractCompilationUnit
             );
 

@@ -211,6 +211,57 @@ class SandboxExecutorTest {
     }
 
     @SuppressWarnings("static-method") @Test public void
+    testStrictOutsideOfExecutor() {
+        try {
+            Guard.tickStrict();
+            Assert.fail();
+        } catch (IllegalStateException ise) {
+            Assert.assertEquals("Sandboxed code must be executed by a SandboxExecutor", ise.getMessage());
+        }
+        try {
+            Guard.arrayLengthStrict(1, 8);
+            Assert.fail();
+        } catch (IllegalStateException ise) {
+            ;
+        }
+        try {
+            Guard.newArrayStrict(int.class, new int[] { 1, 1 });
+            Assert.fail();
+        } catch (IllegalStateException ise) {
+            ;
+        }
+    }
+
+    @SuppressWarnings("static-method") @Test public void
+    testStrictInExecutor() throws Exception {
+        SandboxExecutor executor = new SandboxExecutor(SandboxLimits.builder().maxTicks(10_000).build());
+
+        Assert.assertEquals("ok", executor.call(() -> {
+            for (int i = 0; i < 10_000; i++) Guard.tickStrict();
+            return "ok";
+        }));
+        SandboxExecutorTest.assertLimitExceeded(Limit.TICKS, true, executor, () -> {
+            for (;;) Guard.tickStrict();
+        });
+
+        Assert.assertEquals(3, executor.call(() -> new long[Guard.arrayLengthStrict(3, 8)]).length);
+        int[][] a = (int[][]) executor.call(() -> Guard.newArrayStrict(int.class, new int[] { 2, 3 }));
+        Assert.assertEquals(3, a[1].length);
+
+        if (SandboxLimits.isMemoryLimitSupported()) {
+            SandboxExecutor executor2 = new SandboxExecutor(
+                SandboxLimits.builder().maxAllocatedBytes(1L << 20).build()
+            );
+            SandboxExecutorTest.assertLimitExceeded(Limit.MEMORY, true, executor2, () -> {
+                return new long[Guard.arrayLengthStrict(1_000_000, 8)];
+            });
+            SandboxExecutorTest.assertLimitExceeded(Limit.MEMORY, true, executor2, () -> {
+                return Guard.newArrayStrict(long.class, new int[] { 1000, 1000 });
+            });
+        }
+    }
+
+    @SuppressWarnings("static-method") @Test public void
     testThreadFactory() throws Exception {
         final AtomicReference<Thread> created = new AtomicReference<Thread>();
         SandboxExecutor executor = new SandboxExecutor(SandboxLimits.builder().build(), r -> {

@@ -1560,7 +1560,10 @@ Object result = new SandboxExecutor(limits).call(() -&gt; se.evaluate());
 // => SandboxLimitExceededException (getLimit(): TIME, TICKS or MEMORY) if a limit is exceeded</pre></div>
 
         <p>
-          Code compiled by the JDK-based implementation is only subject to the timeout.
+          Code compiled by the JDK-based implementation is only subject to the timeout. With
+          <code>SandboxPolicy.Builder.requireExecutor()</code>, code that JANINO compiles fails fast if it is executed
+          outside of a <code>SandboxExecutor</code>, e.g. a static initializer or the <code>toString()</code> method
+          of a returned object.
         </p>
 
         <p>

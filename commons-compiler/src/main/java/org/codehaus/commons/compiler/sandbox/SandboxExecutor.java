@@ -52,8 +52,10 @@ import org.codehaus.commons.nullanalysis.Nullable;
  *   its thread is abandoned (see {@link SandboxLimitExceededException#isThreadTerminated()}).
  * </p>
  * <p>
- *   The limits apply only to code that runs inside {@link #call(Callable)}; e.g. an object that the sandboxed code
- *   returns, and whose methods the host invokes later, must also be used through a {@link SandboxExecutor}.
+ *   The limits apply only to code that runs inside {@link #call(Callable)}; e.g. the instantiation of a generated
+ *   class (which runs its static initializer and its constructor), and the methods of an object that the sandboxed
+ *   code returns, and which the host invokes later, must also be executed through a {@link SandboxExecutor}. {@link
+ *   SandboxPolicy.Builder#requireExecutor()} makes sure that this is not forgotten.
  * </p>
  */
 public final

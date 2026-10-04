@@ -101,6 +101,48 @@ class SandboxInstrumenterTest {
     }
 
     /**
+     * Verifies that the "strict" checks are inserted if an executor is required.
+     */
+    @SuppressWarnings("static-method") @Test public void
+    testStrictInstrumentation() throws Exception {
+        String text = (
+            ""
+            + "class A {\n"
+            + "    int f(int n) {\n"
+            + "        while (n > 0) n--;\n"
+            + "        long[][] a = new long[n][2];\n"
+            + "        Object[] o = new Object[n];\n"
+            + "        return n;\n"
+            + "    }\n"
+            + "}\n"
+        );
+        String g = SandboxInstrumenterTest.GUARD;
+        String expected = (
+            ""
+            + "class A {\n"
+            + "    int f(int n) {\n"
+            + "        " + g + ".tickStrict();\n"
+            + "        while (n > 0) { " + g + ".tickStrict(); n--; }\n"
+            + "        long[][] a = (long[][]) " + g + ".newArrayStrict(long.class, new int[] { n, 2 });\n"
+            + "        Object[] o = new Object[" + g + ".arrayLengthStrict(n, 4)];\n"
+            + "        return n;\n"
+            + "    }\n"
+            + "}\n"
+        );
+
+        Java.AbstractCompilationUnit acu = new Parser(
+            new Scanner(null, new StringReader(text))
+        ).parseAbstractCompilationUnit();
+
+        StringWriter sw = new StringWriter();
+        Unparser.unparse(new SandboxInstrumenter(true).copyAbstractCompilationUnit(acu), sw);
+        Assert.assertEquals(
+            UnparserTest.normalizeWhitespace(expected),
+            UnparserTest.normalizeWhitespace(sw.toString())
+        );
+    }
+
+    /**
      * Verifies that only code that is compiled with a sandbox policy is instrumented.
      */
     @SuppressWarnings("static-method") @Test public void

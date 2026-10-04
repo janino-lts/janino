@@ -206,6 +206,31 @@ class SandboxLocationTest {
     }
 
     /**
+     * Verifies that a {@code finalize()} declaration is reported with the location of the method.
+     */
+    @Test public void
+    testFinalize() throws Exception {
+
+        ISimpleCompiler sc = this.compilerFactory.newSimpleCompiler();
+        sc.setSandboxPolicy(SandboxPolicy.JAVA_LANG_BASIC);
+
+        CompileException ce = SandboxLocationTest.assertCookFails(sc, "Foo.java", (
+            ""
+            + "public class Foo {\n"
+            + "    protected void finalize() {}\n"
+            + "}\n"
+        ));
+
+        Assert.assertEquals(
+            (
+                "File 'Foo.java', Line 2: "
+                + "Declaring finalize() is not permitted, because the JVM calls it outside of the sandbox"
+            ),
+            ce.getMessage()
+        );
+    }
+
+    /**
      * Verifies that a violation that concerns the class as a whole (here: a forbidden interface) has no location.
      */
     @Test public void

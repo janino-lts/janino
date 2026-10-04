@@ -40,7 +40,10 @@ import org.codehaus.commons.nullanalysis.Nullable;
  *   #newArray(Class, int[])}. Sandboxed code may also call these methods itself; that is harmless.
  * </p>
  * <p>
- *   Outside of a {@link SandboxExecutor}, these methods do nothing.
+ *   Outside of a {@link SandboxExecutor}, these methods do nothing. If the policy {@linkplain
+ *   SandboxPolicy#isExecutorRequired() requires an executor}, then JANINO inserts calls to the "strict" variants
+ *   {@link #tickStrict()}, {@link #arrayLengthStrict(int, int)} and {@link #newArrayStrict(Class, int[])} instead,
+ *   which throw an {@link IllegalStateException} outside of a {@link SandboxExecutor}.
  * </p>
  * <p>
  *   Once a limit is exceeded, the guard stays tripped: Every subsequent call throws a {@link
@@ -75,6 +78,17 @@ class Guard {
     }
 
     /**
+     * Same as {@link #tick()}, but throws an {@link IllegalStateException} outside of a {@link SandboxExecutor}.
+     *
+     * @throws SandboxLimitExceededError A limit is exceeded
+     */
+    public static void
+    tickStrict() {
+        Context c = Guard.requireContext();
+        if (--c.countdown <= 0) c.check();
+    }
+
+    /**
      * Checks whether an array of the given size fits into the remaining memory budget of the current execution.
      *
      * @param elementSize The size of one array element in bytes
@@ -85,6 +99,18 @@ class Guard {
     arrayLength(int length, int elementSize) {
         Context c = (Context) Guard.CONTEXT.get();
         if (c != null) c.checkArray(length, elementSize);
+        return length;
+    }
+
+    /**
+     * Same as {@link #arrayLength(int, int)}, but throws an {@link IllegalStateException} outside of a {@link
+     * SandboxExecutor}.
+     *
+     * @throws SandboxLimitExceededError The array would exceed the memory limit, or another limit is exceeded
+     */
+    public static int
+    arrayLengthStrict(int length, int elementSize) {
+        Guard.requireContext().checkArray(length, elementSize);
         return length;
     }
 
@@ -100,6 +126,29 @@ class Guard {
         Context c = (Context) Guard.CONTEXT.get();
         if (c != null) c.checkArrays(componentType, dimensions);
         return Array.newInstance(componentType, dimensions);
+    }
+
+    /**
+     * Same as {@link #newArray(Class, int[])}, but throws an {@link IllegalStateException} outside of a {@link
+     * SandboxExecutor}.
+     *
+     * @throws SandboxLimitExceededError The arrays would exceed the memory limit, or another limit is exceeded
+     */
+    public static Object
+    newArrayStrict(Class<?> componentType, int[] dimensions) {
+        Guard.requireContext().checkArrays(componentType, dimensions);
+        return Array.newInstance(componentType, dimensions);
+    }
+
+    /**
+     * @return The context of the current execution
+     * @throws IllegalStateException The current thread is not executing a {@link SandboxExecutor} task
+     */
+    private static Context
+    requireContext() {
+        Context c = (Context) Guard.CONTEXT.get();
+        if (c == null) throw new IllegalStateException("Sandboxed code must be executed by a SandboxExecutor");
+        return c;
     }
 
     /**

@@ -70,6 +70,7 @@ class JavaSourceIClassLoader extends IClassLoader {
     @Nullable private ErrorHandler   compileErrorHandler;
     @Nullable private WarningHandler warningHandler;
     private boolean                  sandboxInstrumentation;
+    private boolean                  sandboxExecutorRequired;
 
     public
     JavaSourceIClassLoader(
@@ -96,6 +97,13 @@ class JavaSourceIClassLoader extends IClassLoader {
      */
     public void
     setSandboxInstrumentation(boolean value) { this.sandboxInstrumentation = value; }
+
+    /**
+     * Whether the inserted resource limit checks throw an {@link IllegalStateException} outside of a {@code
+     * SandboxExecutor} (see {@link SandboxInstrumenter#SandboxInstrumenter(boolean)}).
+     */
+    public void
+    setSandboxExecutorRequired(boolean value) { this.sandboxExecutorRequired = value; }
 
     /**
      * Returns the set of {@link UnitCompiler}s that were created so far.
@@ -200,7 +208,9 @@ class JavaSourceIClassLoader extends IClassLoader {
             Java.AbstractCompilationUnit acu = this.findCompilationUnit(className);
             if (acu == null) return null;
 
-            if (this.sandboxInstrumentation) acu = new SandboxInstrumenter().copyAbstractCompilationUnit(acu);
+            if (this.sandboxInstrumentation) {
+                acu = new SandboxInstrumenter(this.sandboxExecutorRequired).copyAbstractCompilationUnit(acu);
+            }
 
             UnitCompiler uc = new UnitCompiler(acu, this).options(this.options);
             uc.setTargetVersion(this.targetVersion);

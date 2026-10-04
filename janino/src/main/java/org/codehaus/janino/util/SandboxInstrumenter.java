@@ -52,6 +52,9 @@ import org.codehaus.janino.Java.WhileStatement;
  * </ul>
  * <p>
  *   JANINO applies it to code that it compiles with a {@link org.codehaus.commons.compiler.sandbox.SandboxPolicy}.
+ *   If the policy {@linkplain org.codehaus.commons.compiler.sandbox.SandboxPolicy#isExecutorRequired() requires an
+ *   executor}, then the "strict" variants {@code Guard.tickStrict()}, {@code Guard.arrayLengthStrict()} and {@code
+ *   Guard.newArrayStrict()} are inserted instead.
  * </p>
  */
 public
@@ -61,6 +64,22 @@ class SandboxInstrumenter extends DeepCopier {
 
     // The (approximate) size of a reference in an array, in bytes.
     private static final int REFERENCE_SIZE = 4;
+
+    // "" or "Strict"; appended to the names of the "Guard" methods.
+    private final String methodNameSuffix;
+
+    /**
+     * Inserts the checks that do nothing outside of a {@code SandboxExecutor}.
+     */
+    public
+    SandboxInstrumenter() { this(false); }
+
+    /**
+     * @param executorRequired Whether to insert the "strict" checks, which throw an {@link IllegalStateException}
+     *                         outside of a {@code SandboxExecutor}
+     */
+    public
+    SandboxInstrumenter(boolean executorRequired) { this.methodNameSuffix = executorRequired ? "Strict" : ""; }
 
     @Override public BlockStatement
     copyWhileStatement(WhileStatement subject) throws CompileException {
@@ -160,7 +179,7 @@ class SandboxInstrumenter extends DeepCopier {
             return new NewArray(
                 location,
                 this.copyType(subject.type),
-                new Rvalue[] { SandboxInstrumenter.guardInvocation(
+                new Rvalue[] { this.guardInvocation(
                     location,
                     "arrayLength",
                     dimExprs[0],
@@ -176,7 +195,7 @@ class SandboxInstrumenter extends DeepCopier {
         return new Java.Cast(
             location,
             arrayType,
-            SandboxInstrumenter.guardInvocation(
+            this.guardInvocation(
                 location,
                 "newArray",
                 new Java.ClassLiteral(location, componentType),
@@ -202,7 +221,7 @@ class SandboxInstrumenter extends DeepCopier {
     private BlockStatement
     tickAndCopy(Location location, BlockStatement body) throws CompileException {
         Java.Block result = new Java.Block(location);
-        result.addStatement(SandboxInstrumenter.tick(location));
+        result.addStatement(this.tick(location));
         result.addStatement(this.copyBlockStatement(body));
         return result;
     }
@@ -213,22 +232,22 @@ class SandboxInstrumenter extends DeepCopier {
     private List<BlockStatement>
     tickAndCopy(Location location, List<? extends BlockStatement> statements) throws CompileException {
         List<BlockStatement> result = new ArrayList<BlockStatement>(statements.size() + 1);
-        result.add(SandboxInstrumenter.tick(location));
+        result.add(this.tick(location));
         result.addAll(this.copyBlockStatements(statements));
         return result;
     }
 
-    private static BlockStatement
+    private BlockStatement
     tick(Location location) throws CompileException {
-        return new Java.ExpressionStatement(SandboxInstrumenter.guardInvocation(location, "tick"));
+        return new Java.ExpressionStatement(this.guardInvocation(location, "tick"));
     }
 
-    private static Java.MethodInvocation
+    private Java.MethodInvocation
     guardInvocation(Location location, String methodName, Rvalue... arguments) {
         return new Java.MethodInvocation(
             location,
             new Java.ReferenceType(location, new Annotation[0], SandboxInstrumenter.GUARD, null),
-            methodName,
+            methodName + this.methodNameSuffix,
             arguments
         );
     }

@@ -136,11 +136,13 @@ class ClassFileReader {
         private final int    accessFlags;
         private final String name;
         private final String descriptor;
+        private final int    lineNumber;
 
-        MemberDeclaration(int accessFlags, String name, String descriptor) {
+        MemberDeclaration(int accessFlags, String name, String descriptor, int lineNumber) {
             this.accessFlags = accessFlags;
             this.name        = name;
             this.descriptor  = descriptor;
+            this.lineNumber  = lineNumber;
         }
 
         /**
@@ -151,6 +153,12 @@ class ClassFileReader {
         public String getName() { return this.name; }
 
         public String getDescriptor() { return this.descriptor; }
+
+        /**
+         * @return The first source line of the method's code, or -1 iff this is a field, the method has no code, or
+         *         the class file has no line numbers
+         */
+        public int getLineNumber() { return this.lineNumber; }
 
         @Override public String
         toString() { return this.name + this.descriptor; }
@@ -602,18 +610,23 @@ class ClassFileReader {
             int    accessFlags = dis.readUnsignedShort();
             String name        = this.getConstantUtf8(dis.readUnsignedShort());
             String descriptor  = this.getConstantUtf8(dis.readUnsignedShort());
+            int    lineNumber  = -1;
             for (int j = dis.readUnsignedShort(); j > 0; j--) {
                 String attributeName   = this.getConstantUtf8(dis.readUnsignedShort());
                 int    attributeLength = dis.readInt();
                 if (methods && "Code".equals(attributeName)) {
                     DataInputStream dis2 = ClassFileReader.readAttribute(dis, attributeLength);
-                    this.codes.add(this.readCode(dis2));
+                    Code            code = this.readCode(dis2);
                     if (dis2.read() != -1) throw new ClassFormatError("Invalid length of the Code attribute");
+                    this.codes.add(code);
+                    for (int[] entry : code.lineNumbers) {
+                        if (lineNumber == -1 || entry[1] < lineNumber) lineNumber = entry[1];
+                    }
                 } else {
                     ClassFileReader.skip(dis, attributeLength);
                 }
             }
-            result.add(new MemberDeclaration(accessFlags, name, descriptor));
+            result.add(new MemberDeclaration(accessFlags, name, descriptor, lineNumber));
         }
     }
 
