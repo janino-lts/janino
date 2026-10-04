@@ -214,7 +214,7 @@
               <li>Basic <code>for</code> statement</li>
               <li><code>while</code> statement</li>
               <li><code>do ... while</code> statement</li>
-              <li><code>try ... catch ... finall</code>y statement</li>
+              <li><code>try ... catch ... finally</code> statement</li>
               <li><code>throw</code> statement</li>
               <li><code>return</code> statement</li>
               <li><code>break</code> statement</li>
@@ -272,7 +272,7 @@
               <li>References between uncompiled compilation units</li>
               <li>Line number tables ("<code>-g:lines</code>")</li>
               <li>Source file information ("<code>-g:source</code>")</li>
-              <li>Local variable information information ("<code>-g:vars</code>")</li>
+              <li>Local variable information ("<code>-g:vars</code>")</li>
               <li>
                 Handling of <code><a href="https://github.com/deprecated" class="user-mention">@deprecated</a></code>
                 doc comment tag
@@ -324,7 +324,7 @@
                 <code>catch</code>ing and rethrowing multiple exception types: Partially implemented; parsed and
                 unparsed, but not compilable
               </li>
-              <li>Type interference for generic instance creation (a.k.a. the "diamond operator") (JLS11 15.9.1)</li>
+              <li>Type inference for generic instance creation (a.k.a. the "diamond operator") (JLS11 15.9.1)</li>
             </ul>
           </li>
 
@@ -372,6 +372,13 @@
               <li>Text blocks</li>
             </ul>
           </li>
+
+          <li>
+            Java 16 language features:
+            <ul>
+              <li>Static members of inner classes</li>
+            </ul>
+          </li>
         </ul>
 
         <p>
@@ -411,12 +418,13 @@
 
         <ul>
           <li>
-            Java 1.4 language features:
+            Java 1.1 and 1.4 language features:
             <ul>
               <li>
                 <code>assert</code>: Partially implemented - assertions are always enabled, as if the JVM was started
                 with the "<code>-ea</code>" command line option
               </li>
+              <li>Qualified superclass method invocation (<code>Outer.super.meth()</code>)</li>
             </ul>
           </li>
 
@@ -425,7 +433,42 @@
             <ul>
               <li>
                 Type arguments: Are parsed, but otherwise ignored. The most significant restriction that follows is
-                that you must cast return values from method invocations, e.g. "<code>(String) myMap.get(key)</code>"
+                that you must cast return values from method invocations, e.g. "<code>(String) myMap.get(key)</code>".
+                Further consequences:
+                <ul>
+                  <li>
+                    A method of a generic interface must be implemented with its erased signature, e.g.
+                    <code>compareTo(Object)</code> instead of <code>compareTo(Foo)</code> for
+                    <code>Comparable&lt;Foo&gt;</code>
+                  </li>
+                  <li>
+                    No bridge methods are generated: if a subclass of <code>A&lt;T&gt;</code> overrides
+                    <code>m(T)</code> with <code>m(String)</code>, then an invocation through <code>A</code> still
+                    invokes <code>A.m()</code>
+                  </li>
+                  <li>
+                    No generic signatures are stored in the class files, so reflection (e.g.
+                    <code>Field.getGenericType()</code>) reports the erased types
+                  </li>
+                  <li>
+                    Overload resolution uses the erased types, e.g. <code>f(list.get(0))</code> invokes
+                    <code>f(Object)</code>, not <code>f(String)</code>
+                  </li>
+                  <li>Qualified types of inner classes of generic classes (<code>Outer&lt;String&gt;.Inner</code>)</li>
+                </ul>
+              </li>
+              <li>
+                Class bodies of <code>enum</code> constants: Are ignored, i.e. their methods do not override the
+                methods of the <code>enum</code> type
+              </li>
+              <li>
+                Annotations: Annotations of annotation types that are declared in the compiled code are not visible at
+                runtime, even with <code>@Retention(RetentionPolicy.RUNTIME)</code> (annotations of annotation types
+                of the JDK, e.g. <code>@Deprecated</code>, work)
+              </li>
+              <li>
+                Overload resolution: A variable arity method is preferred over a method that requires boxing, e.g.
+                <code>f(1)</code> invokes <code>f(int...)</code> instead of <code>f(Object)</code>
               </li>
             </ul>
           </li>
@@ -437,10 +480,6 @@
                 <code>catch</code>ing and rethrowing multiple exception types: Partially implemented; parsed and
                 unparsed, but not compilable
               </li>
-              <li>
-                Type inference for generic instance creation (e.g. "<code>Map&lt;String, Integer&gt; map = new
-                HashMap&lt;&gt;();</code>")
-              </li>
             </ul>
           </li>
 
@@ -449,6 +488,13 @@
             <ul>
               <li>Lambda expressions: Partially implemented; parsed and unparsed, but not compilable</li>
               <li>Method references: Partially implemented; parsed and unparsed, but not compilable</li>
+              <li>
+                Access to "effectively final" local variables from local and anonymous classes (the variables must be
+                declared <code>final</code>)
+              </li>
+              <li>
+                Superinterface method invocation (<code>Interface.super.meth()</code>), e.g. of default methods
+              </li>
               <li>Repeating annotations</li>
               <li>Type annotations</li>
             </ul>
@@ -457,7 +503,7 @@
           <li>
             Java 9 language features:
             <ul>
-              <li>Diamond operator with inner classes</li>
+              <li>Diamond operator with anonymous classes</li>
               <li>
                 Modules: Partially implemented; modular compilation units are parsed and unparsed, but not compilable
               </li>
@@ -477,7 +523,28 @@
               <li>Lambda parameter type inference: Partially implemented; parsed and unparsed, but not compilable</li>
             </ul>
           </li>
+
+          <li>
+            Java 14 through 21 language features:
+            <ul>
+              <li>
+                <code>switch</code> expressions, <code>case ... -&gt;</code> labels, and <code>case</code> labels with
+                several constants
+              </li>
+              <li>Pattern matching for <code>instanceof</code> and for <code>switch</code></li>
+              <li>Records</li>
+              <li>Local <code>enum</code>s and local interfaces</li>
+              <li>Sealed classes and interfaces</li>
+            </ul>
+          </li>
         </ul>
+
+        <p>
+          The <a
+          href="https://github.com/stefan-zobel/janino/tree/HEAD/commons-compiler-tests/src/test/resources/languageSupport">characterization
+          tests</a> record, for about 200 language constructs, the result that the Java language requires and the
+          current behavior of JANINO.
+        </p>
 
         <h2>
           <a id="license" class="anchor" href="#license" aria-hidden="true"><span aria-hidden="true"
@@ -1750,11 +1817,19 @@ new Sandbox(permissions).confine(pa);</pre></div>
         </h4>
 
         <p>
-          Neither way restricts how much memory or CPU time the code consumes. Run untrusted code on a separate thread
-          with a timeout.
-          <code>com.sun.management.ThreadMXBean.getThreadAllocatedBytes(long threadId)</code> appears to <em>count the
-          number of bytes ever allocated by a thread</em>, and may thus be a good measure to detect excessive memory
-          allocation by a running script.
+          Both ways restrict <em>which</em> APIs the code may use, but neither restricts how much memory or CPU time
+          it consumes. For that, execute the code through a <code>SandboxExecutor</code> (see the
+          <a href="#sandbox-policy">example above</a>): it executes the code on a separate thread under
+          <code>SandboxLimits</code> - a timeout, a maximum number of "ticks" (loop iterations plus method and
+          constructor invocations), and a maximum number of allocated bytes, which is measured with
+          <code>com.sun.management.ThreadMXBean.getThreadAllocatedBytes()</code>.
+        </p>
+        <p>
+          JANINO inserts the checks for the limits only into code that it compiles with a sandbox policy. Code that is
+          compiled without a sandbox policy, or by the JDK-based implementation, is only subject to the timeout, and
+          its thread cannot be stopped when it does not terminate. See section 3.5 of <a
+          href="https://github.com/stefan-zobel/janino/blob/HEAD/SANDBOX.md">Restricting Untrusted Code with a Sandbox
+          Policy</a> for details, e.g. for code that runs outside of the executor (static initializers, callbacks).
         </p>
 
         <h3>

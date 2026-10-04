@@ -45,12 +45,12 @@
     <module name="JavadocType">
       <metadata name="net.sf.eclipsecs.core.comment" value="PUBLIC"/>
       <property name="scope" value="public"/>
-      <message key="type.missingTag" value="In der Typ-Dokumentation fehlt ein {0}-Tag."/>
+      <message key="type.missingTag" value="Type Javadoc comment is missing a {0} tag."/>
     </module>
     <module name="JavadocType">
       <metadata name="net.sf.eclipsecs.core.comment" value="PROTECTED"/>
       <property name="scope" value="protected"/>
-      <message key="type.missingTag" value="In der Typ-Dokumentation fehlt ein {0}-Tag."/>
+      <message key="type.missingTag" value="Type Javadoc comment is missing a {0} tag."/>
     </module>
     <module name="JavadocVariable">
       <metadata name="net.sf.eclipsecs.core.comment" value="PUBLIC"/>

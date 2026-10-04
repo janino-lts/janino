@@ -46,6 +46,12 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
 
+          <!--
+            Some tests (e.g. "EvaluatorTest.test64kOperandStackHeight()") compile deeply nested code, which needs more
+            than the default thread stack size on some platforms.
+          -->
+          <argLine>-Xss2m ${test.locale.argLine}</argLine>
+
           <!-- Add our compiler factories to the classpath. -->
           <additionalClasspathElements>
 
