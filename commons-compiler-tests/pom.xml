@@ -39,6 +39,58 @@
     </dependency>
   </dependencies>
 
+  <profiles>
+
+    <!--
+      See profile "quality" in "janino-parent/pom.xml". The tests in this module exercise all modules, so the coverage
+      report of all modules is created here. "report-aggregate" only covers the dependencies of this module, so the
+      compiler implementations (which are otherwise only added to the test classpath, see below) are declared as
+      dependencies.
+    -->
+    <profile>
+      <id>quality</id>
+      <dependencies>
+
+        <!-- "report-aggregate" ignores dependencies with scope "test"; this module has no main code anyway. -->
+        <dependency>
+          <groupId>org.codehaus.janino</groupId>
+          <artifactId>commons-compiler</artifactId>
+          <version>${project.parent.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>org.codehaus.janino</groupId>
+          <artifactId>janino</artifactId>
+          <version>${project.parent.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>org.codehaus.janino</groupId>
+          <artifactId>commons-compiler-jdk</artifactId>
+          <version>${project.parent.version}</version>
+        </dependency>
+      </dependencies>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>report-aggregate</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>report-aggregate</goal>
+                </goals>
+                <configuration>
+                  <includeCurrentProject>true</includeCurrentProject>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
   <build>
     <plugins>
       <plugin>
@@ -50,7 +102,7 @@
             Some tests (e.g. "EvaluatorTest.test64kOperandStackHeight()") compile deeply nested code, which needs more
             than the default thread stack size on some platforms.
           -->
-          <argLine>-Xss2m ${test.locale.argLine}</argLine>
+          <argLine>@{argLine} -Xss2m ${test.locale.argLine}</argLine>
 
           <!-- Add our compiler factories to the classpath. -->
           <additionalClasspathElements>

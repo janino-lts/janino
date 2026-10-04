@@ -1,0 +1,93 @@
+# Measures the test coverage (JaCoCo) and runs a static analysis (SpotBugs); see profile "quality" in
+# "janino-parent/pom.xml".
+#
+# The workflow only reports: it does not fail because of the coverage or of the findings, and it is NOT a required
+# status check. The reports are uploaded as the artifact "quality-reports", and a summary is shown on the page of
+# the workflow run. (The tests are executed with JDK 25 only; see "ci.yml" for the test matrix.)
+#
+# The workflow runs
+#  * for pull requests: when a pull request is opened or reopened, and when new commits are pushed to it, and
+#  * when started manually ("Actions" > "Quality" > "Run workflow", for any branch).
+
+name: Quality
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# When new commits are pushed to a pull request, cancel the runs for its previous commits.
+concurrency:
+  group: quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Coverage and static analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Build, test and analyze
+        run: mvn -B -f janino-parent/pom.xml -P quality verify
+
+      - name: Summarize the reports
+        if: always()
+        run: |
+          {
+            csv=commons-compiler-tests/target/site/jacoco-aggregate/jacoco.csv
+            if [ -f "$csv" ]; then
+              echo "## Test coverage"
+              echo
+              echo "| Module | Lines | Branches |"
+              echo "|---|---:|---:|"
+              awk -F, '
+                NR > 1 {
+                  sub(/.*\//, "", $1)
+                  bm[$1] += $6; bc[$1] += $7; lm[$1] += $8; lc[$1] += $9
+                }
+                END {
+                  for (m in lm) {
+                    l = lm[m] + lc[m]; b = bm[m] + bc[m]
+                    printf "| %s | %.1f %% (%d of %d) | %.1f %% |\n", m, l ? 100 * lc[m] / l : 0, lc[m], l, b ? 100 * bc[m] / b : 0
+                  }
+                }
+              ' "$csv" | sort
+              echo
+            fi
+
+            echo "## SpotBugs findings"
+            echo
+            echo "| Module | Priority 1 (high) | Priority 2 (medium) |"
+            echo "|---|---:|---:|"
+            for xml in */target/spotbugsXml.xml; do
+              [ -f "$xml" ] || continue
+              module=${xml%%/*}
+              p1=$(grep -oE "<BugInstance [^>]*priority=['\"]1['\"]" "$xml" | wc -l)
+              p2=$(grep -oE "<BugInstance [^>]*priority=['\"]2['\"]" "$xml" | wc -l)
+              echo "| $module | $p1 | $p2 |"
+            done
+            echo
+            echo "The patterns that are intentional in JANINO are excluded through \`janino-parent/spotbugs-exclude.xml\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-reports
+          path: |
+            commons-compiler-tests/target/site/jacoco-aggregate/
+            */target/spotbugsXml.xml
+            */target/reports/spotbugs.html
+          if-no-files-found: ignore

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  Patterns that SpotBugs reports, but that are intentional in JANINO (see profile "quality" in "pom.xml"). Every
+  exclusion is commented.
+-->
+<FindBugsFilter
+  xmlns="https://github.com/spotbugs/filter/3.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/3.1.0/spotbugs/etc/findbugsfilter.xsd"
+>
+
+  <!--
+    The scanner interns the values of keywords, operators and some literals (see "Scanner.produce()"), so that the
+    compiler can compare them with "==" (marked with "SUPPRESS CHECKSTYLE StringLiteralEquality").
+  -->
+  <Match>
+    <Package name="org.codehaus.janino"/>
+    <Or>
+      <Bug pattern="ES_COMPARING_STRINGS_WITH_EQ"/>
+      <Bug pattern="ES_COMPARING_PARAMETER_STRING_WITH_EQ"/>
+    </Or>
+  </Match>
+
+  <!--
+    The syntax tree, the class file model and the compiler's internal data structures store and return the arrays
+    and objects that they get, by design (and for performance); they are not defensive copies.
+  -->
+  <Match>
+    <Or>
+      <Bug pattern="EI_EXPOSE_REP"/>
+      <Bug pattern="EI_EXPOSE_REP2"/>
+    </Or>
+  </Match>
+
+  <!-- The syntax tree has public, mutable fields (e.g. compile-time state), by design. -->
+  <Match>
+    <Bug pattern="PA_PUBLIC_PRIMITIVE_ATTRIBUTE"/>
+  </Match>
+
+  <!--
+    "Constructors that throw exceptions are vulnerable to finalizer attacks": JANINO's classes are not
+    security-sensitive in that sense, and sandboxed code cannot subclass them (see "SandboxPolicy").
+  -->
+  <Match>
+    <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+  </Match>
+
+  <!--
+    The parameters are annotated with "org.codehaus.commons.nullanalysis.Nullable" (e.g. "equals(@Nullable Object o)"),
+    which SpotBugs does not recognize.
+  -->
+  <Match>
+    <Bug pattern="NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION"/>
+  </Match>
+
+  <!--
+    The state of a "Guard.Context" is only accessed by the executing thread, except "cancelled" (volatile) and
+    "countdown", which "cancel()" sets to 0 from the waiting thread only to shorten the time until the next check (if
+    that write is lost, then the next check happens after at most one interval). "countdown" is not volatile, because
+    it is decremented on the hot path of the instrumented code.
+  -->
+  <Match>
+    <Class name="org.codehaus.commons.compiler.sandbox.Guard$Context"/>
+    <Or>
+      <Bug pattern="AT_NONATOMIC_64BIT_PRIMITIVE"/>
+      <Bug pattern="AT_STALE_THREAD_WRITE_OF_PRIMITIVE"/>
+    </Or>
+  </Match>
+
+  <!--
+    A security manager idiom: Most of the reported class loaders are already created through
+    "org.codehaus.commons.compiler.util.Privileged", which SpotBugs cannot see through; the security manager is
+    permanently disabled since Java 24, and the security-manager-based "Sandbox" is deprecated.
+  -->
+  <Match>
+    <Bug pattern="DP_CREATE_CLASSLOADER_INSIDE_DO_PRIVILEGED"/>
+  </Match>
+</FindBugsFilter>
