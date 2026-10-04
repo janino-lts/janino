@@ -192,3 +192,72 @@ public class P {
     static String fail() { throw new IllegalStateException(); }
     public static Object run() { return true ? "x" : fail(); }
 }
+
+=== try statement after a try block that cannot complete normally (double variable)
+jls: C0.5
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        int a = 1;
+        try { throw new RuntimeException(); } catch (RuntimeException e) { t.append('C'); }
+        try { if (a > 5) throw new RuntimeException(); double d = a / 2.0; t.append(d); } catch (RuntimeException e2) { t.append('D'); }
+        return t.toString();
+    }
+}
+
+=== try statement after a try block that cannot complete normally (long variable)
+jls: C3
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        int a = 1;
+        try { throw new RuntimeException(); } catch (RuntimeException e) { t.append('C'); }
+        try { if (a > 5) throw new RuntimeException(); long l = a * 3L; t.append(l); } catch (RuntimeException e2) { t.append('D'); }
+        return t.toString();
+    }
+}
+
+=== try statement after a try block that cannot complete normally, with a finally block
+jls: CF0.5
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        int a = 1;
+        try { throw new RuntimeException(); } catch (RuntimeException e) { t.append('C'); } finally { t.append('F'); }
+        try { if (a > 5) throw new RuntimeException(); double d = a / 2.0; t.append(d); } catch (RuntimeException e2) { t.append('D'); }
+        return t.toString();
+    }
+}
+
+=== try statement after a try block that cannot complete normally, with several catch clauses
+jls: 20.5
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        int a = 1;
+        try {
+            throw new IllegalArgumentException();
+        } catch (IllegalStateException e) {
+            t.append('1');
+        } catch (IllegalArgumentException e) {
+            t.append('2');
+        }
+        try { if (a > 5) throw new RuntimeException(); double d = a / 2.0; t.append(d); } catch (RuntimeException e2) { t.append('D'); }
+        return t.toString();
+    }
+}
+
+=== return in a try block with two catch clauses of different types, and code after the try statement
+jls: -1/7
+janino: OK
+public class P {
+    static int parse(String s) {
+        try { return Integer.parseInt(s); } catch (NumberFormatException e) { s = null; } catch (IllegalStateException e) { s = null; }
+        return -1;
+    }
+    public static Object run() { return parse("x") + "/" + parse("7"); }
+}

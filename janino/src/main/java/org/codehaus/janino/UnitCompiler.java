@@ -3302,6 +3302,11 @@ class UnitCompiler {
                 afterStatement
             );
             afterStatement.set();
+
+            // If only CATCH clauses complete normally, then the stack map at "afterStatement" still lists their
+            // exception variables, which would otherwise leak into the stack maps of the following code.
+            this.getCodeContext().removeOutOfScopeLocals();
+
             return canCompleteNormally;
         }
 
@@ -3381,6 +3386,9 @@ class UnitCompiler {
         }
 
         afterStatement.set();
+
+        // See above.
+        this.getCodeContext().removeOutOfScopeLocals();
 
         if (canCompleteNormally) canCompleteNormally = UnitCompiler.this.compile(finallY);
 
@@ -3479,8 +3487,11 @@ class UnitCompiler {
                     // for otherwise it would be executed twice.
                     if (this.compile(catchClause.body)) {
                         catchCcn = true;
-                        this.gotO(catchClause, afterStatement);
+
+                        // Merge the stack maps of all paths to "afterStatement" BEFORE the GOTO, which clears the
+                        // stack map of the current inserter.
                         afterStatement.setStackMap();
+                        this.gotO(catchClause, afterStatement);
                     }
                 } finally {
                     this.getCodeContext().restoreLocalVariables();

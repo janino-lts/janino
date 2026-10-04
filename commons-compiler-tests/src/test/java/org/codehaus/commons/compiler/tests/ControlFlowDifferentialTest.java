@@ -95,7 +95,7 @@ class ControlFlowDifferentialTest {
         + "    }\n"
     );
 
-    private static final int   CLASSES           = 30;
+    private static final int   CLASSES           = 100;
     private static final int   METHODS_PER_CLASS = 20;
     private static final long  SEED              = 20261004L;
     private static final int[] ARGUMENTS         = { 0, 1, 2, 5 };
@@ -424,12 +424,23 @@ class ControlFlowDifferentialTest {
                 );
                 boolean ccn = body.canCompleteNormally;
                 if (hasCatch) {
-                    Fragment handler = this.block(depth + 1, in);
-                    sb.append(" catch (RuntimeException e" + id + ") {\n")
-                    .append(in).append("t.append('C');\n")
-                    .append(handler.code)
-                    .append(indent).append("}");
-                    ccn |= handler.canCompleteNormally;
+
+                    // One or two CATCH clauses; the exception variables of different types share a local variable
+                    // slot, which affects the stack map frames.
+                    String[] types;
+                    switch (this.random.nextInt(3)) {
+                    case 0:  types = new String[] { "RuntimeException" };                                  break;
+                    case 1:  types = new String[] { "IllegalStateException", "RuntimeException" };         break;
+                    default: types = new String[] { "IllegalArgumentException", "IllegalStateException" }; break;
+                    }
+                    for (int i = 0; i < types.length; i++) {
+                        Fragment handler = this.block(depth + 1, in);
+                        sb.append(" catch (" + types[i] + " e" + id + ") {\n")
+                        .append(in).append("t.append('" + (char) ('C' + i) + "');\n")
+                        .append(handler.code)
+                        .append(indent).append("}");
+                        ccn |= handler.canCompleteNormally;
+                    }
                 }
                 if (hasFinally) {
                     int[]     beforeFinally = this.saveJumps();
@@ -513,7 +524,8 @@ class ControlFlowDifferentialTest {
                 jump = "return t.append('R').toString();";
             } else
             if (kind == 1) {
-                jump = "throw new RuntimeException(\"X\" + t.length());";
+                String[] types = { "RuntimeException", "IllegalStateException", "IllegalArgumentException" };
+                jump = "throw new " + types[this.random.nextInt(types.length)] + "(\"X\" + t.length());";
             }
             assert jump != null;
 

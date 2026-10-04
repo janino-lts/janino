@@ -1,6 +1,2 @@
 # Known differences between JANINO and JAVAC; see "ControlFlowDifferentialTest".
 # Format: <seed> <method> <WRONG|INVALID|REJECTED>
-20261011 m12 INVALID
-20261022 m2 INVALID
-20261025 m7 INVALID
-20261032 m19 INVALID
