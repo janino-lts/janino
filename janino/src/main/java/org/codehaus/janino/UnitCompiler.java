@@ -3371,13 +3371,12 @@ class UnitCompiler {
                         exceptionVarSlot.getSlotIndex() // lvIndex
                     );
 
+                    // The FINALLY clause (if any) is compiled after "afterStatement", so it must not be compiled here,
+                    // for otherwise it would be executed twice.
                     if (this.compile(catchClause.body)) {
-
-                        if (tryStatement.finallY == null || this.compile(tryStatement.finallY)) {
-                            catchCcn = true;
-                            this.gotO(catchClause, afterStatement);
-                            afterStatement.setStackMap();
-                        }
+                        catchCcn = true;
+                        this.gotO(catchClause, afterStatement);
+                        afterStatement.setStackMap();
                     }
                 } finally {
                     this.getCodeContext().restoreLocalVariables();
@@ -13847,10 +13846,16 @@ class UnitCompiler {
                     locals[i] = vti;
                 } else
                 if (vti2.category() == 1 && vti.category() == 2) { // Replace two category 1 VTIs with one category 2 VTI?
-                    assert locals[i + 1].category() == 1;
-                    locals[i] = vti;
-                    System.arraycopy(locals, i + 2, locals, i + 1, locals.length - i - 2);
-                    locals = (VerificationTypeInfo[]) Arrays.copyOf(locals, locals.length - 1);
+                    if (i + 1 == locals.length) {
+
+                        // The last VTI (e.g. a TOP from merging two stack maps) is replaced with the category 2 VTI.
+                        locals[i] = vti;
+                    } else {
+                        assert locals[i + 1].category() == 1;
+                        locals[i] = vti;
+                        System.arraycopy(locals, i + 2, locals, i + 1, locals.length - i - 2);
+                        locals = (VerificationTypeInfo[]) Arrays.copyOf(locals, locals.length - 1);
+                    }
                 } else
                 if (vti2.category() == 2 && vti.category() == 1) { // Replace one category 2 VTI with two category 1 VTIs?
                     locals = (VerificationTypeInfo[]) Arrays.copyOf(locals, locals.length + 1);

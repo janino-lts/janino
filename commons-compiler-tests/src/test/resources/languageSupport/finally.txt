@@ -250,3 +250,102 @@ public class P {
     static long m(int i) { long acc = 7; try { switch (i) { case 0: return acc; default: acc++; } } finally { acc = -1; } return acc; }
     public static Object run() { return String.valueOf(m(0)); }
 }
+
+=== catch clause handles an exception, with a finally block
+jls: CF
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        try { if (t.length() == 0) throw new RuntimeException("x"); } catch (RuntimeException e) { t.append('C'); } finally { t.append('F'); }
+        return t.toString();
+    }
+}
+
+=== catch clause rethrows, with a finally block
+jls: CF
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        try {
+            try { if (t.length() == 0) throw new RuntimeException("x"); } catch (RuntimeException e) { t.append('C'); throw new IllegalStateException(); } finally { t.append('F'); }
+        } catch (IllegalStateException e) {
+        }
+        return t.toString();
+    }
+}
+
+=== second of several catch clauses handles an exception, with a finally block
+jls: 2F
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        try {
+            if (t.length() == 0) throw new IllegalArgumentException("x");
+        } catch (IllegalStateException e) {
+            t.append('1');
+        } catch (IllegalArgumentException e) {
+            t.append('2');
+        } catch (RuntimeException e) {
+            t.append('3');
+        } finally {
+            t.append('F');
+        }
+        return t.toString();
+    }
+}
+
+=== nested try statements whose catch clauses handle exceptions, with finally blocks
+jls: ciFCF
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        try {
+            try { if (t.length() == 0) throw new RuntimeException("x"); } catch (RuntimeException e) { t.append("ci"); } finally { t.append('F'); }
+            if (t.length() > 0) throw new RuntimeException("y");
+        } catch (RuntimeException e) {
+            t.append('C');
+        } finally {
+            t.append('F');
+        }
+        return t.toString();
+    }
+}
+
+=== catch clause with a long local variable handles an exception, with a finally block
+jls: C6F
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        try {
+            if (t.length() == 0) throw new RuntimeException("x");
+        } catch (RuntimeException e) {
+            long l = 6; t.append('C').append(l);
+        } finally {
+            long m = 7; t.append('F');
+        }
+        return t.toString();
+    }
+}
+
+=== lock and unlock in a try statement whose catch clause handles an exception
+jls: 0
+janino: OK
+public class P {
+    static int locks;
+    public static Object run() {
+        locks++;
+        try {
+            if (locks > 0) throw new RuntimeException("x");
+        } catch (RuntimeException e) {
+            locks += 0;
+        } finally {
+            locks--;
+        }
+        return String.valueOf(locks);
+    }
+}
