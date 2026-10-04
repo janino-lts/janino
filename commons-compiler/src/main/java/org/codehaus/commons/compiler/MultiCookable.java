@@ -116,7 +116,7 @@ class MultiCookable extends Cookable implements IMultiCookable {
                 inputStreams[i] = new FileInputStream(file);
             }
 
-            this.cook(inputStreams, encodings);
+            this.cook(fileNames, inputStreams, encodings);
 
             for (int i = 0; i < count; i++) inputStreams[i].close();
         } finally {
@@ -129,7 +129,7 @@ class MultiCookable extends Cookable implements IMultiCookable {
 
     @Override public final void
     cookFiles(String[] fileNames) throws CompileException, IOException {
-        this.cook(fileNames, new String[fileNames.length]);
+        this.cookFiles(fileNames, new String[fileNames.length]);
     }
 
     @Override public final void

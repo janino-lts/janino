@@ -386,7 +386,11 @@ class ClassLoaders {
 
             if (includeDirectories) result.put(namePrefix, fileUrl);
 
-            for (File member : file.listFiles()) {
+            // A directory that cannot be read is treated like an empty directory.
+            File[] members = file.listFiles();
+            if (members == null) return result;
+
+            for (File member : members) {
                 String memberName = namePrefix + member.getName();
                 URL    memberUrl  = ClassLoaders.fileUrl(member);
 

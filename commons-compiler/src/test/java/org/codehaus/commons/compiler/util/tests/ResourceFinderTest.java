@@ -26,23 +26,33 @@
 package org.codehaus.commons.compiler.util.tests;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
 import org.codehaus.commons.compiler.lang.ClassLoaders;
+import org.codehaus.commons.compiler.util.resource.JarDirectoriesResourceFinder;
 import org.codehaus.commons.compiler.util.resource.LocatableResource;
 import org.codehaus.commons.compiler.util.resource.Resource;
+import org.codehaus.commons.compiler.util.resource.ResourceFinder;
 import org.codehaus.commons.compiler.util.resource.ResourceFinders;
 import org.codehaus.commons.compiler.util.resource.ZipFileResourceFinder;
 import org.junit.Assert;
+import org.junit.Assume;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 // SUPPRESS CHECKSTYLE Javadoc:9999
 
 public
 class ResourceFinderTest {
+
+    @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
     @SuppressWarnings("static-method") @Test public void
     testJarResource() throws Exception {
@@ -78,6 +88,60 @@ class ResourceFinderTest {
             r.toString()
         );
 
+    }
+
+    /**
+     * Finds a resource in a JAR file of an extension directory, and ignores the other files in that directory, a
+     * directory that does not exist, and a file that is not a directory.
+     */
+    @Test public void
+    testJarDirectoriesResourceFinder() throws Exception {
+        File directory = this.temporaryFolder.newFolder("ext");
+        try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(new File(directory, "a.jar")))) {
+            zos.putNextEntry(new ZipEntry("x/Y.class"));
+            zos.write(new byte[] { 1, 2, 3 });
+            zos.closeEntry();
+        }
+        Assert.assertTrue(new File(directory, "not-a-jar.txt").createNewFile());
+
+        ResourceFinder rf = new JarDirectoriesResourceFinder(new File[] {
+            new File(this.temporaryFolder.getRoot(), "missing"),
+            this.temporaryFolder.newFile("some-file.txt"),
+            directory,
+        });
+        Assert.assertNotNull(rf.findResource("x/Y.class"));
+        Assert.assertNull(rf.findResource("x/Z.class"));
+    }
+
+    /**
+     * A file that is not a directory (e.g. a JAR file instead of its directory) must be treated like a directory
+     * that does not exist; see <a href="https://github.com/stefan-zobel/janino/issues/20">issue #20</a>.
+     */
+    @Test public void
+    testJarDirectoriesResourceFinderWithFile() throws Exception {
+        ResourceFinder rf = new JarDirectoriesResourceFinder(new File[] {
+            this.temporaryFolder.newFile("some-file.txt"),
+        });
+        Assert.assertNull(rf.findResource("x/Y.class"));
+    }
+
+    /**
+     * A directory that cannot be listed must be treated like a directory that does not exist; see <a
+     * href="https://github.com/stefan-zobel/janino/issues/20">issue #20</a>. Skipped where the directory cannot be
+     * made unreadable (e.g. on Windows, or when running as "root").
+     */
+    @Test public void
+    testJarDirectoriesResourceFinderWithUnreadableDirectory() throws Exception {
+        File directory = this.temporaryFolder.newFolder("unreadable");
+        try {
+            Assume.assumeTrue(
+                "Cannot make a directory unreadable",
+                directory.setReadable(false) && directory.listFiles() == null
+            );
+            Assert.assertNull(new JarDirectoriesResourceFinder(new File[] { directory }).findResource("x/Y.class"));
+        } finally {
+            directory.setReadable(true);
+        }
     }
 
     private static void
