@@ -1,0 +1,263 @@
+# Control flow (without "finally"; see "finally.txt"). See "LanguageSupportTest" for the format.
+
+=== labeled block with break
+jls: 1
+janino: OK
+public class P {
+    public static Object run() { int n = 0; b: { n++; if (n > 0) break b; n++; } return String.valueOf(n); }
+}
+
+=== switch fallthrough with default in the middle
+jls: dc
+janino: OK
+public class P {
+    public static Object run() { String r = ""; switch (5) { case 1: r += "a"; default: r += "d"; case 2: r += "c"; } return r; }
+}
+
+=== if (true) return ...; else return ...;
+jls: a
+janino: OK
+public class P {
+    static String m() { if (true) return "a"; else return "b"; }
+    public static Object run() { return m(); }
+}
+
+=== if with a constant false condition
+jls: b
+janino: OK
+public class P {
+    static final boolean DEBUG = false;
+    static String m() { if (DEBUG) { System.out.println("x"); return "a"; } return "b"; }
+    public static Object run() { return m(); }
+}
+
+=== while (true) with return
+jls: 3
+janino: OK
+public class P {
+    static int m() { int i = 0; while (true) { if (++i == 3) return i; } }
+    public static Object run() { return String.valueOf(m()); }
+}
+
+=== switch where all cases return or throw
+jls: b
+janino: OK
+public class P {
+    static String m(int i) { switch (i) { case 1: return "a"; case 2: return "b"; default: throw new IllegalStateException(); } }
+    public static Object run() { return m(2); }
+}
+
+=== synchronized with return
+jls: s
+janino: OK
+public class P {
+    static String m() { synchronized (P.class) { return "s"; } }
+    public static Object run() { return m(); }
+}
+
+=== synchronized with exception
+jls: e
+janino: OK
+public class P {
+    static String m() { try { synchronized (P.class) { throw new RuntimeException(); } } catch (RuntimeException e) { return "e"; } }
+    public static Object run() { return m(); }
+}
+
+=== try-with-resources with return
+jls: r
+janino: OK
+public class P {
+    static class R implements AutoCloseable { public void close() {} }
+    static String m() { try (R r = new R()) { return "r"; } }
+    public static Object run() { return m(); }
+}
+
+=== try-with-resources in a loop with continue
+jls: 3
+janino: OK
+public class P {
+    static class R implements AutoCloseable { public void close() {} }
+    public static Object run() throws Exception {
+        int n = 0;
+        for (int i = 0; i < 3; i++) { try (R r = new R()) { n++; if (n > 0) continue; } }
+        return String.valueOf(n);
+    }
+}
+
+=== conditional expression with long and double operands as method argument
+jls: 3.5
+janino: OK
+public class P {
+    static String f(double d) { return String.valueOf(d); }
+    public static Object run() { boolean b = true; long l = 3; return f(b ? l + 0.5 : 0); }
+}
+
+=== conditional expression in a loop condition
+jls: 3
+janino: OK
+public class P {
+    public static Object run() { int i = 0; boolean x = true; while ((x ? i : -i) < 3) i++; return String.valueOf(i); }
+}
+
+=== boolean expressions with &&, || and !
+jls: true
+janino: OK
+public class P {
+    public static Object run() { int a = 1, b = 2; boolean r = !(a > b) && (a == 1 || b == 3) && !(a == 2 && b == 2); return String.valueOf(r); }
+}
+
+=== do-while with break and continue
+jls: 3
+janino: OK
+public class P {
+    public static Object run() {
+        int i = 0, n = 0;
+        do { i++; if (i == 2) continue; if (i == 5) break; n++; } while (i < 10);
+        return String.valueOf(n);
+    }
+}
+
+=== local variable declared in one branch only
+jls: 1
+janino: OK
+public class P {
+    public static Object run() {
+        int r;
+        if (System.nanoTime() > 0) { String s = "x"; r = s.length(); } else { long l = 2; r = (int) l; }
+        return String.valueOf(r);
+    }
+}
+
+=== local variables of different types in sibling scopes
+jls: ab
+janino: OK
+public class P {
+    public static Object run() { String s = ""; { long a = 1; s += "a"; } { String b = "b"; s += b; } return s; }
+}
+
+=== catch parameter and local variable in a loop
+jls: 3
+janino: OK
+public class P {
+    public static Object run() {
+        int n = 0;
+        for (int i = 0; i < 3; i++) { try { Integer.parseInt("x"); } catch (NumberFormatException e) { String m = "e"; n += m.length(); } }
+        return String.valueOf(n);
+    }
+}
+
+=== return in a catch clause in a loop
+jls: e
+janino: OK
+public class P {
+    static String m() { for (int i = 0; i < 3; i++) { try { Integer.parseInt("x"); } catch (NumberFormatException e) { return "e"; } } return "n"; }
+    public static Object run() { return m(); }
+}
+
+=== try { throw } catch { throw }
+jls: c
+janino: OK
+public class P {
+    static void m() { try { throw new IllegalStateException(); } catch (IllegalStateException e) { throw new RuntimeException("c"); } finally { } }
+    public static Object run() { try { m(); return "no"; } catch (RuntimeException e) { return e.getMessage(); } }
+}
+
+=== switch on strings in a loop with break
+jls: 3
+janino: OK
+public class P {
+    public static Object run() {
+        int n = 0;
+        for (String s : new String[] { "a", "b", "a", "c", "a" }) { switch (s) { case "a": n++; break; default: break; } }
+        return String.valueOf(n);
+    }
+}
+
+=== assert in a loop
+jls: ok
+janino: OK
+public class P { public static Object run() { for (int i = 0; i < 3; i++) assert i >= 0 : "neg"; return "ok"; } }
+
+=== if/else if chain with && and ||
+jls: 2
+janino: OK
+public class P {
+    public static Object run() { int x = 2; if (x == 1 && x > 0) return "1"; else if (x == 2 || x == 3) return "2"; else return "3"; }
+}
+
+=== conditional expression with a throwing method in the other operand
+jls: x
+janino: OK
+public class P {
+    static String fail() { throw new IllegalStateException(); }
+    public static Object run() { return true ? "x" : fail(); }
+}
+
+=== try statement after a try block that cannot complete normally (double variable)
+jls: C0.5
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        int a = 1;
+        try { throw new RuntimeException(); } catch (RuntimeException e) { t.append('C'); }
+        try { if (a > 5) throw new RuntimeException(); double d = a / 2.0; t.append(d); } catch (RuntimeException e2) { t.append('D'); }
+        return t.toString();
+    }
+}
+
+=== try statement after a try block that cannot complete normally (long variable)
+jls: C3
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        int a = 1;
+        try { throw new RuntimeException(); } catch (RuntimeException e) { t.append('C'); }
+        try { if (a > 5) throw new RuntimeException(); long l = a * 3L; t.append(l); } catch (RuntimeException e2) { t.append('D'); }
+        return t.toString();
+    }
+}
+
+=== try statement after a try block that cannot complete normally, with a finally block
+jls: CF0.5
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        int a = 1;
+        try { throw new RuntimeException(); } catch (RuntimeException e) { t.append('C'); } finally { t.append('F'); }
+        try { if (a > 5) throw new RuntimeException(); double d = a / 2.0; t.append(d); } catch (RuntimeException e2) { t.append('D'); }
+        return t.toString();
+    }
+}
+
+=== try statement after a try block that cannot complete normally, with several catch clauses
+jls: 20.5
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        int a = 1;
+        try {
+            throw new IllegalArgumentException();
+        } catch (IllegalStateException e) {
+            t.append('1');
+        } catch (IllegalArgumentException e) {
+            t.append('2');
+        }
+        try { if (a > 5) throw new RuntimeException(); double d = a / 2.0; t.append(d); } catch (RuntimeException e2) { t.append('D'); }
+        return t.toString();
+    }
+}
+
+=== return in a try block with two catch clauses of different types, and code after the try statement
+jls: -1/7
+janino: OK
+public class P {
+    static int parse(String s) {
+        try { return Integer.parseInt(s); } catch (NumberFormatException e) { s = null; } catch (IllegalStateException e) { s = null; }
+        return -1;
+    }
+    public static Object run() { return parse("x") + "/" + parse("7"); }
+}

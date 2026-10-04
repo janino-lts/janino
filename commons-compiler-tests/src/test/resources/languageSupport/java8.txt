@@ -1,0 +1,66 @@
+# Language constructs of Java 8 (annotations: see "annotations.txt"). See "LanguageSupportTest" for the format.
+
+=== lambda expression (Runnable)
+jls: ran
+janino: REJECTED Compilation of lambda expression NYI
+public class P {
+    static String s;
+    public static Object run() { Runnable r = () -> { s = "ran"; }; r.run(); return s; }
+}
+
+=== lambda expression with inferred parameter types (Comparator<String>)
+jls: [c, b, a]
+janino: REJECTED Compilation of lambda expression NYI
+import java.util.*;
+public class P {
+    public static Object run() {
+        List<String> l = new ArrayList<String>(Arrays.asList("a", "c", "b"));
+        Collections.sort(l, (a, b) -> b.compareTo(a));
+        return l.toString();
+    }
+}
+
+=== method reference
+jls: ABC
+janino: REJECTED Compilation of method reference NYI
+import java.util.function.*;
+public class P {
+    public static Object run() { Function<String, String> f = String::toUpperCase; return f.apply("abc"); }
+}
+
+=== default method
+jls: d
+janino: OK
+public class P {
+    interface I { default String m() { return "d"; } }
+    static class C implements I {}
+    public static Object run() { return new C().m(); }
+}
+
+=== static interface method
+jls: s
+janino: OK
+public class P {
+    interface I { static String m() { return "s"; } }
+    public static Object run() { return I.m(); }
+}
+
+=== invocation of a superinterface default method (I.super.m())
+jls: i
+janino: REJECTED Qualified superclass method invocation NYI
+public class P {
+    interface I { default String m() { return "i"; } }
+    static class C implements I { public String m() { return I.super.m(); } }
+    public static Object run() { return new C().m(); }
+}
+
+=== effectively final local variable captured by an anonymous class
+jls: 5
+janino: REJECTED Cannot access non-final local variable "x" from inner class
+public class P {
+    public static Object run() {
+        int x = 5;
+        Object o = new Object() { public String toString() { return String.valueOf(x); } };
+        return o.toString();
+    }
+}

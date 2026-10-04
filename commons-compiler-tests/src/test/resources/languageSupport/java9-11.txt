@@ -1,0 +1,71 @@
+# Language constructs of Java 9 through 11. See "LanguageSupportTest" for the format.
+
+=== private interface method (Java 9)
+jls: p
+janino: REJECTED Private interface methods only available for target version 9+
+minJava: 9
+public class P {
+    interface I { private String h() { return "p"; } default String m() { return h(); } }
+    static class C implements I {}
+    public static Object run() { return new C().m(); }
+}
+
+=== try-with-resources on an effectively final variable (Java 9)
+jls: closed
+janino: OK
+minJava: 9
+public class P {
+    static String s = "";
+    static class R implements AutoCloseable { public void close() { s = "closed"; } }
+    public static Object run() throws Exception { R r = new R(); try (r) {} return s; }
+}
+
+=== diamond operator with an anonymous class (Java 9)
+jls: x
+janino: REJECTED Non-abstract class "P$1" must implement method "public abstract int java.util.Comparator.compare(java.lang.Object, java.lang.Object)"
+minJava: 9
+import java.util.*;
+public class P {
+    public static Object run() {
+        Comparator<String> c = new Comparator<>() { public int compare(String a, String b) { return 0; } };
+        return "x";
+    }
+}
+
+=== local variable type inference (var, Java 10)
+jls: abc
+janino: REJECTED Local variable type inference NYI
+minJava: 10
+public class P { public static Object run() { var s = "abc"; return s; } }
+
+=== local variable type inference with a generic type (Java 10)
+jls: abc
+janino: REJECTED Local variable type inference NYI
+minJava: 10
+import java.util.*;
+public class P { public static Object run() { var l = new ArrayList<String>(); l.add("abc"); return l.get(0); } }
+
+=== var in lambda parameters (Java 11)
+jls: 3
+janino: REJECTED Compilation of lambda expression NYI
+minJava: 11
+import java.util.function.*;
+public class P {
+    public static Object run() { BinaryOperator<Integer> f = (var a, var b) -> a + b; return String.valueOf(f.apply(1, 2)); }
+}
+
+=== try-with-resources on an effectively final variable closes it on return (Java 9)
+jls: r/o1x1
+janino: OK
+minJava: 9
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static class R implements AutoCloseable {
+        final String n; final boolean fail;
+        R(String n) { this(n, false); }
+        R(String n, boolean fail) { this.n = n; this.fail = fail; t.append('o').append(n); }
+        public void close() { t.append('x').append(n); if (fail) throw new IllegalStateException("c" + n); }
+    }
+    static String m() { R r = new R("1"); try (r) { return "r"; } }
+    public static Object run() { String v = m(); return v + "/" + t; }
+}

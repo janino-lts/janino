@@ -1137,8 +1137,9 @@ class CodeContext {
 
                     // Issue #178:
                     // top,top / double => top,top
-                    assert i1 < locals1.length;
-                    assert locals1[i1] == StackMapTableAttribute.TOP_VARIABLE_INFO;
+                    // If the second slot of the double has no category 1 counterpart (e.g. because the other
+                    // stack map ends here), then truncate the merged stack map; the remaining slots are "top".
+                    if (i1 == locals1.length || locals1[i1].category() != 1) break;
                     i1++;
                     tmp.add(StackMapTableAttribute.TOP_VARIABLE_INFO);
                 } else
@@ -1146,8 +1147,8 @@ class CodeContext {
 
                     // Issue #178:
                     // double / top,top => top,top
-                    assert i2 < locals2.length;
-                    assert locals2[i2] == StackMapTableAttribute.TOP_VARIABLE_INFO;
+                    // See above.
+                    if (i2 == locals2.length || locals2[i2].category() != 1) break;
                     i2++;
                     tmp.add(StackMapTableAttribute.TOP_VARIABLE_INFO);
                 }

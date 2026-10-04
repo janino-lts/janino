@@ -1,0 +1,196 @@
+# Annotations (Java 5 and later). See "LanguageSupportTest" for the format.
+
+=== declared annotation type, element read at runtime
+jls: 7
+janino: REJECTED A method named "value" is not declared in any enclosing class nor any supertype, nor through a static import
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A { int value(); }
+    @A(7) public static void m() {}
+    public static Object run() throws Exception { return String.valueOf(P.class.getMethod("m").getAnnotation(A.class).value()); }
+}
+
+=== declared annotation type, element read through reflection
+jls: 7
+janino: WRONG throws java.lang.NullPointerException
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A { int value(); }
+    @A(7) public static void m() {}
+    public static Object run() throws Exception {
+        Annotation a = P.class.getMethod("m").getAnnotation(A.class);
+        return String.valueOf(A.class.getMethod("value").invoke(a));
+    }
+}
+
+=== declared annotation type with default value, read through reflection
+jls: 5
+janino: WRONG throws java.lang.NullPointerException
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A { int value() default 5; }
+    @A public static void m() {}
+    public static Object run() throws Exception {
+        Annotation a = P.class.getMethod("m").getAnnotation(A.class);
+        return String.valueOf(A.class.getMethod("value").invoke(a));
+    }
+}
+
+=== declared RUNTIME annotation on a method
+jls: true
+janino: WRONG false
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A {}
+    @A public static void m() {}
+    public static Object run() throws Exception { return String.valueOf(P.class.getMethod("m").isAnnotationPresent(A.class)); }
+}
+
+=== declared RUNTIME annotation on a field
+jls: true
+janino: WRONG false
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A {}
+    @A public static int f;
+    public static Object run() throws Exception { return String.valueOf(P.class.getField("f").isAnnotationPresent(A.class)); }
+}
+
+=== declared RUNTIME annotation on the declaring class
+jls: true
+janino: WRONG false
+import java.lang.annotation.*;
+@P.A public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A {}
+    public static Object run() throws Exception { return String.valueOf(P.class.isAnnotationPresent(A.class)); }
+}
+
+=== declared RUNTIME annotation on another nested class
+jls: 1
+janino: WRONG 0
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A {}
+    @A static class Q {}
+    public static Object run() throws Exception { return String.valueOf(Q.class.getDeclaredAnnotations().length); }
+}
+
+=== declared RUNTIME annotation (fully qualified meta-annotation) on another nested class
+jls: true
+janino: WRONG false
+public class P {
+    @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.RUNTIME) @interface A {}
+    @A static class Q {}
+    public static Object run() throws Exception { return String.valueOf(Q.class.isAnnotationPresent(A.class)); }
+}
+
+=== declared RUNTIME annotation on a parameter
+jls: 1
+janino: WRONG 0
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A {}
+    public static void m(@A int x) {}
+    public static Object run() throws Exception { return String.valueOf(P.class.getMethod("m", int.class).getParameterAnnotations()[0].length); }
+}
+
+=== declared annotation type has its @Retention at runtime
+jls: RUNTIME
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A {}
+    public static Object run() { Retention r = (Retention) A.class.getAnnotation(Retention.class); return r == null ? "null" : r.value().toString(); }
+}
+
+=== declared annotation type declares its element methods
+jls: 1
+janino: OK
+public class P {
+    @interface A { int value(); }
+    public static Object run() { return String.valueOf(A.class.getDeclaredMethods().length); }
+}
+
+=== declared annotation type stores its default value
+jls: 5
+janino: OK
+public class P {
+    @interface A { int value() default 5; }
+    public static Object run() throws Exception { return String.valueOf(A.class.getDeclaredMethod("value").getDefaultValue()); }
+}
+
+=== JDK annotation @Deprecated on a method
+jls: true
+janino: OK
+public class P {
+    @Deprecated public static void m() {}
+    public static Object run() throws Exception { return String.valueOf(P.class.getMethod("m").isAnnotationPresent(Deprecated.class)); }
+}
+
+=== JDK annotation @Deprecated on a class
+jls: true
+janino: OK
+@Deprecated public class P {
+    public static Object run() throws Exception { return String.valueOf(P.class.isAnnotationPresent(Deprecated.class)); }
+}
+
+=== JDK annotation @Deprecated on a field
+jls: true
+janino: OK
+public class P {
+    @Deprecated public static int f;
+    public static Object run() throws Exception { return String.valueOf(P.class.getField("f").isAnnotationPresent(Deprecated.class)); }
+}
+
+=== JDK annotation @SafeVarargs on a method
+jls: true
+janino: OK
+public class P {
+    @SafeVarargs public static void m(Object... a) {}
+    public static Object run() throws Exception { return String.valueOf(P.class.getMethod("m", Object[].class).isAnnotationPresent(SafeVarargs.class)); }
+}
+
+=== JDK annotation @FunctionalInterface on a nested interface
+jls: true
+janino: OK
+public class P {
+    @FunctionalInterface interface F { void f(); }
+    public static Object run() throws Exception { return String.valueOf(F.class.isAnnotationPresent(FunctionalInterface.class)); }
+}
+
+=== @SuppressWarnings and @Deprecated are accepted
+jls: ok
+janino: OK
+public class P {
+    @Deprecated @SuppressWarnings("unchecked") static void m() {}
+    public static Object run() { m(); return "ok"; }
+}
+
+=== member of a JDK annotation (Retention.value())
+jls: RUNTIME
+janino: REJECTED Assignment conversion not possible from type "java.lang.annotation.Annotation" to type "java.lang.annotation.Retention"
+import java.lang.annotation.*;
+public class P {
+    public static Object run() { Retention r = Target.class.getAnnotation(Retention.class); return r.value().toString(); }
+}
+
+=== repeatable annotations (Java 8)
+jls: 2
+janino: REJECTED Duplicate annotation "P$A"
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface As { A[] value(); }
+    @Retention(RetentionPolicy.RUNTIME) @Repeatable(As.class) @interface A { int value(); }
+    @A(1) @A(2) public static void m() {}
+    public static Object run() throws Exception { return String.valueOf(P.class.getMethod("m").getAnnotationsByType(A.class).length); }
+}
+
+=== type annotation (Java 8)
+jls: ok
+janino: REJECTED Unexpected token "@" in primary
+import java.lang.annotation.*;
+import java.util.*;
+public class P {
+    @Target(ElementType.TYPE_USE) @interface A {}
+    public static Object run() { List<@A String> l = new ArrayList<String>(); return "ok"; }
+}

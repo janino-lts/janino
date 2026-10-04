@@ -1,0 +1,343 @@
+# Language constructs of Java 5 (except annotations). See "LanguageSupportTest" for the format.
+
+=== generics: return type of List<String>.get() without cast
+jls: abc
+janino: REJECTED Assignment conversion not possible from type "java.lang.Object" to type "java.lang.String"
+import java.util.*;
+public class P {
+    public static Object run() {
+        List<String> l = new ArrayList<String>(); l.add("abc");
+        String s = l.get(0);
+        return s;
+    }
+}
+
+=== generics: enhanced for over List<String>
+jls: ab
+janino: OK
+import java.util.*;
+public class P {
+    public static Object run() {
+        List<String> l = Arrays.asList("a", "b"); String r = "";
+        for (String s : l) r += s;
+        return r;
+    }
+}
+
+=== generics: enhanced for over List<String>, element type String
+jls: 2
+janino: OK
+import java.util.*;
+public class P {
+    public static Object run() {
+        List<String> l = Arrays.asList("a", "b"); int n = 0;
+        for (String s : l) n += s.length();
+        return String.valueOf(n);
+    }
+}
+
+=== generics: enhanced for over Map.Entry<String, Integer>
+jls: x1
+janino: REJECTED Binary numeric promotion not possible on types "java.lang.Object" and "java.lang.Object"
+import java.util.*;
+public class P {
+    public static Object run() {
+        Map<String, Integer> m = new HashMap<String, Integer>(); m.put("x", 1); String r = "";
+        for (Map.Entry<String, Integer> e : m.entrySet()) r += e.getKey() + e.getValue();
+        return r;
+    }
+}
+
+=== generics: Map<String, Integer>.get() with auto-unboxing
+jls: 42
+janino: REJECTED Binary numeric promotion not possible on types "java.lang.Object" and "int"
+import java.util.*;
+public class P {
+    public static Object run() {
+        Map<String, Integer> m = new HashMap<String, Integer>(); m.put("x", 41);
+        int i = m.get("x") + 1;
+        return String.valueOf(i);
+    }
+}
+
+=== generics: method invocation on a generic return value (l.get(0).length())
+jls: 3
+janino: REJECTED A method named "length" is not declared in any enclosing class nor any supertype, nor through a static import
+import java.util.*;
+public class P {
+    public static Object run() {
+        List<String> l = new ArrayList<String>(); l.add("abc");
+        return String.valueOf(l.get(0).length());
+    }
+}
+
+=== generics: wildcard List<? extends Number>.get()
+jls: 1
+janino: REJECTED Assignment conversion not possible from type "java.lang.Object" to type "java.lang.Number"
+import java.util.*;
+public class P {
+    public static Object run() {
+        List<? extends Number> l = Arrays.asList(1);
+        Number n = l.get(0);
+        return String.valueOf(n.intValue());
+    }
+}
+
+=== generics: own generic class Box<T>
+jls: x
+janino: REJECTED Assignment conversion not possible from type "java.lang.Object" to type "java.lang.String"
+public class P {
+    static class Box<T> { T v; Box(T v) { this.v = v; } T get() { return v; } }
+    public static Object run() { Box<String> b = new Box<String>("x"); String s = b.get(); return s; }
+}
+
+=== generics: generic method <T> T first(List<T>)
+jls: a
+janino: REJECTED Assignment conversion not possible from type "java.lang.Object" to type "java.lang.String"
+import java.util.*;
+public class P {
+    static <T> T first(List<T> l) { return l.get(0); }
+    public static Object run() { String s = first(Arrays.asList("a")); return s; }
+}
+
+=== generics: explicit type arguments (P.<String>first())
+jls: a
+janino: OK
+import java.util.*;
+public class P {
+    static <T> T first(List<T> l) { return l.get(0); }
+    public static Object run() { Object o = P.<String>first(Arrays.asList("a")); return o; }
+}
+
+=== generics: inner class of a generic class (O<String>.I)
+jls: v
+janino: REJECTED IDENTIFIER expected instead of '.'
+public class P {
+    static class O<T> { T t; O(T t) { this.t = t; } class I { Object g() { return t; } } }
+    public static Object run() { O<String> o = new O<String>("v"); O<String>.I i = o.new I(); return i.g(); }
+}
+
+=== generics: instanceof with wildcard type (o instanceof List<?>)
+jls: true
+janino: OK
+import java.util.*;
+public class P {
+    public static Object run() { Object o = new ArrayList<String>(); return String.valueOf(o instanceof List<?>); }
+}
+
+=== generics: generic array type List<String>[]
+jls: 1
+janino: OK
+import java.util.*;
+public class P {
+    @SuppressWarnings("unchecked") public static Object run() { List<String>[] a = new List[1]; return String.valueOf(a.length); }
+}
+
+=== generics: raw implementation of a generic interface
+jls: x
+janino: OK
+import java.util.*;
+public class P {
+    static class C implements Comparator { public int compare(Object a, Object b) { return 0; } }
+    public static Object run() { new C(); return "x"; }
+}
+
+=== generics: bridge method for Comparable<Foo> (Collections.sort)
+jls: [1, 2, 3]
+janino: REJECTED Non-abstract class "P$Foo" must implement method "public abstract int java.lang.Comparable.compareTo(java.lang.Object)"
+import java.util.*;
+public class P {
+    static class Foo implements Comparable<Foo> {
+        int v; Foo(int v) { this.v = v; }
+        public int compareTo(Foo o) { return v - o.v; }
+        public String toString() { return String.valueOf(v); }
+    }
+    public static Object run() {
+        List<Foo> l = new ArrayList<Foo>(); l.add(new Foo(3)); l.add(new Foo(1)); l.add(new Foo(2));
+        Collections.sort(l);
+        return l.toString();
+    }
+}
+
+=== generics: bridge method for an anonymous Comparator<String>
+jls: [c, b, a]
+janino: REJECTED Non-abstract class "P$1" must implement method "public abstract int java.util.Comparator.compare(java.lang.Object, java.lang.Object)"
+import java.util.*;
+public class P {
+    public static Object run() {
+        List<String> l = new ArrayList<String>(Arrays.asList("a", "c", "b"));
+        Collections.sort(l, new Comparator<String>() { public int compare(String a, String b) { return b.compareTo(a); } });
+        return l.toString();
+    }
+}
+
+=== generics: bridge method for a generic subclass that overrides a method with parameter type T
+jls: s
+janino: WRONG x
+public class P {
+    static class A<T> { T m(T t) { return t; } }
+    static class B extends A<String> { String m(String s) { return "s"; } }
+    public static Object run() { A<String> a = new B(); return a.m("x"); }
+}
+
+=== generics: overload resolution with a generic return value
+jls: String
+janino: WRONG Object
+import java.util.*;
+public class P {
+    static String f(Object o) { return "Object"; }
+    static String f(String s) { return "String"; }
+    public static Object run() { List<String> l = new ArrayList<String>(); l.add("x"); return f(l.get(0)); }
+}
+
+=== generics: overload resolution with a cast generic return value
+jls: String
+janino: OK
+import java.util.*;
+public class P {
+    static String f(Object o) { return "Object"; }
+    static String f(String s) { return "String"; }
+    public static Object run() { List<String> l = new ArrayList<String>(); l.add("x"); return f((String) l.get(0)); }
+}
+
+=== generics: Signature attribute of a field
+jls: java.util.List<java.lang.String>
+janino: WRONG interface java.util.List
+import java.util.*;
+public class P {
+    public static List<String> field;
+    public static Object run() throws Exception { return P.class.getField("field").getGenericType().toString(); }
+}
+
+=== generics: throws clause with a type variable
+jls: ok
+janino: OK
+public class P {
+    static <E extends Exception> void m(E e) throws E { if (e != null) throw e; }
+    public static Object run() throws Exception { m(null); return "ok"; }
+}
+
+=== varargs
+jls: 3
+janino: OK
+public class P {
+    static int n(String... a) { return a.length; }
+    public static Object run() { return String.valueOf(n("a", "b", "c")); }
+}
+
+=== autoboxing
+jls: 3
+janino: OK
+public class P { public static Object run() { Integer i = 1; int j = i + 2; return String.valueOf(j); } }
+
+=== static import
+jls: 3.0
+janino: OK
+import static java.lang.Math.*;
+public class P { public static Object run() { return String.valueOf(max(1.0, 3.0)); } }
+
+=== covariant return type
+jls: s
+janino: OK
+public class P {
+    static class A { Object m() { return "o"; } }
+    static class B extends A { String m() { return "s"; } }
+    public static Object run() { A a = new B(); return a.m(); }
+}
+
+=== @Override on the implementation of an interface method
+jls: ok
+janino: OK
+public class P {
+    public static Object run() {
+        Runnable r = new Runnable() { @Override public void run() {} };
+        r.run();
+        return "ok";
+    }
+}
+
+=== enum: valueOf(), ordinal() and switch
+jls: B1
+janino: OK
+public class P {
+    enum E { A, B, C }
+    public static Object run() {
+        E e = E.valueOf("B");
+        switch (e) { case A: return "A"; case B: return "B" + e.ordinal(); default: return "?"; }
+    }
+}
+
+=== enum: constructor and field
+jls: 2
+janino: OK
+public class P {
+    enum E { A(1), B(2); final int v; E(int v) { this.v = v; } }
+    public static Object run() { return String.valueOf(E.B.v); }
+}
+
+=== enum: constants with class bodies implementing an abstract method
+jls: b
+janino: REJECTED Non-abstract class "P$E" must implement method "default abstract java.lang.String P$E.n()"
+public class P {
+    enum E { A { String n() { return "a"; } }, B { String n() { return "b"; } }; abstract String n(); }
+    public static Object run() { return E.B.n(); }
+}
+
+=== enum: constant with class body overriding a concrete method
+jls: b
+janino: WRONG a
+public class P {
+    enum E { A, B { String n() { return "b"; } }; String n() { return "a"; } }
+    public static Object run() { return E.B.n(); }
+}
+
+=== enum: class literal of a nested enum
+jls: E
+janino: OK
+public class P {
+    enum E { A }
+    public static Object run() { return P.E.class.getSimpleName(); }
+}
+
+=== enum: EnumSet
+jls: [A, C]
+janino: OK
+import java.util.*;
+public class P {
+    enum E { A, B, C }
+    public static Object run() { return EnumSet.of(E.A, E.C).toString(); }
+}
+
+=== enum: implements an interface
+jls: a
+janino: OK
+public class P {
+    interface I { String n(); }
+    enum E implements I { A; public String n() { return "a"; } }
+    public static Object run() { I i = E.A; return i.n(); }
+}
+
+=== enum: switch in another class
+jls: B
+janino: OK
+public class P {
+    enum E { A, B }
+    static class S { static String f(E e) { switch (e) { case A: return "A"; default: return "B"; } } }
+    public static Object run() { return S.f(E.B); }
+}
+
+=== enum: values() in enhanced for
+jls: AB
+janino: OK
+public class P {
+    enum E { A, B }
+    public static Object run() { String r = ""; for (E e : E.values()) r += e.name(); return r; }
+}
+
+=== enum: switch with default
+jls: x
+janino: OK
+public class P {
+    enum E { A, B }
+    public static Object run() { E e = E.B; String r = ""; switch (e) { case A: r = "a"; break; default: r = "x"; } return r; }
+}
