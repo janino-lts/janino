@@ -1,0 +1,92 @@
+# Language constructs of Java 14 through 21. See "LanguageSupportTest" for the format.
+
+=== switch expression with arrow labels (Java 14)
+jls: two
+janino: REJECTED Unexpected token "switch" in primary
+minJava: 14
+public class P {
+    public static Object run() { int i = 2; String s = switch (i) { case 1 -> "one"; case 2 -> "two"; default -> "x"; }; return s; }
+}
+
+=== switch statement with arrow labels (Java 14)
+jls: two
+janino: REJECTED ':' expected instead of '->'
+minJava: 14
+public class P {
+    public static Object run() { int i = 2; String s = "x"; switch (i) { case 1 -> s = "one"; case 2 -> s = "two"; default -> {} } return s; }
+}
+
+=== case with multiple labels (Java 14)
+jls: low
+janino: REJECTED ':' expected instead of ','
+minJava: 14
+public class P { public static Object run() { switch (2) { case 1, 2: return "low"; default: return "high"; } } }
+
+=== text block (Java 15)
+jls: a\nb\n
+janino: OK
+minJava: 15
+public class P {
+    public static Object run() {
+        return """
+            a
+            b
+            """.replace("\n", "\\n");
+    }
+}
+
+=== pattern matching for instanceof (Java 16)
+jls: 3
+janino: REJECTED ')' expected instead of 's'
+minJava: 16
+public class P {
+    public static Object run() { Object o = "abc"; if (o instanceof String s) return String.valueOf(s.length()); return "no"; }
+}
+
+=== record (Java 16)
+jls: R[a=1]
+janino: REJECTED Cannot determine simple type name "record"
+minJava: 16
+public class P { record R(int a) {} public static Object run() { return new R(1).toString(); } }
+
+=== local enum (Java 16)
+jls: A
+janino: REJECTED Unexpected token "enum" in primary
+minJava: 16
+public class P { public static Object run() { enum L { A } return L.A.name(); } }
+
+=== static member of an inner class (Java 16)
+jls: 1
+janino: OK
+minJava: 16
+public class P { class I { static int X = 1; } public static Object run() { return String.valueOf(I.X); } }
+
+=== sealed interface (Java 17)
+jls: ok
+janino: REJECTED IDENTIFIER expected instead of 'interface'
+minJava: 17
+public class P {
+    sealed interface S permits A {}
+    static final class A implements S {}
+    public static Object run() { return "ok"; }
+}
+
+=== pattern matching for switch (Java 21)
+jls: str
+janino: REJECTED Unexpected token "switch" in primary
+minJava: 21
+public class P {
+    public static Object run() { Object o = "x"; return switch (o) { case String s -> "str"; default -> "other"; }; }
+}
+
+=== yield as an identifier
+jls: 1
+janino: OK
+public class P { public static Object run() { int yield = 1; return String.valueOf(yield); } }
+
+=== record, sealed, permits and var as identifiers
+jls: 4
+janino: OK
+public class P {
+    public static Object run() { int record = 1, sealed = 1, permits = 1, var = 1; return String.valueOf(record + sealed + permits + var); }
+}

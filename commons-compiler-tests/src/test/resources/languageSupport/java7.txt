@@ -1,0 +1,103 @@
+# Language constructs of Java 7. See "LanguageSupportTest" for the format.
+
+=== diamond operator
+jls: 1
+janino: OK
+import java.util.*;
+public class P { public static Object run() { List<String> l = new ArrayList<>(); l.add("a"); return String.valueOf(l.size()); } }
+
+=== multi-catch
+jls: caught
+janino: REJECTED Multi-type CATCH parameters NYI
+public class P {
+    public static Object run() {
+        try { if (true) throw new IllegalStateException(); return "no"; }
+        catch (IllegalStateException | IllegalArgumentException e) { return "caught"; }
+    }
+}
+
+=== try-with-resources
+jls: closed
+janino: OK
+public class P {
+    static String s = "";
+    static class R implements AutoCloseable { public void close() { s = "closed"; } }
+    public static Object run() { try (R r = new R()) {} return s; }
+}
+
+=== try-with-resources records suppressed exceptions
+jls: 1
+janino: WRONG 0
+public class P {
+    static class R implements AutoCloseable { public void close() { throw new IllegalStateException("c"); } }
+    public static Object run() {
+        try (R r = new R()) { throw new RuntimeException("b"); }
+        catch (RuntimeException e) { return String.valueOf(e.getSuppressed().length); }
+    }
+}
+
+=== try-with-resources closes the resource when the block completes by return
+jls: r/closed
+janino: WRONG r/
+public class P {
+    static String s = "";
+    static class R implements AutoCloseable { public void close() { s += "closed"; } }
+    static String m() { try (R r = new R()) { return "r"; } }
+    public static Object run() { String v = m(); return v + "/" + s; }
+}
+
+=== try-with-resources closes the resource when the block completes by break
+jls: [closed]
+janino: WRONG []
+public class P {
+    static String s = "";
+    static class R implements AutoCloseable { public void close() { s += "closed"; } }
+    public static Object run() { for (int i = 0; i < 1; i++) { try (R r = new R()) { break; } } return "[" + s + "]"; }
+}
+
+=== try-with-resources closes the resource when the block completes by continue
+jls: [cc]
+janino: WRONG []
+public class P {
+    static String s = "";
+    static class R implements AutoCloseable { public void close() { s += "c"; } }
+    public static Object run() { for (int i = 0; i < 2; i++) { try (R r = new R()) { continue; } } return "[" + s + "]"; }
+}
+
+=== try-with-resources closes the resource when the block throws
+jls: c
+janino: OK
+public class P {
+    static String s = "";
+    static class R implements AutoCloseable { public void close() { s += "c"; } }
+    public static Object run() { try (R r = new R()) { throw new RuntimeException(); } catch (RuntimeException e) { } return s; }
+}
+
+=== switch on strings
+jls: 2
+janino: OK
+public class P {
+    public static Object run() { switch ("b") { case "a": return "1"; case "b": return "2"; default: return "?"; } }
+}
+
+=== switch on strings with a hash collision (Aa/BB)
+jls: BB
+janino: OK
+public class P {
+    public static Object run() { switch ("BB") { case "Aa": return "Aa"; case "BB": return "BB"; default: return "?"; } }
+}
+
+=== binary literal and underscores in literals
+jls: 1000005
+janino: OK
+public class P { public static Object run() { return String.valueOf(1_000_000 + 0b101); } }
+
+=== precise rethrow
+jls: ok
+janino: OK
+public class P {
+    static void m() throws java.io.IOException {
+        try { if (false) throw new java.io.IOException(); } catch (Exception e) { throw e; }
+    }
+    public static Object run() throws Exception { m(); return "ok"; }
+}

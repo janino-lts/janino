@@ -1,0 +1,252 @@
+# "finally" blocks, and statements that leave them. See "LanguageSupportTest" for the format.
+
+=== finally block that returns overrides the return value of the try block
+jls: f
+janino: OK
+public class P {
+    static String m() { try { return "t"; } finally { return "f"; } }
+    public static Object run() { return m(); }
+}
+
+=== finally block that returns overrides an exception
+jls: f
+janino: OK
+public class P {
+    static String m() { try { throw new RuntimeException(); } finally { return "f"; } }
+    public static Object run() { return m(); }
+}
+
+=== finally block that returns overrides the return value of a catch clause
+jls: f
+janino: OK
+public class P {
+    static String m() { try { throw new RuntimeException(); } catch (RuntimeException e) { return "c"; } finally { return "f"; } }
+    public static Object run() { return m(); }
+}
+
+=== finally block that returns, in a void method
+jls: ok
+janino: OK
+public class P {
+    static String s = "ok";
+    static void m() { try { s = s + ""; } finally { return; } }
+    public static Object run() { m(); return s; }
+}
+
+=== finally block that returns, in a void method, after a return in the try block
+jls: ok
+janino: OK
+public class P {
+    static String s = "ok";
+    static void m() { try { return; } finally { return; } }
+    public static Object run() { m(); return s; }
+}
+
+=== finally block that throws conditionally after a return in the try block
+jls: t
+janino: OK
+public class P {
+    static String m() { try { return "r"; } finally { if (true) throw new RuntimeException("t"); } }
+    public static Object run() { try { return m(); } catch (RuntimeException e) { return e.getMessage(); } }
+}
+
+=== finally block that throws unconditionally after a return in the try block
+jls: t
+janino: OK
+public class P {
+    static String m() { try { return "r"; } finally { throw new RuntimeException("t"); } }
+    public static Object run() { try { return m(); } catch (RuntimeException e) { return e.getMessage(); } }
+}
+
+=== finally block that throws, after a void return in the try block
+jls: t
+janino: OK
+public class P {
+    static void m() { try { return; } finally { if (System.nanoTime() > 0) throw new RuntimeException("t"); } }
+    public static Object run() { try { m(); return "no"; } catch (RuntimeException e) { return e.getMessage(); } }
+}
+
+=== nested try blocks: the inner finally block returns
+jls: inner
+janino: OK
+public class P {
+    static String m() { try { try { return "t"; } finally { return "inner"; } } finally { } }
+    public static Object run() { return m(); }
+}
+
+=== nested try blocks: both finally blocks run after a return
+jls: inner-outer
+janino: OK
+public class P {
+    static String s = "";
+    static String m() { try { try { return "r"; } finally { s += "inner"; } } finally { s += "-outer"; } }
+    public static Object run() { m(); return s; }
+}
+
+=== synchronized in the try block, and a finally block that returns
+jls: f
+janino: OK
+public class P {
+    static String m() { try { synchronized (P.class) { return "s"; } } finally { return "f"; } }
+    public static Object run() { return m(); }
+}
+
+=== try-with-resources in the try block, and a finally block that returns
+jls: f
+janino: OK
+public class P {
+    static class R implements AutoCloseable { public void close() {} }
+    static String m() { try { try (R r = new R()) { return "r"; } } finally { return "f"; } }
+    public static Object run() { return m(); }
+}
+
+=== try/catch in the finally block after a return in the try block
+jls: t
+janino: OK
+public class P {
+    static void x() { throw new IllegalStateException(); }
+    public static Object run() { try { return "t"; } finally { try { x(); } catch (Exception e) { } } }
+}
+
+=== try/finally in the finally block after a return in the try block
+jls: t1
+janino: OK
+public class P {
+    static String s = "";
+    static String m() { try { return "t"; } finally { try { s += "1"; } finally { s += ""; } } }
+    public static Object run() { return m() + s; }
+}
+
+=== loop in the finally block after a return in the try block
+jls: t
+janino: OK
+public class P {
+    public static Object run() { String s = "t"; try { return s; } finally { for (int i = 0; i < 3; i++) { s = s + i; } } }
+}
+
+=== synchronized in the finally block after a return in the try block
+jls: t
+janino: OK
+public class P {
+    public static Object run() { try { return "t"; } finally { synchronized (P.class) { int k = 1; } } }
+}
+
+=== switch in the finally block after a return in the try block (long local variable)
+jls: 5
+janino: OK
+public class P {
+    public static Object run() {
+        long l = 5;
+        try { return Long.valueOf(l); } finally { switch ((int) l) { case 1: l = 2; break; default: l = 3; } }
+    }
+}
+
+=== break in the finally block of a loop
+jls: 3
+janino: OK
+public class P {
+    public static Object run() {
+        int n = 0;
+        for (int i = 0; i < 10; i++) { try { n++; } finally { if (i == 2) break; } }
+        return String.valueOf(n);
+    }
+}
+
+=== continue in the finally block of a loop
+jls: 5
+janino: OK
+public class P {
+    public static Object run() {
+        int n = 0;
+        for (int i = 0; i < 5; i++) { try { n++; } finally { continue; } }
+        return String.valueOf(n);
+    }
+}
+
+=== continue in the finally block, after a return in the try block
+jls: 5
+janino: OK
+public class P {
+    public static Object run() {
+        int n = 0;
+        for (int i = 0; i < 5; i++) { try { if (i > 100) return "x"; } finally { n++; continue; } }
+        return String.valueOf(n);
+    }
+}
+
+=== break in the finally block, after a return in the try block
+jls: after
+janino: OK
+public class P {
+    static String m() { for (;;) { try { return "t"; } finally { break; } } return "after"; }
+    public static Object run() { return m(); }
+}
+
+=== return in the try block of a loop with a finally block
+jls: 2
+janino: OK
+public class P {
+    static int c;
+    static int m() { for (int i = 0; ; i++) { try { if (i == 2) return i; } finally { c++; } } }
+    public static Object run() { return String.valueOf(m()); }
+}
+
+=== try/catch/finally with long and double local variables
+jls: 3.0
+janino: OK
+public class P {
+    static double m() {
+        long l = 1; double d = 2;
+        try { if (l > 5) throw new RuntimeException(); return l + d; } catch (RuntimeException e) { return -1; } finally { l = 0; }
+    }
+    public static Object run() { return String.valueOf(m()); }
+}
+
+=== switch with returns in a try block with a finally block
+jls: b
+janino: OK
+public class P {
+    static String m(int i) { try { switch (i) { case 1: return "a"; case 2: return "b"; default: return "c"; } } finally { i = 0; } }
+    public static Object run() { return m(2); }
+}
+
+=== labeled break out of a try block with a finally block
+jls: 1f
+janino: OK
+public class P {
+    public static Object run() { String s = ""; out: { try { s += "1"; if (s.length() > 0) break out; s += "2"; } finally { s += "f"; } } return s; }
+}
+
+=== labeled break out of a try block, and code after the finally block
+jls: 1f2
+janino: OK
+public class P {
+    public static Object run() { String s = ""; b: { try { s += "1"; break b; } finally { s += "f"; } } s += "2"; return s; }
+}
+
+=== while (true) with return in a try block with an empty finally block
+jls: 5
+janino: OK
+public class P {
+    static int m() { int i = 0; while (true) { try { if (++i == 5) return i; } finally { } } }
+    public static Object run() { return String.valueOf(m()); }
+}
+
+=== nested loops with labeled continue in a try block with a finally block
+jls: 6
+janino: OK
+public class P {
+    public static Object run() {
+        int n = 0;
+        o: for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) { try { if (j > i) continue o; n++; } finally { } }
+        return String.valueOf(n);
+    }
+}
+
+=== return of a long value through a switch and a finally block
+jls: 7
+janino: OK
+public class P {
+    static long m(int i) { long acc = 7; try { switch (i) { case 0: return acc; default: acc++; } } finally { acc = -1; } return acc; }
+    public static Object run() { return String.valueOf(m(0)); }
+}

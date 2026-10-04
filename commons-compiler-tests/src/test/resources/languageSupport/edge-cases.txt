@@ -1,0 +1,80 @@
+# Overload resolution, constants, conversions and string concatenation. See "LanguageSupportTest" for the format.
+
+=== overload resolution: f(long) is preferred over f(Integer) for f(1)
+jls: long
+janino: OK
+public class P {
+    static String f(long x) { return "long"; }
+    static String f(Integer x) { return "Integer"; }
+    public static Object run() { return f(1); }
+}
+
+=== overload resolution: f(Object) is preferred over f(int...) for f(1)
+jls: Object
+janino: WRONG varargs
+public class P {
+    static String f(Object x) { return "Object"; }
+    static String f(int... x) { return "varargs"; }
+    public static Object run() { return f(1); }
+}
+
+=== overload resolution: f(int...) for f()
+jls: varargs
+janino: OK
+public class P {
+    static String f(int... x) { return "varargs"; }
+    public static Object run() { return f(); }
+}
+
+=== constant expression 1 / 0 is not folded
+jls: AE
+janino: OK
+public class P {
+    public static Object run() { try { int x = 1 / 0; return "no"; } catch (ArithmeticException e) { return "AE"; } }
+}
+
+=== constant narrowing in an assignment (char c = 65)
+jls: A
+janino: OK
+public class P { public static Object run() { char c = 65; return String.valueOf(c); } }
+
+=== string concatenation order
+jls: a1/98
+janino: OK
+public class P { public static Object run() { return "" + 'a' + 1 + "/" + ('a' + 1 + ""); } }
+
+=== compound assignment string += char
+jls: ab
+janino: OK
+public class P { public static Object run() { String s = "a"; s += 'b'; return s; } }
+
+=== MIN_VALUE literals
+jls: -2147483648/-9223372036854775808
+janino: OK
+public class P {
+    public static Object run() { int i = -2147483648; long l = -9223372036854775808L; return i + "/" + l; }
+}
+
+=== conditional expression with boxed operands of different types (Integer : Double)
+jls: 1.0
+janino: OK
+public class P {
+    public static Object run() { Integer i = 1; Double d = 2.0; Object o = true ? i : d; return String.valueOf(o); }
+}
+
+=== conditional expression unboxes a null operand
+jls: throws java.lang.NullPointerException
+janino: OK
+public class P {
+    public static Object run() { Integer i = null; Integer r = false ? 1 : i; return String.valueOf(r); }
+}
+
+=== Integer cache (==)
+jls: true
+janino: OK
+public class P { public static Object run() { Integer a = 127, b = 127; return String.valueOf(a == b); } }
+
+=== @FunctionalInterface is accepted
+jls: ok
+janino: OK
+public class P { @FunctionalInterface interface F { void f(); } public static Object run() { return "ok"; } }

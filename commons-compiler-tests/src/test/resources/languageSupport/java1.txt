@@ -1,0 +1,134 @@
+# Language constructs of Java 1.0 through 1.4. See "LanguageSupportTest" for the format.
+
+=== assert is disabled unless enabled for the class
+jls: not thrown
+janino: WRONG thrown
+public class P {
+    public static Object run() {
+        try { assert false; return "not thrown"; } catch (AssertionError e) { return "thrown"; }
+    }
+}
+
+=== qualified superclass method invocation (Outer.super.m())
+jls: base
+janino: REJECTED Qualified superclass method invocation NYI
+public class P {
+    static class Base { String m() { return "base"; } }
+    static class Sub extends Base {
+        String m() { return "sub"; }
+        class Inner { String call() { return Sub.super.m(); } }
+    }
+    public static Object run() { Sub s = new Sub(); return s.new Inner().call(); }
+}
+
+=== local class capturing a final local variable
+jls: 5
+janino: OK
+public class P {
+    public static Object run() {
+        final int x = 5;
+        class L { int get() { return x; } }
+        return String.valueOf(new L().get());
+    }
+}
+
+=== anonymous class with instance initializer
+jls: 1
+janino: OK
+import java.util.*;
+public class P {
+    public static Object run() {
+        List<String> l = new ArrayList<String>() {{ add("x"); }};
+        return String.valueOf(l.size());
+    }
+}
+
+=== anonymous subclass of abstract class with constructor arguments
+jls: 7
+janino: OK
+public class P {
+    static abstract class A { int v; A(int v) { this.v = v; } abstract int g(); }
+    public static Object run() { A a = new A(7) { int g() { return v; } }; return String.valueOf(a.g()); }
+}
+
+=== compound assignment with implicit narrowing (byte b += 1)
+jls: 2
+janino: OK
+public class P { public static Object run() { byte b = 1; b += 1; return String.valueOf(b); } }
+
+=== labeled continue
+jls: 6
+janino: OK
+public class P {
+    public static Object run() {
+        int n = 0;
+        outer: for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) { if (j > i) continue outer; n++; }
+        return String.valueOf(n);
+    }
+}
+
+=== conditional expression of type char (true ? 1 : 'a')
+jls: 1
+janino: OK
+public class P {
+    public static Object run() {
+        Object o = true ? 1 : 'a';
+        return o instanceof Character ? String.valueOf((int) ((Character) o).charValue()) : "type " + o.getClass();
+    }
+}
+
+=== interface constant field
+jls: 3
+janino: OK
+public class P { interface I { int X = 3; } public static Object run() { return String.valueOf(I.X); } }
+
+=== interface field initialized by a method invocation
+jls: 3
+janino: OK
+public class P { interface I { int X = Integer.parseInt("3"); } public static Object run() { return String.valueOf(I.X); } }
+
+=== static nested class accesses private member of enclosing class
+jls: p
+janino: OK
+public class P {
+    private static String s = "p";
+    static class N { String g() { return s; } }
+    public static Object run() { return new N().g(); }
+}
+
+=== static nested class shadows a java.lang class (Integer)
+jls: mine
+janino: OK
+public class P {
+    static class Integer { public String toString() { return "mine"; } }
+    public static Object run() { return new Integer().toString(); }
+}
+
+=== static initialization order
+jls: 12
+janino: OK
+public class P {
+    static String s = "";
+    static { s += "1"; }
+    static int x = init();
+    static int init() { s += "2"; return 0; }
+    public static Object run() { return s; }
+}
+
+=== instance initializer and field initializer with conditional expression
+jls: y
+janino: OK
+public class P {
+    String a = System.nanoTime() > 0 ? "y" : "n";
+    { if (a == null) a = "z"; }
+    public static Object run() { return new P().a; }
+}
+
+=== constructor with try/catch
+jls: c
+janino: OK
+public class P {
+    String v;
+    P() { try { v = String.valueOf(Integer.parseInt("x")); } catch (NumberFormatException e) { v = "c"; } }
+    public static Object run() { return new P().v; }
+}

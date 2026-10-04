@@ -2452,11 +2452,10 @@ class UnitCompiler {
             }
         }
 
-        this.leaveStatements(
+        if (this.leaveStatements(
             bs.getEnclosingScope(),             // from
             brokenStatement.getEnclosingScope() // to
-        );
-        this.gotO(bs, this.getWhereToBreak(brokenStatement));
+        )) this.gotO(bs, this.getWhereToBreak(brokenStatement));
         return false;
     }
 
@@ -2519,17 +2518,10 @@ class UnitCompiler {
             }
         }
 
-        Offset wtc = continuedStatement.whereToContinue;
-        if (wtc == null) {
-            wtc = (continuedStatement.whereToContinue = this.getCodeContext().new BasicBlock());
-        }
-
-        this.leaveStatements(
+        if (this.leaveStatements(
             cs.getEnclosingScope(),                // from
             continuedStatement.getEnclosingScope() // to
-        );
-
-        this.gotO(cs, wtc);
+        )) this.gotO(cs, this.getWhereToContinue(continuedStatement));
 
         return false;
     }
@@ -2888,12 +2880,10 @@ class UnitCompiler {
         IType returnType = this.getReturnType(enclosingFunction);
         if (returnType == IClass.VOID) {
             if (orv != null) this.compileError("Method must not return a value", rs.getLocation());
-            this.leaveStatements(
+            if (this.leaveStatements(
                 rs.getEnclosingScope(), // from
                 enclosingFunction       // to
-            );
-
-            this.returN(rs);
+            )) this.returN(rs);
             return false;
         }
 
@@ -2909,11 +2899,34 @@ class UnitCompiler {
             this.getConstantValue(orv) // constantValue
         );
 
-        this.leaveStatements(
-            rs.getEnclosingScope(), // from
-            enclosingFunction       // to
-        );
-        this.xreturn(rs, returnType);
+        if (!UnitCompiler.leavesFinallyClause(rs.getEnclosingScope(), enclosingFunction)) {
+            this.leaveStatements(
+                rs.getEnclosingScope(), // from
+                enclosingFunction       // to
+            );
+            this.xreturn(rs, returnType);
+            return false;
+        }
+
+        // The FINALLY clauses must execute with an empty operand stack (e.g. because they may contain a TRY
+        // statement or a BREAK statement), so save the return value in a local variable, like JAVAC does.
+        this.getCodeContext().saveLocalVariables();
+        try {
+            LocalVariable returnValue = this.allocateLocalVariable(true, returnType);
+            this.store(rs, returnValue);
+
+            // A FINALLY clause that cannot complete normally (e.g. because it returns or throws) supersedes the
+            // RETURN statement, and no code must follow it.
+            if (this.leaveStatements(
+                rs.getEnclosingScope(), // from
+                enclosingFunction       // to
+            )) {
+                this.load(rs, returnValue);
+                this.xreturn(rs, returnType);
+            }
+        } finally {
+            this.getCodeContext().restoreLocalVariables();
+        }
         return false;
     }
 
@@ -6737,35 +6750,40 @@ class UnitCompiler {
      *   Statements like {@code return}, {@code break}, {@code continue} must call this method for all the statements
      *   they terminate.
      * </p>
+     *
+     * @return Whether the cleanup code can complete normally; {@code false} iff the statement is a {@code try}
+     *         statement whose {@code finally} clause cannot complete normally
      */
-    private void
+    private boolean
     leave(BlockStatement bs) throws CompileException {
-        BlockStatementVisitor<Void, CompileException> bsv = new BlockStatementVisitor<Void, CompileException>() {
-            @Override @Nullable public Void visitInitializer(Initializer i)                                                { UnitCompiler.this.leave2(i);    return null; }
-            @Override @Nullable public Void visitFieldDeclaration(FieldDeclaration fd)                                     { UnitCompiler.this.leave2(fd);   return null; }
-            @Override @Nullable public Void visitLabeledStatement(LabeledStatement ls)                                     { UnitCompiler.this.leave2(ls);   return null; }
-            @Override @Nullable public Void visitBlock(Block b)                                                            { UnitCompiler.this.leave2(b);    return null; }
-            @Override @Nullable public Void visitExpressionStatement(ExpressionStatement es)                               { UnitCompiler.this.leave2(es);   return null; }
-            @Override @Nullable public Void visitIfStatement(IfStatement is)                                               { UnitCompiler.this.leave2(is);   return null; }
-            @Override @Nullable public Void visitForStatement(ForStatement fs)                                             { UnitCompiler.this.leave2(fs);   return null; }
-            @Override @Nullable public Void visitForEachStatement(ForEachStatement fes)                                    { UnitCompiler.this.leave2(fes);  return null; }
-            @Override @Nullable public Void visitWhileStatement(WhileStatement ws)                                         { UnitCompiler.this.leave2(ws);   return null; }
-            @Override @Nullable public Void visitTryStatement(TryStatement ts) throws CompileException                     { UnitCompiler.this.leave2(ts);   return null; }
-            @Override @Nullable public Void visitSwitchStatement(SwitchStatement ss)                                       { UnitCompiler.this.leave2(ss);   return null; }
-            @Override @Nullable public Void visitSynchronizedStatement(SynchronizedStatement ss)                           { UnitCompiler.this.leave2(ss);   return null; }
-            @Override @Nullable public Void visitDoStatement(DoStatement ds)                                               { UnitCompiler.this.leave2(ds);   return null; }
-            @Override @Nullable public Void visitLocalVariableDeclarationStatement(LocalVariableDeclarationStatement lvds) { UnitCompiler.this.leave2(lvds); return null; }
-            @Override @Nullable public Void visitReturnStatement(ReturnStatement rs)                                       { UnitCompiler.this.leave2(rs);   return null; }
-            @Override @Nullable public Void visitThrowStatement(ThrowStatement ts)                                         { UnitCompiler.this.leave2(ts);   return null; }
-            @Override @Nullable public Void visitBreakStatement(BreakStatement bs)                                         { UnitCompiler.this.leave2(bs);   return null; }
-            @Override @Nullable public Void visitContinueStatement(ContinueStatement cs)                                   { UnitCompiler.this.leave2(cs);   return null; }
-            @Override @Nullable public Void visitAssertStatement(AssertStatement as)                                       { UnitCompiler.this.leave2(as);   return null; }
-            @Override @Nullable public Void visitEmptyStatement(EmptyStatement es)                                         { UnitCompiler.this.leave2(es);   return null; }
-            @Override @Nullable public Void visitLocalClassDeclarationStatement(LocalClassDeclarationStatement lcds)       { UnitCompiler.this.leave2(lcds); return null; }
-            @Override @Nullable public Void visitAlternateConstructorInvocation(AlternateConstructorInvocation aci)        { UnitCompiler.this.leave2(aci);  return null; }
-            @Override @Nullable public Void visitSuperConstructorInvocation(SuperConstructorInvocation sci)                { UnitCompiler.this.leave2(sci);  return null; }
+        BlockStatementVisitor<Boolean, CompileException> bsv = new BlockStatementVisitor<Boolean, CompileException>() {
+            @Override public Boolean visitInitializer(Initializer i)                                                { UnitCompiler.this.leave2(i);    return true; }
+            @Override public Boolean visitFieldDeclaration(FieldDeclaration fd)                                     { UnitCompiler.this.leave2(fd);   return true; }
+            @Override public Boolean visitLabeledStatement(LabeledStatement ls)                                     { UnitCompiler.this.leave2(ls);   return true; }
+            @Override public Boolean visitBlock(Block b)                                                            { UnitCompiler.this.leave2(b);    return true; }
+            @Override public Boolean visitExpressionStatement(ExpressionStatement es)                               { UnitCompiler.this.leave2(es);   return true; }
+            @Override public Boolean visitIfStatement(IfStatement is)                                               { UnitCompiler.this.leave2(is);   return true; }
+            @Override public Boolean visitForStatement(ForStatement fs)                                             { UnitCompiler.this.leave2(fs);   return true; }
+            @Override public Boolean visitForEachStatement(ForEachStatement fes)                                    { UnitCompiler.this.leave2(fes);  return true; }
+            @Override public Boolean visitWhileStatement(WhileStatement ws)                                         { UnitCompiler.this.leave2(ws);   return true; }
+            @Override public Boolean visitTryStatement(TryStatement ts) throws CompileException                     { return UnitCompiler.this.leave2(ts);              }
+            @Override public Boolean visitSwitchStatement(SwitchStatement ss)                                       { UnitCompiler.this.leave2(ss);   return true; }
+            @Override public Boolean visitSynchronizedStatement(SynchronizedStatement ss)                           { UnitCompiler.this.leave2(ss);   return true; }
+            @Override public Boolean visitDoStatement(DoStatement ds)                                               { UnitCompiler.this.leave2(ds);   return true; }
+            @Override public Boolean visitLocalVariableDeclarationStatement(LocalVariableDeclarationStatement lvds) { UnitCompiler.this.leave2(lvds); return true; }
+            @Override public Boolean visitReturnStatement(ReturnStatement rs)                                       { UnitCompiler.this.leave2(rs);   return true; }
+            @Override public Boolean visitThrowStatement(ThrowStatement ts)                                         { UnitCompiler.this.leave2(ts);   return true; }
+            @Override public Boolean visitBreakStatement(BreakStatement bs)                                         { UnitCompiler.this.leave2(bs);   return true; }
+            @Override public Boolean visitContinueStatement(ContinueStatement cs)                                   { UnitCompiler.this.leave2(cs);   return true; }
+            @Override public Boolean visitAssertStatement(AssertStatement as)                                       { UnitCompiler.this.leave2(as);   return true; }
+            @Override public Boolean visitEmptyStatement(EmptyStatement es)                                         { UnitCompiler.this.leave2(es);   return true; }
+            @Override public Boolean visitLocalClassDeclarationStatement(LocalClassDeclarationStatement lcds)       { UnitCompiler.this.leave2(lcds); return true; }
+            @Override public Boolean visitAlternateConstructorInvocation(AlternateConstructorInvocation aci)        { UnitCompiler.this.leave2(aci);  return true; }
+            @Override public Boolean visitSuperConstructorInvocation(SuperConstructorInvocation sci)                { UnitCompiler.this.leave2(sci);  return true; }
         };
-        bs.accept(bsv);
+        Boolean result = (Boolean) bs.accept(bsv);
+        assert result != null;
+        return result;
     }
 
     private void
@@ -6777,15 +6795,18 @@ class UnitCompiler {
         this.monitorexit(ss);
     }
 
-    private void
+    /**
+     * @return Whether the FINALLY clause (if any) can complete normally
+     */
+    private boolean
     leave2(TryStatement ts) throws CompileException {
 
         Block f = ts.finallY;
-        if (f == null) return;
+        if (f == null) return true;
 
         this.getCodeContext().saveLocalVariables();
         try {
-            if (this.compile(f)) return;
+            return this.compile(f);
         } finally {
             this.getCodeContext().restoreLocalVariables();
         }
@@ -8159,8 +8180,11 @@ class UnitCompiler {
      * Statements that jump out of blocks ({@code return}, {@code break}, {@code continue}) must call this method to
      * make sure that the {@code finally} clauses of all {@code try ... catch} and {@code synchronized} statements are
      * executed.
+     *
+     * @return Whether the jump can be executed; {@code false} iff a {@code finally} clause cannot complete normally,
+     *         so that the code that follows would be unreachable
      */
-    private void
+    private boolean
     leaveStatements(Scope from, Scope to) throws CompileException {
         Scope prev = null;
         for (Scope s = from; s != to; s = s.getEnclosingScope()) {
@@ -8168,10 +8192,27 @@ class UnitCompiler {
                 s instanceof BlockStatement
                 && !(s instanceof TryStatement && ((TryStatement) s).finallY == prev)
             ) {
-                this.leave((BlockStatement) s);
+                if (!this.leave((BlockStatement) s)) return false;
             }
             prev = s;
         }
+        return true;
+    }
+
+    /**
+     * @return Whether {@link #leaveStatements(Scope, Scope)} would execute at least one {@code finally} clause
+     */
+    private static boolean
+    leavesFinallyClause(Scope from, Scope to) {
+        Scope prev = null;
+        for (Scope s = from; s != to; s = s.getEnclosingScope()) {
+            if (s instanceof TryStatement) {
+                Block f = ((TryStatement) s).finallY;
+                if (f != null && f != prev) return true;
+            }
+            prev = s;
+        }
+        return false;
     }
 
     /**
@@ -13487,6 +13528,29 @@ class UnitCompiler {
         wtb = this.getCodeContext().new BasicBlock();
         wtb.setStackMap(this.codeContext.currentInserter().getStackMap());
         return (bs.whereToBreak = wtb);
+    }
+
+    /**
+     * Like {@link #getWhereToBreak(BreakableStatement)}, the stack map of the "continue" target is merged with the
+     * stack maps of all "continue" statements, e.g. because the first "continue" statement may be located in a
+     * {@code finally} clause, where more local variables are in scope.
+     */
+    private CodeContext.Offset
+    getWhereToContinue(ContinuableStatement cs) {
+
+        Offset wtc = cs.whereToContinue;
+        if (wtc != null) {
+
+            StackMap saved = this.codeContext.currentInserter().getStackMap();
+            wtc.setStackMap();
+            this.codeContext.currentInserter().setStackMap(saved);
+
+            return wtc;
+        }
+
+        wtc = this.getCodeContext().new BasicBlock();
+        wtc.setStackMap(this.codeContext.currentInserter().getStackMap());
+        return (cs.whereToContinue = wtc);
     }
 
     private TypeBodyDeclaration
