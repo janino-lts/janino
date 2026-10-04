@@ -53,3 +53,19 @@ import java.util.function.*;
 public class P {
     public static Object run() { BinaryOperator<Integer> f = (var a, var b) -> a + b; return String.valueOf(f.apply(1, 2)); }
 }
+
+=== try-with-resources on an effectively final variable closes it on return (Java 9)
+jls: r/o1x1
+janino: OK
+minJava: 9
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static class R implements AutoCloseable {
+        final String n; final boolean fail;
+        R(String n) { this(n, false); }
+        R(String n, boolean fail) { this.n = n; this.fail = fail; t.append('o').append(n); }
+        public void close() { t.append('x').append(n); if (fail) throw new IllegalStateException("c" + n); }
+    }
+    static String m() { R r = new R("1"); try (r) { return "r"; } }
+    public static Object run() { String v = m(); return v + "/" + t; }
+}

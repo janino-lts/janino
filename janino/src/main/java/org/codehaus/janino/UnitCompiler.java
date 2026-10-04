@@ -2452,10 +2452,13 @@ class UnitCompiler {
             }
         }
 
+        List<Object[]> gaps = new ArrayList<>();
         if (this.leaveStatements(
-            bs.getEnclosingScope(),             // from
-            brokenStatement.getEnclosingScope() // to
+            bs.getEnclosingScope(),              // from
+            brokenStatement.getEnclosingScope(), // to
+            gaps                                 // gaps
         )) this.gotO(bs, this.getWhereToBreak(brokenStatement));
+        this.endFinallyGaps(gaps);
         return false;
     }
 
@@ -2518,10 +2521,13 @@ class UnitCompiler {
             }
         }
 
+        List<Object[]> gaps = new ArrayList<>();
         if (this.leaveStatements(
-            cs.getEnclosingScope(),                // from
-            continuedStatement.getEnclosingScope() // to
+            cs.getEnclosingScope(),                 // from
+            continuedStatement.getEnclosingScope(), // to
+            gaps                                    // gaps
         )) this.gotO(cs, this.getWhereToContinue(continuedStatement));
+        this.endFinallyGaps(gaps);
 
         return false;
     }
@@ -2880,10 +2886,13 @@ class UnitCompiler {
         IType returnType = this.getReturnType(enclosingFunction);
         if (returnType == IClass.VOID) {
             if (orv != null) this.compileError("Method must not return a value", rs.getLocation());
+            List<Object[]> gaps = new ArrayList<>();
             if (this.leaveStatements(
                 rs.getEnclosingScope(), // from
-                enclosingFunction       // to
+                enclosingFunction,      // to
+                gaps                    // gaps
             )) this.returN(rs);
+            this.endFinallyGaps(gaps);
             return false;
         }
 
@@ -2899,12 +2908,15 @@ class UnitCompiler {
             this.getConstantValue(orv) // constantValue
         );
 
-        if (!UnitCompiler.leavesFinallyClause(rs.getEnclosingScope(), enclosingFunction)) {
+        List<Object[]> gaps = new ArrayList<>();
+        if (!this.leavesFinallyClause(rs.getEnclosingScope(), enclosingFunction)) {
             this.leaveStatements(
                 rs.getEnclosingScope(), // from
-                enclosingFunction       // to
+                enclosingFunction,      // to
+                gaps                    // gaps
             );
             this.xreturn(rs, returnType);
+            this.endFinallyGaps(gaps);
             return false;
         }
 
@@ -2919,11 +2931,13 @@ class UnitCompiler {
             // RETURN statement, and no code must follow it.
             if (this.leaveStatements(
                 rs.getEnclosingScope(), // from
-                enclosingFunction       // to
+                enclosingFunction,      // to
+                gaps                    // gaps
             )) {
                 this.load(rs, returnValue);
                 this.xreturn(rs, returnType);
             }
+            this.endFinallyGaps(gaps);
         } finally {
             this.getCodeContext().restoreLocalVariables();
         }
@@ -2971,7 +2985,8 @@ class UnitCompiler {
 
                 // Generate the exception handler.
                 CodeContext.Offset here = this.getCodeContext().newBasicBlock();
-                this.getCodeContext().addExceptionTableEntry(
+                this.addExceptionTableEntries(
+                    ss,              // key
                     beginningOfBody, // startPC
                     here,            // endPC
                     here,            // handlerPC
@@ -2989,6 +3004,7 @@ class UnitCompiler {
                 this.leave(ss);
             }
         } finally {
+            this.finallyGaps.remove(ss);
             this.getCodeContext().restoreLocalVariables();
         }
 
@@ -3012,38 +3028,81 @@ class UnitCompiler {
      */
     interface Compilable2 { boolean compile() throws CompileException; }
 
+    /**
+     * The gaps in the exception table entries of the TRY statements that are currently being compiled: The code of the
+     * FINALLY clauses that are inlined before RETURN, BREAK and CONTINUE statements belongs to the code <em>after</em>
+     * the TRY statement, so its exceptions must not be caught by the TRY statement's CATCH clauses, nor by the handler
+     * that executes the FINALLY clause (which would execute it a second time).
+     * <p>
+     *   The keys are the {@link TryStatement}s, the FINALLY clauses that close the resources of TRY-with-resources
+     *   statements (one nested TRY statement per resource), and the {@link SynchronizedStatement}s.
+     * </p>
+     */
+    private final Map<Object, List<CodeContext.Offset[]>> finallyGaps = new HashMap<>();
+
+    /**
+     * For the TRY-with-resources statements that are currently being compiled: The FINALLY clauses that close the
+     * resources that are already initialized, innermost last.
+     */
+    private final Map<TryStatement, List<BlockStatement>> resourceClosers = new HashMap<>();
+
     private boolean
     compile2(final TryStatement ts) throws CompileException {
 
-        return this.compileTryCatchFinallyWithResources(
-            ts,                 // tryStatement
-            ts.resources,       // resources
-            new Compilable2() { // compileBody
+        final Compilable2 compileBody = new Compilable2() {
 
-                @Override public boolean
-                compile() throws CompileException { return UnitCompiler.this.compile(ts.body); }
-            },
-            ts.finallY          // finallY
-        );
+            @Override public boolean
+            compile() throws CompileException { return UnitCompiler.this.compile(ts.body); }
+        };
+
+        try {
+            if (ts.resources.isEmpty()) {
+                return this.compileTryCatchFinally(ts, ts, ts.catchClauses, compileBody, ts.finallY, null);
+            }
+
+            // A basic TRY-with-resources statement (JLS 14.20.3.1).
+            if (ts.catchClauses.isEmpty() && ts.finallY == null) {
+                return this.compileTryWithResources(ts, ts.resources, compileBody);
+            }
+
+            // An extended TRY-with-resources statement is equivalent to a TRY statement with the CATCH clauses and
+            // the FINALLY clause, that encloses a basic TRY-with-resources statement, so that the resources are closed
+            // before the CATCH clauses and the FINALLY clause are executed (JLS 14.20.3.2).
+            return this.compileTryCatchFinally(
+                ts,                 // ts
+                ts,                 // key
+                ts.catchClauses,    // catchClauses
+                new Compilable2() { // compileBody
+
+                    @Override public boolean
+                    compile() throws CompileException {
+                        return UnitCompiler.this.compileTryWithResources(ts, ts.resources, compileBody);
+                    }
+                },
+                ts.finallY,         // finallY
+                null                // caughtException
+            );
+        } finally {
+            this.finallyGaps.remove(ts);
+            this.resourceClosers.remove(ts);
+        }
     }
 
     /**
-     * Generates code for a TRY statement with (possibly zero) resources and an (optional) FINALLY clause.
+     * Generates code for a basic TRY-with-resources statement (JLS 14.20.3.1), i.e. without CATCH clauses and without
+     * a FINALLY clause: One nested TRY statement per resource, whose FINALLY clause closes the resource.
      *
      * @return Whether the code can complete normally
      */
     private boolean
-    compileTryCatchFinallyWithResources(
+    compileTryWithResources(
         final TryStatement          ts,
         List<TryStatement.Resource> resources,
-        final Compilable2           compileBody,
-        @Nullable final Block       finallY
+        final Compilable2           compileBody
     ) throws CompileException {
 
         // Short-circuit for zero resources.
-        if (resources.isEmpty()) {
-            return this.compileTryCatchFinally(ts, compileBody, finallY);
-        }
+        if (resources.isEmpty()) return compileBody.compile();
 
         // Prepare recursion for all declared resources.
         TryStatement.Resource             firstResource      = (TryStatement.Resource) resources.get(0);
@@ -3176,23 +3235,36 @@ class UnitCompiler {
             );
             f.setEnclosingScope(ts);
 
-            // Recurse with one resource less.
-            return this.compileTryCatchFinally(
-                ts,                 // tryStatement
-                new Compilable2() { // compileBody
+            // While the inner code is compiled, RETURN, BREAK and CONTINUE statements must close the resource.
+            List<BlockStatement> closers = (List<BlockStatement>) this.resourceClosers.get(ts);
+            if (closers == null) this.resourceClosers.put(ts, (closers = new ArrayList<>()));
+            final List<BlockStatement> closers2 = closers;
+            closers2.add(f);
 
-                    @Override public boolean
-                    compile() throws CompileException {
-                        return UnitCompiler.this.compileTryCatchFinallyWithResources(
-                            ts,
-                            followingResources,
-                            compileBody,
-                            finallY
-                        );
-                    }
-                },
-                f                   // finallY
-            );
+            // Recurse with one resource less. If the inner code throws, then "#primaryExc" is set before the FINALLY
+            // clause is executed.
+            try {
+                return this.compileTryCatchFinally(
+                    ts,                                      // ts
+                    f,                                       // key
+                    Collections.<CatchClause>emptyList(),    // catchClauses
+                    new Compilable2() {                      // compileBody
+
+                        @Override public boolean
+                        compile() throws CompileException {
+                            try {
+                                return UnitCompiler.this.compileTryWithResources(ts, followingResources, compileBody);
+                            } finally {
+                                closers2.remove(closers2.size() - 1);
+                            }
+                        }
+                    },
+                    f,                                       // finallY
+                    primaryExc                               // caughtException
+                );
+            } finally {
+                this.finallyGaps.remove(f);
+            }
         } finally {
             this.getCodeContext().restoreLocalVariables();
         }
@@ -3201,20 +3273,34 @@ class UnitCompiler {
     /**
      * Generates code for a TRY statement without resources, but with an (optional) FINALLY clause.
      *
-     * @return Whether the code can complete normally
+     * @param key             Identifies the gaps in the exception table entries, see {@link #finallyGaps}
+     * @param catchClauses    The CATCH clauses to compile
+     * @param caughtException If not {@code null}, then the exception that the FINALLY clause handles is stored in
+     *                        that local variable before the FINALLY clause is executed
+     * @return                Whether the code can complete normally
      */
     private boolean
     compileTryCatchFinally(
         final TryStatement             ts,
+        Object                         key,
+        List<CatchClause>              catchClauses,
         final Compilable2              compileBody,
-        @Nullable final BlockStatement finallY
+        @Nullable final BlockStatement finallY,
+        @Nullable LocalVariable        caughtException
     ) throws CompileException {
 
         if (finallY == null) {
             final CodeContext.Offset beginningOfBody = this.getCodeContext().newOffset();
             final CodeContext.Offset afterStatement  = this.getCodeContext().new BasicBlock();
 
-            boolean canCompleteNormally = this.compileTryCatch(ts, compileBody, beginningOfBody, afterStatement);
+            boolean canCompleteNormally = this.compileTryCatch(
+                ts,
+                key,
+                catchClauses,
+                compileBody,
+                beginningOfBody,
+                afterStatement
+            );
             afterStatement.set();
             return canCompleteNormally;
         }
@@ -3230,7 +3316,14 @@ class UnitCompiler {
             StackMap smBeforeBody = this.getCodeContext().currentInserter().getStackMap();
 
             final CodeContext.Offset beginningOfBody = this.getCodeContext().newOffset();
-            canCompleteNormally = this.compileTryCatch(ts, compileBody, beginningOfBody, afterStatement);
+            canCompleteNormally = this.compileTryCatch(
+                ts,
+                key,
+                catchClauses,
+                compileBody,
+                beginningOfBody,
+                afterStatement
+            );
 
             StackMap smAfterBody = this.getCodeContext().currentInserter().getStackMap();
 
@@ -3244,12 +3337,18 @@ class UnitCompiler {
                 this.getCodeContext().pushObjectOperand(Descriptor.JAVA_LANG_THROWABLE);
 
                 CodeContext.Offset here = this.getCodeContext().newBasicBlock();
-                this.getCodeContext().addExceptionTableEntry(
+                this.addExceptionTableEntries(
+                    key,             // key
                     beginningOfBody, // startPC
                     here,            // endPC
                     here,            // handlerPC
                     null             // catchTypeFD
                 );
+
+                if (caughtException != null) {
+                    this.dup(finallY);
+                    this.store(finallY, caughtException);
+                }
 
                 // Save the exception object in an anonymous local variable.
                 short evi = this.getCodeContext().allocateLocalVariable((short) 1);
@@ -3291,18 +3390,22 @@ class UnitCompiler {
     /**
      * Generates code for a TRY statement without resources and without a FINALLY clause.
      *
-     * @return Whether the code can complete normally
+     * @param key          Identifies the gaps in the exception table entries, see {@link #finallyGaps}
+     * @param catchClauses The CATCH clauses to compile
+     * @return             Whether the code can complete normally
      */
     private boolean
     compileTryCatch(
         TryStatement             tryStatement,
+        Object                   key,
+        List<CatchClause>        catchClauses,
         Compilable2              compileBody,
         final CodeContext.Offset beginningOfBody,
         final CodeContext.Offset afterStatement
     ) throws CompileException {
 
         // Initialize all catch clauses as "unreachable" only to check later that they ARE indeed reachable.
-        for (CatchClause catchClause : tryStatement.catchClauses) {
+        for (CatchClause catchClause : catchClauses) {
             catchClause.reachable = false;
             for (Type t : catchClause.catchParameter.types) {
                 IType caughtExceptionType = this.getType(t);
@@ -3331,13 +3434,13 @@ class UnitCompiler {
 
         boolean catchCcn = false; // "At least one catch clause can complete normally"
         if (beginningOfBody.offset != afterBody.offset) { // Avoid zero-length exception table entries.
-            for (int i = 0; i < tryStatement.catchClauses.size(); ++i) {
+            for (int i = 0; i < catchClauses.size(); ++i) {
                 this.getCodeContext().currentInserter().setStackMap(smBeforeBody);
 
                 this.getCodeContext().saveLocalVariables();
                 try {
 
-                    CatchClause catchClause = (CatchClause) tryStatement.catchClauses.get(i);
+                    CatchClause catchClause = (CatchClause) catchClauses.get(i);
 
                     if (catchClause.catchParameter.types.length != 1) {
                         throw UnitCompiler.compileException(catchClause, "Multi-type CATCH parameter NYI");
@@ -3359,7 +3462,8 @@ class UnitCompiler {
                     // Kludge: Treat the exception variable like a local variable of the catch clause body.
                     this.getLocalVariable(catchClause.catchParameter).setSlot(exceptionVarSlot);
 
-                    this.getCodeContext().addExceptionTableEntry(
+                    this.addExceptionTableEntries(
+                        key,                                   // key
                         beginningOfBody,                       // startPC
                         afterBody,                             // endPC
                         this.getCodeContext().newBasicBlock(), // handlerPC
@@ -6765,7 +6869,7 @@ class UnitCompiler {
             @Override public Boolean visitForStatement(ForStatement fs)                                             { UnitCompiler.this.leave2(fs);   return true; }
             @Override public Boolean visitForEachStatement(ForEachStatement fes)                                    { UnitCompiler.this.leave2(fes);  return true; }
             @Override public Boolean visitWhileStatement(WhileStatement ws)                                         { UnitCompiler.this.leave2(ws);   return true; }
-            @Override public Boolean visitTryStatement(TryStatement ts) throws CompileException                     { return UnitCompiler.this.leave2(ts);              }
+            @Override public Boolean visitTryStatement(TryStatement ts) throws CompileException                     { return UnitCompiler.this.leave2(ts, null);        }
             @Override public Boolean visitSwitchStatement(SwitchStatement ss)                                       { UnitCompiler.this.leave2(ss);   return true; }
             @Override public Boolean visitSynchronizedStatement(SynchronizedStatement ss)                           { UnitCompiler.this.leave2(ss);   return true; }
             @Override public Boolean visitDoStatement(DoStatement ds)                                               { UnitCompiler.this.leave2(ds);   return true; }
@@ -6795,19 +6899,110 @@ class UnitCompiler {
     }
 
     /**
-     * @return Whether the FINALLY clause (if any) can complete normally
+     * Generates the code that closes the resources (iff <var>ts</var> is a TRY-with-resources statement whose
+     * resources are open) and the FINALLY clause (if any).
+     *
+     * @param gaps Where the gaps in the exception table entries are recorded (see {@link #startFinallyGaps(List)}), or
+     *             {@code null}
+     * @return     Whether that code can complete normally
      */
     private boolean
-    leave2(TryStatement ts) throws CompileException {
+    leave2(TryStatement ts, @Nullable List<Object[]> gaps) throws CompileException {
+
+        // Close the resources, innermost first (JLS 14.20.3.1).
+        List<BlockStatement> closers = (List<BlockStatement>) this.resourceClosers.get(ts);
+        if (closers != null) {
+            for (int i = closers.size() - 1; i >= 0; i--) {
+                BlockStatement closer = (BlockStatement) closers.get(i);
+                if (gaps != null) {
+                    gaps.add(new Object[] { closer, null });
+                    this.startFinallyGaps(gaps);
+                }
+                if (!this.compileFinallyClause(closer)) return false;
+            }
+        }
+
+        if (gaps != null) gaps.add(new Object[] { ts, null });
 
         Block f = ts.finallY;
         if (f == null) return true;
 
+        if (gaps != null) this.startFinallyGaps(gaps);
+        return this.compileFinallyClause(f);
+    }
+
+    private boolean
+    compileFinallyClause(BlockStatement finallY) throws CompileException {
         this.getCodeContext().saveLocalVariables();
         try {
-            return this.compile(f);
+            return this.compile(finallY);
         } finally {
             this.getCodeContext().restoreLocalVariables();
+        }
+    }
+
+    /**
+     * Code is about to be generated for a FINALLY clause that a jump statement executes, so the gaps in the exception
+     * table entries of all TRY statements that the jump statement leaves (and whose gaps have not started yet) start
+     * here.
+     *
+     * @param gaps Elements are { key, start offset (or {@code null}) }, see {@link #finallyGaps}
+     */
+    private void
+    startFinallyGaps(List<Object[]> gaps) {
+        CodeContext.Offset start = null;
+        for (Object[] gap : gaps) {
+            if (gap[1] == null) {
+                if (start == null) start = this.getCodeContext().newOffset();
+                gap[1] = start;
+            }
+        }
+    }
+
+    /**
+     * Must be invoked after the code of a jump statement (RETURN, BREAK or CONTINUE) was generated; ends the gaps that
+     * {@link #startFinallyGaps(List)} started.
+     */
+    private void
+    endFinallyGaps(List<Object[]> gaps) {
+        CodeContext.Offset end = null;
+        for (Object[] gap : gaps) {
+            CodeContext.Offset start = (CodeContext.Offset) gap[1];
+            if (start == null) continue;
+            if (end == null) end = this.getCodeContext().newOffset();
+            List<CodeContext.Offset[]> l = (List<CodeContext.Offset[]>) this.finallyGaps.get(gap[0]);
+            if (l == null) this.finallyGaps.put(gap[0], (l = new ArrayList<>()));
+            l.add(new CodeContext.Offset[] { start, end });
+        }
+    }
+
+    /**
+     * Adds exception table entries for the range from <var>startPC</var> to <var>endPC</var>, except for the gaps
+     * that were recorded for the <var>key</var> (see {@link #finallyGaps}).
+     */
+    private void
+    addExceptionTableEntries(
+        Object                 key,
+        CodeContext.Offset     startPC,
+        CodeContext.Offset     endPC,
+        CodeContext.Offset     handlerPC,
+        @Nullable String       catchTypeFD
+    ) {
+        CodeContext.Offset from = startPC;
+
+        List<CodeContext.Offset[]> gaps = (List<CodeContext.Offset[]>) this.finallyGaps.get(key);
+        if (gaps != null) {
+            for (CodeContext.Offset[] gap : gaps) {
+                if (gap[0].offset < from.offset || gap[1].offset > endPC.offset) continue;
+                if (from.offset < gap[0].offset) {
+                    this.getCodeContext().addExceptionTableEntry(from, gap[0], handlerPC, catchTypeFD);
+                }
+                from = gap[1];
+            }
+        }
+
+        if (from == startPC || from.offset < endPC.offset) {
+            this.getCodeContext().addExceptionTableEntry(from, endPC, handlerPC, catchTypeFD);
         }
     }
 
@@ -8180,18 +8375,25 @@ class UnitCompiler {
      * make sure that the {@code finally} clauses of all {@code try ... catch} and {@code synchronized} statements are
      * executed.
      *
-     * @return Whether the jump can be executed; {@code false} iff a {@code finally} clause cannot complete normally,
-     *         so that the code that follows would be unreachable
+     * @param gaps Collects the gaps in the exception table entries (see {@link #startFinallyGaps(List)}); the caller
+     *             must invoke {@link #endFinallyGaps(List)} after the jump
+     * @return      Whether the jump can be executed; {@code false} iff a {@code finally} clause cannot complete
+     *              normally, so that the code that follows would be unreachable
      */
     private boolean
-    leaveStatements(Scope from, Scope to) throws CompileException {
+    leaveStatements(Scope from, Scope to, List<Object[]> gaps) throws CompileException {
         Scope prev = null;
         for (Scope s = from; s != to; s = s.getEnclosingScope()) {
-            if (
-                s instanceof BlockStatement
-                && !(s instanceof TryStatement && ((TryStatement) s).finallY == prev)
-            ) {
+            if (s instanceof TryStatement) {
+                TryStatement ts = (TryStatement) s;
+                if (ts.finallY != prev && !this.leave2(ts, gaps)) return false;
+            } else
+            if (s instanceof BlockStatement) {
                 if (!this.leave((BlockStatement) s)) return false;
+
+                // The FINALLY clauses that are inlined after the "monitorexit" must not be covered by the exception
+                // handler of the SYNCHRONIZED statement, which would execute "monitorexit" a second time.
+                if (s instanceof SynchronizedStatement) gaps.add(new Object[] { s, null });
             }
             prev = s;
         }
@@ -8199,15 +8401,18 @@ class UnitCompiler {
     }
 
     /**
-     * @return Whether {@link #leaveStatements(Scope, Scope)} would execute at least one {@code finally} clause
+     * @return Whether {@link #leaveStatements(Scope, Scope, List)} would execute at least one {@code finally} clause
+     *         (or close a resource of a TRY-with-resources statement)
      */
-    private static boolean
+    private boolean
     leavesFinallyClause(Scope from, Scope to) {
         Scope prev = null;
         for (Scope s = from; s != to; s = s.getEnclosingScope()) {
             if (s instanceof TryStatement) {
-                Block f = ((TryStatement) s).finallY;
-                if (f != null && f != prev) return true;
+                TryStatement ts = (TryStatement) s;
+                if (ts.finallY != null && ts.finallY != prev) return true;
+                List<BlockStatement> closers = (List<BlockStatement>) this.resourceClosers.get(ts);
+                if (closers != null && !closers.isEmpty()) return true;
             }
             prev = s;
         }

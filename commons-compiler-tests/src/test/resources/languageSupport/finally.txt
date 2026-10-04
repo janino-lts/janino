@@ -349,3 +349,60 @@ public class P {
         return String.valueOf(locks);
     }
 }
+
+=== exception from an inlined finally block after a return in the try block
+jls: F!
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static String m() { try { return "r"; } finally { t.append('F'); if (t.length() > 0) throw new RuntimeException("f"); } }
+    public static Object run() { try { m(); } catch (RuntimeException e) { t.append('!'); } return t.toString(); }
+}
+
+=== exception from an inlined finally block after a break in the try block
+jls: F!
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        for (int i = 0; i < 1; i++) {
+            try { try { break; } finally { t.append('F'); if (t.length() > 0) throw new RuntimeException("f"); } } catch (RuntimeException e) { t.append('!'); }
+        }
+        return t.toString();
+    }
+}
+
+=== exception from an inlined finally block is not caught by the catch clause of the same try statement
+jls: !F
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static String m() {
+        try { return "r"; } catch (RuntimeException e) { t.append('C'); return "c"; } finally { t.append('F'); if (t.length() < 3) throw new RuntimeException("f"); }
+    }
+    public static Object run() { String r; try { r = m(); } catch (RuntimeException e) { r = "!"; } return r + t; }
+}
+
+=== exception from an inlined outer finally block is not caught by an inner catch clause
+jls: !F
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static String m() {
+        try {
+            try { return "r"; } catch (RuntimeException e) { t.append('C'); return "c"; }
+        } finally {
+            t.append('F'); if (t.length() < 3) throw new RuntimeException("f");
+        }
+    }
+    public static Object run() { String r; try { r = m(); } catch (RuntimeException e) { r = "!"; } return r + t; }
+}
+
+=== exception from an inlined finally block after a return in a synchronized statement
+jls: F!
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static String m() { try { synchronized (P.class) { return "r"; } } finally { t.append('F'); if (t.length() > 0) throw new RuntimeException("f"); } }
+    public static Object run() { try { m(); } catch (RuntimeException e) { t.append('!'); } return t.toString(); }
+}

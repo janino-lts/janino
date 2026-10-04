@@ -27,7 +27,7 @@ public class P {
 
 === try-with-resources records suppressed exceptions
 jls: 1
-janino: WRONG 0
+janino: OK
 public class P {
     static class R implements AutoCloseable { public void close() { throw new IllegalStateException("c"); } }
     public static Object run() {
@@ -38,7 +38,7 @@ public class P {
 
 === try-with-resources closes the resource when the block completes by return
 jls: r/closed
-janino: WRONG r/
+janino: OK
 public class P {
     static String s = "";
     static class R implements AutoCloseable { public void close() { s += "closed"; } }
@@ -48,7 +48,7 @@ public class P {
 
 === try-with-resources closes the resource when the block completes by break
 jls: [closed]
-janino: WRONG []
+janino: OK
 public class P {
     static String s = "";
     static class R implements AutoCloseable { public void close() { s += "closed"; } }
@@ -57,7 +57,7 @@ public class P {
 
 === try-with-resources closes the resource when the block completes by continue
 jls: [cc]
-janino: WRONG []
+janino: OK
 public class P {
     static String s = "";
     static class R implements AutoCloseable { public void close() { s += "c"; } }
@@ -100,4 +100,143 @@ public class P {
         try { if (false) throw new java.io.IOException(); } catch (Exception e) { throw e; }
     }
     public static Object run() throws Exception { m(); return "ok"; }
+}
+
+=== try-with-resources closes the resource before the catch clause and the finally block
+jls: o1Bx1CF
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static class R implements AutoCloseable {
+        final String n; final boolean fail;
+        R(String n) { this(n, false); }
+        R(String n, boolean fail) { this.n = n; this.fail = fail; t.append('o').append(n); }
+        public void close() { t.append('x').append(n); if (fail) throw new IllegalStateException("c" + n); }
+    }
+    public static Object run() {
+        try (R r = new R("1")) { t.append('B'); throw new RuntimeException(); } catch (RuntimeException e) { t.append('C'); } finally { t.append('F'); }
+        return t.toString();
+    }
+}
+
+=== try-with-resources closes the resource before the finally block
+jls: o1Bx1F
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static class R implements AutoCloseable {
+        final String n; final boolean fail;
+        R(String n) { this(n, false); }
+        R(String n, boolean fail) { this.n = n; this.fail = fail; t.append('o').append(n); }
+        public void close() { t.append('x').append(n); if (fail) throw new IllegalStateException("c" + n); }
+    }
+    public static Object run() {
+        try (R r = new R("1")) { t.append('B'); } finally { t.append('F'); }
+        return t.toString();
+    }
+}
+
+=== try-with-resources with two resources closes both before the finally block
+jls: o1o2Bx2x1F
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static class R implements AutoCloseable {
+        final String n; final boolean fail;
+        R(String n) { this(n, false); }
+        R(String n, boolean fail) { this.n = n; this.fail = fail; t.append('o').append(n); }
+        public void close() { t.append('x').append(n); if (fail) throw new IllegalStateException("c" + n); }
+    }
+    public static Object run() {
+        try (R r = new R("1"); R s = new R("2")) { t.append('B'); } finally { t.append('F'); }
+        return t.toString();
+    }
+}
+
+=== try-with-resources with two resources closes both before the catch clause
+jls: o1o2Bx2x1C
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static class R implements AutoCloseable {
+        final String n; final boolean fail;
+        R(String n) { this(n, false); }
+        R(String n, boolean fail) { this.n = n; this.fail = fail; t.append('o').append(n); }
+        public void close() { t.append('x').append(n); if (fail) throw new IllegalStateException("c" + n); }
+    }
+    public static Object run() {
+        try (R r = new R("1"); R s = new R("2")) { t.append('B'); throw new RuntimeException(); } catch (RuntimeException e) { t.append('C'); }
+        return t.toString();
+    }
+}
+
+=== try-with-resources: close() throws after the block completes by return
+jls: o1o2x2x1!c2[]
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static class R implements AutoCloseable {
+        final String n; final boolean fail;
+        R(String n) { this(n, false); }
+        R(String n, boolean fail) { this.n = n; this.fail = fail; t.append('o').append(n); }
+        public void close() { t.append('x').append(n); if (fail) throw new IllegalStateException("c" + n); }
+    }
+    static String m() {
+        try (R r = new R("1"); R s = new R("2", true)) { return "r"; }
+    }
+    public static Object run() {
+        try { return m(); } catch (IllegalStateException e) { return t + "!" + e.getMessage() + java.util.Arrays.toString(e.getSuppressed()); }
+    }
+}
+
+=== try-with-resources: close() of both resources throws after the block throws
+jls: o1o2x2x1!b[java.lang.IllegalStateException: c2, java.lang.IllegalStateException: c1]
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static class R implements AutoCloseable {
+        final String n; final boolean fail;
+        R(String n) { this(n, false); }
+        R(String n, boolean fail) { this.n = n; this.fail = fail; t.append('o').append(n); }
+        public void close() { t.append('x').append(n); if (fail) throw new IllegalStateException("c" + n); }
+    }
+    public static Object run() {
+        try (R r = new R("1", true); R s = new R("2", true)) { throw new RuntimeException("b"); }
+        catch (RuntimeException e) { return t + "!" + e.getMessage() + java.util.Arrays.toString(e.getSuppressed()); }
+    }
+}
+
+=== try-with-resources with a null resource
+jls: B
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static class R implements AutoCloseable {
+        final String n; final boolean fail;
+        R(String n) { this(n, false); }
+        R(String n, boolean fail) { this.n = n; this.fail = fail; t.append('o').append(n); }
+        public void close() { t.append('x').append(n); if (fail) throw new IllegalStateException("c" + n); }
+    }
+    public static Object run() {
+        try (R r = null) { t.append('B'); }
+        return t.toString();
+    }
+}
+
+=== try-with-resources: the initialization of the second resource fails
+jls: o1x1C
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static class R implements AutoCloseable {
+        final String n; final boolean fail;
+        R(String n) { this(n, false); }
+        R(String n, boolean fail) { this.n = n; this.fail = fail; t.append('o').append(n); }
+        public void close() { t.append('x').append(n); if (fail) throw new IllegalStateException("c" + n); }
+    }
+    static R fail() { throw new RuntimeException("i"); }
+    public static Object run() {
+        try (R r = new R("1"); R s = fail()) { t.append('B'); } catch (RuntimeException e) { t.append('C'); }
+        return t.toString();
+    }
 }

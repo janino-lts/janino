@@ -74,15 +74,26 @@ import org.junit.Test;
  *   Like {@link LanguageSupportTest}, the test fails if the actual differences deviate from the recorded ones in any
  *   way, i.e. also when a defect is fixed; then the record must be updated deliberately.
  * </p>
- * <p>
- *   Try-with-resources statements are not generated yet, because JANINO does not close the resources when the block
- *   completes by {@code return}, {@code break} or {@code continue}.
- * </p>
  */
 public
 class ControlFlowDifferentialTest {
 
     private static final String KNOWN_DIFFERENCES = "src/test/resources/controlFlowDifferential/known-differences.txt";
+
+    /**
+     * The beginning of the generated class, which declares the trace {@code t} and the resource class {@code R} for
+     * TRY-with-resources statements.
+     */
+    static final String CLASS_HEADER = (
+        ""
+        + "public class P {\n"
+        + "    public static StringBuilder t;\n"
+        + "    static class R implements AutoCloseable {\n"
+        + "        final String n; final boolean fail;\n"
+        + "        R(String n, boolean fail) { this.n = n; this.fail = fail; t.append('o').append(n); }\n"
+        + "        public void close() { t.append('x').append(n); if (fail) throw new IllegalStateException(\"c\" + n); }\n"
+        + "    }\n"
+    );
 
     private static final int   CLASSES           = 30;
     private static final int   METHODS_PER_CLASS = 20;
@@ -156,12 +167,13 @@ class ControlFlowDifferentialTest {
      * with both compilers, and compares the results.
      *
      * @return The differences ("m<var>index</var> <var>kind</var>", mapped to a description), or {@code null} iff
-     *         JANINO fails to compile or to load the class
+     *         JANINO fails to compile or to load the class, or the code that JAVAC generated fails to load; methods
+     *         for which JAVAC generates invalid code are not compared
      */
     @Nullable private static Map<String, String>
     compare(ICompilerFactory janino, ICompilerFactory jdk, List<String> methods, int onlyMethod) throws Exception {
 
-        StringBuilder source = new StringBuilder("public class P {\n    public static StringBuilder t;\n");
+        StringBuilder source = new StringBuilder(ControlFlowDifferentialTest.CLASS_HEADER);
         for (int m = 0; m < methods.size(); m++) {
             if (onlyMethod == -1 || m == onlyMethod) source.append(methods.get(m));
         }
@@ -186,7 +198,15 @@ class ControlFlowDifferentialTest {
             if (onlyMethod != -1 && m != onlyMethod) continue;
             for (int a : ControlFlowDifferentialTest.ARGUMENTS) {
                 String expected = ControlFlowDifferentialTest.invoke(expectedCl, "m" + m, a);
-                String actual   = ControlFlowDifferentialTest.invoke(actualCl, "m" + m, a);
+
+                // The JAVAC of some JDKs (e.g. 8, 17 and 21) generates invalid code for some of the methods, which
+                // then cannot serve as a reference.
+                if (expected.startsWith("?")) {
+                    if (onlyMethod == -1) return null;
+                    break;
+                }
+
+                String actual = ControlFlowDifferentialTest.invoke(actualCl, "m" + m, a);
                 if (actual.startsWith("?")) return null;
                 if (!expected.equals(actual)) {
                     result.put("m" + m + " WRONG", "m" + m + "(" + a + "): expected <" + expected + "> but was <" + actual + ">");
@@ -377,12 +397,31 @@ class ControlFlowDifferentialTest {
 
             case 9:
             case 10: {
-                // TRY statement with CATCH and/or FINALLY clauses.
-                boolean   hasCatch   = this.random.nextBoolean();
-                boolean   hasFinally = !hasCatch || this.random.nextBoolean();
-                int[]     beforeTry  = this.saveJumps();
-                Fragment  body       = this.block(depth + 1, in);
-                StringBuilder sb = new StringBuilder(indent + "try {\n" + body.code + indent + "}");
+                // TRY statement with CATCH and/or FINALLY clauses, or TRY-with-resources statement with optional CATCH
+                // and FINALLY clauses.
+                boolean resource = this.random.nextInt(3) == 0;
+                boolean hasCatch, hasFinally;
+                if (resource) {
+                    hasCatch   = this.random.nextInt(3) == 0;
+                    hasFinally = this.random.nextInt(3) == 0;
+                } else {
+                    hasCatch   = this.random.nextBoolean();
+                    hasFinally = !hasCatch || this.random.nextBoolean();
+                }
+                String resourceSpecification = (
+                    resource
+                    ? (
+                        "(R r" + id + " = new R(\"" + id + "\", "
+                        + (this.random.nextInt(4) == 0 ? this.condition() : "false")
+                        + ")) "
+                    )
+                    : ""
+                );
+                int[]    beforeTry = this.saveJumps();
+                Fragment body      = this.block(depth + 1, in);
+                StringBuilder sb = new StringBuilder(
+                    indent + "try " + resourceSpecification + "{\n" + body.code + indent + "}"
+                );
                 boolean ccn = body.canCompleteNormally;
                 if (hasCatch) {
                     Fragment handler = this.block(depth + 1, in);
