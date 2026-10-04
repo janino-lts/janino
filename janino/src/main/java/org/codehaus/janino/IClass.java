@@ -654,10 +654,15 @@ class IClass implements ITypeVariableOrIClass {
         // Identity conversion, JLS7 5.1.1
         if (this == that) return true;
 
-        // Widening primitive conversion, JLS7 5.1.2
+        // Widening primitive conversion, JLS7 5.1.2 (the descriptors of primitive types have one character each)
         {
-            String ds = that.getDescriptor() + this.getDescriptor();
-            if (ds.length() == 2 && IClass.PRIMITIVE_WIDENING_CONVERSIONS.contains(ds)) return true;
+            String thatDescriptor = that.getDescriptor();
+            String thisDescriptor = this.getDescriptor();
+            if (
+                thatDescriptor.length() == 1
+                && thisDescriptor.length() == 1
+                && IClass.PRIMITIVE_WIDENING_CONVERSIONS.contains(thatDescriptor + thisDescriptor)
+            ) return true;
         }
 
         // Widening reference conversion, JLS7 5.1.5

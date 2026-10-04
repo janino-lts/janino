@@ -10149,11 +10149,13 @@ class UnitCompiler {
                     for (int idx = lastActualArg; idx >= formalParamCount; --idx) {
 
                         // Is method invocation conversion possible (5.3)?
-                        UnitCompiler.LOGGER.log(
-                            Level.FINE,
-                            "{0} <=> {1}",
-                            new Object[] { lastParamType, argumentTypes[idx] }
-                        );
+                        if (UnitCompiler.LOGGER.isLoggable(Level.FINE)) {
+                            UnitCompiler.LOGGER.log(
+                                Level.FINE,
+                                "{0} <=> {1}",
+                                new Object[] { lastParamType, argumentTypes[idx] }
+                            );
+                        }
                         if (!this.isMethodInvocationConvertible(argumentTypes[idx], lastParamType, boxingPermitted)) {
                             formalParamCount++;
                             break VARARGS;
@@ -10167,11 +10169,13 @@ class UnitCompiler {
 
             if (formalParamCount == nUncheckedArg) {
                 for (int j = 0; j < nUncheckedArg; ++j) {
-                    UnitCompiler.LOGGER.log(
-                        Level.FINE,
-                        "{0}: {1} <=> {2}",
-                        new Object[] { j, parameterTypes[j], argumentTypes[j] }
-                    );
+                    if (UnitCompiler.LOGGER.isLoggable(Level.FINE)) {
+                        UnitCompiler.LOGGER.log(
+                            Level.FINE,
+                            "{0}: {1} <=> {2}",
+                            new Object[] { j, parameterTypes[j], argumentTypes[j] }
+                        );
+                    }
 
                     // Is method invocation conversion possible (5.3)?
                     if (!this.isMethodInvocationConvertible(argumentTypes[j], parameterTypes[j], boxingPermitted)) {
@@ -11718,11 +11722,13 @@ class UnitCompiler {
         IType            targetType,
         @Nullable Object constantValue
     ) throws CompileException {
-        UnitCompiler.LOGGER.entering(
-            null,
-            "tryAssignmentConversion",
-            new Object[] { locatable, sourceType, targetType, constantValue }
-        );
+        if (UnitCompiler.LOGGER.isLoggable(Level.FINER)) {
+            UnitCompiler.LOGGER.entering(
+                null,
+                "tryAssignmentConversion",
+                new Object[] { locatable, sourceType, targetType, constantValue }
+            );
+        }
 
         // JLS7 5.1.1 Identity conversion.
         if (this.tryIdentityConversion(sourceType, targetType)) return true;
@@ -12043,8 +12049,10 @@ class UnitCompiler {
 
     @SuppressWarnings("static-method") private boolean
     isWideningPrimitiveConvertible(IClass sourceType, IType targetType) {
-        return UnitCompiler.PRIMITIVE_WIDENING_CONVERSIONS.get(
-            sourceType.getDescriptor() + UnitCompiler.rawTypeOf(targetType).getDescriptor()
+        return UnitCompiler.primitiveConversion(
+            UnitCompiler.PRIMITIVE_WIDENING_CONVERSIONS,
+            sourceType.getDescriptor(),
+            UnitCompiler.rawTypeOf(targetType).getDescriptor()
         ) != null;
     }
 
@@ -12061,8 +12069,10 @@ class UnitCompiler {
         if (targetType instanceof IParameterizedType) return false;
         IClass targetClass = (IClass) targetType;
 
-        int[] opcodes = (int[]) UnitCompiler.PRIMITIVE_WIDENING_CONVERSIONS.get(
-            UnitCompiler.rawTypeOf(sourceType).getDescriptor() + targetClass.getDescriptor()
+        int[] opcodes = UnitCompiler.primitiveConversion(
+            UnitCompiler.PRIMITIVE_WIDENING_CONVERSIONS,
+            UnitCompiler.rawTypeOf(sourceType).getDescriptor(),
+            targetClass.getDescriptor()
         );
         if (opcodes != null) {
             this.addLineNumberOffset(locatable);
@@ -12125,6 +12135,23 @@ class UnitCompiler {
     }
 
     /**
+     * Looks up a primitive conversion in one of the conversion maps. All their keys consist of two descriptors of
+     * primitive types, which have one character each; for any other pair of types (the common case), no string is
+     * concatenated.
+     *
+     * @return The opcodes that implement the conversion, or {@code null} if the conversion is not in the map
+     */
+    @Nullable private static int[]
+    primitiveConversion(
+        Map<String /*descriptor*/, int[] /*opcodes*/> conversions,
+        String                                         sourceDescriptor,
+        String                                         targetDescriptor
+    ) {
+        if (sourceDescriptor.length() != 1 || targetDescriptor.length() != 1) return null;
+        return (int[]) conversions.get(sourceDescriptor + targetDescriptor);
+    }
+
+    /**
      * Checks if "widening reference conversion" (5.1.4) is possible.
      *
      * @return Whether the conversion is possible
@@ -12149,9 +12176,11 @@ class UnitCompiler {
      */
     @SuppressWarnings("static-method") private boolean
     isNarrowingPrimitiveConvertible(IType sourceType, IType targetType) {
-        return UnitCompiler.PRIMITIVE_NARROWING_CONVERSIONS.containsKey(
-            UnitCompiler.rawTypeOf(sourceType).getDescriptor() + UnitCompiler.rawTypeOf(targetType).getDescriptor()
-        );
+        return UnitCompiler.primitiveConversion(
+            UnitCompiler.PRIMITIVE_NARROWING_CONVERSIONS,
+            UnitCompiler.rawTypeOf(sourceType).getDescriptor(),
+            UnitCompiler.rawTypeOf(targetType).getDescriptor()
+        ) != null;
     }
 
     /**
@@ -12167,8 +12196,10 @@ class UnitCompiler {
         IClass sourceClass = (IClass) sourceType;
         IClass targetClass = (IClass) targetType;
 
-        int[] opcodes = (int[]) UnitCompiler.PRIMITIVE_NARROWING_CONVERSIONS.get(
-            sourceClass.getDescriptor() + targetClass.getDescriptor()
+        int[] opcodes = UnitCompiler.primitiveConversion(
+            UnitCompiler.PRIMITIVE_NARROWING_CONVERSIONS,
+            sourceClass.getDescriptor(),
+            targetClass.getDescriptor()
         );
         if (opcodes != null) {
             this.addLineNumberOffset(locatable);
@@ -12249,11 +12280,13 @@ class UnitCompiler {
      */
     private boolean
     tryConstantAssignmentConversion(Locatable locatable, @Nullable Object constantValue, IType targetType) {
-        UnitCompiler.LOGGER.entering(
-            null,
-            "tryConstantAssignmentConversion",
-            new Object[] { locatable, constantValue, targetType }
-        );
+        if (UnitCompiler.LOGGER.isLoggable(Level.FINER)) {
+            UnitCompiler.LOGGER.entering(
+                null,
+                "tryConstantAssignmentConversion",
+                new Object[] { locatable, constantValue, targetType }
+            );
+        }
 
         int cv;
         if (constantValue instanceof Byte) {

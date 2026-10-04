@@ -25,6 +25,7 @@
 
 package org.codehaus.commons.compiler;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -68,8 +69,8 @@ class MultiCookable extends Cookable implements IMultiCookable {
         for (int i = 0; i < count; i++) {
             readers[i] = (
                 encodings[i] == null
-                ? new InputStreamReader(inputStreams[i])
-                : new InputStreamReader(inputStreams[i], encodings[i])
+                ? new BufferedReader(new InputStreamReader(inputStreams[i]))
+                : new BufferedReader(new InputStreamReader(inputStreams[i], encodings[i]))
             );
         }
 

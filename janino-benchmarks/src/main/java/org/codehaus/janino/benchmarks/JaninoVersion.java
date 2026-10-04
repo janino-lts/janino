@@ -50,7 +50,10 @@ import java.util.Map;
 public final
 class JaninoVersion {
 
-    /** The name of the version that is compared with the current build; see "janino.baseline.version" in the POM. */
+    /**
+     * The name of the version that is compared with the current build; see "janino.baseline.version" in the POM, and
+     * {@link #load(String)}.
+     */
     public static final String BASELINE = "baseline";
 
     /** The name of the current build. */
@@ -144,11 +147,25 @@ class JaninoVersion {
     /**
      * Loads the version with the given <var>name</var> ({@link #BASELINE} or {@link #CURRENT}) from the JAR files in
      * {@code janino-benchmarks/target/janino-}<var>name</var>.
+     * <p>
+     *   The system property {@code janino.benchmarks.baseline.dir} replaces the directory of the {@link #BASELINE};
+     *   e.g. a directory with the JAR files of an earlier build of the same version.
+     * </p>
      */
     public static JaninoVersion
     load(String name) throws Exception {
 
-        File dir = new File(JaninoVersion.targetDirectory(), "janino-" + name);
+        String baselineDir = (
+            JaninoVersion.BASELINE.equals(name)
+            ? System.getProperty("janino.benchmarks.baseline.dir")
+            : null
+        );
+
+        File dir = (
+            baselineDir != null
+            ? new File(baselineDir)
+            : new File(JaninoVersion.targetDirectory(), "janino-" + name)
+        );
 
         // Exactly one "janino" and one "commons-compiler" JAR file; a build with another baseline version, but without
         // "clean", would leave the JAR files of the previous baseline version in the directory.
@@ -162,8 +179,12 @@ class JaninoVersion {
             throw new IllegalStateException(
                 "\""
                 + dir
-                + "\" must contain exactly one \"janino\" and one \"commons-compiler\" JAR file; build with "
-                + "\"mvn -f janino-parent/pom.xml -P benchmarks -DskipTests clean package\""
+                + "\" must contain exactly one \"janino\" and one \"commons-compiler\" JAR file"
+                + (
+                    baselineDir != null
+                    ? ""
+                    : "; build with \"mvn -f janino-parent/pom.xml -P benchmarks -DskipTests clean package\""
+                )
             );
         }
         Arrays.sort(jars);

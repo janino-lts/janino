@@ -57,10 +57,25 @@
  *   java -jar janino-benchmarks/target/benchmarks.jar -h              (all options)
  * </pre>
  * <p>
- *   The size of the generated class files is deterministic, and often explains differences of the compile time:
+ *   Besides the times, the memory that one operation allocates is reported; with "-Xint", it is almost deterministic,
+ *   so it shows even small differences reliably. The size of the generated class files is deterministic, and often
+ *   explains differences of the compile time; the report also tells whether both versions generate the same class
+ *   files:
  * </p>
  * <pre>
  *   java -cp janino-benchmarks/target/benchmarks.jar org.codehaus.janino.benchmarks.CodeSizeReport
+ * </pre>
+ *
+ * <h2>Comparing with an earlier build</h2>
+ * <p>
+ *   To measure the effect of a change of the current version, copy the JAR files of the build before the change, and
+ *   use them as the baseline:
+ * </p>
+ * <pre>
+ *   (before the change: build as above, then copy "janino-benchmarks/target/janino-current" to <var>dir</var>)
+ *   java -Djanino.benchmarks.baseline.dir=<var>dir</var> -jar janino-benchmarks/target/benchmarks.jar
+ *   java -Djanino.benchmarks.baseline.dir=<var>dir</var> -cp janino-benchmarks/target/benchmarks.jar \
+ *       org.codehaus.janino.benchmarks.CodeSizeReport
  * </pre>
  * <p>
  *   The benchmarks locate the JAR files and JANINO's sources relative to "benchmarks.jar"; if they are moved, set

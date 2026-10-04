@@ -24,13 +24,15 @@
 
 package org.codehaus.janino.benchmarks;
 
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 
 /**
  * Prints the total size of the class files that each {@link Workload} generates with the baseline version and with
- * the current build of JANINO. Unlike the time measurements of {@link Compare}, the sizes are deterministic;
- * differences often explain differences of the compile time.
+ * the current build of JANINO, and whether the class files are identical. Unlike the time measurements of {@link
+ * Compare}, the sizes are deterministic; differences often explain differences of the compile time. A change that
+ * should only make the compiler faster must not change the class files.
  * <p>
  *   Usage:
  * </p>
@@ -52,29 +54,54 @@ class CodeSizeReport {
         System.out.println("Baseline: " + baseline);
         System.out.println("Current:  " + current);
         System.out.println();
-        System.out.printf(Locale.ROOT, "%-14s %12s %12s %8s%n", "Workload", "baseline", "current", "ratio");
+        System.out.printf(
+            Locale.ROOT,
+            "%-14s %12s %12s %8s  %s%n",
+            "Workload",
+            "baseline",
+            "current",
+            "ratio",
+            "identical"
+        );
 
         for (Workload workload : Workload.values()) {
-            CodeSizeReport.print(
+            Map<String, byte[]> baselineClassFiles = workload.bytecodes(baseline);
+            Map<String, byte[]> currentClassFiles  = workload.bytecodes(current);
+
+            // Compiling the same code twice must yield the same class files; otherwise, a comparison is meaningless.
+            String identical = (
+                !CodeSizeReport.identical(currentClassFiles, workload.bytecodes(current))
+                ? "(not deterministic)"
+                : CodeSizeReport.identical(baselineClassFiles, currentClassFiles)
+                ? "yes"
+                : "no"
+            );
+
+            long baselineSize = CodeSizeReport.size(baselineClassFiles);
+            long currentSize  = CodeSizeReport.size(currentClassFiles);
+            System.out.printf(
+                Locale.ROOT,
+                "%-14s %12d %12d %8.3f  %s%n",
                 workload.name(),
-                CodeSizeReport.size(workload.bytecodes(baseline)),
-                CodeSizeReport.size(workload.bytecodes(current))
+                baselineSize,
+                currentSize,
+                (double) currentSize / baselineSize,
+                identical
             );
         }
         System.out.println();
         System.out.println("Sizes in bytes (sum of all generated class files); ratio = current / baseline.");
+        System.out.println("identical: Whether both versions generate the same class files, byte for byte.");
     }
 
-    private static void
-    print(String name, long baselineSize, long currentSize) {
-        System.out.printf(
-            Locale.ROOT,
-            "%-14s %12d %12d %8.3f%n",
-            name,
-            baselineSize,
-            currentSize,
-            (double) currentSize / baselineSize
-        );
+    /** @return Whether the two maps contain the same class names and the same bytes for each class name */
+    private static boolean
+    identical(Map<String, byte[]> classFiles1, Map<String, byte[]> classFiles2) {
+        if (!classFiles1.keySet().equals(classFiles2.keySet())) return false;
+        for (Map.Entry<String, byte[]> e : classFiles1.entrySet()) {
+            if (!Arrays.equals(e.getValue(), classFiles2.get(e.getKey()))) return false;
+        }
+        return true;
     }
 
     private static long

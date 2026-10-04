@@ -25,6 +25,7 @@
 
 package org.codehaus.janino;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -259,7 +260,7 @@ class JavaSourceIClassLoader extends IClassLoader {
 
             Scanner scanner = new Scanner(
                 sourceResource.getFileName(),
-                new InputStreamReader(inputStream, this.sourceCharset)
+                new BufferedReader(new InputStreamReader(inputStream, this.sourceCharset))
             );
 
             Parser parser = new Parser(scanner);
