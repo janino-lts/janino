@@ -1,8 +1,8 @@
 # Invalid expressions. See "InvalidCodeTest" for the format.
 #
 # The cases recorded as "ACCEPTED" stay as they are, deliberately: JANINO has always accepted this code, and
-# applications that generate code (e.g. Apache Spark) may depend on that. Do not turn them into compile errors by
-# default; see the issue "Invalid code is accepted without a compile error".
+# applications that generate code may depend on that. Do not turn them into compile errors by default (see
+# issue #33).
 
 === arithmetic on boolean
 janino: REJECTED Binary numeric promotion not possible on types "int" and "boolean"
