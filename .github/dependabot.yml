@@ -1,0 +1,10 @@
+# Keeps the versions of the GitHub actions in ".github/workflows" up to date (one pull request per update).
+#
+# Maven plugins and dependencies are deliberately NOT updated automatically; their updates are reviewed manually.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
