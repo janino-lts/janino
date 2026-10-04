@@ -49,6 +49,53 @@ h5 {
 
     <a href="index.html">Back to the JANINO home page</a>
 
+    <h4>Version 3.1.14 2026-10-04</h4>
+    <p>
+      A bug fix release for the code generation of <code>try</code> statements. Some of the defects are regressions
+      of 3.1.13, whose default target version 8 (was 6) disabled the JVM's fallback to its old bytecode verifier;
+      others exist in 3.1.12 already.
+    </p>
+    <ul>
+      <li>
+        Fixed <a href="https://github.com/stefan-zobel/janino/issues/2">issue #2</a>: <code>VerifyError</code> when a
+        <code>finally</code> block cannot complete normally (e.g. <code>try { return x; } finally { return y; }</code>),
+        and <code>VerifyError</code>s and internal compiler errors when a <code>return</code>, <code>break</code> or
+        <code>continue</code> statement leaves a <code>try</code> block whose <code>finally</code> block contains a
+        <code>try</code> statement, a <code>synchronized</code> statement, or a <code>break</code> or
+        <code>continue</code> statement. The return value is now saved in a local variable while the
+        <code>finally</code> block executes.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/stefan-zobel/janino/issues/3">issue #3</a>: A <code>finally</code> block was
+        executed twice when a <code>catch</code> clause handled an exception, and when the copy of a
+        <code>finally</code> block that is executed before a <code>return</code>, <code>break</code> or
+        <code>continue</code> statement threw an exception (which was also caught by the <code>catch</code> clauses of
+        the same <code>try</code> statement).
+      </li>
+      <li>
+        Fixed <a href="https://github.com/stefan-zobel/janino/issues/4">issue #4</a>: Try-with-resources statements now
+        close the resources when the block completes by <code>return</code>, <code>break</code> or
+        <code>continue</code>, add the exceptions from <code>close()</code> as suppressed exceptions, and close the
+        resources before the <code>catch</code> clauses and the <code>finally</code> block are executed (JLS 14.20.3).
+      </li>
+      <li>
+        Fixed <a href="https://github.com/stefan-zobel/janino/issues/5">issue #5</a>: A <code>finally</code> block was
+        executed twice (and the monitor released twice) when a jump statement left a <code>synchronized</code>
+        statement inside a <code>try</code> statement, and the <code>finally</code> block threw an exception.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/stefan-zobel/janino/issues/7">issue #7</a>: Internal compiler errors and
+        <code>VerifyError</code>s after a <code>try</code> statement whose <code>try</code> block cannot complete
+        normally, e.g. <code>try { return Integer.parseInt(s); } catch (A e) { ... } catch (B e) { ... }</code>
+        followed by more code.
+      </li>
+      <li>
+        New tests: characterization tests for about 200 language constructs, which record the correct result and
+        JANINO's current behavior, and a differential test that compiles 2,000 generated methods with nested control
+        flow with JANINO and with JAVAC and compares the results.
+      </li>
+    </ul>
+
     <h4>Version 3.1.13 2026-10-04</h4>
     <ul>
       <li>
