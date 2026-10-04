@@ -361,4 +361,120 @@ class SandboxPolicyTest {
         Assert.assertTrue(p.isSubclassingAllowed("java.util.AbstractList"));
         Assert.assertFalse(p.isSubclassingAllowed("java.util.ArrayList"));
     }
+
+    @SuppressWarnings("static-method") @Test public void
+    testFunctionalAndStreamsPresets() {
+        MemberRef apply = MemberRef.method(
+            "java.util.function.Function",
+            "apply",
+            "(Ljava/lang/Object;)Ljava/lang/Object;"
+        );
+        Assert.assertTrue(SandboxPolicy.FUNCTIONAL.isAllowed(apply));
+        Assert.assertTrue(SandboxPolicy.FUNCTIONAL.isSubclassingAllowed("java.util.function.Function"));
+
+        SandboxPolicy p = SandboxPolicy.STREAMS;
+        Assert.assertTrue(p.isAllowed(apply));
+        Assert.assertTrue(p.isAllowed(MemberRef.method(
+            "java.util.stream.Stream",
+            "map",
+            "(Ljava/util/function/Function;)Ljava/util/stream/Stream;"
+        )));
+        Assert.assertTrue(p.isAllowed(MemberRef.method(
+            "java.util.stream.IntStream",
+            "range",
+            "(II)Ljava/util/stream/IntStream;"
+        )));
+
+        // Parallel streams are never allowed.
+        Assert.assertFalse(p.isAllowed(MemberRef.method(
+            "java.util.stream.BaseStream",
+            "parallel",
+            "()Ljava/util/stream/BaseStream;"
+        )));
+        for (String stream : new String[] { "Double", "Int", "Long" }) {
+            Assert.assertFalse(p.isAllowed(MemberRef.method(
+                "java.util.stream." + stream + "Stream",
+                "parallel",
+                "()Ljava/util/stream/" + stream + "Stream;"
+            )));
+        }
+        Assert.assertFalse(p.isAllowed(MemberRef.method(
+            "java.util.stream.StreamSupport",
+            "stream",
+            "(Ljava/util/Spliterator;Z)Ljava/util/stream/Stream;"
+        )));
+    }
+
+    @SuppressWarnings("static-method") @Test public void
+    testMathAndRegexPresets() {
+        Assert.assertTrue(SandboxPolicy.MATH.isAllowed(MemberRef.method(
+            "java.math.BigInteger",
+            "add",
+            "(Ljava/math/BigInteger;)Ljava/math/BigInteger;"
+        )));
+        Assert.assertTrue(SandboxPolicy.MATH.isAllowed(MemberRef.field(
+            "java.math.RoundingMode",
+            "HALF_UP",
+            "Ljava/math/RoundingMode;"
+        )));
+        Assert.assertTrue(SandboxPolicy.REGEX.isAllowed(MemberRef.method(
+            "java.util.regex.Pattern",
+            "compile",
+            "(Ljava/lang/String;)Ljava/util/regex/Pattern;"
+        )));
+        Assert.assertFalse(SandboxPolicy.REGEX.isAllowed(MemberRef.method("java.lang.String", "length", "()I")));
+    }
+
+    @SuppressWarnings("static-method") @Test public void
+    testJavaTimePreset() {
+        SandboxPolicy p = SandboxPolicy.JAVA_TIME;
+
+        Assert.assertTrue(p.isAllowed(MemberRef.method("java.time.LocalDate", "now", "()Ljava/time/LocalDate;")));
+        Assert.assertTrue(p.isAllowed(MemberRef.method(
+            "java.time.chrono.ChronoZonedDateTime",
+            "toInstant",
+            "()Ljava/time/Instant;"
+        )));
+        Assert.assertTrue(p.isSubclassingAllowed("java.time.temporal.TemporalAdjuster"));
+
+        // "ZoneRulesProvider" changes JVM-global state, even through a class-wide rule.
+        SandboxPolicy p2 = SandboxPolicy.builder()
+            .include(p)
+            .allowAllMembers("java.time.zone.ZoneRulesProvider")
+            .build();
+        Assert.assertFalse(p2.isAllowed(MemberRef.method(
+            "java.time.zone.ZoneRulesProvider",
+            "registerProvider",
+            "(Ljava/time/zone/ZoneRulesProvider;)V"
+        )));
+    }
+
+    @SuppressWarnings("static-method") @Test public void
+    testTextAndUtilitiesPresets() {
+        Assert.assertTrue(SandboxPolicy.TEXT.isAllowed(MemberRef.method(
+            "java.text.NumberFormat",
+            "format",
+            "(D)Ljava/lang/String;"
+        )));
+
+        SandboxPolicy p = SandboxPolicy.UTILITIES;
+        Assert.assertTrue(p.isAllowed(MemberRef.method("java.util.Random", "nextInt", "(I)I")));
+        Assert.assertTrue(p.isAllowed(MemberRef.method("java.util.Formatter", "<init>", "()V")));
+        Assert.assertTrue(p.isAllowed(MemberRef.method(
+            "java.util.Formatter",
+            "format",
+            "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/util/Formatter;"
+        )));
+
+        // These constructors open files.
+        Assert.assertFalse(p.isAllowed(MemberRef.method("java.util.Formatter", "<init>", "(Ljava/lang/String;)V")));
+        Assert.assertFalse(p.isAllowed(MemberRef.method("java.util.Formatter", "<init>", "(Ljava/io/File;)V")));
+
+        Assert.assertFalse(p.isAllowed(MemberRef.method("java.util.Locale", "setDefault", "(Ljava/util/Locale;)V")));
+        Assert.assertFalse(p.isAllowed(MemberRef.method(
+            "java.util.TimeZone",
+            "setDefault",
+            "(Ljava/util/TimeZone;)V"
+        )));
+    }
 }

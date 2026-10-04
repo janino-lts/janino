@@ -77,6 +77,27 @@ h5 {
         line numbers, the compilers generate debugging information (source file and line numbers) automatically when a
         sandbox policy is set. <code>Location.toString()</code> omits the column if it is 0 ("the entire line").
       </li>
+      <li>
+        New sandbox policy presets <code>FUNCTIONAL</code>, <code>STREAMS</code>, <code>MATH</code>,
+        <code>REGEX</code>, <code>JAVA_TIME</code>, <code>TEXT</code> and <code>UTILITIES</code>; see section 4.2 of
+        <a href="https://github.com/stefan-zobel/janino/blob/HEAD/SANDBOX.md">Restricting Untrusted Code with a
+        Sandbox Policy</a>.
+      </li>
+      <li>
+        Sandbox policies now never allow <code>parallel()</code> of <code>IntStream</code>, <code>LongStream</code>
+        and <code>DoubleStream</code> (only <code>BaseStream.parallel()</code> was on the list), and
+        <code>ZoneRulesProvider</code>, which changes JVM-global state.
+      </li>
+      <li>
+        JANINO's default target version is now 8 (was 6), in line with the minimum runtime version. Thus, default
+        methods and static interface methods no longer require <code>setTargetVersion(8)</code>. The previous default
+        can be restored with <code>-Dorg.codehaus.janino.UnitCompiler.defaultTargetVersion=6</code>.
+      </li>
+      <li>
+        Fixed an invalid <code>StackMapTable</code> attribute for a <code>do</code> statement whose body ends with
+        a <code>continue</code> statement (<code>VerifyError</code> "Instruction type does not match stack map" with
+        target version 7 and higher).
+      </li>
     </ul>
 
     <h4>Version 3.1.13-SNAPSHOT-1 (pre-release)</h4>

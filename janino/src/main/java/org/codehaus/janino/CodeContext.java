@@ -230,21 +230,32 @@ class CodeContext {
         this.nextLocalVariableSlot = scopeToPop.startingLocalVariableSlot;
 
         // To truncate the stack map, remove local variables indicated by the popped scope.
-        if (this.currentLocalScope != null) {
-            StackMap sm = this.currentInserter.getStackMap();
+        if (this.currentLocalScope != null) this.removeOutOfScopeLocals();
+    }
 
-            if (sm != null && sm.locals().length > 0) {
-                int numActiveSlots = 0;
-                int nextLvIndex = 0;
-                for (VerificationTypeInfo slot : sm.locals()) {
-                    if (nextLvIndex >= this.nextLocalVariableSlot) break;
-                    nextLvIndex += slot.category();
-                    numActiveSlots += 1;
-                }
-                int numRemovedSlots = sm.locals().length - numActiveSlots;
-                while (numRemovedSlots-- > 0) sm = sm.popLocal();
-                this.currentInserter.setStackMap(sm);
+    /**
+     * Removes the local variables that are no longer in scope from the stack map of the current inserter.
+     * <p>
+     *   This is necessary where code is reached from a point where more local variables were in scope, e.g. at the
+     *   "continue" target of a DO statement whose body ends with a "continue" statement.
+     * </p>
+     */
+    public void
+    removeOutOfScopeLocals() {
+
+        StackMap sm = this.currentInserter.getStackMap();
+
+        if (sm != null && sm.locals().length > 0) {
+            int numActiveSlots = 0;
+            int nextLvIndex = 0;
+            for (VerificationTypeInfo slot : sm.locals()) {
+                if (nextLvIndex >= this.nextLocalVariableSlot) break;
+                nextLvIndex += slot.category();
+                numActiveSlots += 1;
             }
+            int numRemovedSlots = sm.locals().length - numActiveSlots;
+            while (numRemovedSlots-- > 0) sm = sm.popLocal();
+            this.currentInserter.setStackMap(sm);
         }
     }
 

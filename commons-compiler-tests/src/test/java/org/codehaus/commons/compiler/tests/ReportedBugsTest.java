@@ -1872,6 +1872,35 @@ class ReportedBugsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    testIssue208DoWithBodyThatCannotCompleteNormally3() throws Exception {
+
+        String body = (
+            ""
+            + "public class MyClass {\n"
+            + "\n"
+            + "    public static boolean\n"
+            + "    main() {\n"
+            + "\n"
+            + "        int n = 0;\n"
+            + "        outer: do {\n"
+            + "            long a = 33;\n"
+            + "            do {\n"
+            + "                long b = 44;\n"
+            + "                continue outer;\n"   // Leaves two blocks with local variables.
+            + "            } while (System.nanoTime() == 0);\n"
+            + "        } while (++n < 3);\n"
+            + "        \n"
+            + "        int     c = 9;\n"
+            + "        boolean d = false;\n"
+            + "        long    e = -1;\n"
+            + "        return n == 3;\n"
+            + "    }\n"
+            + "}\n"
+        );
+        this.assertCompilationUnitMainReturnsTrue(body, "MyClass");
+    }
+
+    @Test public void
     testIssue208LabeledStatementWithBodyThatCannotCompleteNormally() throws Exception {
 
         String body = (
