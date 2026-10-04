@@ -53,7 +53,8 @@ import org.codehaus.commons.nullanalysis.Nullable;
  * <h3>Comptibility notice:</h3>
  * <p>
  *   The methods {@code setPermissions(Permissions permissions)} and {@code void setNoPermissions()} were removed in
- *   version 3.1.1 (2020-03-09) and replaced by the {@link Sandbox}.
+ *   version 3.1.1 (2020-03-09) and replaced by the {@link Sandbox}, which is deprecated in turn; see {@link
+ *   org.codehaus.commons.compiler.sandbox.SandboxPolicy}.
  * </p>
  */
 public

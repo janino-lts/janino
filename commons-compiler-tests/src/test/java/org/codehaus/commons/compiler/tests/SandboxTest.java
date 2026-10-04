@@ -68,7 +68,7 @@ import util.TestUtil;
 /**
  * Test cases for the combination of JANINO with {@link Sandbox}.
  */
-@RunWith(Parameterized.class) public
+@RunWith(Parameterized.class) @SuppressWarnings("deprecation") public
 class SandboxTest extends CommonsCompilerTestSuite {
 
     private static final Permissions NO_PERMISSIONS = new Permissions();

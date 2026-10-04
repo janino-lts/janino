@@ -41,8 +41,8 @@ deprecated (Java 17) and permanently disabled (Java 24), so that class only work
 | Java 18 - 23 | Works only with `-Djava.security.manager=allow`                                   | Works          |
 | Java 24+     | Not available: the constructor throws an `UnsupportedOperationException`          | Works          |
 
-`Sandbox.isSupported()` tells whether the legacy sandbox can be used on the running JVM. For new code, and for any
-code that must run on current JVMs, use the sandbox policy.
+`Sandbox.isSupported()` tells whether the legacy sandbox can be used on the running JVM. The class is deprecated (as
+of version 3.1.13); for new code, and for any code that must run on current JVMs, use the sandbox policy.
 
 **Notice:** By default, the legacy sandbox has a known weakness that lets code escape from it; see the warning in
 [section 7](#7-the-security-manager-based-sandbox), which also explains how to close it.
@@ -485,7 +485,8 @@ level:
 
 Applications that run on JVMs with security manager support (Java 8 through 17, or Java 18 through 23 with
 `-Djava.security.manager=allow`) can still use the sandbox of earlier versions. Instead of verifying the code at
-compile time, it confines the code **at runtime** to a set of `java.security` permissions.
+compile time, it confines the code **at runtime** to a set of `java.security` permissions. The `Sandbox` class is
+deprecated (as of version 3.1.13), but remains available for these applications.
 
 > **Warning: By default, code can escape from this sandbox.** Code that runs inside `Sandbox.confine()` can call
 > `java.security.AccessController.doPrivileged(...)` itself, and thus perform actions that the sandbox's permissions

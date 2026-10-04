@@ -92,8 +92,13 @@ import org.codehaus.commons.nullanalysis.Nullable;
  *
  * @see <a href="https://docs.oracle.com/javase/tutorial/essential/environment/security.html">ORACLE: Java Essentials:
  *      The Security Manager</a>
+ * @deprecated The security manager, on which this class relies, cannot be used on Java 24 and later (and on Java 18
+ *             through 23 only with {@code -Djava.security.manager=allow}). Use a {@link
+ *             org.codehaus.commons.compiler.sandbox.SandboxPolicy} (see {@link
+ *             ICookable#setSandboxPolicy(org.codehaus.commons.compiler.sandbox.SandboxPolicy)}) and a {@link
+ *             org.codehaus.commons.compiler.sandbox.SandboxExecutor} instead, which work on all JREs from Java 8 on
  */
-public final
+@Deprecated public final
 class Sandbox {
 
     /**

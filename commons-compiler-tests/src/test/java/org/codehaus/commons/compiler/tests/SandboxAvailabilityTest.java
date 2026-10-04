@@ -37,7 +37,7 @@ import util.CommonsCompilerTestSuite;
  * Verifies whether {@link Sandbox} is available on the running JVM, and that it fails in a well-defined manner if it
  * is not.
  */
-public
+@SuppressWarnings("deprecation") public
 class SandboxAvailabilityTest {
 
     /**

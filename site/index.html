@@ -56,10 +56,12 @@
             to all the contributors!
           </div>
           <div style="margin-bottom:8px">
-            This fork is a proof of concept, not a commitment to maintain JANINO. It explores how JANINO can be kept
-            working on current JREs: it requires Java 8 or later, is tested on JREs up to Java 25, and offers a
-            <a href="#sandbox-policy">sandbox policy</a> that, unlike the
-            <a href="#security-manager-sandbox">security-manager-based sandbox</a>, works on all current JREs.
+            This fork is a proof of concept, not a commitment to maintain JANINO. The experiment: JANINO's
+            <a href="#security-manager-sandbox">sandbox</a> relies on the Java security manager, which is permanently
+            disabled since Java 24. This fork replaces it with a mechanism that works on all current JREs: a
+            <a href="#sandbox-policy">sandbox policy</a> (an allowlist of the APIs that compiled code may use, enforced
+            by a bytecode verifier before the classes are loaded), plus resource limits (CPU time and memory) for
+            executing the compiled code. JANINO requires Java 8 or later and is tested on Java 8, 17, 21 and 25.
           </div>
           <div>
             If you are interested in continuing the project together, please get in touch by
@@ -497,7 +499,24 @@
           class="octicon octicon-link"></span></a>Packages
         </h3>
 
-        <p>If you are using MAVEN, add this entry to your POM file:</p>
+        <p>
+          The releases of this fork are available as
+          <a href="https://github.com/stefan-zobel/janino/releases">GitHub releases</a>. They use the same MAVEN
+          coordinates as the original JANINO (<code>org.codehaus.janino</code>), but they are <b>not</b> published on
+          MAVEN Central, which only has the original versions up to 3.1.12.
+        </p>
+
+        <p>
+          If you are using MAVEN, download the POM and JAR files of the release, and install them into your local
+          repository (the parent POM first):
+        </p>
+
+        <div class="highlight highlight-text-xml"><pre>
+mvn install:install-file -Dfile=janino-parent-<var>version</var>.pom -DpomFile=janino-parent-<var>version</var>.pom
+mvn install:install-file -Dfile=commons-compiler-<var>version</var>.jar -DpomFile=commons-compiler-<var>version</var>.pom
+mvn install:install-file -Dfile=janino-<var>version</var>.jar -DpomFile=janino-<var>version</var>.pom</pre></div>
+
+        <p>Then add this entry to your POM file:</p>
 
         <div class="highlight highlight-text-xml"><pre class="brush: xml">
 &lt;dependency&gt;
@@ -557,19 +576,19 @@
   </div>
 </div>
 
-        <p>(Replace "***" with the latest version of JANINO.)</p>
+        <p>
+          (Replace "***" with the latest version of JANINO; <code>commons-compiler</code> comes in as a transitive
+          dependency.)
+        </p>
 
         <p>If you are not using MAVEN, do the following instead:</p>
 
         <ul>
           <li>
-            Download <a href="https://repo1.maven.org/maven2/org/codehaus/janino/janino/">the latest version of
-            "janino-<var>version</var>.jar"</a>.
+            Download "janino-<var>version</var>.jar" from <a
+            href="https://github.com/stefan-zobel/janino/releases">the latest release</a>.
           </li>
-          <li>
-            Download <a href="https://repo1.maven.org/maven2/org/codehaus/janino/commons-compiler/">the same version of
-            "commons-compiler-<var>version</var>.jar"</a>.
-          </li>
+          <li>Download "commons-compiler-<var>version</var>.jar" from the same release.</li>
           <li>Put the two JAR files on your classpath.</li>
         </ul>
 
@@ -579,8 +598,15 @@
         </h3>
 
         <p>
-          All packages are signed with one of these PGP keys. Make sure to check the package signatures to prevent
-          supply chain attacks:
+          Each release of this fork contains a file <code>SHA256SUMS</code> with the checksums of all its files. Make
+          sure to check them to prevent supply chain attacks:
+        </p>
+
+        <div class="highlight highlight-text-xml"><pre>
+sha256sum -c SHA256SUMS</pre></div>
+
+        <p>
+          The original JANINO packages on MAVEN Central are signed with one of these PGP keys:
           <br>
           <a href="pgp_key1.txt">Key #1</a>
           <a href="pgp_key2.txt">Key #2</a>
@@ -666,7 +692,9 @@ System.out.println(ee.evaluate()); // Prints "7".</pre></div>
 
         <p>
           The full JAVADOC documentation for JANINO is available <a href="apidocs/">online</a> for the latest version,
-          and for <a href="https://repo1.maven.org/maven2/org/codehaus/janino/">download</a> for all versions.
+          and for download (as "-javadoc.jar" files) with each <a
+          href="https://github.com/stefan-zobel/janino/releases">release</a>. The JAVADOC of the original versions is
+          available on <a href="https://repo1.maven.org/maven2/org/codehaus/janino/">MAVEN Central</a>.
         </p>
 
         <h3>
@@ -1585,8 +1613,8 @@ Object result = new SandboxExecutor(limits).call(() -&gt; se.evaluate());
           sandbox works on Java 8 through 17, and on Java 18 through 23 only if the JVM is started with
           <code>-Djava.security.manager=allow</code>. On all other JVMs, the <code>Sandbox</code> constructor throws an
           <code>UnsupportedOperationException</code>; <code>Sandbox.isSupported()</code> tells whether the sandbox can
-          be used on the running JVM. For code that must run on current JVMs, use a <a href="#sandbox-policy">sandbox
-          policy</a>.</b>
+          be used on the running JVM. The <code>Sandbox</code> class is deprecated (as of version 3.1.13); for code
+          that must run on current JVMs, use a <a href="#sandbox-policy">sandbox policy</a>.</b>
         </p>
 
         <p id="security-manager-sandbox-escape" style="border:solid 1px; padding:12px">
