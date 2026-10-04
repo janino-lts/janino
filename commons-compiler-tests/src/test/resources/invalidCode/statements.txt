@@ -1,0 +1,348 @@
+# Invalid statements. See "InvalidCodeTest" for the format.
+
+=== statement after return is unreachable
+janino: REJECTED Statement is unreachable
+public class P {
+    void f() { return; int x = 0; }
+}
+
+=== statement after break is unreachable
+janino: REJECTED Statement is unreachable
+public class P {
+    void f() { while (true) { break; int x = 0; } }
+}
+
+=== statement after infinite loop is unreachable
+janino: REJECTED Statement is unreachable
+public class P {
+    void f() { while (true) {} int x = 0; }
+}
+
+=== statement after throw is unreachable
+janino: REJECTED Statement is unreachable
+public class P {
+    void f() { throw new RuntimeException(); int x = 0; }
+}
+
+=== break outside of a loop or switch
+janino: REJECTED "break" statement is not enclosed by a breakable statement
+public class P {
+    void f() { break; }
+}
+
+=== break with unknown label
+janino: REJECTED Statement "break L" is not enclosed by a breakable statement with label "L"
+public class P {
+    void f() { while (true) { break L; } }
+}
+
+=== continue outside of a loop
+janino: REJECTED "continue" statement is not enclosed by a continuable statement
+public class P {
+    void f() { continue; }
+}
+
+=== continue in switch outside of a loop
+janino: REJECTED "continue" statement is not enclosed by a continuable statement
+public class P {
+    void f(int i) { switch (i) { case 1: continue; } }
+}
+
+=== continue with label of a block
+janino: REJECTED Labeled statement is not continuable
+public class P {
+    void f() { L: { continue L; } }
+}
+
+=== continue with unknown label
+janino: REJECTED Statement "continue L" is not enclosed by a continuable statement with label "L"
+public class P {
+    void f() { while (true) { continue L; } }
+}
+
+=== duplicate label
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f() { L: while (true) { L: while (true) { break L; } } }
+}
+
+=== if condition is not boolean
+janino: REJECTED Not a boolean expression
+public class P {
+    void f() { if (1) {} }
+}
+
+=== while condition is not boolean
+janino: REJECTED Not a boolean expression
+public class P {
+    void f() { while (1) {} }
+}
+
+=== do condition is not boolean
+janino: REJECTED Not a boolean expression
+public class P {
+    void f() { do {} while (1); }
+}
+
+=== for condition is not boolean
+janino: REJECTED Not a boolean expression
+public class P {
+    void f() { for (;1;) {} }
+}
+
+=== return without value in non-void method
+janino: REJECTED Method must return a value
+public class P {
+    int f() { return; }
+}
+
+=== return with value in void method
+janino: REJECTED Method must not return a value
+public class P {
+    void f() { return 1; }
+}
+
+=== return with value in constructor
+janino: REJECTED Method must not return a value
+public class P {
+    P() { return 1; }
+}
+
+=== return with value in initializer
+janino: INVALID InternalCompilerException
+recovery: INVALID InternalCompilerException
+public class P {
+    { return; }
+}
+
+=== missing return on one path
+janino: REJECTED Method must return a value
+public class P {
+    int f(boolean b) { if (b) return 1; }
+}
+
+=== synchronized on primitive
+janino: REJECTED Monitor object of "synchronized" statement is not a subclass of "Object"
+recovery: INVALID InternalCompilerException
+public class P {
+    void f() { synchronized (1) {} }
+}
+
+=== synchronized on null
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f() { synchronized (null) {} }
+}
+
+=== catch of checked exception that is never thrown
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f() { try { } catch (java.io.IOException e) { } }
+}
+
+=== catch clause is unreachable after catch of superclass
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f() throws Exception {
+        try { throw new Exception(); } catch (Exception e) { } catch (RuntimeException e) { }
+    }
+}
+
+=== catch of non-throwable type
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f() { try { } catch (String e) { } }
+}
+
+=== uncaught checked exception
+janino: REJECTED Thrown exception of type "java.lang.Exception" is neither caught by a "try...catch" block nor declared in the "throws" clause of the declaring function
+public class P {
+    void f() { throw new Exception(); }
+}
+
+=== uncaught checked exception of a method invocation
+janino: REJECTED Thrown exception of type "java.lang.Exception" is neither caught by a "try...catch" block nor declared in the "throws" clause of the declaring function
+public class P {
+    void g() throws Exception {}
+    void f() { g(); }
+}
+
+=== throw of non-throwable
+janino: REJECTED Thrown object of type "java.lang.String" is not assignable to "Throwable"
+public class P {
+    void f() { throw "x"; }
+}
+
+=== duplicate local variable
+janino: REJECTED Redefinition of local variable "x"
+public class P {
+    void f() { int x; int x; }
+}
+
+=== local variable redeclares parameter
+janino: REJECTED Redefinition of local variable "x"
+public class P {
+    void f(int x) { int x; }
+}
+
+=== local variable redeclares local variable of enclosing block
+janino: REJECTED Redefinition of local variable "x"
+public class P {
+    void f() { int x = 0; { int x = 1; } }
+}
+
+=== catch parameter redeclares local variable
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f() { int e = 0; try { } catch (RuntimeException e) { } }
+}
+
+=== local variable is not initialized
+janino: INVALID InternalCompilerException
+recovery: INVALID InternalCompilerException
+public class P {
+    int f() { int x; return x; }
+}
+
+=== final local variable is assigned twice
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f() { final int x = 1; x = 2; }
+}
+
+=== final parameter is assigned
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f(final int x) { x = 2; }
+}
+
+=== foreach over non-iterable
+janino: REJECTED Cannot iterate over "int"
+public class P {
+    void f() { for (int i : 5) {} }
+}
+
+=== foreach variable of incompatible type
+janino: REJECTED Assignment conversion not possible from type "java.lang.String" to type "int"
+public class P {
+    void f(String[] a) { for (int i : a) {} }
+}
+
+=== switch on boolean
+janino: REJECTED Value of case label must be a char, byte, short or int constant
+public class P {
+    void f(boolean b) { switch (b) { case true: } }
+}
+
+=== switch on long
+janino: REJECTED Assignment conversion not possible from type "long" to type "int"
+recovery: INVALID InternalCompilerException
+public class P {
+    void f(long l) { switch (l) { case 1: } }
+}
+
+=== case label is not a constant
+janino: REJECTED Value of 'case' label does not pose a constant value
+public class P {
+    void f(int i, int j) { switch (i) { case j: } }
+}
+
+=== case label is not a string constant
+janino: REJECTED Value of 'case' label is not a string constant
+public class P {
+    void f(String s, String t) { switch (s) { case t: } }
+}
+
+=== case label of wrong type
+janino: REJECTED Value of case label must be a char, byte, short or int constant
+public class P {
+    void f(int i) { switch (i) { case "a": } }
+}
+
+=== case label out of range of the switch type
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f(byte b) { switch (b) { case 1000: } }
+}
+
+=== duplicate case label
+janino: REJECTED Duplicate "case" switch label value
+public class P {
+    void f(int i) { switch (i) { case 1: case 1: } }
+}
+
+=== duplicate string case label
+janino: REJECTED Duplicate case label "a"
+public class P {
+    void f(String s) { switch (s) { case "a": case "a": } }
+}
+
+=== duplicate default label
+janino: REJECTED Duplicate "default" label
+public class P {
+    void f(int i) { switch (i) { default: default: } }
+}
+
+=== enum case label is not an enum constant
+janino: REJECTED Case label must be an enum constant
+enum E { X }
+public class P {
+    void f(E e) { switch (e) { case 1: } }
+}
+
+=== unknown enum constant in case label
+janino: REJECTED Unknown enum constant "Y"
+enum E { X }
+public class P {
+    void f(E e) { switch (e) { case Y: } }
+}
+
+=== duplicate enum case label
+janino: REJECTED Duplicate "case" switch label value
+enum E { X }
+public class P {
+    void f(E e) { switch (e) { case X: case X: } }
+}
+
+=== instance method invoked before explicit constructor invocation
+janino: REJECTED Expression "this()" is not an rvalue
+public class P {
+    P() { f(); this(1); }
+    P(int i) {}
+    void f() {}
+}
+
+=== explicit constructor invocation in a method
+janino: REJECTED Expression "this()" is not an rvalue
+public class P {
+    void f() { this(1); }
+    P(int i) {}
+}
+
+=== recursive constructor invocation
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    P() { this(); }
+}
+
+=== try with resources of non-closeable type
+janino: REJECTED A method named "close" is not declared in any enclosing class nor any supertype, nor through a static import
+public class P {
+    void f() { try (String s = "") { } }
+}
+
+=== assert condition is not boolean
+janino: REJECTED Not a boolean expression
+public class P {
+    void f() { assert 1; }
+}

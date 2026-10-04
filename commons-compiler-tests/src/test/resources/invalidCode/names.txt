@@ -1,0 +1,237 @@
+# Invalid names, references and contexts. See "InvalidCodeTest" for the format.
+
+=== unknown type
+janino: REJECTED Cannot determine simple type name "Foo"
+public class P {
+    Foo x;
+}
+
+=== unknown member type
+janino: REJECTED "java.util.Map" declares no member type "Foo"
+public class P {
+    java.util.Map.Foo x;
+}
+
+=== unknown package
+janino: REJECTED Cannot determine simple type name "java"
+public class P {
+    java.foo.Bar x;
+}
+
+=== unknown variable
+janino: REJECTED Expression "undefinedVariable" is not an rvalue
+public class P {
+    int f() { return undefinedVariable; }
+}
+
+=== unknown static field
+janino: REJECTED "foo" is neither a method, a field, nor a member class of "java.lang.String"
+recovery: INVALID InternalCompilerException
+public class P {
+    Object f() { return String.foo; }
+}
+
+=== unknown field of superclass
+janino: REJECTED Class has no field "x"
+recovery: INVALID InternalCompilerException
+public class P {
+    int f() { return super.x; }
+}
+
+=== unknown method of superclass
+janino: REJECTED Class "java.lang.Object" has no method named "foo"
+public class P {
+    void f() { super.foo(); }
+}
+
+=== instance method invoked in static context
+janino: REJECTED Instance method "default void P.g()" cannot be invoked in static context
+recovery: INVALID InternalCompilerException
+public class P {
+    void g() {}
+    static void f() { g(); }
+}
+
+=== instance method invoked through class name
+janino: REJECTED Instance method "length" cannot be invoked in static context
+recovery: INVALID InternalCompilerException
+public class P {
+    int f() { return String.length(); }
+}
+
+=== instance field in static context
+janino: REJECTED Expression "P" is not an rvalue
+public class P {
+    int x;
+    static int f() { return x; }
+}
+
+=== this in static method
+janino: REJECTED No current instance available in static method
+recovery: INVALID InternalCompilerException
+public class P {
+    static Object f() { return this; }
+}
+
+=== this in static initializer
+janino: INVALID InternalCompilerException
+recovery: INVALID InternalCompilerException
+public class P {
+    static Object o;
+    static { o = this; }
+}
+
+=== super method invocation in static method
+janino: REJECTED Superclass method cannot be invoked in static context
+recovery: INVALID InternalCompilerException
+public class P {
+    static String f() { return super.toString(); }
+}
+
+=== qualified this of a type that does not enclose
+janino: REJECTED "P" is not enclosed by "A"
+recovery: INVALID InternalCompilerException
+class A {}
+public class P {
+    Object f() { return A.this; }
+}
+
+=== instantiation of an interface
+janino: REJECTED Cannot instantiate "java.lang.Runnable"
+recovery: INVALID InternalCompilerException
+public class P {
+    Object f() { return new Runnable(); }
+}
+
+=== instantiation of an abstract class
+janino: REJECTED Cannot instantiate abstract "A"
+abstract class A {}
+public class P {
+    Object f() { return new A(); }
+}
+
+=== instantiation of an inner class in static context
+janino: REJECTED No current instance available in static method
+recovery: INVALID InternalCompilerException
+public class P {
+    class I {}
+    static Object f() { return new I(); }
+}
+
+=== qualified instantiation of a static member class
+janino: REJECTED Static member class cannot be instantiated with qualified NEW
+public class P {
+    static class S {}
+    Object f() { return this.new S(); }
+}
+
+=== unknown constructor
+janino: REJECTED No applicable constructor/method found for actual parameters "int, int, int, int, int"
+public class P {
+    Object f() { return new String(1, 2, 3, 4, 5); }
+}
+
+=== non-final local variable accessed from anonymous class
+janino: REJECTED Cannot access non-final local variable "x" from inner class
+public class P {
+    Runnable f() {
+        int x = 1;
+        x = 2;
+        return new Runnable() { public void run() { int y = x; } };
+    }
+}
+
+=== import of unknown class
+janino: REJECTED A class "foo.Bar" could not be found
+import foo.Bar;
+public class P {}
+
+=== import of unknown class that is used
+janino: REJECTED A class "foo.Bar" could not be found
+import foo.Bar;
+public class P {
+    Bar b;
+}
+
+=== static import of unknown member
+janino: ACCEPTED
+recovery: ACCEPTED
+import static java.lang.Math.foo;
+public class P {}
+
+=== ambiguous type-import-on-demand
+janino: REJECTED Ambiguous class name: "java.util.List" vs. "java.awt.List"
+import java.util.*;
+import java.awt.*;
+public class P {
+    List l;
+}
+
+=== ambiguous member type inherited from two interfaces
+janino: REJECTED Type "T" is ambiguous
+interface I1 { class T {} }
+interface I2 { class T {} }
+public class P implements I1, I2 {
+    T t;
+}
+
+=== private field of another top-level class
+janino: REJECTED A.x: Private member cannot be accessed from type "P".
+class A { private int x; }
+public class P {
+    int f(A a) { return a.x; }
+}
+
+=== private method of another top-level class
+janino: REJECTED No applicable constructor/method found for zero actual parameters
+class A { private void g() {} }
+public class P {
+    void f(A a) { a.g(); }
+}
+
+=== private member type of another top-level class
+janino: ACCEPTED
+recovery: ACCEPTED
+class A { private static class S {} }
+public class P {
+    A.S s;
+}
+
+=== private constructor of another top-level class
+janino: REJECTED No applicable constructor/method found for zero actual parameters
+class A { private A() {} }
+public class P {
+    Object f() { return new A(); }
+}
+
+=== local variable used before its declaration
+janino: REJECTED Expression "b" is not an rvalue
+public class P {
+    int f() { int a = b; int b = 1; return a; }
+}
+
+=== local variable used outside of its scope
+janino: REJECTED Expression "a" is not an rvalue
+public class P {
+    int f() { { int a = 1; } return a; }
+}
+
+=== field forward reference in initializer
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    int a = b;
+    int b = 1;
+}
+
+=== type used as expression
+janino: REJECTED Expression "java.lang.String" is not an rvalue
+public class P {
+    Object f() { return String; }
+}
+
+=== package used as expression
+janino: REJECTED Expression "java.util" is not an rvalue
+public class P {
+    Object f() { return java.util; }
+}

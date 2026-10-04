@@ -1,0 +1,258 @@
+# Invalid declarations of types and members. See "InvalidCodeTest" for the format.
+
+=== duplicate top-level type
+janino: REJECTED Redeclaration of type "A", previously declared in Line 1, Column 1
+class A {}
+class A {}
+
+=== top-level type conflicts with single-type import
+janino: REJECTED Package member type declaration "List" conflicts with single-type-import "java.util.List"
+import java.util.List;
+class List {}
+
+=== duplicate annotation
+janino: REJECTED Duplicate annotation "java.lang.Deprecated"
+@Deprecated @Deprecated public class P {}
+
+=== @Override without overridden method
+janino: REJECTED Method does not override a method declared in a supertype
+public class P {
+    @Override public void f() {}
+}
+
+=== override with incompatible return type
+janino: REJECTED The return type of "default long P.f()" is incompatible with that of "default int A.f()"
+class A { int f() { return 0; } }
+public class P extends A { long f() { return 0; } }
+
+=== override of final method
+janino: INVALID LinkageError
+recovery: ACCEPTED
+class A { final void f() {} }
+public class P extends A { void f() {} }
+
+=== override with weaker access
+janino: ACCEPTED
+recovery: ACCEPTED
+class A { public void f() {} }
+public class P extends A { void f() {} }
+
+=== static method hides instance method
+janino: ACCEPTED
+recovery: ACCEPTED
+class A { void f() {} }
+public class P extends A { static void f() {} }
+
+=== instance method overrides static method
+janino: ACCEPTED
+recovery: ACCEPTED
+class A { static void f() {} }
+public class P extends A { void f() {} }
+
+=== class extends final class
+janino: INVALID LinkageError
+recovery: ACCEPTED
+final class A {}
+public class P extends A {}
+
+=== cyclic inheritance
+janino: REJECTED Compilation unit is nested too deeply
+class A extends B {}
+class B extends A {}
+
+=== class extends interface
+janino: REJECTED "I" is an interface; classes can only extend a class
+recovery: INVALID InternalCompilerException
+interface I {}
+public class P extends I {}
+
+=== class implements class
+janino: REJECTED "A" is not an interface; classes can only implement interfaces
+class A {}
+public class P implements A {}
+
+=== interface extends class
+janino: INVALID LinkageError
+recovery: ACCEPTED
+class A {}
+interface I extends A {}
+
+=== class does not implement abstract method of interface
+janino: REJECTED Non-abstract class "P" must implement method "public abstract void I.f()"
+interface I { void f(); }
+public class P implements I {}
+
+=== class does not implement abstract method of superclass
+janino: REJECTED Non-abstract class "P" must implement method "default abstract void A.f()"
+abstract class A { abstract void f(); }
+public class P extends A {}
+
+=== abstract method in non-abstract class
+janino: REJECTED Non-abstract class "P" must implement method "default abstract void P.f()"
+public class P {
+    abstract void f();
+}
+
+=== abstract and final class
+janino: REJECTED Only one of abstract final is allowed
+abstract final class P {}
+
+=== private top-level class
+janino: REJECTED Access modifier(s) private not allowed in this context
+private class P {}
+
+=== duplicate field
+janino: INVALID LinkageError
+recovery: ACCEPTED
+public class P {
+    int x;
+    int x;
+}
+
+=== duplicate method
+janino: REJECTED Redeclaration of "f()" with same signature
+public class P {
+    void f() {}
+    void f() {}
+}
+
+=== duplicate constructor
+janino: REJECTED Redeclaration of "P(int b)" with same signature
+public class P {
+    P(int a) {}
+    P(int b) {}
+}
+
+=== duplicate parameter
+janino: REJECTED Redefinition of parameter "x"
+public class P {
+    void f(int x, int x) {}
+}
+
+=== duplicate enum constant
+janino: INVALID LinkageError
+recovery: ACCEPTED
+enum E { X, X }
+
+=== duplicate member type
+janino: INVALID LinkageError
+recovery: ACCEPTED
+public class P {
+    class M {}
+    class M {}
+}
+
+=== duplicate local class
+janino: REJECTED Redeclaration of local class "L"; previously declared in Line 3, Column 9
+public class P {
+    void f() {
+        class L {}
+        class L {}
+    }
+}
+
+=== method without body in class
+janino: REJECTED Method must have a body
+public class P {
+    void f();
+}
+
+=== non-void method without return statement
+janino: REJECTED Method must return a value
+public class P {
+    int f() {}
+}
+
+=== default method in class
+janino: REJECTED Access modifier(s) default not allowed in this context
+public class P {
+    default void f() {}
+}
+
+=== static default interface method
+janino: ACCEPTED
+recovery: ACCEPTED
+interface I {
+    static default void f() {}
+}
+
+=== default method without body
+janino: REJECTED Default method declarations must have a body
+interface I {
+    default void f();
+}
+
+=== interface field without initializer
+janino: ACCEPTED
+recovery: ACCEPTED
+interface I {
+    int X;
+}
+
+=== volatile method
+janino: REJECTED Access modifier(s) volatile not allowed in this context
+public class P {
+    volatile void f() {}
+}
+
+=== transient class
+janino: REJECTED Access modifier(s) transient not allowed in this context
+transient class P {}
+
+=== instance initializer cannot complete normally
+janino: REJECTED Instance variable declarator or instance initializer does not complete normally
+public class P {
+    { throw new RuntimeException(); }
+}
+
+=== annotation element value is not a constant
+janino: REJECTED "v" is not a constant expression
+@interface X { int value(); }
+public class P {
+    static int v = 1;
+    @X(v) void f() {}
+}
+
+=== annotation element value is null
+janino: REJECTED Null literal not allowed as element value
+@interface X { String value(); }
+@X(null) public class P {}
+
+=== annotation element does not exist
+janino: INVALID AssertionError
+recovery: INVALID AssertionError
+@interface X { int value(); }
+@X(foo = 1) public class P {}
+
+=== enum constructor is public
+janino: ACCEPTED
+recovery: ACCEPTED
+enum E {
+    X;
+    public E() {}
+}
+
+=== instantiation of an enum
+janino: INVALID InternalCompilerException
+recovery: INVALID InternalCompilerException
+enum E { X }
+public class P {
+    Object f() { return new E(); }
+}
+
+=== class extends enum
+janino: INVALID AssertionError
+recovery: INVALID AssertionError
+enum E { X }
+public class P extends E {}
+
+=== missing superclass constructor
+janino: REJECTED No applicable constructor/method found for zero actual parameters
+class A { A(int x) {} }
+public class P extends A {}
+
+=== static initializer in interface
+janino: REJECTED IDENTIFIER expected instead of '{'
+interface I {
+    static { }
+}

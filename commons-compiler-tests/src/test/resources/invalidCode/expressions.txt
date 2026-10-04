@@ -1,0 +1,324 @@
+# Invalid expressions. See "InvalidCodeTest" for the format.
+
+=== arithmetic on boolean
+janino: REJECTED Binary numeric promotion not possible on types "int" and "boolean"
+public class P {
+    int f() { return 1 + true; }
+}
+
+=== compound assignment on boolean
+janino: REJECTED Binary numeric promotion not possible on types "boolean" and "int"
+public class P {
+    void f(boolean b) { b += 1; }
+}
+
+=== logical complement of int
+janino: REJECTED Not a boolean expression
+public class P {
+    boolean f() { return !1; }
+}
+
+=== conditional-and of ints
+janino: REJECTED Not a boolean expression
+public class P {
+    boolean f() { return 1 && 2; }
+}
+
+=== bitwise complement of double
+janino: REJECTED Operator "~" not applicable to type "double"
+public class P {
+    double f() { return ~1.0; }
+}
+
+=== unary minus of boolean
+janino: REJECTED Object of type "boolean" cannot be converted to a numeric type
+public class P {
+    Object f() { return -true; }
+}
+
+=== unary plus of String
+janino: REJECTED Object of type "java.lang.String" cannot be converted to a numeric type
+recovery: INVALID InternalCompilerException
+public class P {
+    Object f() { return +"a"; }
+}
+
+=== increment of literal
+janino: REJECTED Expression "1" is not an lvalue
+public class P {
+    void f() { 1++; }
+}
+
+=== increment of String
+janino: REJECTED Object of type "java.lang.String" cannot be converted to a numeric type
+recovery: INVALID InternalCompilerException
+public class P {
+    void f(String s) { s++; }
+}
+
+=== assignment to literal
+janino: REJECTED Expression "1" is not an lvalue
+public class P {
+    void f() { 1 = 2; }
+}
+
+=== assignment to method invocation
+janino: REJECTED Expression "g()" is not an lvalue
+public class P {
+    int g() { return 0; }
+    void f() { g() = 1; }
+}
+
+=== assignment to final field
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    final int x = 1;
+    void f() { x = 2; }
+}
+
+=== assignment to array length
+janino: REJECTED Expression "a.length" is not an lvalue
+public class P {
+    void f(int[] a) { a.length = 2; }
+}
+
+=== arithmetic with null
+janino: REJECTED Binary numeric promotion not possible on types "(null type)" and "int"
+recovery: INVALID InternalCompilerException
+public class P {
+    Object f() { return null - 1; }
+}
+
+=== primitive compared with null
+janino: REJECTED Cannot compare primitive type "int" with "null"
+recovery: INVALID InternalCompilerException
+public class P {
+    boolean f() { return 1 == null; }
+}
+
+=== null compared with primitive
+janino: REJECTED Cannot compare "null" with primitive type "int"
+recovery: INVALID InternalCompilerException
+public class P {
+    boolean f() { return null == 1; }
+}
+
+=== relational operator on booleans
+janino: REJECTED Operator "<" not allowed on boolean operands
+public class P {
+    boolean f() { return true < false; }
+}
+
+=== relational operator on references
+janino: REJECTED Operator "<" not allowed on reference operands
+recovery: INVALID InternalCompilerException
+public class P {
+    boolean f() { return "a" < "b"; }
+}
+
+=== comparison of incomparable reference types
+janino: REJECTED Incomparable types "java.lang.String" and "java.lang.Integer"
+public class P {
+    boolean f() { return "a" == Integer.valueOf(1); }
+}
+
+=== comparison of boolean and int
+janino: REJECTED Cannot compare types "boolean" and "int"
+recovery: INVALID InternalCompilerException
+public class P {
+    boolean f() { return true == 1; }
+}
+
+=== instanceof that can never be true
+janino: REJECTED "java.lang.String" can never be an instance of "java.lang.Integer"
+public class P {
+    boolean f() { return "a" instanceof Integer; }
+}
+
+=== instanceof of primitive
+janino: REJECTED "int" can never be an instance of "java.lang.Integer"
+public class P {
+    boolean f() { return 1 instanceof Integer; }
+}
+
+=== cast between unrelated classes
+janino: REJECTED Cannot cast "java.lang.String" to "java.lang.Integer"
+recovery: INVALID InternalCompilerException
+public class P {
+    Object f() { return (Integer) "a"; }
+}
+
+=== cast of int to boolean
+janino: REJECTED Cannot cast "int" to "boolean"
+public class P {
+    Object f() { return (boolean) 1; }
+}
+
+=== cast of boolean to int
+janino: REJECTED Cannot cast "boolean" to "int"
+public class P {
+    int f() { return (int) true; }
+}
+
+=== shift distance is boolean
+janino: REJECTED Object of type "boolean" cannot be converted to a numeric type
+public class P {
+    int f() { return 1 << true; }
+}
+
+=== shift of double
+janino: INVALID InternalCompilerException
+recovery: INVALID InternalCompilerException
+public class P {
+    double f() { return 1.0 << 1; }
+}
+
+=== length of non-array
+janino: REJECTED "length" is neither a method, a field, nor a member class of "int"
+recovery: INVALID InternalCompilerException
+public class P {
+    int f(int i) { return i.length; }
+}
+
+=== subscript of non-array
+janino: REJECTED Subscript not allowed on non-array type "int"
+recovery: INVALID InternalCompilerException
+public class P {
+    int f(int i) { return i[0]; }
+}
+
+=== array index is boolean
+janino: REJECTED Object of type "boolean" cannot be converted to a numeric type
+public class P {
+    int f(int[] a) { return a[true]; }
+}
+
+=== array size is double
+janino: REJECTED Invalid array size expression type
+recovery: INVALID InternalCompilerException
+public class P {
+    Object f() { return new int[1.0]; }
+}
+
+=== array initializer for non-array variable
+janino: REJECTED Array initializer not allowed for non-array type "int"
+recovery: INVALID InternalCompilerException
+public class P {
+    void f() { int x = { 1, 2 }; }
+}
+
+=== array initializer element of wrong type
+janino: REJECTED Assignment conversion not possible from type "java.lang.String" to type "int"
+public class P {
+    void f() { int[] a = { "a" }; }
+}
+
+=== conditional expression with incompatible operand types
+janino: REJECTED Incompatible expression types "int" and "boolean"
+public class P {
+    int f(boolean b) { return b ? 1 : true; }
+}
+
+=== conditional expression with non-boolean condition
+janino: REJECTED Not a boolean expression
+public class P {
+    int f() { return 1 ? 2 : 3; }
+}
+
+=== null assigned to primitive
+janino: REJECTED Assignment conversion not possible from type "(null type)" to type "int"
+public class P {
+    void f() { int x = null; }
+}
+
+=== String assigned to int
+janino: REJECTED Assignment conversion not possible from type "java.lang.String" to type "int"
+public class P {
+    void f() { int x = "a"; }
+}
+
+=== int constant out of range of byte
+janino: REJECTED Assignment conversion not possible from type "int" to type "byte"
+public class P {
+    void f() { byte b = 128; }
+}
+
+=== int constant out of range of char
+janino: REJECTED Assignment conversion not possible from type "int" to type "char"
+public class P {
+    void f() { char c = -1; }
+}
+
+=== long assigned to int
+janino: REJECTED Assignment conversion not possible from type "long" to type "int"
+public class P {
+    void f(long l) { int x = l; }
+}
+
+=== double assigned to float
+janino: REJECTED Assignment conversion not possible from type "double" to type "float"
+public class P {
+    void f(double d) { float x = d; }
+}
+
+=== void method in expression
+janino: REJECTED Assignment conversion not possible from type "void" to type "int"
+recovery: INVALID InternalCompilerException
+public class P {
+    void g() {}
+    void f() { int x = g(); }
+}
+
+=== void method in string concatenation
+janino: INVALID InternalCompilerException
+recovery: INVALID InternalCompilerException
+public class P {
+    void g() {}
+    String f() { return "a" + g(); }
+}
+
+=== method invocation on primitive
+janino: REJECTED A method named "toString" is not declared in any enclosing class nor any supertype, nor through a static import
+recovery: INVALID InternalCompilerException
+public class P {
+    Object f(int i) { return i.toString(); }
+}
+
+=== unknown method
+janino: REJECTED A method named "foo" is not declared in any enclosing class nor any supertype, nor through a static import
+public class P {
+    Object f() { return "a".foo(); }
+}
+
+=== method invocation with wrong number of arguments
+janino: REJECTED No applicable constructor/method found for zero actual parameters
+public class P {
+    int f() { return Math.abs(); }
+}
+
+=== method invocation with wrong argument type
+janino: REJECTED No applicable constructor/method found for actual parameters "boolean"
+public class P {
+    int f() { return "a".indexOf(true); }
+}
+
+=== ambiguous method invocation
+janino: REJECTED Invocation of constructor/method with argument type(s) "int, int" is ambiguous
+public class P {
+    void m(Integer a, int b) {}
+    void m(int a, Integer b) {}
+    void f() { m(1, 1); }
+}
+
+=== constructor invocation with wrong arguments
+janino: REJECTED No applicable constructor/method found for actual parameters "int, int"
+public class P {
+    Object f() { return new StringBuilder(1, 2); }
+}
+
+=== class literal of parameterized type
+janino: REJECTED Unexpected token "." in primary
+public class P {
+    Object f() { return java.util.List<String>.class; }
+}
