@@ -1,4 +1,8 @@
 # Invalid statements. See "InvalidCodeTest" for the format.
+#
+# The cases recorded as "ACCEPTED" stay as they are, deliberately: JANINO has always accepted this code, and
+# applications that generate code (e.g. Apache Spark) may depend on that. Do not turn them into compile errors by
+# default; see the issue "Invalid code is accepted without a compile error".
 
 === statement after return is unreachable
 janino: REJECTED Statement is unreachable

@@ -1,4 +1,8 @@
 # Invalid declarations of types and members. See "InvalidCodeTest" for the format.
+#
+# The cases recorded as "ACCEPTED" stay as they are, deliberately: JANINO has always accepted this code, and
+# applications that generate code (e.g. Apache Spark) may depend on that. Do not turn them into compile errors by
+# default; see the issue "Invalid code is accepted without a compile error".
 
 === duplicate top-level type
 janino: REJECTED Redeclaration of type "A", previously declared in Line 1, Column 1
