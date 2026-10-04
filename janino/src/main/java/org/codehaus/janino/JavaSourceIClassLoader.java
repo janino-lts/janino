@@ -43,6 +43,7 @@ import org.codehaus.commons.compiler.util.resource.Resource;
 import org.codehaus.commons.compiler.util.resource.ResourceFinder;
 import org.codehaus.commons.nullanalysis.Nullable;
 import org.codehaus.janino.util.ClassFile;
+import org.codehaus.janino.util.SandboxInstrumenter;
 
 /**
  * This {@link org.codehaus.janino.IClassLoader} finds, scans and parses compilation units.
@@ -68,6 +69,7 @@ class JavaSourceIClassLoader extends IClassLoader {
     private int                      targetVersion = -1;
     @Nullable private ErrorHandler   compileErrorHandler;
     @Nullable private WarningHandler warningHandler;
+    private boolean                  sandboxInstrumentation;
 
     public
     JavaSourceIClassLoader(
@@ -87,6 +89,13 @@ class JavaSourceIClassLoader extends IClassLoader {
 
     public void
     setTargetVersion(int version) { this.targetVersion = version; }
+
+    /**
+     * Whether to insert the resource limit checks for sandboxed code (see {@link SandboxInstrumenter}) into the
+     * compilation units that are parsed from now on.
+     */
+    public void
+    setSandboxInstrumentation(boolean value) { this.sandboxInstrumentation = value; }
 
     /**
      * Returns the set of {@link UnitCompiler}s that were created so far.
@@ -190,6 +199,8 @@ class JavaSourceIClassLoader extends IClassLoader {
         try {
             Java.AbstractCompilationUnit acu = this.findCompilationUnit(className);
             if (acu == null) return null;
+
+            if (this.sandboxInstrumentation) acu = new SandboxInstrumenter().copyAbstractCompilationUnit(acu);
 
             UnitCompiler uc = new UnitCompiler(acu, this).options(this.options);
             uc.setTargetVersion(this.targetVersion);

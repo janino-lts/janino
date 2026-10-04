@@ -7,7 +7,8 @@ call `System.exit()`.
 
 The **sandbox policy** mechanism does exactly that. You describe the APIs that the compiled code may use (an
 *allowlist*), and JANINO verifies every class it generates against that allowlist **before the class is loaded**.
-Code that uses anything else is rejected at compile time.
+Code that uses anything else is rejected at compile time. In addition, a `SandboxExecutor` can limit the CPU time
+and the memory that the code consumes (see [3.5](#35-limiting-cpu-time-and-memory)).
 
 ```java
 IExpressionEvaluator ee = CompilerFactoryFactory.getDefaultCompilerFactory(classLoader).newExpressionEvaluator();
@@ -207,6 +208,63 @@ List<SandboxViolation> violations = new BytecodeVerifier(policy).verify(
 );
 ```
 
+### 3.5 Limiting CPU time and memory
+
+A policy restricts *which* APIs code may use. To restrict *how much* CPU time and memory it may consume, execute it
+through a `SandboxExecutor`:
+
+```java
+IScriptEvaluator se = CompilerFactoryFactory.getDefaultCompilerFactory(classLoader).newScriptEvaluator();
+se.setSandboxPolicy(policy);
+se.cook(script);
+
+SandboxLimits limits = SandboxLimits.builder()
+    .timeout(2, TimeUnit.SECONDS)       // wall-clock time
+    .maxTicks(10_000_000)               // loop iterations plus method and constructor invocations
+    .maxAllocatedBytes(64L << 20)       // heap memory that the executing thread allocates
+    .build();
+try {
+    Object result = new SandboxExecutor(limits).call(() -> se.evaluate());
+} catch (SandboxLimitExceededException slee) {
+    // "slee.getLimit()" is TIME, TICKS or MEMORY; the result of the code (if any) is discarded.
+}
+```
+
+All limits are optional. `maxTicks` is deterministic, i.e. independent of the speed of the machine, and is therefore
+the best choice for reproducible behavior; the timeout is the last line of defense.
+
+How it works:
+
+- When a policy is set, JANINO inserts a call to `Guard.tick()` at the beginning of every loop body and of every
+  method and constructor body, and checks the size of arrays before they are created (`Guard.arrayLength()`,
+  `Guard.newArray()`). The verifier allows these calls implicitly.
+- `SandboxExecutor.call()` executes the task on a new (daemon) thread. The guard counts the ticks of that thread,
+  and every 1024 ticks it checks the timeout and the allocated memory. When a limit is exceeded, it throws a
+  `SandboxLimitExceededError` inside the code.
+- Once tripped, the guard stays tripped: Code that catches the error (`catch (Throwable t) {}`) or swallows it
+  (`finally { return; }`) does not get far, because every further tick throws again, and `call()` reports the
+  exceeded limit in any case.
+- Outside of `SandboxExecutor.call()`, the checks do nothing. They cost about one nanosecond per loop iteration.
+- JANINO makes the `Guard` class visible to the generated code even if the parent class loader cannot see it, and
+  makes sure that the code uses the same `Guard` as the executor (see `GuardClassLoader`).
+
+The limits are "best effort":
+
+- **Only JANINO inserts the checks.** Code that the `commons-compiler-jdk` back end (`javac`) compiles is only
+  subject to the timeout, and it cannot be stopped: After the timeout, `call()` throws, but the thread keeps running
+  until the code ends by itself (`SandboxLimitExceededException.isThreadTerminated()` returns `false`). The same
+  applies to code that is stuck **inside a JDK method** (e.g. a regular expression with catastrophic backtracking,
+  or `BigInteger.pow()` with a huge exponent), because it does not tick.
+- **Callbacks:** The limits apply only to code that runs inside `call()`. If the code returns an object whose methods
+  your application invokes later (e.g. a `Runnable`), invoke these methods through a `SandboxExecutor` as well.
+- **Memory** is measured with `com.sun.management.ThreadMXBean`, which HotSpot-based JVMs (OpenJDK and its builds)
+  provide; on other JVMs, the memory limit is not enforced. It counts the bytes that the thread *allocates* (also
+  inside JDK methods), not the bytes that are still in use; the array size checks estimate the size of arrays before
+  they are created.
+- **Deep recursion** ends with a `StackOverflowError` (as in plain Java), unless the tick limit is reached first.
+- For hard guarantees (e.g. against native memory exhaustion or JVM crashes), execute untrusted code in a separate
+  JVM process with operating system limits.
+
 ---
 
 ## 4. Configuring a policy
@@ -243,8 +301,8 @@ with anonymous classes. The `commons-compiler-jdk` back end supports both.
 
 Note that some allowed methods may run for a very long time or allocate much memory inside the JDK, e.g.
 `BigInteger.pow()` with a huge exponent, or a regular expression with catastrophic backtracking (which
-`String.matches()` of `JAVA_LANG_BASIC` can trigger, too). The sandbox does not limit CPU time or memory (see
-section 6).
+`String.matches()` of `JAVA_LANG_BASIC` can trigger, too). The resource limits cannot interrupt such methods; only
+the timeout applies (see 3.5).
 
 ### 4.3 Adding permissions
 
@@ -361,10 +419,10 @@ that returns only the values that scripts need is almost always the better solut
 
 ## 6. Limitations
 
-- **No resource limits (yet).** The policy restricts *which* APIs code may use, but not how much CPU time or memory
-  it consumes. An infinite loop, or `new long[Integer.MAX_VALUE]`, is not prevented. If you run code from untrusted
-  sources, execute it on a separate thread with a timeout, and consider running it in a separate JVM process with
-  OS-level limits for hard guarantees.
+- **Resource limits are "best effort".** A `SandboxExecutor` limits the CPU time and the memory of code that JANINO
+  compiles, but code that `javac` compiles, and code that is stuck inside a JDK method, can only be abandoned after
+  the timeout, not stopped (see 3.5). For hard guarantees, run untrusted code in a separate JVM process with OS-level
+  limits.
 - **Allowed APIs run unrestricted.** If you allow a method, everything that method does internally is allowed as
   well. Only allow APIs whose behavior you understand; prefer narrow capability objects.
 - **Objects passed in by the host.** Code may call any *allowed* method on objects that your application passes to
@@ -469,7 +527,7 @@ How the two mechanisms differ:
 | Granularity                    | Permissions, including parameters (e.g. file paths, hosts)   | Fields, methods and constructors                     |
 | Scope                          | Only code executed *inside* `confine()`; threads started there inherit the restrictions | All code of the compiled classes, also when invoked later |
 | Effect on the JVM              | Installs a security manager (with a permissive policy for all other code) when the class is first used | None                     |
-| Memory, CPU time               | Not restricted                                               | Not restricted                                       |
+| Memory, CPU time               | Not restricted                                               | Limited by a `SandboxExecutor` (see 3.5)             |
 | Known weaknesses               | By default, code can escape by calling `AccessController.doPrivileged()` (see the warning above); `setProtectionDomain()` closes that | Not affected: `AccessController` and `Subject` are on the never-allowed list |
 
 Notice the scope: if a script returns an object (e.g. a `Runnable`), and the application invokes it later outside
@@ -511,5 +569,10 @@ new Sandbox(permissions).confine(pa);   // runtime: only the system property "fo
 | `BytecodeVerifier`                                               | Verifies class files against a policy                     |
 | `SandboxViolation`                                               | One violation: class name, message and location (`getLocation()`) |
 | `SandboxViolationException`                                      | Cause of the `CompileException` / `ClassNotFoundException`; `getViolations()` |
+| `SandboxExecutor`, `SandboxExecutor.call(Callable)`              | Executes code under resource limits (section 3.5)         |
+| `SandboxLimits`, `SandboxLimits.builder()`, `SandboxLimits.Limit` | The resource limits and their kinds (`TIME`, `TICKS`, `MEMORY`) |
+| `SandboxLimitExceededException`                                  | Thrown by `call()`: `getLimit()`, `isThreadTerminated()`  |
+| `SandboxLimitExceededError`                                      | Thrown inside the code when a limit is exceeded           |
+| `Guard`, `GuardClassLoader`                                      | The checks that JANINO inserts, and the class loader that makes them visible |
 | `org.codehaus.commons.compiler.Sandbox`, `Sandbox.isSupported()` | The security-manager-based sandbox (section 7)            |
 | `ICookable.setProtectionDomain(ProtectionDomain)`, `AbstractJavaSourceClassLoader.setProtectionDomainFactory(...)` | Defines the generated classes with restricted permissions (section 7) |

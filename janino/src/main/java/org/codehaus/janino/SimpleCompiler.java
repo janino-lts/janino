@@ -49,6 +49,7 @@ import org.codehaus.commons.compiler.InternalCompilerException;
 import org.codehaus.commons.compiler.Location;
 import org.codehaus.commons.compiler.WarningHandler;
 import org.codehaus.commons.compiler.sandbox.BytecodeVerifier;
+import org.codehaus.commons.compiler.sandbox.GuardClassLoader;
 import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
 import org.codehaus.commons.compiler.sandbox.SandboxViolation;
 import org.codehaus.commons.compiler.sandbox.SandboxViolationException;
@@ -62,6 +63,7 @@ import org.codehaus.janino.UnitCompiler.ClassFileConsumer;
 import org.codehaus.janino.Visitor.AtomVisitor;
 import org.codehaus.janino.Visitor.TypeVisitor;
 import org.codehaus.janino.util.ClassFile;
+import org.codehaus.janino.util.SandboxInstrumenter;
 
 /**
  * To set up a {@link SimpleCompiler} object, proceed as described for {@link ISimpleCompiler}. Alternatively, a number
@@ -76,6 +78,9 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
     private static final Logger LOGGER = Logger.getLogger(SimpleCompiler.class.getName());
 
     private ClassLoader parentClassLoader = Thread.currentThread().getContextClassLoader();
+
+    // The parent class loader of the generated classes; with a sandbox policy, it also provides the "Guard".
+    @Nullable private ClassLoader effectiveParentClassLoader;
 
     // Set while "cook()"ing.
     @Nullable private ClassLoaderIClassLoader classLoaderIClassLoader;
@@ -268,11 +273,25 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
 
         this.assertUncooked();
 
-        IClassLoader icl = (this.classLoaderIClassLoader = new ClassLoaderIClassLoader(this.parentClassLoader));
+        // Code that is compiled with a sandbox policy calls the "Guard", which must be visible to it.
+        ClassLoader parent = (this.effectiveParentClassLoader = (
+            this.sandboxPolicy != null
+            ? GuardClassLoader.create(this.parentClassLoader)
+            : this.parentClassLoader
+        ));
+
+        IClassLoader icl = (this.classLoaderIClassLoader = new ClassLoaderIClassLoader(parent));
         try {
 
+            // Code that is compiled with a sandbox policy checks the resource limits of a "SandboxExecutor".
+            Java.AbstractCompilationUnit acu = (
+                this.sandboxPolicy != null
+                ? new SandboxInstrumenter().copyAbstractCompilationUnit(abstractCompilationUnit)
+                : abstractCompilationUnit
+            );
+
             // Compile compilation unit to class files.
-            UnitCompiler unitCompiler = new UnitCompiler(abstractCompilationUnit, icl).options(this.options);
+            UnitCompiler unitCompiler = new UnitCompiler(acu, icl).options(this.options);
             unitCompiler.setTargetVersion(this.targetVersion);
             unitCompiler.setCompileErrorHandler(this.compileErrorHandler);
             unitCompiler.setWarningHandler(this.warningHandler);
@@ -300,7 +319,7 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
                 SimpleCompiler.verify(
                     cfs,
                     sandboxPolicy,
-                    this.parentClassLoader,
+                    parent,
                     abstractCompilationUnit.fileName,
                     this.compileErrorHandler
                 );
@@ -411,10 +430,11 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
 
             @Override public ClassLoader
             get() {
+                ClassLoader parent = SimpleCompiler.this.effectiveParentClassLoader;
                 return new ByteArrayClassLoader(
-                    bytecode,                              // classes
-                    SimpleCompiler.this.parentClassLoader, // parent
-                    SimpleCompiler.this.protectionDomain   // protectionDomain
+                    bytecode,                                                          // classes
+                    parent != null ? parent : SimpleCompiler.this.parentClassLoader,  // parent
+                    SimpleCompiler.this.protectionDomain                               // protectionDomain
                 );
             }
         });

@@ -41,6 +41,7 @@ import org.codehaus.commons.compiler.InternalCompilerException;
 import org.codehaus.commons.compiler.WarningHandler;
 import org.codehaus.commons.compiler.lang.ClassLoaders;
 import org.codehaus.commons.compiler.sandbox.BytecodeVerifier;
+import org.codehaus.commons.compiler.sandbox.GuardClassLoader;
 import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
 import org.codehaus.commons.compiler.sandbox.SandboxViolation;
 import org.codehaus.commons.compiler.sandbox.SandboxViolationException;
@@ -128,9 +129,9 @@ class JavaSourceClassLoader extends AbstractJavaSourceClassLoader {
         @Nullable String characterEncoding
     ) {
         this(parentClassLoader, new JavaSourceIClassLoader(
-            sourceFinder,                                  // sourceFinder
-            characterEncoding,                             // characterEncoding
-            new ClassLoaderIClassLoader(parentClassLoader) // parentIClassLoader
+            sourceFinder,                                                          // sourceFinder
+            characterEncoding,                                                     // characterEncoding
+            new ClassLoaderIClassLoader(GuardClassLoader.create(parentClassLoader)) // parentIClassLoader
         ));
     }
 
@@ -177,6 +178,18 @@ class JavaSourceClassLoader extends AbstractJavaSourceClassLoader {
     public void
     setWarningHandler(@Nullable WarningHandler warningHandler) {
         this.iClassLoader.setWarningHandler(warningHandler);
+    }
+
+    /**
+     * Code that JANINO compiles with a sandbox policy calls the {@link
+     * org.codehaus.commons.compiler.sandbox.Guard Guard}, which must be visible to it even if the parent class loader
+     * cannot see it; see {@link GuardClassLoader}.
+     */
+    @Override protected Class<?>
+    loadClass(@Nullable String name, boolean resolve) throws ClassNotFoundException {
+        assert name != null;
+        Class<?> result = GuardClassLoader.getGuardClass(name);
+        return result != null ? result : super.loadClass(name, resolve);
     }
 
     /**
@@ -272,6 +285,10 @@ class JavaSourceClassLoader extends AbstractJavaSourceClassLoader {
      */
     @Nullable protected Map<String /*name*/, byte[] /*bytecode*/>
     generateBytecodes(String name) throws ClassNotFoundException {
+
+        // Code that is compiled with a sandbox policy checks the resource limits of a "SandboxExecutor".
+        this.iClassLoader.setSandboxInstrumentation(this.sandboxPolicy != null);
+
         if (this.iClassLoader.loadIClass(Descriptor.fromClassName(name)) == null) return null;
 
         final Map<String /*className*/, byte[] /*bytecode*/> bytecodes = new HashMap<>();

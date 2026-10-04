@@ -1544,7 +1544,28 @@ public class SandboxPolicyDemo {
         </p>
 
         <p>
-          For details - how it works, the presets, how to add permissions, and the complete list of forbidden APIs -
+          To also limit the CPU time and the memory that the code consumes, execute it through a
+          <code>SandboxExecutor</code>. JANINO inserts checks into code that it compiles with a sandbox policy (once
+          per loop iteration and method invocation, and before array creations), which stop the code when a limit is
+          exceeded - even if the code catches the error:
+        </p>
+
+        <div class="highlight highlight-text-xml"><pre class="brush: java">
+SandboxLimits limits = SandboxLimits.builder()
+    .timeout(2, TimeUnit.SECONDS)
+    .maxTicks(10_000_000)            // Loop iterations plus method and constructor invocations
+    .maxAllocatedBytes(64L &lt;&lt; 20)
+    .build();
+Object result = new SandboxExecutor(limits).call(() -&gt; se.evaluate());
+// => SandboxLimitExceededException (getLimit(): TIME, TICKS or MEMORY) if a limit is exceeded</pre></div>
+
+        <p>
+          Code compiled by the JDK-based implementation is only subject to the timeout.
+        </p>
+
+        <p>
+          For details - how it works, the presets, how to add permissions, the resource limits, and the complete list
+          of forbidden APIs -
           see <a href="https://github.com/stefan-zobel/janino/blob/HEAD/SANDBOX.md">Restricting Untrusted Code with a
           Sandbox Policy</a> and the JAVADOC of the package <a
           href="apidocs/org/codehaus/commons/compiler/sandbox/package-summary.html"><code>org.codehaus.commons.compiler.sandbox</code></a>.
