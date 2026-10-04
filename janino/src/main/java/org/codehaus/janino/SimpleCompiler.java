@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.lang.reflect.Method;
+import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -48,6 +49,7 @@ import org.codehaus.commons.compiler.InternalCompilerException;
 import org.codehaus.commons.compiler.Location;
 import org.codehaus.commons.compiler.WarningHandler;
 import org.codehaus.commons.compiler.sandbox.BytecodeVerifier;
+import org.codehaus.commons.compiler.sandbox.GuardClassLoader;
 import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
 import org.codehaus.commons.compiler.sandbox.SandboxViolation;
 import org.codehaus.commons.compiler.sandbox.SandboxViolationException;
@@ -61,6 +63,7 @@ import org.codehaus.janino.UnitCompiler.ClassFileConsumer;
 import org.codehaus.janino.Visitor.AtomVisitor;
 import org.codehaus.janino.Visitor.TypeVisitor;
 import org.codehaus.janino.util.ClassFile;
+import org.codehaus.janino.util.SandboxInstrumenter;
 
 /**
  * To set up a {@link SimpleCompiler} object, proceed as described for {@link ISimpleCompiler}. Alternatively, a number
@@ -76,13 +79,17 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
 
     private ClassLoader parentClassLoader = Thread.currentThread().getContextClassLoader();
 
+    // The parent class loader of the generated classes; with a sandbox policy, it also provides the "Guard".
+    @Nullable private ClassLoader effectiveParentClassLoader;
+
     // Set while "cook()"ing.
     @Nullable private ClassLoaderIClassLoader classLoaderIClassLoader;
 
 //    @Nullable private ClassLoader    result;
     @Nullable private ErrorHandler   compileErrorHandler;
     @Nullable private WarningHandler warningHandler;
-    @Nullable private SandboxPolicy  sandboxPolicy;
+    @Nullable private SandboxPolicy    sandboxPolicy;
+    @Nullable private ProtectionDomain protectionDomain;
 
     private boolean debugSource   = Boolean.getBoolean(Scanner.SYSTEM_PROPERTY_SOURCE_DEBUGGING_ENABLE);
     private boolean debugLines    = this.debugSource;
@@ -266,17 +273,38 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
 
         this.assertUncooked();
 
-        IClassLoader icl = (this.classLoaderIClassLoader = new ClassLoaderIClassLoader(this.parentClassLoader));
+        // Code that is compiled with a sandbox policy calls the "Guard", which must be visible to it.
+        ClassLoader parent = (this.effectiveParentClassLoader = (
+            this.sandboxPolicy != null
+            ? GuardClassLoader.create(this.parentClassLoader)
+            : this.parentClassLoader
+        ));
+
+        IClassLoader icl = (this.classLoaderIClassLoader = new ClassLoaderIClassLoader(parent));
         try {
 
+            // Code that is compiled with a sandbox policy checks the resource limits of a "SandboxExecutor".
+            SandboxPolicy                policy = this.sandboxPolicy;
+            Java.AbstractCompilationUnit acu    = (
+                policy != null
+                ? new SandboxInstrumenter(policy.isExecutorRequired()).copyAbstractCompilationUnit(
+                    abstractCompilationUnit
+                )
+                : abstractCompilationUnit
+            );
+
             // Compile compilation unit to class files.
-            UnitCompiler unitCompiler = new UnitCompiler(abstractCompilationUnit, icl).options(this.options);
+            UnitCompiler unitCompiler = new UnitCompiler(acu, icl).options(this.options);
             unitCompiler.setTargetVersion(this.targetVersion);
             unitCompiler.setCompileErrorHandler(this.compileErrorHandler);
             unitCompiler.setWarningHandler(this.warningHandler);
 
+            // Violations of a sandbox policy are reported with source locations, which requires debugging information.
+            boolean debugSource = this.debugSource || this.sandboxPolicy != null;
+            boolean debugLines  = this.debugLines || this.sandboxPolicy != null;
+
             final Collection<ClassFile> cfs = new ArrayList<>();
-            unitCompiler.compileUnit(this.debugSource, this.debugLines, this.debugVars, new ClassFileConsumer() {
+            unitCompiler.compileUnit(debugSource, debugLines, this.debugVars, new ClassFileConsumer() {
 
                 @Override public void
                 consume(ClassFile classFile) {
@@ -290,7 +318,15 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
             });
 
             SandboxPolicy sandboxPolicy = this.sandboxPolicy;
-            if (sandboxPolicy != null) SimpleCompiler.verify(cfs, sandboxPolicy, this.parentClassLoader);
+            if (sandboxPolicy != null) {
+                SimpleCompiler.verify(
+                    cfs,
+                    sandboxPolicy,
+                    parent,
+                    abstractCompilationUnit.fileName,
+                    this.compileErrorHandler
+                );
+            }
 
             this.classFiles = cfs;
         } catch (CompileException ce) {
@@ -302,21 +338,32 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
     }
 
     /**
-     * Verifies the <var>classFiles</var> against the <var>sandboxPolicy</var>.
+     * Verifies the <var>classFiles</var> against the <var>sandboxPolicy</var>, and reports the violations through the
+     * <var>compileErrorHandler</var> (if any).
      *
+     * @param fileName The name of the cooked document, which replaces the source file names of the class files
+     *                 (which JANINO derives from the class names if the document has no name)
      * @throws CompileException The class files violate the policy; the cause is a {@link SandboxViolationException}
      */
     private static void
-    verify(Collection<ClassFile> classFiles, SandboxPolicy sandboxPolicy, ClassLoader hostClassLoader)
-    throws CompileException {
+    verify(
+        Collection<ClassFile>  classFiles,
+        SandboxPolicy          sandboxPolicy,
+        ClassLoader            hostClassLoader,
+        @Nullable String       fileName,
+        @Nullable ErrorHandler compileErrorHandler
+    ) throws CompileException {
 
         Map<String /*className*/, byte[] /*bytecode*/> bytecodes = new HashMap<>();
         for (ClassFile cf : classFiles) bytecodes.put(cf.getThisClassName(), cf.toByteArray());
 
         List<SandboxViolation> violations = new BytecodeVerifier(sandboxPolicy).verify(bytecodes, hostClassLoader);
         if (!violations.isEmpty()) {
-            SandboxViolationException sve = new SandboxViolationException(violations);
-            throw new CompileException(sve.getMessage(), null, sve);
+            List<SandboxViolation> violations2 = new ArrayList<>();
+            for (SandboxViolation v : violations) {
+                violations2.add(v.getLineNumber() == -1 ? v : v.withLocation(fileName, v.getLineNumber()));
+            }
+            throw new SandboxViolationException(violations2).toCompileException(compileErrorHandler);
         }
     }
 
@@ -347,6 +394,9 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
 
     @Override public void
     setSandboxPolicy(@Nullable SandboxPolicy policy) { this.sandboxPolicy = policy; }
+
+    @Override public void
+    setProtectionDomain(@Nullable ProtectionDomain protectionDomain) { this.protectionDomain = protectionDomain; }
 
     @Override public Map<String /*className*/, byte[] /*bytecode*/>
     getBytecodes() {
@@ -383,9 +433,11 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
 
             @Override public ClassLoader
             get() {
+                ClassLoader parent = SimpleCompiler.this.effectiveParentClassLoader;
                 return new ByteArrayClassLoader(
-                    bytecode,                             // classes
-                    SimpleCompiler.this.parentClassLoader // parent
+                    bytecode,                                                          // classes
+                    parent != null ? parent : SimpleCompiler.this.parentClassLoader,  // parent
+                    SimpleCompiler.this.protectionDomain                               // protectionDomain
                 );
             }
         });

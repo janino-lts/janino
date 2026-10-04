@@ -49,6 +49,85 @@ h5 {
 
     <a href="index.html">Back to the JANINO home page</a>
 
+    <h4>Version 3.1.13 2026-10-04</h4>
+    <ul>
+      <li>
+        The security-manager-based sandbox (<code>org.codehaus.commons.compiler.Sandbox</code>) is now deprecated; use
+        <a href="index.html#sandbox-policy">sandbox policies</a> and the <code>SandboxExecutor</code> instead, which
+        work on all JREs from Java 8 on.
+      </li>
+      <li>
+        Resource limits for sandboxed code: The new <code>SandboxExecutor</code> executes code under
+        <code>SandboxLimits</code> (timeout, number of "ticks", allocated memory). JANINO inserts the checks of the
+        new class <code>Guard</code> into code that it compiles with a sandbox policy (at the beginning of every loop
+        body and every method and constructor body, and before array creations); once a limit is exceeded, the code
+        is stopped, even if it catches the <code>SandboxLimitExceededError</code>. Code compiled by the JDK-based
+        implementation is only subject to the timeout. See section 3.5 of
+        <a href="https://github.com/stefan-zobel/janino/blob/HEAD/SANDBOX.md">Restricting Untrusted Code with a
+        Sandbox Policy</a>.
+      </li>
+      <li>
+        <code>SandboxPolicy.Builder.requireExecutor()</code>: The checks that JANINO inserts throw an
+        <code>IllegalStateException</code> if the code is executed outside of a <code>SandboxExecutor</code> (e.g. a
+        static initializer when the application instantiates the generated class, or the <code>toString()</code>
+        method of a returned object), so that sandboxed code cannot run without limits by accident.
+      </li>
+      <li>
+        The sandbox verifier rejects classes that declare a <code>finalize()</code> method, because the JVM calls it
+        on its finalizer thread, outside of any <code>SandboxExecutor</code>.
+      </li>
+      <li>
+        <code>DeepCopier</code> can now be compiled by JANINO itself.
+      </li>
+      <li>
+        Mitigated <a href="https://github.com/janino-compiler/janino/issues/226">issue #226</a> of the original project
+        (code that runs inside <code>Sandbox.confine()</code> can escape from the sandbox by calling
+        <code>AccessController.doPrivileged()</code> itself): The new method
+        <code>ICookable.setProtectionDomain()</code> defines the generated classes with a restricted protection
+        domain; see <a href="index.html#security-manager-sandbox-protection-domain">Security</a>. The default behavior
+        is unchanged.
+      </li>
+      <li>
+        Sandbox policies now never allow <code>AccessController</code>, <code>AccessControlContext</code>,
+        <code>ProtectionDomain</code>, <code>Policy</code>, <code>Security</code> and
+        <code>javax.security.auth.Subject</code> through class-wide rules.
+      </li>
+      <li>
+        Classes that are loaded lazily while the generated code executes inside <code>Sandbox.confine()</code> (e.g.
+        anonymous classes) are now defined with the same protection domain as the other generated classes. Before,
+        they got a different protection domain, which caused a <code>SecurityException</code> ("signer information
+        does not match") with the signed JANINO JARs.
+      </li>
+      <li>
+        Sandbox policy violations now carry their location in the cooked document (file name and line number), see
+        <code>SandboxViolation.getLocation()</code>; the <code>CompileException</code> is located at the first
+        violation, and all violations are reported through the compile error handler, if one is set. To determine the
+        line numbers, the compilers generate debugging information (source file and line numbers) automatically when a
+        sandbox policy is set. <code>Location.toString()</code> omits the column if it is 0 ("the entire line").
+      </li>
+      <li>
+        New sandbox policy presets <code>FUNCTIONAL</code>, <code>STREAMS</code>, <code>MATH</code>,
+        <code>REGEX</code>, <code>JAVA_TIME</code>, <code>TEXT</code> and <code>UTILITIES</code>; see section 4.2 of
+        <a href="https://github.com/stefan-zobel/janino/blob/HEAD/SANDBOX.md">Restricting Untrusted Code with a
+        Sandbox Policy</a>.
+      </li>
+      <li>
+        Sandbox policies now never allow <code>parallel()</code> of <code>IntStream</code>, <code>LongStream</code>
+        and <code>DoubleStream</code> (only <code>BaseStream.parallel()</code> was on the list), and
+        <code>ZoneRulesProvider</code>, which changes JVM-global state.
+      </li>
+      <li>
+        JANINO's default target version is now 8 (was 6), in line with the minimum runtime version. Thus, default
+        methods and static interface methods no longer require <code>setTargetVersion(8)</code>. The previous default
+        can be restored with <code>-Dorg.codehaus.janino.UnitCompiler.defaultTargetVersion=6</code>.
+      </li>
+      <li>
+        Fixed an invalid <code>StackMapTable</code> attribute for a <code>do</code> statement whose body ends with
+        a <code>continue</code> statement (<code>VerifyError</code> "Instruction type does not match stack map" with
+        target version 7 and higher).
+      </li>
+    </ul>
+
     <h4>Version 3.1.13-SNAPSHOT-1 (pre-release)</h4>
     <ul>
       <li>

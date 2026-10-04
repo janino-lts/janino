@@ -372,6 +372,31 @@ class SandboxVerifierTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    testFinalizeMethod() throws Exception {
+        this.assertCompilationUnitViolates(
+            ""
+            + "public class Foo {\n"
+            + "    protected void finalize() { for (;;); }\n"
+            + "    public static Object meth() { return null; }\n"
+            + "}\n",
+            "Declaring finalize() is not permitted"
+        );
+        this.assertMethodBodyViolates(
+            "return new Object() { protected void finalize() {} };",
+            "Declaring finalize() is not permitted"
+        );
+
+        // Other methods named "finalize" are not called by the JVM.
+        this.assertCompilationUnitComplies(
+            ""
+            + "public class Foo {\n"
+            + "    public void finalize(int i) {}\n"
+            + "    public static Object meth() { return null; }\n"
+            + "}\n"
+        );
+    }
+
+    @Test public void
     testForbiddenSuperclass() throws Exception {
         this.assertCompilationUnitViolates(
             ""

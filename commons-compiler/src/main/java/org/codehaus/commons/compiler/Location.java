@@ -67,12 +67,14 @@ class Location implements Serializable {
     public int getLineNumber() { return this.lineNumber; }
 
     /**
-     * @return The column number associated with this location, or -1
+     * @return The column number associated with this location, or -1, or 0 iff this location denotes an entire line
      */
     public int getColumnNumber() { return this.columnNumber; }
 
     /**
-     * Converts this {@link Location} into an english text, like '{@code File Main.java, Line 23, Column 79}'.
+     * Converts this {@link Location} into an english text, like '{@code File Main.java, Line 23, Column 79}'. If the
+     * column number is 0 (i.e. this location denotes an entire line), then the column is omitted, like '{@code File
+     * Main.java, Line 23}'.
      */
     @Override public String
     toString() {
@@ -81,8 +83,8 @@ class Location implements Serializable {
         if (this.fileName != null) {
             sb.append("File '").append(this.fileName).append("', ");
         }
-        sb.append("Line ").append(this.lineNumber).append(", ");
-        sb.append("Column ").append(this.columnNumber);
+        sb.append("Line ").append(this.lineNumber);
+        if (this.columnNumber != 0) sb.append(", Column ").append(this.columnNumber);
         return sb.toString();
     }
 }

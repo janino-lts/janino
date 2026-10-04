@@ -31,7 +31,9 @@ import java.security.AccessControlException;
 import java.security.ProtectionDomain;
 import java.util.Collections;
 import java.util.Map;
+import java.util.function.Supplier;
 
+import org.codehaus.commons.compiler.util.Privileged;
 import org.codehaus.commons.nullanalysis.Nullable;
 
 /**
@@ -56,6 +58,23 @@ class ByteArrayClassLoader extends ClassLoader {
     ByteArrayClassLoader(Map<String /*className*/, byte[] /*data*/> classes, ClassLoader parent) {
         super(parent);
         this.classes = classes;
+    }
+
+    /**
+     * @param classes          {@code String className} =&gt; {@code byte[] data}, or {@code String classFileName}
+     *                         =&gt; {@code byte[] data}
+     * @param protectionDomain The protection domain with which the classes are defined; {@code null} means the
+     *                         protection domain of this class (which is the default)
+     */
+    public
+    ByteArrayClassLoader(
+        Map<String /*className*/, byte[] /*data*/> classes,
+        ClassLoader                                 parent,
+        @Nullable ProtectionDomain                  protectionDomain
+    ) {
+        super(parent);
+        this.classes          = classes;
+        this.protectionDomain = protectionDomain;
     }
 
     public void
@@ -84,13 +103,22 @@ class ByteArrayClassLoader extends ClassLoader {
         // JNLP. See
         //     http://jira.codehaus.org/browse/JANINO-104
         //     http://www.nabble.com/-Help-jel--java.security.AccessControlException-to13073723.html
-        ProtectionDomain protectionDomain;
-        try {
+        ProtectionDomain protectionDomain = this.protectionDomain;
+        if (protectionDomain == null) {
+            try {
 
-            // With JRE 7, "getProtectionDomain" sometimes is not allowed.
-            protectionDomain = this.getClass().getProtectionDomain();
-        } catch (AccessControlException ace) {
-            protectionDomain = null;
+                // With JRE 7, "getProtectionDomain" sometimes is not allowed.
+                // Run it with the privileges of this class, because classes are also loaded lazily while the generated
+                // code is executing, possibly in a sandbox; without the privileges, such classes would get a different
+                // protection domain than the classes that were loaded before.
+                protectionDomain = (ProtectionDomain) Privileged.run(new Supplier<ProtectionDomain>() {
+
+                    @Override public ProtectionDomain
+                    get() { return ByteArrayClassLoader.this.getClass().getProtectionDomain(); }
+                });
+            } catch (AccessControlException ace) {
+                protectionDomain = null;
+            }
         }
         return super.defineClass(
             name,            // name
@@ -114,4 +142,5 @@ class ByteArrayClassLoader extends ClassLoader {
 
     private final Map<String /*className-or-classFileName*/, byte[] /*data*/> classes;
     private Map<String, byte[]>                                               resources = Collections.emptyMap();
+    @Nullable private ProtectionDomain                                        protectionDomain;
 }

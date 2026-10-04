@@ -309,7 +309,8 @@ class UnitCompiler {
     /**
      * Generates class files that target a specified release of the virtual machine, in analogy with JAVAC's {@code
      * -target} command line option.
-     * By default, Java 6 .class files are generated.
+     * By default, Java 8 .class files are generated; the default can be changed with the system property {@code
+     * org.codehaus.janino.UnitCompiler.defaultTargetVersion}.
      */
     public void
     setTargetVersion(int version) { this.targetVersion = version; }
@@ -1709,7 +1710,13 @@ class UnitCompiler {
             }
 
             Offset wtc = ds.whereToContinue;
-            if (wtc != null) wtc.set();
+            if (wtc != null) {
+                wtc.set();
+
+                // If the body cannot complete normally, then the stack map at the "continue" target still lists the
+                // local variables of the body, which would otherwise leak into the stack map of the body offset.
+                this.getCodeContext().removeOutOfScopeLocals();
+            }
 
             // Compile condition.
             this.compileBoolean(ds.condition, bodyOffset, UnitCompiler.JUMP_IF_TRUE);
@@ -3804,9 +3811,8 @@ class UnitCompiler {
 //        jsv = jsv.substring(jsv.indexOf('.') + 1);
 //        this.targetVersion = Integer.parseInt(jsv);
 
-        // Because the generation of the StackMapTable attribute is still experimental, we still produce
-        // only Java 6 .class files by default:
-        return 6;
+        // Java 8 is the minimum runtime version; the generated .class files require a correct StackMapTable attribute.
+        return 8;
     }
 
     /**

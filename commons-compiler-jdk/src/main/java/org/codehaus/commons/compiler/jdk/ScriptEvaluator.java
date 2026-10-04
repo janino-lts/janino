@@ -34,6 +34,7 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -279,6 +280,11 @@ class ScriptEvaluator extends MultiCookable implements IScriptEvaluator {
 
     @Override public void
     setSandboxPolicy(@Nullable SandboxPolicy policy) { this.cbe.setSandboxPolicy(policy); }
+
+    @Override public void
+    setProtectionDomain(@Nullable ProtectionDomain protectionDomain) {
+        this.cbe.setProtectionDomain(protectionDomain);
+    }
 
     @Override public void
     setDebuggingInformation(boolean debugSource, boolean debugLines, boolean debugVars) {

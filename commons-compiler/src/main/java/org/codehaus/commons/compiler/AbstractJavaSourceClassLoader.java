@@ -121,6 +121,11 @@ class AbstractJavaSourceClassLoader extends ClassLoader {
      *   Must be called before the first class is loaded. {@code null} (the default) means that the loaded classes are
      *   not restricted.
      * </p>
+     * <p>
+     *   If a policy is set, then the generated classes always contain debugging information about the source file and
+     *   the line numbers, so that the violations can be reported with their source locations (see {@link
+     *   org.codehaus.commons.compiler.sandbox.SandboxViolation#getLocation()}).
+     * </p>
      *
      * @see SandboxPolicy
      */

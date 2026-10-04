@@ -50,11 +50,12 @@ import java.util.Set;
  * </p>
  * <p>
  *   Some members are <em>never allowed</em> (see {@link #isNeverAllowed(MemberRef)}), because they would allow
- *   sandboxed code to escape the sandbox or to affect the entire JVM, e.g. reflection, class loading, threads, file
- *   and network access, and system properties. Class-wide rules ({@link Builder#allowAllMembers(String...)}, {@link
- *   Builder#allowConstructors(String...)}) never enable them; a host that really wants to allow such a member must
- *   name it explicitly ({@link Builder#allowMethod(String, String, String)}, {@link Builder#allowMethods(String,
- *   String...)}, {@link Builder#allowField(String, String)}).
+ *   sandboxed code to escape the sandbox or to affect the entire JVM, e.g. reflection, class loading, access control
+ *   ({@code AccessController.doPrivileged()}), threads, file and network access, and system properties. Class-wide
+ *   rules ({@link Builder#allowAllMembers(String...)}, {@link Builder#allowConstructors(String...)}) never enable
+ *   them; a host that really wants to allow such a member must name it explicitly ({@link
+ *   Builder#allowMethod(String, String, String)}, {@link Builder#allowMethods(String, String...)}, {@link
+ *   Builder#allowField(String, String)}).
  * </p>
  */
 public final
@@ -72,6 +73,50 @@ class SandboxPolicy {
      * Collections}, {@code Arrays} and {@code Optional}.
      */
     public static final SandboxPolicy COLLECTIONS;
+
+    /**
+     * The functional interfaces of {@code java.util.function} ({@code Function}, {@code Predicate}, {@code Supplier},
+     * ...); sandboxed code may also implement them.
+     */
+    public static final SandboxPolicy FUNCTIONAL;
+
+    /**
+     * The sequential streams of {@code java.util.stream} ({@code Stream}, {@code IntStream}, {@code LongStream},
+     * {@code DoubleStream}, {@code Collectors}, ...) and the summary statistics of {@code java.util}; includes {@link
+     * #FUNCTIONAL}. Parallel streams are never allowed.
+     */
+    public static final SandboxPolicy STREAMS;
+
+    /**
+     * {@code java.math}: {@code BigInteger}, {@code BigDecimal}, {@code MathContext} and {@code RoundingMode}.
+     */
+    public static final SandboxPolicy MATH;
+
+    /**
+     * {@code java.util.regex}: {@code Pattern}, {@code Matcher}, {@code MatchResult} and {@code
+     * PatternSyntaxException}.
+     */
+    public static final SandboxPolicy REGEX;
+
+    /**
+     * The date and time API of {@code java.time}, including the {@code format} and {@code temporal} packages and the
+     * ISO calendar system of the {@code chrono} package.
+     */
+    public static final SandboxPolicy JAVA_TIME;
+
+    /**
+     * The number, date and message formats of {@code java.text} ({@code NumberFormat}, {@code DecimalFormat},
+     * {@code SimpleDateFormat}, {@code MessageFormat}, ...), plus {@code Collator} and {@code Normalizer}.
+     */
+    public static final SandboxPolicy TEXT;
+
+    /**
+     * Utility classes of {@code java.util}: {@code Random}, {@code SplittableRandom}, {@code ThreadLocalRandom},
+     * {@code UUID}, {@code StringJoiner}, {@code StringTokenizer}, {@code BitSet}, {@code Base64}, {@code Locale},
+     * {@code Date}, {@code Calendar}, {@code GregorianCalendar}, {@code TimeZone}, and {@code Formatter} (without the
+     * constructors that open files).
+     */
+    public static final SandboxPolicy UTILITIES;
 
     // The never-allowed members, see "isNeverAllowed()".
     private static final String[]                 NEVER_ALLOWED_PACKAGES;
@@ -138,8 +183,14 @@ class SandboxPolicy {
         SandboxPolicy.neverAllowed(m, "java.lang.Thread");
         SandboxPolicy.neverAllowed(m, "java.lang.ThreadGroup");
         SandboxPolicy.neverAllowed(m, "java.lang.ref.Cleaner");
+        SandboxPolicy.neverAllowed(m, "java.security.AccessControlContext");
+        SandboxPolicy.neverAllowed(m, "java.security.AccessController"); // "doPrivileged()" escapes from a "Sandbox".
+        SandboxPolicy.neverAllowed(m, "java.security.Policy");
+        SandboxPolicy.neverAllowed(m, "java.security.ProtectionDomain");
         SandboxPolicy.neverAllowed(m, "java.security.SecureClassLoader");
+        SandboxPolicy.neverAllowed(m, "java.security.Security"); // Changes JVM-global state.
         SandboxPolicy.neverAllowed(m, "java.sql.DriverManager");
+        SandboxPolicy.neverAllowed(m, "java.time.zone.ZoneRulesProvider"); // Changes JVM-global state.
         SandboxPolicy.neverAllowed(m, "java.util.ServiceLoader");
         SandboxPolicy.neverAllowed(m, "java.util.Timer");
         SandboxPolicy.neverAllowed(m, "java.util.concurrent.CompletableFuture");
@@ -150,6 +201,7 @@ class SandboxPolicy {
         SandboxPolicy.neverAllowed(m, "java.util.concurrent.ThreadPoolExecutor");
         SandboxPolicy.neverAllowed(m, "java.util.jar.JarFile");
         SandboxPolicy.neverAllowed(m, "java.util.zip.ZipFile");
+        SandboxPolicy.neverAllowed(m, "javax.security.auth.Subject"); // "doAsPrivileged()" escapes from a "Sandbox".
         NEVER_ALLOWED_CLASSES = Collections.unmodifiableMap(m);
 
         // "className#methodName".
@@ -167,7 +219,10 @@ class SandboxPolicy {
             "java.util.Collection#parallelStream",   // Uses the common fork/join pool.
             "java.util.Locale#setDefault",           // Changes JVM-global state.
             "java.util.TimeZone#setDefault",         // Changes JVM-global state.
-            "java.util.stream.BaseStream#parallel"   // Uses the common fork/join pool.
+            "java.util.stream.BaseStream#parallel",  // Uses the common fork/join pool.
+            "java.util.stream.DoubleStream#parallel",
+            "java.util.stream.IntStream#parallel",
+            "java.util.stream.LongStream#parallel"
         )));
 
         JAVA_LANG_BASIC = SandboxPolicy.builder()
@@ -302,6 +357,186 @@ class SandboxPolicy {
                 "java.util.Iterator"
             )
             .build();
+
+        String[] functionalInterfaces = SandboxPolicy.prefix("java.util.function.", new String[] {
+            "BiConsumer",           "BiFunction",           "BiPredicate",          "BinaryOperator",
+            "BooleanSupplier",      "Consumer",             "DoubleBinaryOperator", "DoubleConsumer",
+            "DoubleFunction",       "DoublePredicate",      "DoubleSupplier",       "DoubleToIntFunction",
+            "DoubleToLongFunction", "DoubleUnaryOperator",  "Function",             "IntBinaryOperator",
+            "IntConsumer",          "IntFunction",          "IntPredicate",         "IntSupplier",
+            "IntToDoubleFunction",  "IntToLongFunction",    "IntUnaryOperator",     "LongBinaryOperator",
+            "LongConsumer",         "LongFunction",         "LongPredicate",        "LongSupplier",
+            "LongToDoubleFunction", "LongToIntFunction",    "LongUnaryOperator",    "ObjDoubleConsumer",
+            "ObjIntConsumer",       "ObjLongConsumer",      "Predicate",            "Supplier",
+            "ToDoubleBiFunction",   "ToDoubleFunction",     "ToIntBiFunction",      "ToIntFunction",
+            "ToLongBiFunction",     "ToLongFunction",       "UnaryOperator",
+        });
+        FUNCTIONAL = SandboxPolicy.builder()
+            .allowAllMembers(functionalInterfaces)
+            .allowSubclassing(functionalInterfaces)
+            .build();
+
+        // "StreamSupport" is missing on purpose, because it can create parallel streams.
+        STREAMS = SandboxPolicy.builder()
+            .include(FUNCTIONAL)
+            .allowAllMembers(
+                "java.util.DoubleSummaryStatistics",
+                "java.util.IntSummaryStatistics",
+                "java.util.LongSummaryStatistics",
+                "java.util.PrimitiveIterator",
+                "java.util.PrimitiveIterator$OfDouble",
+                "java.util.PrimitiveIterator$OfInt",
+                "java.util.PrimitiveIterator$OfLong",
+                "java.util.stream.BaseStream",
+                "java.util.stream.Collector",
+                "java.util.stream.Collector$Characteristics",
+                "java.util.stream.Collectors",
+                "java.util.stream.DoubleStream",
+                "java.util.stream.DoubleStream$Builder",
+                "java.util.stream.IntStream",
+                "java.util.stream.IntStream$Builder",
+                "java.util.stream.LongStream",
+                "java.util.stream.LongStream$Builder",
+                "java.util.stream.Stream",
+                "java.util.stream.Stream$Builder"
+            )
+            .allowSubclassing("java.util.stream.Collector")
+            .build();
+
+        MATH = SandboxPolicy.builder()
+            .allowAllMembers(
+                "java.math.BigDecimal",
+                "java.math.BigInteger",
+                "java.math.MathContext",
+                "java.math.RoundingMode"
+            )
+            .build();
+
+        REGEX = SandboxPolicy.builder()
+            .allowAllMembers(
+                "java.util.regex.MatchResult",
+                "java.util.regex.Matcher",
+                "java.util.regex.Pattern",
+                "java.util.regex.PatternSyntaxException"
+            )
+            .build();
+
+        // Some methods are declared by the interfaces of "java.time.chrono", e.g. "ZonedDateTime.toInstant()".
+        JAVA_TIME = SandboxPolicy.builder()
+            .allowAllMembers(
+                "java.time.Clock",
+                "java.time.DateTimeException",
+                "java.time.DayOfWeek",
+                "java.time.Duration",
+                "java.time.Instant",
+                "java.time.LocalDate",
+                "java.time.LocalDateTime",
+                "java.time.LocalTime",
+                "java.time.Month",
+                "java.time.MonthDay",
+                "java.time.OffsetDateTime",
+                "java.time.OffsetTime",
+                "java.time.Period",
+                "java.time.Year",
+                "java.time.YearMonth",
+                "java.time.ZoneId",
+                "java.time.ZoneOffset",
+                "java.time.ZonedDateTime",
+                "java.time.chrono.ChronoLocalDate",
+                "java.time.chrono.ChronoLocalDateTime",
+                "java.time.chrono.ChronoPeriod",
+                "java.time.chrono.ChronoZonedDateTime",
+                "java.time.chrono.IsoChronology",
+                "java.time.chrono.IsoEra",
+                "java.time.format.DateTimeFormatter",
+                "java.time.format.DateTimeFormatterBuilder",
+                "java.time.format.DateTimeParseException",
+                "java.time.format.DecimalStyle",
+                "java.time.format.FormatStyle",
+                "java.time.format.ResolverStyle",
+                "java.time.format.SignStyle",
+                "java.time.format.TextStyle",
+                "java.time.temporal.ChronoField",
+                "java.time.temporal.ChronoUnit",
+                "java.time.temporal.IsoFields",
+                "java.time.temporal.JulianFields",
+                "java.time.temporal.Temporal",
+                "java.time.temporal.TemporalAccessor",
+                "java.time.temporal.TemporalAdjuster",
+                "java.time.temporal.TemporalAdjusters",
+                "java.time.temporal.TemporalAmount",
+                "java.time.temporal.TemporalField",
+                "java.time.temporal.TemporalQueries",
+                "java.time.temporal.TemporalQuery",
+                "java.time.temporal.TemporalUnit",
+                "java.time.temporal.UnsupportedTemporalTypeException",
+                "java.time.temporal.ValueRange",
+                "java.time.temporal.WeekFields",
+                "java.time.zone.ZoneOffsetTransition",
+                "java.time.zone.ZoneRules"
+            )
+            .allowSubclassing(
+                "java.time.temporal.TemporalAdjuster",
+                "java.time.temporal.TemporalQuery"
+            )
+            .build();
+
+        TEXT = SandboxPolicy.builder()
+            .allowAllMembers(
+                "java.text.ChoiceFormat",
+                "java.text.CollationKey",
+                "java.text.Collator",
+                "java.text.DateFormat",
+                "java.text.DateFormatSymbols",
+                "java.text.DecimalFormat",
+                "java.text.DecimalFormatSymbols",
+                "java.text.FieldPosition",
+                "java.text.Format",
+                "java.text.MessageFormat",
+                "java.text.Normalizer",
+                "java.text.Normalizer$Form",
+                "java.text.NumberFormat",
+                "java.text.ParseException",
+                "java.text.ParsePosition",
+                "java.text.SimpleDateFormat"
+            )
+            .build();
+
+        UTILITIES = SandboxPolicy.builder()
+            .allowAllMembers(
+                "java.util.Base64",
+                "java.util.Base64$Decoder",
+                "java.util.Base64$Encoder",
+                "java.util.BitSet",
+                "java.util.Calendar",
+                "java.util.Date",
+                "java.util.GregorianCalendar",
+                "java.util.Locale",
+                "java.util.Locale$Builder",
+                "java.util.Locale$Category",
+                "java.util.Random",
+                "java.util.SplittableRandom",
+                "java.util.StringJoiner",
+                "java.util.StringTokenizer",
+                "java.util.TimeZone",
+                "java.util.UUID",
+                "java.util.concurrent.ThreadLocalRandom"
+            )
+
+            // Some constructors of "Formatter" open files.
+            .allowMethod("java.util.Formatter", "<init>", "()V")
+            .allowMethod("java.util.Formatter", "<init>", "(Ljava/lang/Appendable;)V")
+            .allowMethod("java.util.Formatter", "<init>", "(Ljava/util/Locale;)V")
+            .allowMethod("java.util.Formatter", "<init>", "(Ljava/lang/Appendable;Ljava/util/Locale;)V")
+            .allowMethods("java.util.Formatter", "close", "flush", "format", "ioException", "locale", "out", "toString")
+            .build();
+    }
+
+    private static String[]
+    prefix(String prefix, String[] names) {
+        String[] result = new String[names.length];
+        for (int i = 0; i < names.length; i++) result[i] = prefix + names[i];
+        return result;
     }
 
     private static void
@@ -323,6 +558,8 @@ class SandboxPolicy {
     private final Set<String> allMembersClasses;
     private final Set<String> subclassableClasses;
 
+    private final boolean executorRequired;
+
     private
     SandboxPolicy(Builder builder) {
         this.methods             = Collections.unmodifiableSet(new HashSet<String>(builder.methods));
@@ -331,6 +568,7 @@ class SandboxPolicy {
         this.constructorClasses  = Collections.unmodifiableSet(new HashSet<String>(builder.constructorClasses));
         this.allMembersClasses   = Collections.unmodifiableSet(new HashSet<String>(builder.allMembersClasses));
         this.subclassableClasses = Collections.unmodifiableSet(new HashSet<String>(builder.subclassableClasses));
+        this.executorRequired    = builder.executorRequired;
     }
 
     /**
@@ -371,6 +609,13 @@ class SandboxPolicy {
     isSubclassingAllowed(String className) { return this.subclassableClasses.contains(className); }
 
     /**
+     * @return Whether code that JANINO compiles with this policy may only be executed by a {@link SandboxExecutor};
+     *         see {@link Builder#requireExecutor()}
+     */
+    public boolean
+    isExecutorRequired() { return this.executorRequired; }
+
+    /**
      * @return Whether the <var>member</var> is one of the members that are never allowed unless a policy names them
      *         explicitly; see {@link SandboxPolicy the class documentation}
      */
@@ -405,6 +650,7 @@ class SandboxPolicy {
         private final Set<String> constructorClasses  = new HashSet<String>();
         private final Set<String> allMembersClasses   = new HashSet<String>();
         private final Set<String> subclassableClasses = new HashSet<String>();
+        private boolean           executorRequired;
 
         Builder() {}
 
@@ -481,7 +727,28 @@ class SandboxPolicy {
         }
 
         /**
-         * Adds all rules of the given <var>policy</var>, e.g. of {@link SandboxPolicy#JAVA_LANG_BASIC}.
+         * Requires that code that JANINO compiles with this policy is executed only by a {@link SandboxExecutor}.
+         * <p>
+         *   By default, the resource limit checks that JANINO inserts do nothing outside of a {@link
+         *   SandboxExecutor}. That concerns e.g. static initializers and constructors that run when the host
+         *   instantiates a generated class, and methods like {@code toString()} that the host calls on an object
+         *   that the sandboxed code returned. With this option, these checks throw an {@link
+         *   IllegalStateException} instead, so that sandboxed code cannot run without limits.
+         * </p>
+         * <p>
+         *   This option has no effect on the JDK back end ({@code commons-compiler-jdk}), which does not insert
+         *   resource limit checks.
+         * </p>
+         */
+        public Builder
+        requireExecutor() {
+            this.executorRequired = true;
+            return this;
+        }
+
+        /**
+         * Adds all rules of the given <var>policy</var>, e.g. of {@link SandboxPolicy#JAVA_LANG_BASIC}, and requires
+         * an executor if the <var>policy</var> does.
          */
         public Builder
         include(SandboxPolicy policy) {
@@ -491,6 +758,7 @@ class SandboxPolicy {
             this.constructorClasses.addAll(policy.constructorClasses);
             this.allMembersClasses.addAll(policy.allMembersClasses);
             this.subclassableClasses.addAll(policy.subclassableClasses);
+            this.executorRequired |= policy.executorRequired;
             return this;
         }
 

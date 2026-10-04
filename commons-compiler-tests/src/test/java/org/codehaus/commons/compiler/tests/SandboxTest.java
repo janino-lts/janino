@@ -25,19 +25,28 @@
 
 package org.codehaus.commons.compiler.tests;
 
+import java.io.File;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URLConnection;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.security.AccessControlException;
 import java.security.AllPermission;
 import java.security.PermissionCollection;
 import java.security.Permissions;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedExceptionAction;
+import java.security.ProtectionDomain;
 import java.util.List;
+import java.util.PropertyPermission;
 
+import org.codehaus.commons.compiler.AbstractJavaSourceClassLoader;
+import org.codehaus.commons.compiler.AbstractJavaSourceClassLoader.ProtectionDomainFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
 import org.codehaus.commons.compiler.IExpressionEvaluator;
@@ -59,7 +68,7 @@ import util.TestUtil;
 /**
  * Test cases for the combination of JANINO with {@link Sandbox}.
  */
-@RunWith(Parameterized.class) public
+@RunWith(Parameterized.class) @SuppressWarnings("deprecation") public
 class SandboxTest extends CommonsCompilerTestSuite {
 
     private static final Permissions NO_PERMISSIONS = new Permissions();
@@ -72,6 +81,25 @@ class SandboxTest extends CommonsCompilerTestSuite {
 
     private static final Permissions ALL_PERMISSIONS = new Permissions();
     static { SandboxTest.ALL_PERMISSIONS.add(new AllPermission()); }
+
+    /**
+     * A protection domain with static permissions (i.e. one that does not consult the global policy) and without any
+     * permissions; see {@link org.codehaus.commons.compiler.ICookable#setProtectionDomain(ProtectionDomain)}.
+     */
+    private static final ProtectionDomain
+    NO_PERMISSIONS_DOMAIN = new ProtectionDomain(null, SandboxTest.NO_PERMISSIONS);
+
+    /**
+     * Code that runs a privileged action <em>itself</em>, as described in
+     * <a href="https://github.com/janino-compiler/janino/issues/226">janino-compiler/janino issue #226</a>.
+     */
+    private static final String
+    DO_PRIVILEGED_GET_USER_HOME = (
+        ""
+        + "java.security.AccessController.doPrivileged(new java.security.PrivilegedAction() {\n"
+        + "    public Object run() { return System.getProperty(\"user.home\"); }\n"
+        + "})"
+    );
 
     /**
      * Get all available compiler factories for the "CompilerFactory" JUnit parameter.
@@ -359,6 +387,169 @@ class SandboxTest extends CommonsCompilerTestSuite {
         }));
     }
 
+    /**
+     * Verifies that, by default, the confined code can escape from the sandbox by running a privileged action itself,
+     * because the generated classes are defined with the protection domain of the compiler (see <a
+     * href="https://github.com/janino-compiler/janino/issues/226">janino-compiler/janino issue #226</a>). This is the
+     * reason why {@link org.codehaus.commons.compiler.ICookable#setProtectionDomain(ProtectionDomain)} exists.
+     */
+    @Test public void
+    testDoPrivilegedWithDefaultProtectionDomain() throws Exception {
+
+        String script = "return " + SandboxTest.DO_PRIVILEGED_GET_USER_HOME + " != null;";
+        this.confinedScriptTest(script, SandboxTest.NO_PERMISSIONS).assertResultTrue();
+    }
+
+    /**
+     * Verifies that the confined code can <em>not</em> escape from the sandbox by running a privileged action itself
+     * when the generated classes are defined with a restricted protection domain.
+     */
+    @Test(expected = AccessControlException.class) public void
+    testDoPrivilegedScriptEvaluator() throws Exception {
+
+        String script = "return " + SandboxTest.DO_PRIVILEGED_GET_USER_HOME + " != null;";
+        this.confinedScriptTest(
+            script,
+            SandboxTest.NO_PERMISSIONS,
+            SandboxTest.NO_PERMISSIONS_DOMAIN
+        ).assertResultTrue();
+    }
+
+    /**
+     * Same as {@link #testDoPrivilegedScriptEvaluator()}, but for the {@link ISimpleCompiler}.
+     */
+    @Test(expected = AccessControlException.class) public void
+    testDoPrivilegedSimpleCompiler() throws Exception {
+
+        this.confinedSimpleCompilerTest(
+            "public class Foo { public static void main() { " + SandboxTest.DO_PRIVILEGED_GET_USER_HOME + "; } }",
+            "Foo",
+            SandboxTest.NO_PERMISSIONS,
+            SandboxTest.NO_PERMISSIONS_DOMAIN
+        ).assertExecutable();
+    }
+
+    /**
+     * Same as {@link #testDoPrivilegedScriptEvaluator()}, but for the {@link IClassBodyEvaluator}.
+     */
+    @Test(expected = AccessControlException.class) public void
+    testDoPrivilegedClassBodyEvaluator() throws Exception {
+
+        this.confinedClassBodyTest(
+            "public static void main() { " + SandboxTest.DO_PRIVILEGED_GET_USER_HOME + "; }",
+            SandboxTest.NO_PERMISSIONS,
+            SandboxTest.NO_PERMISSIONS_DOMAIN
+        ).assertExecutable();
+    }
+
+    /**
+     * Same as {@link #testDoPrivilegedScriptEvaluator()}, but for the {@link IExpressionEvaluator}.
+     */
+    @Test(expected = AccessControlException.class) public void
+    testDoPrivilegedExpressionEvaluator() throws Exception {
+
+        this.confinedExpressionTest(
+            SandboxTest.DO_PRIVILEGED_GET_USER_HOME,
+            SandboxTest.NO_PERMISSIONS,
+            SandboxTest.NO_PERMISSIONS_DOMAIN
+        ).assertExecutable();
+    }
+
+    /**
+     * Same as {@link #testDoPrivilegedScriptEvaluator()}, but for the {@link AbstractJavaSourceClassLoader}, which
+     * defines the classes with the protection domains that its {@link ProtectionDomainFactory} creates.
+     */
+    @Test(expected = AccessControlException.class) public void
+    testDoPrivilegedJavaSourceClassLoader() throws Exception {
+
+        File sourceDirectory = Files.createTempDirectory("sandbox-test").toFile();
+        File sourceFile      = new File(sourceDirectory, "Escape.java");
+        try {
+            Files.write(sourceFile.toPath(), (
+                "public class Escape { public static Object run() { return "
+                + SandboxTest.DO_PRIVILEGED_GET_USER_HOME
+                + "; } }"
+            ).getBytes(StandardCharsets.US_ASCII));
+
+            AbstractJavaSourceClassLoader jscl = this.compilerFactory.newJavaSourceClassLoader(
+                this.getClass().getClassLoader()
+            );
+            jscl.setSourcePath(new File[] { sourceDirectory });
+            jscl.setProtectionDomainFactory(new ProtectionDomainFactory() {
+
+                @Override public ProtectionDomain
+                getProtectionDomain(String sourceResourceName) { return SandboxTest.NO_PERMISSIONS_DOMAIN; }
+            });
+
+            final Method run = jscl.loadClass("Escape").getMethod("run");
+
+            new Sandbox(SandboxTest.NO_PERMISSIONS).confine(new PrivilegedExceptionAction<Object>() {
+
+                @Override public Object
+                run() throws Exception {
+                    try {
+                        return run.invoke(null);
+                    } catch (InvocationTargetException ite) {
+                        Throwable te = ite.getTargetException();
+                        throw te instanceof Exception ? (Exception) te : ite;
+                    }
+                }
+            });
+        } finally {
+            sourceFile.delete();
+            sourceDirectory.delete();
+        }
+    }
+
+    /**
+     * Verifies that the confined code can still run a privileged action itself when the generated classes are
+     * defined with a protection domain that grants the necessary permission.
+     */
+    @Test public void
+    testDoPrivilegedWithGrantedPermission() throws Exception {
+
+        Permissions permissions = new Permissions();
+        permissions.add(new PropertyPermission("user.home", "read"));
+
+        String script = "return " + SandboxTest.DO_PRIVILEGED_GET_USER_HOME + " != null;";
+        this.confinedScriptTest(script, permissions, new ProtectionDomain(null, permissions)).assertResultTrue();
+    }
+
+    /**
+     * Verifies that trivial code, {@link Class#forName(String)}, and code that runs privileged actions <em>of the
+     * JRE</em> (here: the {@link Thread} constructor) work with a restricted protection domain.
+     */
+    @Test public void
+    testRestrictedProtectionDomain() throws Exception {
+
+        this.confinedScriptTest(
+            "return true;",
+            SandboxTest.NO_PERMISSIONS,
+            SandboxTest.NO_PERMISSIONS_DOMAIN
+        ).assertResultTrue();
+
+        this.confinedScriptTest(
+            "return (System.class.forName(\"java.lang.String\") != null);",
+            SandboxTest.NO_PERMISSIONS,
+            SandboxTest.NO_PERMISSIONS_DOMAIN
+        ).assertResultTrue();
+
+        // "Thread()" does some REFLECTION, so we must allow that.
+        Permissions permissions = new Permissions();
+        permissions.add(new RuntimePermission("accessDeclaredMembers"));
+
+        this.confinedScriptTest((
+            ""
+            + "final Object[] result = new Object[1];\n"
+            + "Thread t = new Thread() {\n"
+            + "    @Override public void run() { result[0] = \"howdy\"; }\n"
+            + "};\n"
+            + "t.start();\n"
+            + "t.join();\n"
+            + "return \"howdy\".equals(result[0]);\n"
+        ), permissions, new ProtectionDomain(null, permissions)).assertResultTrue();
+    }
+
     // ====================================== END OF TEST CASES ======================================
 
     /**
@@ -366,7 +557,21 @@ class SandboxTest extends CommonsCompilerTestSuite {
      * <var>permissions</var>.
      */
     private ScriptTest
-    confinedScriptTest(String script, final PermissionCollection permissions) throws Exception {
+    confinedScriptTest(String script, PermissionCollection permissions) throws Exception {
+        return this.confinedScriptTest(script, permissions, null);
+    }
+
+    /**
+     * Creates and returns a {@link ScriptTest} object that executes scripts in a {@link Sandbox} with the given
+     * <var>permissions</var>, and, iff <var>protectionDomain</var> is not {@code null}, defines the generated classes
+     * with that protection domain.
+     */
+    private ScriptTest
+    confinedScriptTest(
+        String                           script,
+        PermissionCollection             permissions,
+        @Nullable final ProtectionDomain protectionDomain
+    ) throws Exception {
 
         final Sandbox sandbox = new Sandbox(permissions);
 
@@ -375,6 +580,7 @@ class SandboxTest extends CommonsCompilerTestSuite {
             @Override protected void
             cook() throws Exception {
                 this.scriptEvaluator.setThrownExceptions(new Class<?>[] { Exception.class });
+                if (protectionDomain != null) this.scriptEvaluator.setProtectionDomain(protectionDomain);
                 super.cook();
             }
 
@@ -397,14 +603,35 @@ class SandboxTest extends CommonsCompilerTestSuite {
      */
     private SimpleCompilerTest
     confinedSimpleCompilerTest(
-        String                     compilationUnit,
-        String                     className,
-        final PermissionCollection permissions
+        String               compilationUnit,
+        String               className,
+        PermissionCollection permissions
+    ) throws Exception {
+        return this.confinedSimpleCompilerTest(compilationUnit, className, permissions, null);
+    }
+
+    /**
+     * Creates and returns a {@link SimpleCompilerTest} object that executes the {@code public static void main()}
+     * method of the named class in a {@link Sandbox} with the given <var>permissions</var>, and, iff
+     * <var>protectionDomain</var> is not {@code null}, defines the generated classes with that protection domain.
+     */
+    private SimpleCompilerTest
+    confinedSimpleCompilerTest(
+        String                           compilationUnit,
+        String                           className,
+        PermissionCollection             permissions,
+        @Nullable final ProtectionDomain protectionDomain
     ) throws Exception {
 
         final Sandbox sandbox = new Sandbox(permissions);
 
         return new SimpleCompilerTest(compilationUnit, className) {
+
+            @Override protected void
+            cook() throws Exception {
+                if (protectionDomain != null) this.simpleCompiler.setProtectionDomain(protectionDomain);
+                super.cook();
+            }
 
             @NotNullByDefault(false) private Object
             execute2() throws Exception { return super.execute(); }
@@ -425,10 +652,30 @@ class SandboxTest extends CommonsCompilerTestSuite {
      */
     private ClassBodyTest
     confinedClassBodyTest(String classBody, PermissionCollection permissions) throws Exception {
+        return this.confinedClassBodyTest(classBody, permissions, null);
+    }
+
+    /**
+     * Creates and returns a {@link ClassBodyTest} object that executes the {@code public static void main()} method
+     * of its subject class body in a {@link Sandbox} with the given <var>permissions</var>, and, iff
+     * <var>protectionDomain</var> is not {@code null}, defines the generated classes with that protection domain.
+     */
+    private ClassBodyTest
+    confinedClassBodyTest(
+        String                           classBody,
+        PermissionCollection             permissions,
+        @Nullable final ProtectionDomain protectionDomain
+    ) throws Exception {
 
         final Sandbox sandbox = new Sandbox(permissions);
 
         return new ClassBodyTest(classBody) {
+
+            @Override protected void
+            cook() throws Exception {
+                if (protectionDomain != null) this.classBodyEvaluator.setProtectionDomain(protectionDomain);
+                super.cook();
+            }
 
             @NotNullByDefault(false) private Object
             execute2() throws Exception { return super.execute(); }
@@ -449,10 +696,30 @@ class SandboxTest extends CommonsCompilerTestSuite {
      */
     private ExpressionTest
     confinedExpressionTest(String expression, PermissionCollection permissions) throws Exception {
+        return this.confinedExpressionTest(expression, permissions, null);
+    }
+
+    /**
+     * Creates and returns an {@link ExpressionTest} object that evaluates its subject expression in a {@link
+     * Sandbox} with the given <var>permissions</var>, and, iff <var>protectionDomain</var> is not {@code null},
+     * defines the generated classes with that protection domain.
+     */
+    private ExpressionTest
+    confinedExpressionTest(
+        String                           expression,
+        PermissionCollection             permissions,
+        @Nullable final ProtectionDomain protectionDomain
+    ) throws Exception {
 
         final Sandbox sandbox = new Sandbox(permissions);
 
         return new ExpressionTest(expression) {
+
+            @Override protected void
+            cook() throws Exception {
+                if (protectionDomain != null) this.expressionEvaluator.setProtectionDomain(protectionDomain);
+                super.cook();
+            }
 
             @NotNullByDefault(false) private Object
             execute2() throws Exception { return super.execute(); }

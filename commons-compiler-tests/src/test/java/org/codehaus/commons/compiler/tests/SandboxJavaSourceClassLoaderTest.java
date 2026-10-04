@@ -91,6 +91,19 @@ class SandboxJavaSourceClassLoaderTest {
     }
 
     /**
+     * Verifies that the message names the source file and the line of the violation.
+     */
+    @Test public void
+    testViolationLocation() throws Exception {
+        AbstractJavaSourceClassLoader jscl = this.newJavaSourceClassLoader(this.createSources());
+        SandboxJavaSourceClassLoaderTest.assertLoadFails(
+            jscl,
+            "pkg.Bad",
+            "File 'Bad.java', Line 3: Access to java.lang.System.getProperty(java.lang.String)"
+        );
+    }
+
+    /**
      * Verifies that a class that complies with the policy, but uses a class that violates it, cannot be loaded.
      */
     @Test public void

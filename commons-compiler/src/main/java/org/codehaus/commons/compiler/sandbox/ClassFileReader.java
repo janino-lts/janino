@@ -29,8 +29,13 @@ import java.io.DataInputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import org.codehaus.commons.nullanalysis.Nullable;
 
@@ -38,8 +43,10 @@ import org.codehaus.commons.nullanalysis.Nullable;
  * A minimal parser for Java class files, as far as needed to determine which classes and members a class refers to.
  * <p>
  *   Parses the constant pool (all tags defined up to Java 25), the name, superclass and interfaces of the class, the
- *   access flags, names and descriptors of its fields and methods, and the {@code BootstrapMethods} attribute. All
- *   other attributes (including the {@code Code} attribute) are skipped.
+ *   access flags, names and descriptors of its fields and methods, and the {@code BootstrapMethods} and {@code
+ *   SourceFile} attributes. The bytecode of the methods ({@code Code} attributes) is scanned only as far as needed to
+ *   determine the source lines (from the {@code LineNumberTable} attributes) where the constant pool entries are
+ *   used; see {@link #getLineNumbers(MemberReference)}. All other attributes are skipped.
  * </p>
  * <p>
  *   Class names are reported in the format of {@link Class#getName()}, i.e. with dots as package separators (e.g.
@@ -74,6 +81,52 @@ class ClassFileReader {
 
     private static final int MAGIC = 0xCAFEBABE;
 
+    // Opcodes, see JVMS 6.5.
+    private static final int LDC           = 0x12;
+    private static final int LDC_W         = 0x13;
+    private static final int LDC2_W        = 0x14;
+    private static final int IINC          = 0x84;
+    private static final int TABLESWITCH   = 0xaa;
+    private static final int GETSTATIC     = 0xb2;
+    private static final int INVOKEDYNAMIC = 0xba;
+    private static final int WIDE          = 0xc4;
+
+    /**
+     * The lengths of the instructions (including the opcode); 0 means "invalid opcode", and -1 means "variable
+     * length" (see JVMS 6.5).
+     */
+    private static final byte[] INSTRUCTION_LENGTHS = new byte[256];
+    static {
+        byte[] l = ClassFileReader.INSTRUCTION_LENGTHS;
+        Arrays.fill(l, 0x00, 0xca, (byte) 1); // "nop" through "jsr_w"; the multi-byte instructions follow.
+        l[0x10] = 2;                          // bipush
+        l[0x11] = 3;                          // sipush
+        l[0x12] = 2;                          // ldc
+        l[0x13] = 3;                          // ldc_w
+        l[0x14] = 3;                          // ldc2_w
+        Arrays.fill(l, 0x15, 0x1a, (byte) 2); // iload ... aload
+        Arrays.fill(l, 0x36, 0x3b, (byte) 2); // istore ... astore
+        l[0x84] = 3;                          // iinc
+        Arrays.fill(l, 0x99, 0xa9, (byte) 3); // ifeq ... jsr
+        l[0xa9] = 2;                          // ret
+        l[0xaa] = -1;                         // tableswitch
+        l[0xab] = -1;                         // lookupswitch
+        Arrays.fill(l, 0xb2, 0xb9, (byte) 3); // getstatic ... invokestatic
+        l[0xb9] = 5;                          // invokeinterface
+        l[0xba] = 5;                          // invokedynamic
+        l[0xbb] = 3;                          // new
+        l[0xbc] = 2;                          // newarray
+        l[0xbd] = 3;                          // anewarray
+        l[0xc0] = 3;                          // checkcast
+        l[0xc1] = 3;                          // instanceof
+        l[0xc4] = -1;                         // wide
+        l[0xc5] = 4;                          // multianewarray
+        l[0xc6] = 3;                          // ifnull
+        l[0xc7] = 3;                          // ifnonnull
+        l[0xc8] = 5;                          // goto_w
+        l[0xc9] = 5;                          // jsr_w
+    }
+
     /**
      * A field or method declared by the class.
      */
@@ -83,11 +136,13 @@ class ClassFileReader {
         private final int    accessFlags;
         private final String name;
         private final String descriptor;
+        private final int    lineNumber;
 
-        MemberDeclaration(int accessFlags, String name, String descriptor) {
+        MemberDeclaration(int accessFlags, String name, String descriptor, int lineNumber) {
             this.accessFlags = accessFlags;
             this.name        = name;
             this.descriptor  = descriptor;
+            this.lineNumber  = lineNumber;
         }
 
         /**
@@ -98,6 +153,12 @@ class ClassFileReader {
         public String getName() { return this.name; }
 
         public String getDescriptor() { return this.descriptor; }
+
+        /**
+         * @return The first source line of the method's code, or -1 iff this is a field, the method has no code, or
+         *         the class file has no line numbers
+         */
+        public int getLineNumber() { return this.lineNumber; }
 
         @Override public String
         toString() { return this.name + this.descriptor; }
@@ -246,19 +307,48 @@ class ClassFileReader {
     class BootstrapMethod {
 
         private final MethodHandleReference method;
-        private final int                   argumentCount;
+        private final int                   methodIndex;
+        private final int[]                 argumentIndexes;
 
-        BootstrapMethod(MethodHandleReference method, int argumentCount) {
-            this.method        = method;
-            this.argumentCount = argumentCount;
+        BootstrapMethod(MethodHandleReference method, int methodIndex, int[] argumentIndexes) {
+            this.method          = method;
+            this.methodIndex     = methodIndex;
+            this.argumentIndexes = argumentIndexes;
         }
 
         public MethodHandleReference getMethod() { return this.method; }
 
-        public int getArgumentCount() { return this.argumentCount; }
+        public int getArgumentCount() { return this.argumentIndexes.length; }
 
         @Override public String
-        toString() { return "BootstrapMethod(" + this.method + ", " + this.argumentCount + " arguments)"; }
+        toString() { return "BootstrapMethod(" + this.method + ", " + this.argumentIndexes.length + " arguments)"; }
+    }
+
+    /**
+     * The bytecode and the line number table of a method.
+     */
+    private static final
+    class Code {
+
+        final byte[]      bytecode;
+        final List<int[]> lineNumbers = new ArrayList<int[]>(); // { start_pc, line_number }
+
+        Code(byte[] bytecode) { this.bytecode = bytecode; }
+
+        /**
+         * @return The source line of the instruction at the given <var>pc</var>, or -1 iff unknown
+         */
+        int
+        getLineNumber(int pc) {
+            int result = -1, resultStartPc = -1;
+            for (int[] entry : this.lineNumbers) {
+                if (entry[0] <= pc && entry[0] > resultStartPc) {
+                    resultStartPc = entry[0];
+                    result        = entry[1];
+                }
+            }
+            return result;
+        }
     }
 
     // The constant pool. Index 0 and the slots following LONG and DOUBLE entries are unused (tag 0).
@@ -272,6 +362,7 @@ class ClassFileReader {
     private int    accessFlags;
     private String className = "";
     @Nullable private String superclassName;
+    @Nullable private String sourceFileName;
 
     private final List<String>                interfaceNames   = new ArrayList<String>();
     private final List<MemberDeclaration>     fields           = new ArrayList<MemberDeclaration>();
@@ -281,6 +372,18 @@ class ClassFileReader {
     private final List<MethodHandleReference> methodHandles    = new ArrayList<MethodHandleReference>();
     private final List<DynamicReference>      dynamics         = new ArrayList<DynamicReference>();
     private final List<BootstrapMethod>       bootstrapMethods = new ArrayList<BootstrapMethod>();
+    private final List<Code>                  codes            = new ArrayList<Code>();
+
+    // The constant pool indexes of the entries in "dynamics".
+    private final List<Integer> dynamicIndexes = new ArrayList<Integer>();
+
+    // The source lines where the member and dynamic references are used.
+    private final Map<MemberReference, SortedSet<Integer>>  memberReferenceLines  = (
+        new HashMap<MemberReference, SortedSet<Integer>>()
+    );
+    private final Map<DynamicReference, SortedSet<Integer>> dynamicReferenceLines = (
+        new HashMap<DynamicReference, SortedSet<Integer>>()
+    );
 
     /**
      * Parses the given class file.
@@ -359,6 +462,41 @@ class ClassFileReader {
         return (BootstrapMethod) this.bootstrapMethods.get(dynamicReference.getBootstrapMethodIndex());
     }
 
+    /**
+     * @return The value of the {@code SourceFile} attribute (e.g. {@code "Foo.java"}), or {@code null} iff the class
+     *         file has no such attribute
+     */
+    @Nullable public String getSourceFileName() { return this.sourceFileName; }
+
+    /**
+     * Returns the source lines of the instructions that use the given <var>memberReference</var>, i.e. of the field
+     * access and method invocation instructions that refer to it, and of the instructions that use a method handle of
+     * it, either directly ({@code ldc}), or as the bootstrap method or a bootstrap argument of an {@code
+     * invokedynamic} instruction or a dynamically-computed constant (e.g. a method reference like {@code
+     * Runtime::getRuntime}).
+     *
+     * @return The line numbers; empty iff the class file has no {@code LineNumberTable} attributes, or iff no
+     *         instruction uses the <var>memberReference</var>
+     */
+    public SortedSet<Integer>
+    getLineNumbers(MemberReference memberReference) {
+        SortedSet<Integer> result = (SortedSet<Integer>) this.memberReferenceLines.get(memberReference);
+        if (result == null) return Collections.emptySortedSet();
+        return Collections.unmodifiableSortedSet(result);
+    }
+
+    /**
+     * @return The source lines of the {@code invokedynamic} and {@code ldc} instructions that use the given
+     *         <var>dynamicReference</var>; empty iff the class file has no {@code LineNumberTable} attributes, or iff
+     *         no instruction uses the <var>dynamicReference</var>
+     */
+    public SortedSet<Integer>
+    getLineNumbers(DynamicReference dynamicReference) {
+        SortedSet<Integer> result = (SortedSet<Integer>) this.dynamicReferenceLines.get(dynamicReference);
+        if (result == null) return Collections.emptySortedSet();
+        return Collections.unmodifiableSortedSet(result);
+    }
+
     private void
     parse(DataInputStream dis) throws IOException {
 
@@ -378,29 +516,30 @@ class ClassFileReader {
             this.interfaceNames.add(this.getConstantClassName(dis.readUnsignedShort()));
         }
 
-        this.readMembers(dis, this.fields);
-        this.readMembers(dis, this.methods);
+        this.readMembers(dis, this.fields, false);
+        this.readMembers(dis, this.methods, true);
 
         for (int i = dis.readUnsignedShort(); i > 0; i--) {
             String attributeName   = this.getConstantUtf8(dis.readUnsignedShort());
             int    attributeLength = dis.readInt();
-            if (!"BootstrapMethods".equals(attributeName)) {
+            if ("BootstrapMethods".equals(attributeName)) {
+                DataInputStream dis2 = ClassFileReader.readAttribute(dis, attributeLength);
+                this.readBootstrapMethods(dis2);
+                if (dis2.read() != -1) throw new ClassFormatError("Invalid length of the BootstrapMethods attribute");
+            } else
+            if ("SourceFile".equals(attributeName)) {
+                if (attributeLength != 2) throw new ClassFormatError("Invalid length of the SourceFile attribute");
+                this.sourceFileName = this.getConstantUtf8(dis.readUnsignedShort());
+            } else
+            {
                 ClassFileReader.skip(dis, attributeLength);
-                continue;
             }
-
-            if (attributeLength < 0) throw new ClassFormatError("Invalid attribute length " + attributeLength);
-            byte[] attributeData = new byte[attributeLength];
-            dis.readFully(attributeData);
-
-            DataInputStream dis2 = new DataInputStream(new ByteArrayInputStream(attributeData));
-            this.readBootstrapMethods(dis2);
-            if (dis2.read() != -1) throw new ClassFormatError("Invalid length of the BootstrapMethods attribute");
         }
 
         if (dis.read() != -1) throw new ClassFormatError("Extra bytes after the end of the class file");
 
         this.resolveConstantPool();
+        this.computeLineNumbers();
     }
 
     private void
@@ -462,32 +601,88 @@ class ClassFileReader {
         }
     }
 
+    /**
+     * @param methods Whether to read the {@code Code} attributes
+     */
     private void
-    readMembers(DataInputStream dis, List<MemberDeclaration> result) throws IOException {
+    readMembers(DataInputStream dis, List<MemberDeclaration> result, boolean methods) throws IOException {
         for (int i = dis.readUnsignedShort(); i > 0; i--) {
             int    accessFlags = dis.readUnsignedShort();
             String name        = this.getConstantUtf8(dis.readUnsignedShort());
             String descriptor  = this.getConstantUtf8(dis.readUnsignedShort());
+            int    lineNumber  = -1;
             for (int j = dis.readUnsignedShort(); j > 0; j--) {
-                dis.readUnsignedShort();
-                ClassFileReader.skip(dis, dis.readInt());
+                String attributeName   = this.getConstantUtf8(dis.readUnsignedShort());
+                int    attributeLength = dis.readInt();
+                if (methods && "Code".equals(attributeName)) {
+                    DataInputStream dis2 = ClassFileReader.readAttribute(dis, attributeLength);
+                    Code            code = this.readCode(dis2);
+                    if (dis2.read() != -1) throw new ClassFormatError("Invalid length of the Code attribute");
+                    this.codes.add(code);
+                    for (int[] entry : code.lineNumbers) {
+                        if (lineNumber == -1 || entry[1] < lineNumber) lineNumber = entry[1];
+                    }
+                } else {
+                    ClassFileReader.skip(dis, attributeLength);
+                }
             }
-            result.add(new MemberDeclaration(accessFlags, name, descriptor));
+            result.add(new MemberDeclaration(accessFlags, name, descriptor, lineNumber));
         }
+    }
+
+    /**
+     * Reads the bytecode and the line number tables from a {@code Code} attribute; skips the exception table and all
+     * other attributes.
+     */
+    private Code
+    readCode(DataInputStream dis) throws IOException {
+
+        dis.readUnsignedShort(); // max_stack
+        dis.readUnsignedShort(); // max_locals
+
+        int codeLength = dis.readInt();
+        if (codeLength <= 0 || codeLength > 65535) throw new ClassFormatError("Invalid code length " + codeLength);
+        byte[] bytecode = new byte[codeLength];
+        dis.readFully(bytecode);
+
+        ClassFileReader.skip(dis, 8 * dis.readUnsignedShort()); // exception_table
+
+        Code result = new Code(bytecode);
+        for (int i = dis.readUnsignedShort(); i > 0; i--) {
+            String attributeName   = this.getConstantUtf8(dis.readUnsignedShort());
+            int    attributeLength = dis.readInt();
+            if (!"LineNumberTable".equals(attributeName)) {
+                ClassFileReader.skip(dis, attributeLength);
+                continue;
+            }
+
+            int count = dis.readUnsignedShort();
+            if (attributeLength != 2 + 4 * count) {
+                throw new ClassFormatError("Invalid length of the LineNumberTable attribute");
+            }
+            for (int j = 0; j < count; j++) {
+                int startPc    = dis.readUnsignedShort();
+                int lineNumber = dis.readUnsignedShort();
+                result.lineNumbers.add(new int[] { startPc, lineNumber });
+            }
+        }
+        return result;
     }
 
     private void
     readBootstrapMethods(DataInputStream dis) throws IOException {
         for (int i = dis.readUnsignedShort(); i > 0; i--) {
-            MethodHandleReference method        = this.getConstantMethodHandle(dis.readUnsignedShort());
-            int                   argumentCount = dis.readUnsignedShort();
-            for (int j = 0; j < argumentCount; j++) {
+            int                   methodIndex     = dis.readUnsignedShort();
+            MethodHandleReference method          = this.getConstantMethodHandle(methodIndex);
+            int[]                 argumentIndexes = new int[dis.readUnsignedShort()];
+            for (int j = 0; j < argumentIndexes.length; j++) {
                 int index = dis.readUnsignedShort();
                 if (index == 0 || index >= this.cpTags.length || this.cpTags[index] == 0) {
                     throw new ClassFormatError("Invalid bootstrap method argument index " + index);
                 }
+                argumentIndexes[j] = index;
             }
-            this.bootstrapMethods.add(new BootstrapMethod(method, argumentCount));
+            this.bootstrapMethods.add(new BootstrapMethod(method, methodIndex, argumentIndexes));
         }
     }
 
@@ -541,12 +736,170 @@ class ClassFileReader {
                     this.getConstantUtf8(this.cpValue1[nameAndTypeIndex]),
                     this.getConstantUtf8(this.cpValue2[nameAndTypeIndex])
                 ));
+                this.dynamicIndexes.add(Integer.valueOf(i));
                 break;
 
             default:
                 ;
             }
         }
+    }
+
+    /**
+     * Scans the bytecode of all methods for instructions that refer to constant pool entries, and determines the
+     * source lines where the member and dynamic references are used, directly or through method handles.
+     */
+    private void
+    computeLineNumbers() {
+
+        // Constant pool index => the source lines of the instructions that refer to it.
+        Map<Integer, SortedSet<Integer>> lines = new HashMap<Integer, SortedSet<Integer>>();
+        for (Code code : this.codes) this.scanCode(code, lines);
+
+        // A dynamic entry passes its lines on to its bootstrap method and the bootstrap arguments. Repeat until
+        // nothing changes, because a bootstrap argument may itself be a dynamic entry.
+        for (boolean changed = true; changed;) {
+            changed = false;
+            for (Integer dynamicIndex : this.dynamicIndexes) {
+                SortedSet<Integer> dl = (SortedSet<Integer>) lines.get(dynamicIndex);
+                if (dl == null) continue;
+                BootstrapMethod bm = (BootstrapMethod) this.bootstrapMethods.get(
+                    this.cpValue1[dynamicIndex.intValue()]
+                );
+                changed |= ClassFileReader.addAll(lines, bm.methodIndex, dl);
+                for (int argumentIndex : bm.argumentIndexes) {
+                    changed |= ClassFileReader.addAll(lines, argumentIndex, dl);
+                }
+            }
+        }
+
+        // A method handle passes its lines on to the member that it refers to.
+        for (int i = 1; i < this.cpTags.length; i++) {
+            if (this.cpTags[i] != ClassFileReader.CONSTANT_METHOD_HANDLE) continue;
+            SortedSet<Integer> mhl = (SortedSet<Integer>) lines.get(Integer.valueOf(i));
+            if (mhl != null) ClassFileReader.addAll(lines, this.cpValue2[i], mhl);
+        }
+
+        for (int i = 1; i < this.cpTags.length; i++) {
+            int tag = this.cpTags[i];
+            if (
+                tag != ClassFileReader.CONSTANT_FIELDREF
+                && tag != ClassFileReader.CONSTANT_METHODREF
+                && tag != ClassFileReader.CONSTANT_INTERFACE_METHODREF
+            ) continue;
+            SortedSet<Integer> ml = (SortedSet<Integer>) lines.get(Integer.valueOf(i));
+            if (ml == null) continue;
+
+            MemberReference    mr = this.getConstantMemberReference(i);
+            SortedSet<Integer> l  = (SortedSet<Integer>) this.memberReferenceLines.get(mr);
+            if (l == null) this.memberReferenceLines.put(mr, (l = new TreeSet<Integer>()));
+            l.addAll(ml);
+        }
+
+        for (int i = 0; i < this.dynamics.size(); i++) {
+            SortedSet<Integer> dl = (SortedSet<Integer>) lines.get(this.dynamicIndexes.get(i));
+            if (dl != null) this.dynamicReferenceLines.put(this.dynamics.get(i), dl);
+        }
+    }
+
+    /**
+     * Adds the source lines of all instructions of the <var>code</var> that refer to constant pool entries to the
+     * <var>result</var>.
+     */
+    private void
+    scanCode(Code code, Map<Integer, SortedSet<Integer>> result) {
+
+        byte[] bytecode = code.bytecode;
+        for (int pc = 0; pc < bytecode.length;) {
+            int opcode = 0xff & bytecode[pc];
+            int length = ClassFileReader.instructionLength(bytecode, pc);
+            if (length > bytecode.length - pc) throw new ClassFormatError("Truncated instruction at offset " + pc);
+
+            int constantPoolIndex = (
+                opcode == ClassFileReader.LDC
+                ? 0xff & bytecode[pc + 1]
+                : (
+                    opcode == ClassFileReader.LDC_W
+                    || opcode == ClassFileReader.LDC2_W
+                    || (opcode >= ClassFileReader.GETSTATIC && opcode <= ClassFileReader.INVOKEDYNAMIC)
+                )
+                ? (0xff & bytecode[pc + 1]) << 8 | (0xff & bytecode[pc + 2])
+                : 0
+            );
+            if (constantPoolIndex != 0) {
+                if (constantPoolIndex >= this.cpTags.length) {
+                    throw new ClassFormatError("Invalid constant pool index " + constantPoolIndex + " at offset " + pc);
+                }
+                int lineNumber = code.getLineNumber(pc);
+                if (lineNumber != -1) {
+                    ClassFileReader.addAll(
+                        result,
+                        constantPoolIndex,
+                        new TreeSet<Integer>(Collections.singleton(Integer.valueOf(lineNumber)))
+                    );
+                }
+            }
+
+            pc += length;
+        }
+    }
+
+    /**
+     * @return                 The length of the instruction at the given <var>pc</var>, including the opcode
+     * @throws ClassFormatError The opcode is invalid
+     */
+    private static int
+    instructionLength(byte[] bytecode, int pc) {
+
+        int opcode = 0xff & bytecode[pc];
+        int length = ClassFileReader.INSTRUCTION_LENGTHS[opcode];
+        if (length > 0) return length;
+        if (length == 0) throw new ClassFormatError("Invalid opcode " + opcode + " at offset " + pc);
+
+        if (opcode == ClassFileReader.WIDE) {
+            if (pc + 1 >= bytecode.length) throw new ClassFormatError("Truncated instruction at offset " + pc);
+            return (0xff & bytecode[pc + 1]) == ClassFileReader.IINC ? 6 : 4;
+        }
+
+        // TABLESWITCH and LOOKUPSWITCH: The operands start at the next offset that is a multiple of four.
+        int operands = (pc + 4) & ~3;
+        if (operands + 12 > bytecode.length) throw new ClassFormatError("Truncated instruction at offset " + pc);
+
+        long end;
+        if (opcode == ClassFileReader.TABLESWITCH) {
+            int low  = ClassFileReader.readInt(bytecode, operands + 4);
+            int high = ClassFileReader.readInt(bytecode, operands + 8);
+            if (low > high) throw new ClassFormatError("Invalid tableswitch at offset " + pc);
+            end = operands + 12 + 4L * ((long) high - low + 1);
+        } else {
+            int npairs = ClassFileReader.readInt(bytecode, operands + 4);
+            if (npairs < 0) throw new ClassFormatError("Invalid lookupswitch at offset " + pc);
+            end = operands + 8 + 8L * npairs;
+        }
+        if (end > bytecode.length) throw new ClassFormatError("Truncated instruction at offset " + pc);
+        return (int) end - pc;
+    }
+
+    private static int
+    readInt(byte[] ba, int offset) {
+        return (
+            (0xff & ba[offset]) << 24
+            | (0xff & ba[offset + 1]) << 16
+            | (0xff & ba[offset + 2]) << 8
+            | (0xff & ba[offset + 3])
+        );
+    }
+
+    /**
+     * Adds the <var>lines</var> to the lines of the given constant pool entry.
+     *
+     * @return Whether lines were added
+     */
+    private static boolean
+    addAll(Map<Integer, SortedSet<Integer>> map, int constantPoolIndex, SortedSet<Integer> lines) {
+        SortedSet<Integer> l = (SortedSet<Integer>) map.get(Integer.valueOf(constantPoolIndex));
+        if (l == null) map.put(Integer.valueOf(constantPoolIndex), (l = new TreeSet<Integer>()));
+        return l.addAll(lines);
     }
 
     private MemberReference
@@ -624,5 +977,18 @@ class ClassFileReader {
     private static void
     skip(DataInputStream dis, int n) throws IOException {
         if (n < 0 || dis.skipBytes(n) != n) throw new EOFException();
+    }
+
+    /**
+     * Reads the data of an attribute.
+     *
+     * @return A stream that reads exactly the <var>attributeLength</var> bytes of the attribute data
+     */
+    private static DataInputStream
+    readAttribute(DataInputStream dis, int attributeLength) throws IOException {
+        if (attributeLength < 0) throw new ClassFormatError("Invalid attribute length " + attributeLength);
+        byte[] attributeData = new byte[attributeLength];
+        dis.readFully(attributeData);
+        return new DataInputStream(new ByteArrayInputStream(attributeData));
     }
 }

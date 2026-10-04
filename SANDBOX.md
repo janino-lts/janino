@@ -7,14 +7,15 @@ call `System.exit()`.
 
 The **sandbox policy** mechanism does exactly that. You describe the APIs that the compiled code may use (an
 *allowlist*), and JANINO verifies every class it generates against that allowlist **before the class is loaded**.
-Code that uses anything else is rejected at compile time.
+Code that uses anything else is rejected at compile time. In addition, a `SandboxExecutor` can limit the CPU time
+and the memory that the code consumes (see [3.5](#35-limiting-cpu-time-and-memory)).
 
 ```java
 IExpressionEvaluator ee = CompilerFactoryFactory.getDefaultCompilerFactory(classLoader).newExpressionEvaluator();
 ee.setSandboxPolicy(SandboxPolicy.JAVA_LANG_BASIC);
 ee.cook("System.getProperty(\"user.home\")");
-// => CompileException: Sandbox violation:
-//      SC: Access to java.lang.System.getProperty(java.lang.String) is not permitted by the sandbox policy
+// => CompileException: Line 1: Access to java.lang.System.getProperty(java.lang.String) is not permitted by the
+//    sandbox policy
 ```
 
 ---
@@ -40,11 +41,11 @@ deprecated (Java 17) and permanently disabled (Java 24), so that class only work
 | Java 18 - 23 | Works only with `-Djava.security.manager=allow`                                   | Works          |
 | Java 24+     | Not available: the constructor throws an `UnsupportedOperationException`          | Works          |
 
-`Sandbox.isSupported()` tells whether the legacy sandbox can be used on the running JVM. For new code, and for any
-code that must run on current JVMs, use the sandbox policy.
+`Sandbox.isSupported()` tells whether the legacy sandbox can be used on the running JVM. The class is deprecated (as
+of version 3.1.13); for new code, and for any code that must run on current JVMs, use the sandbox policy.
 
-**Notice:** The legacy sandbox has a known weakness that lets code escape from it; see the warning in
-[section 7](#7-the-security-manager-based-sandbox).
+**Notice:** By default, the legacy sandbox has a known weakness that lets code escape from it; see the warning in
+[section 7](#7-the-security-manager-based-sandbox), which also explains how to close it.
 
 ---
 
@@ -56,7 +57,7 @@ code that must run on current JVMs, use the sandbox policy.
 4. Before any generated class can be loaded, a **bytecode verifier** inspects it:
    - every field and method that the class refers to (including method references and lambdas),
    - its superclass and its interfaces,
-   - `native` methods (always rejected),
+   - `native` and `finalize()` methods (always rejected),
    - the bootstrap methods of `invokedynamic` instructions (only those that compilers use for lambdas, string
      concatenation, records and pattern matching are accepted).
 5. If anything is not allowed, cooking fails with a `CompileException` that lists **all** violations, and none of
@@ -114,7 +115,7 @@ try {
 
         // The expression uses APIs that the policy does not allow.
         for (SandboxViolation v : ((SandboxViolationException) ce.getCause()).getViolations()) {
-            System.err.println(v.getClassName() + ": " + v.getMessage());
+            System.err.println(v); // E.g. "Line 1: Access to ... is not permitted by the sandbox policy"
         }
     } else {
 
@@ -127,16 +128,25 @@ try {
 Object result = ee.evaluate(new Object[] { 3, 4 });
 ```
 
-The message of the `CompileException` lists all violations, e.g.:
+Each violation carries its location in the cooked document: the file name (if you cooked the document with one)
+and the line number, but no column (`SandboxViolation.getLocation()`, `getFileName()`, `getLineNumber()`). The
+`CompileException` is located at the first violation; if there is more than one violation, then its message lists
+all of them, ordered by line, e.g. for a script cooked as `"script.txt"`:
 
 ```
-Sandbox violations:
-  SC: Access to java.lang.System.getProperty(java.lang.String) is not permitted by the sandbox policy
-  SC: Access to java.lang.Runtime.getRuntime() is not permitted by the sandbox policy
+File 'script.txt', Line 2: Sandbox violations:
+  File 'script.txt', Line 2: Access to java.lang.System.getProperty(java.lang.String) is not permitted by the sandbox policy
+  File 'script.txt', Line 4: Access to java.lang.Runtime.getRuntime() is not permitted by the sandbox policy
 ```
 
-The class name (`SC` in this example) is the name of the generated class. Violations do not (yet) carry a source
-line number.
+A violation that concerns a generated class as a whole (e.g. a forbidden superclass) has no location; its message
+names the generated class instead, e.g. `SC: Extending java.lang.Thread is not permitted by the sandbox policy`. If
+you set a compile error handler (`setCompileErrorHandler()`), then each violation is also reported through it, like
+a compile error; cooking fails nevertheless.
+
+To determine the line numbers, JANINO reads the line number tables of the generated class files. Therefore, when a
+policy is set, the compilers always generate the necessary debugging information (source file and line numbers, like
+`javac -g:source,lines`), regardless of `setDebuggingInformation()`.
 
 **Extended classes and implemented interfaces.** If you let the generated class extend a class or implement
 interfaces - through `setExtendedClass(...)`, `setImplementedInterfaces(...)`, or `createFastEvaluator(...)` with an
@@ -198,6 +208,96 @@ List<SandboxViolation> violations = new BytecodeVerifier(policy).verify(
 );
 ```
 
+### 3.5 Limiting CPU time and memory
+
+A policy restricts *which* APIs code may use. To restrict *how much* CPU time and memory it may consume, execute it
+through a `SandboxExecutor`:
+
+```java
+IScriptEvaluator se = CompilerFactoryFactory.getDefaultCompilerFactory(classLoader).newScriptEvaluator();
+se.setSandboxPolicy(policy);
+se.cook(script);
+
+SandboxLimits limits = SandboxLimits.builder()
+    .timeout(2, TimeUnit.SECONDS)       // wall-clock time
+    .maxTicks(10_000_000)               // loop iterations plus method and constructor invocations
+    .maxAllocatedBytes(64L << 20)       // heap memory that the executing thread allocates
+    .build();
+try {
+    Object result = new SandboxExecutor(limits).call(() -> se.evaluate());
+} catch (SandboxLimitExceededException slee) {
+    // "slee.getLimit()" is TIME, TICKS or MEMORY; the result of the code (if any) is discarded.
+}
+```
+
+All limits are optional. `maxTicks` is deterministic, i.e. independent of the speed of the machine, and is therefore
+the best choice for reproducible behavior; the timeout is the last line of defense.
+
+How it works:
+
+- When a policy is set, JANINO inserts a call to `Guard.tick()` at the beginning of every loop body and of every
+  method and constructor body, and checks the size of arrays before they are created (`Guard.arrayLength()`,
+  `Guard.newArray()`). The verifier allows these calls implicitly.
+- `SandboxExecutor.call()` executes the task on a new (daemon) thread. The guard counts the ticks of that thread,
+  and every 1024 ticks it checks the timeout and the allocated memory. When a limit is exceeded, it throws a
+  `SandboxLimitExceededError` inside the code.
+- Once tripped, the guard stays tripped: Code that catches the error (`catch (Throwable t) {}`) or swallows it
+  (`finally { return; }`) does not get far, because every further tick throws again, and `call()` reports the
+  exceeded limit in any case.
+- Outside of `SandboxExecutor.call()`, the checks do nothing (unless the policy requires an executor, see below).
+  They cost about one nanosecond per loop iteration.
+- JANINO makes the `Guard` class visible to the generated code even if the parent class loader cannot see it, and
+  makes sure that the code uses the same `Guard` as the executor (see `GuardClassLoader`).
+
+The limits are "best effort":
+
+- **Only JANINO inserts the checks.** Code that the `commons-compiler-jdk` back end (`javac`) compiles is only
+  subject to the timeout, and it cannot be stopped: After the timeout, `call()` throws, but the thread keeps running
+  until the code ends by itself (`SandboxLimitExceededException.isThreadTerminated()` returns `false`). The same
+  applies to code that is stuck **inside a JDK method** (e.g. a regular expression with catastrophic backtracking,
+  or `BigInteger.pow()` with a huge exponent), because it does not tick.
+- **Callbacks:** The limits apply only to code that runs inside `call()`. If the code returns an object whose methods
+  your application invokes later (e.g. a `Runnable`), invoke these methods through a `SandboxExecutor` as well
+  (see "Code that runs outside of the executor" below).
+- **Memory** is measured with `com.sun.management.ThreadMXBean`, which HotSpot-based JVMs (OpenJDK and its builds)
+  provide; on other JVMs, the memory limit is not enforced. It counts the bytes that the thread *allocates* (also
+  inside JDK methods), not the bytes that are still in use; the array size checks estimate the size of arrays before
+  they are created.
+- **Deep recursion** ends with a `StackOverflowError` (as in plain Java), unless the tick limit is reached first.
+- For hard guarantees (e.g. against native memory exhaustion or JVM crashes), execute untrusted code in a separate
+  JVM process with operating system limits.
+
+#### Code that runs outside of the executor
+
+Generated code runs not only when you call `evaluate()`, but also in less obvious places:
+
+- **Static initializers and constructors** run when the generated class is instantiated or used for the first time,
+  e.g. in `IClassBodyEvaluator.createInstance()`, `IExpressionEvaluator.createFastEvaluator()` or
+  `getClazz().newInstance()`. (`cook()` itself does not initialize the generated classes.)
+- **Methods of returned objects**, e.g. `toString()`, `equals()`, `hashCode()` or `compareTo()`, when your application
+  logs, compares or sorts the result.
+
+By default, the checks do nothing there, so such code runs without limits. Execute all of these through the
+`SandboxExecutor` as well, e.g. `executor.call(() -> cbe.createInstance(reader))`, or make sure that it cannot be
+forgotten with `requireExecutor()`:
+
+```java
+SandboxPolicy policy = SandboxPolicy.builder()
+    .include(SandboxPolicy.JAVA_LANG_BASIC)
+    .requireExecutor()
+    .build();
+```
+
+With this option, JANINO inserts the "strict" checks (`Guard.tickStrict()`, `Guard.arrayLengthStrict()`,
+`Guard.newArrayStrict()`), which throw an `IllegalStateException` ("Sandboxed code must be executed by a
+SandboxExecutor") when they are executed outside of `SandboxExecutor.call()`. Every loop iteration, method or
+constructor invocation and array creation is checked, so code outside of the executor fails fast instead of running
+without limits; a static initializer fails with an `ExceptionInInitializerError`. The option has no effect on the
+`commons-compiler-jdk` back end, which does not insert any checks.
+
+The JVM calls `finalize()` on its own finalizer thread, where no executor can be applied; therefore the verifier
+rejects classes that declare a `finalize()` method (see section 5).
+
 ---
 
 ## 4. Configuring a policy
@@ -209,14 +309,33 @@ every use of any field, method or constructor that is not generated by the compi
 
 ### 4.2 Presets
 
-Two presets cover the most common needs; include them with `include(...)`:
+The presets cover the most common needs; include them with `include(...)`:
 
 | Preset            | Contents                                                                                       |
 |-------------------|------------------------------------------------------------------------------------------------|
 | `JAVA_LANG_BASIC` | `Object` (`equals`, `hashCode`, `toString`, `getClass`, constructor), `Class.getName()` and `getSimpleName()`, `String`, `StringBuilder`, `StringBuffer`, `CharSequence`, `Character`, `Math`, `StrictMath`, `Number` and the wrapper types (`Integer`, `Long`, ... - except the methods that read system properties), `Boolean`, `Enum`, `Comparable`, `Iterable`, `Runnable`, `AutoCloseable`, `java.util.Objects`, the constructors of the common exceptions and errors, and the basic methods of `Throwable` (`getMessage`, `getCause`, ...). Code may extend or implement `Object`, `Exception`, `RuntimeException`, `Enum`, `Comparable`, `Runnable`, `Iterable`, `CharSequence`, `AutoCloseable`, `Cloneable` and `Serializable`. |
 | `COLLECTIONS`     | The collection interfaces of `java.util` (`Collection`, `List`, `Set`, `Map`, `Map.Entry`, `Queue`, `Deque`, `Iterator`, `Comparator`, the sorted and navigable variants) and their common implementations (`ArrayList`, `LinkedList`, `HashMap`, `LinkedHashMap`, `TreeMap`, `HashSet`, `LinkedHashSet`, `TreeSet`, `ArrayDeque`, `PriorityQueue`, `EnumMap`, `EnumSet` and their abstract base classes), `Collections`, `Arrays`, `Optional` (and its primitive variants), `NoSuchElementException`, `ConcurrentModificationException`. Code may extend `AbstractCollection`, `AbstractList`, `AbstractSet`, `AbstractMap` and implement `Comparator` and `Iterator`. |
 
-`COLLECTIONS` does not include `JAVA_LANG_BASIC`; typically you include both.
+| `FUNCTIONAL`      | The functional interfaces of `java.util.function` (`Function`, `BiFunction`, `Predicate`, `Supplier`, `Consumer`, `UnaryOperator`, `BinaryOperator` and their primitive variants). Code may implement them. |
+| `STREAMS`         | Sequential streams: `Stream`, `IntStream`, `LongStream`, `DoubleStream` (and their builders), `BaseStream`, `Collector`, `Collectors`, `PrimitiveIterator`, the summary statistics of `java.util` (`IntSummaryStatistics`, ...), and everything of `FUNCTIONAL`. Code may implement `Collector`. Parallel streams are never allowed (see section 5); `StreamSupport` is not included, because it can create parallel streams. |
+| `MATH`            | `java.math`: `BigInteger`, `BigDecimal`, `MathContext`, `RoundingMode`.                        |
+| `REGEX`           | `java.util.regex`: `Pattern`, `Matcher`, `MatchResult`, `PatternSyntaxException`.              |
+| `JAVA_TIME`       | `java.time` (`LocalDate`, `LocalTime`, `LocalDateTime`, `ZonedDateTime`, `OffsetDateTime`, `Instant`, `Duration`, `Period`, `ZoneId`, `Clock`, ...), `java.time.format` (`DateTimeFormatter`, ...), `java.time.temporal` (`ChronoUnit`, `ChronoField`, `TemporalAdjusters`, ...), the ISO calendar system of `java.time.chrono`, and `ZoneRules`. Code may implement `TemporalAdjuster` and `TemporalQuery`. |
+| `TEXT`            | `java.text`: `Format`, `NumberFormat`, `DecimalFormat`, `DecimalFormatSymbols`, `DateFormat`, `SimpleDateFormat`, `DateFormatSymbols`, `MessageFormat`, `ChoiceFormat`, `Collator`, `CollationKey`, `Normalizer`, `ParsePosition`, `FieldPosition`, `ParseException`. |
+| `UTILITIES`       | `java.util`: `Random`, `SplittableRandom`, `ThreadLocalRandom`, `UUID`, `StringJoiner`, `StringTokenizer`, `BitSet`, `Base64`, `Locale`, `Date`, `Calendar`, `GregorianCalendar`, `TimeZone`, and `Formatter` without the constructors that open files. |
+
+Except for `STREAMS`, which includes `FUNCTIONAL`, the presets do not include each other; typically you include
+`JAVA_LANG_BASIC`, `COLLECTIONS` and whatever else the code needs. Some presets refer to each other's types, e.g.
+`TEXT` code usually needs `Locale` and `Date` from `UTILITIES`, and `Stream.findFirst()` returns an `Optional` from
+`COLLECTIONS`.
+
+JANINO does not support lambda expressions and method references; with JANINO, implement the functional interfaces
+with anonymous classes. The `commons-compiler-jdk` back end supports both.
+
+Note that some allowed methods may run for a very long time or allocate much memory inside the JDK, e.g.
+`BigInteger.pow()` with a huge exponent, or a regular expression with catastrophic backtracking (which
+`String.matches()` of `JAVA_LANG_BASIC` can trigger, too). The resource limits cannot interrupt such methods; only
+the timeout applies (see 3.5).
 
 ### 4.3 Adding permissions
 
@@ -294,19 +413,21 @@ the whole JVM - even if a preset or your own rule allows "all members" of the cl
 |----------------------------------|---------------------------------------------------------------------------------------|
 | Reflection and dynamic invocation | `java.lang.reflect.*`, `java.lang.invoke.*`, `Class.forName()`, `Class.getDeclaredMethods()` and all other members of `Class` except `getName()`, `getSimpleName()`, `isInstance()` and `cast()` |
 | Class loading and modules        | `ClassLoader`, `SecureClassLoader`, `Module`, `ModuleLayer`, `ServiceLoader`, `java.lang.instrument.*` |
-| Threads and concurrency          | `Thread`, `ThreadGroup`, `InheritableThreadLocal`, executors, `ForkJoinPool`, `ForkJoinTask`, `CompletableFuture`, `Timer`, `Collection.parallelStream()`, `Arrays.parallelSort()` and friends, `Object.wait()`/`notify()` |
-| Processes and the runtime        | `System` (except `nanoTime()`, `currentTimeMillis()`, `arraycopy()`, `identityHashCode()`, `lineSeparator()`), `Runtime`, `ProcessBuilder`, `Process`, `ProcessHandle`, `StackWalker`, `SecurityManager`, `java.lang.management.*` |
+| Threads and concurrency          | `Thread`, `ThreadGroup`, `InheritableThreadLocal`, executors, `ForkJoinPool`, `ForkJoinTask`, `CompletableFuture`, `Timer`, `Collection.parallelStream()`, `parallel()` of the streams, `Arrays.parallelSort()` and friends, `Object.wait()`/`notify()` |
+| Processes and the runtime        | `System` (except `nanoTime()`, `currentTimeMillis()`, `arraycopy()`, `identityHashCode()`, `lineSeparator()`), `Runtime`, `ProcessBuilder`, `Process`, `ProcessHandle`, `StackWalker`, `java.lang.management.*` |
+| Access control                   | `AccessController` (e.g. `doPrivileged()`), `AccessControlContext`, `ProtectionDomain`, `Policy`, `Security`, `SecurityManager`, `javax.security.auth.Subject` (e.g. `doAsPrivileged()`) |
 | Files and I/O                    | `File`, `FileInputStream`, `FileOutputStream`, `FileReader`, `FileWriter`, `RandomAccessFile`, `FileDescriptor`, the constructors of `PrintStream` and `PrintWriter`, `java.nio.file.*`, `java.nio.channels.*`, `ZipFile`, `JarFile` |
 | Network and remote access        | `java.net.*`, `java.rmi.*`, `javax.naming.*` (JNDI), `java.sql.DriverManager`          |
 | Serialization                    | `ObjectInputStream`, `ObjectOutputStream`, `java.beans.*`                              |
-| JVM-global state                 | `Locale.setDefault()`, `TimeZone.setDefault()`, `java.util.logging.*`, `java.util.prefs.*`, `javax.management.*` |
+| JVM-global state                 | `Locale.setDefault()`, `TimeZone.setDefault()`, `ZoneRulesProvider`, `java.util.logging.*`, `java.util.prefs.*`, `javax.management.*` |
 | System properties                | `Integer.getInteger()`, `Long.getLong()`, `Boolean.getBoolean()` (and `System.getProperty()`, see above) |
 | Other                            | `Throwable.printStackTrace()`, `javax.script.*`, `javax.tools.*`, `java.lang.foreign.*`, `java.lang.ref.Cleaner`, and all JDK-internal packages (`sun.*`, `jdk.*`, `com.sun.*`) |
 
 `SandboxPolicy.isNeverAllowed(MemberRef)` tells whether a given member is on this list.
 
-Independently of any policy, the verifier always rejects `native` methods and `invokedynamic` instructions with
-bootstrap methods other than those that compilers generate.
+Independently of any policy, the verifier always rejects `native` methods, `finalize()` methods (because the JVM
+calls them outside of any `SandboxExecutor`, see 3.5) and `invokedynamic` instructions with bootstrap methods other
+than those that compilers generate.
 
 ### 5.1 Enabling a never-allowed member deliberately
 
@@ -332,16 +453,19 @@ that returns only the values that scripts need is almost always the better solut
 
 ## 6. Limitations
 
-- **No resource limits (yet).** The policy restricts *which* APIs code may use, but not how much CPU time or memory
-  it consumes. An infinite loop, or `new long[Integer.MAX_VALUE]`, is not prevented. If you run code from untrusted
-  sources, execute it on a separate thread with a timeout, and consider running it in a separate JVM process with
-  OS-level limits for hard guarantees.
+- **Resource limits are "best effort".** A `SandboxExecutor` limits the CPU time and the memory of code that JANINO
+  compiles, but code that `javac` compiles, and code that is stuck inside a JDK method, can only be abandoned after
+  the timeout, not stopped (see 3.5). For hard guarantees, run untrusted code in a separate JVM process with OS-level
+  limits.
+- **Code outside of the executor is not limited.** Static initializers, constructors and methods of returned
+  objects that your application invokes outside of `SandboxExecutor.call()` run without limits, unless the policy
+  `requireExecutor()`s (JANINO only, see 3.5).
 - **Allowed APIs run unrestricted.** If you allow a method, everything that method does internally is allowed as
   well. Only allow APIs whose behavior you understand; prefer narrow capability objects.
 - **Objects passed in by the host.** Code may call any *allowed* method on objects that your application passes to
   it. Since the checks apply to the declaring class, a method that your policy allows on an interface (e.g.
   `List.get()`) can be invoked on any implementation that you pass in.
-- **No source locations.** Violations name the generated class and the member, but not the line in the source code.
+- **No column numbers.** Violations carry the source file and the line, but not the column (see 3.1).
 - **Behavior change compared to the legacy sandbox:** `Class.forName(...)` is never allowed (the legacy sandbox
   allowed loading some classes this way). Class literals (`String.class`) remain usable.
 
@@ -361,16 +485,17 @@ level:
 
 Applications that run on JVMs with security manager support (Java 8 through 17, or Java 18 through 23 with
 `-Djava.security.manager=allow`) can still use the sandbox of earlier versions. Instead of verifying the code at
-compile time, it confines the code **at runtime** to a set of `java.security` permissions.
+compile time, it confines the code **at runtime** to a set of `java.security` permissions. The `Sandbox` class is
+deprecated (as of version 3.1.13), but remains available for these applications.
 
-> **Warning: Code can escape from this sandbox.** Code that runs inside `Sandbox.confine()` can call
+> **Warning: By default, code can escape from this sandbox.** Code that runs inside `Sandbox.confine()` can call
 > `java.security.AccessController.doPrivileged(...)` itself, and thus perform actions that the sandbox's permissions
 > do not allow - even with no permissions at all (reported as
-> [issue #226](https://github.com/janino-compiler/janino/issues/226) of the original project). The reason is that
-> the generated classes are defined with the protection domain of JANINO itself, and the sandbox grants all
-> permissions to all code outside `confine()`. Therefore, do not rely on this sandbox alone to run untrusted code:
-> combine it with a sandbox policy, which rejects such code at compile time (see the end of this section), or use a
-> sandbox policy instead.
+> [issue #226](https://github.com/janino-compiler/janino/issues/226) of the original project). The reason is that,
+> by default, the generated classes are defined with the protection domain of JANINO itself, and the sandbox grants
+> all permissions to all code outside `confine()`. To close the escape, define the generated classes with the
+> permissions of the sandbox (see [below](#closing-the-doprivileged-escape)), and combine the sandbox with a sandbox
+> policy, which rejects such code at compile time (see the end of this section) - or use a sandbox policy instead.
 
 Example:
 
@@ -402,6 +527,35 @@ sandbox.confine(pa);
 On JVMs without security manager support, the `Sandbox` constructor throws an `UnsupportedOperationException` that
 explains the requirements; check `Sandbox.isSupported()` beforehand if your application runs on different JVMs.
 
+### Closing the `doPrivileged()` escape
+
+To prevent the escape described in the warning above, define the generated classes with a protection domain that has
+the same permissions as the sandbox. Create it with the two-argument constructor, so that its permissions are
+*static*, i.e. the global policy (which grants everything) is not consulted, and set it before cooking:
+
+```java
+import java.security.ProtectionDomain;
+
+ScriptEvaluator se = new ScriptEvaluator();
+se.setProtectionDomain(new ProtectionDomain(null, permissions));
+PrivilegedAction<?> pa = se.createFastEvaluator(script, PrivilegedAction.class, new String[0]);
+new Sandbox(permissions).confine(pa);
+```
+
+A `doPrivileged(...)` call in the script then only has the permissions of the script's own protection domain, i.e.
+those of the sandbox. Privileged actions of the JRE itself (for example in class initializers) are not affected.
+
+`setProtectionDomain()` (declared by `ICookable`) is available on the `SimpleCompiler`, `ClassBodyEvaluator`,
+`ScriptEvaluator` and `ExpressionEvaluator` of both implementations. For classes that are loaded from source files,
+use the protection domain factory of the class loader:
+
+```java
+jscl.setProtectionDomainFactory(sourceResourceName -> new ProtectionDomain(null, permissions));
+```
+
+By default (without a protection domain), the generated classes are defined with the protection domain of JANINO,
+as in earlier versions.
+
 How the two mechanisms differ:
 
 | Aspect                         | `Sandbox` (security manager)                                 | Sandbox policy                                       |
@@ -411,17 +565,17 @@ How the two mechanisms differ:
 | Granularity                    | Permissions, including parameters (e.g. file paths, hosts)   | Fields, methods and constructors                     |
 | Scope                          | Only code executed *inside* `confine()`; threads started there inherit the restrictions | All code of the compiled classes, also when invoked later |
 | Effect on the JVM              | Installs a security manager (with a permissive policy for all other code) when the class is first used | None                     |
-| Memory, CPU time               | Not restricted                                               | Not restricted                                       |
-| Known weaknesses               | Code can escape by calling `AccessController.doPrivileged()` (see the warning above) | Not affected: the presets do not allow `AccessController` |
+| Memory, CPU time               | Not restricted                                               | Limited by a `SandboxExecutor` (see 3.5)             |
+| Known weaknesses               | By default, code can escape by calling `AccessController.doPrivileged()` (see the warning above); `setProtectionDomain()` closes that | Not affected: `AccessController` and `Subject` are on the never-allowed list |
 
 Notice the scope: if a script returns an object (e.g. a `Runnable`), and the application invokes it later outside
 of `confine()`, that code runs with the full permissions of the application.
 
 On JVMs that support both, the two mechanisms can be combined: set a sandbox policy on the cookable, and execute the
 compiled code inside `Sandbox.confine()`. The policy then rejects forbidden APIs at compile time, including
-`AccessController.doPrivileged(...)`, which closes the escape described in the warning above; the permissions
-restrict the allowed APIs at runtime. Because the example above lets the script implement `PrivilegedAction`, the
-policy must allow that (see 3.1):
+`AccessController.doPrivileged(...)`; the permissions restrict the allowed APIs at runtime, and the protection
+domain closes the escape described in the warning above also at runtime. Because the example above lets the script
+implement `PrivilegedAction`, the policy must allow that (see 3.1):
 
 ```java
 SandboxPolicy policy = SandboxPolicy.builder()
@@ -432,6 +586,7 @@ SandboxPolicy policy = SandboxPolicy.builder()
 
 ScriptEvaluator se = new ScriptEvaluator();
 se.setSandboxPolicy(policy);   // compile time: only JAVA_LANG_BASIC and System.getProperty(String)
+se.setProtectionDomain(new ProtectionDomain(null, permissions));   // runtime: no escape through doPrivileged()
 PrivilegedAction<?> pa = se.createFastEvaluator(script, PrivilegedAction.class, new String[0]);
 new Sandbox(permissions).confine(pa);   // runtime: only the system property "foo"
 ```
@@ -443,13 +598,20 @@ new Sandbox(permissions).confine(pa);   // runtime: only the system property "fo
 | Type / method                                                    | Purpose                                                   |
 |------------------------------------------------------------------|-----------------------------------------------------------|
 | `SandboxPolicy`, `SandboxPolicy.builder()`, `SandboxPolicy.Builder` | The allowlist and its builder                          |
-| `SandboxPolicy.JAVA_LANG_BASIC`, `SandboxPolicy.COLLECTIONS`     | Presets                                                   |
+| `SandboxPolicy.JAVA_LANG_BASIC`, `COLLECTIONS`, `FUNCTIONAL`, `STREAMS`, `MATH`, `REGEX`, `JAVA_TIME`, `TEXT`, `UTILITIES` | Presets (section 4.2) |
 | `SandboxPolicy.isAllowed(MemberRef)`, `isSubclassingAllowed(String)` | Queries                                               |
 | `SandboxPolicy.isNeverAllowed(MemberRef)`                        | Whether a member is on the never-allowed list             |
+| `SandboxPolicy.Builder.requireExecutor()`, `SandboxPolicy.isExecutorRequired()` | Generated code throws outside of a `SandboxExecutor` (JANINO only, section 3.5) |
 | `MemberRef.field(...)`, `MemberRef.method(...)`                  | Identifies a field, method or constructor                 |
 | `ICookable.setSandboxPolicy(SandboxPolicy)`                      | Restricts expressions, scripts, class bodies, compilation units |
 | `AbstractJavaSourceClassLoader.setSandboxPolicy(SandboxPolicy)`  | Restricts classes loaded from source files                |
 | `BytecodeVerifier`                                               | Verifies class files against a policy                     |
-| `SandboxViolation`                                               | One violation: class name and message                     |
+| `SandboxViolation`                                               | One violation: class name, message and location (`getLocation()`) |
 | `SandboxViolationException`                                      | Cause of the `CompileException` / `ClassNotFoundException`; `getViolations()` |
+| `SandboxExecutor`, `SandboxExecutor.call(Callable)`              | Executes code under resource limits (section 3.5)         |
+| `SandboxLimits`, `SandboxLimits.builder()`, `SandboxLimits.Limit` | The resource limits and their kinds (`TIME`, `TICKS`, `MEMORY`) |
+| `SandboxLimitExceededException`                                  | Thrown by `call()`: `getLimit()`, `isThreadTerminated()`  |
+| `SandboxLimitExceededError`                                      | Thrown inside the code when a limit is exceeded           |
+| `Guard`, `GuardClassLoader`                                      | The checks that JANINO inserts (`tick()`, `arrayLength()`, `newArray()`, and their "strict" variants), and the class loader that makes them visible |
 | `org.codehaus.commons.compiler.Sandbox`, `Sandbox.isSupported()` | The security-manager-based sandbox (section 7)            |
+| `ICookable.setProtectionDomain(ProtectionDomain)`, `AbstractJavaSourceClassLoader.setProtectionDomainFactory(...)` | Defines the generated classes with restricted permissions (section 7) |

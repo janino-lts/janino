@@ -32,6 +32,7 @@ import java.util.List;
 
 import org.codehaus.commons.compiler.CompileException;
 import org.codehaus.commons.nullanalysis.Nullable;
+import org.codehaus.janino.IClass;
 import org.codehaus.janino.Java.AbstractCompilationUnit;
 import org.codehaus.janino.Java.AbstractCompilationUnit.ImportDeclaration;
 import org.codehaus.janino.Java.AbstractCompilationUnit.SingleStaticImportDeclaration;
@@ -384,23 +385,23 @@ class DeepCopier {
 
     // ------------------------------ "copy*()" methods on abstract types
 
-    public AbstractCompilationUnit       copyAbstractCompilationUnit(AbstractCompilationUnit subject)             throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.abstractCompilationUnitCopier));       }
-    public ImportDeclaration             copyImportDeclaration(ImportDeclaration subject)                         throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.importCopier));                        }
-    public TypeDeclaration               copyTypeDeclaration(TypeDeclaration subject)                             throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.typeDeclarationCopier));               }
-    public TypeBodyDeclaration           copyTypeBodyDeclaration(TypeBodyDeclaration subject)                     throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.typeBodyDeclarationCopier));           }
-    public FunctionDeclarator            copyFunctionDeclarator(FunctionDeclarator subject)                       throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.functionDeclaratorCopier));            }
-    public BlockStatement                copyBlockStatement(BlockStatement subject)                               throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.blockStatementCopier));                }
-    public FieldDeclarationOrInitializer copyFieldDeclarationOrInitializer(FieldDeclarationOrInitializer subject) throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.fieldDeclarationOrInitializerCopier)); }
-    public Resource                      copyResource(Resource subject)                                           throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.resourceCopier));                      }
-    public TypeArgument                  copyTypeArgument(TypeArgument subject)                                   throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.typeArgumentCopier));                  }
-    public ConstructorInvocation         copyConstructorInvocation(ConstructorInvocation subject)                 throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.constructorInvocationCopier));         }
-    public ElementValue                  copyElementValue(ElementValue subject)                                   throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.elementValueCopier));                  }
-    public Annotation                    copyAnnotation(Annotation subject)                                       throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.annotationCopier));                    }
-    public Rvalue                        copyRvalue(Rvalue subject)                                               throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.rvalueCopier));                        }
-    public Lvalue                        copyLvalue(Lvalue subject)                                               throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.lvalueCopier));                        }
-    public Type                          copyType(Type subject)                                                   throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.typeCopier));                          }
-    public Atom                          copyAtom(Atom subject)                                                   throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.atomCopier));                          }
-    public ArrayInitializerOrRvalue      copyArrayInitializerOrRvalue(ArrayInitializerOrRvalue subject)           throws CompileException { return DeepCopier.assertNotNull(subject.accept(this.arrayInitializerOrRvalueCopier));      }
+    public AbstractCompilationUnit       copyAbstractCompilationUnit(AbstractCompilationUnit subject)             throws CompileException { return (AbstractCompilationUnit) DeepCopier.assertNotNull(subject.accept(this.abstractCompilationUnitCopier));       }
+    public ImportDeclaration             copyImportDeclaration(ImportDeclaration subject)                         throws CompileException { return (ImportDeclaration) DeepCopier.assertNotNull(subject.accept(this.importCopier));                        }
+    public TypeDeclaration               copyTypeDeclaration(TypeDeclaration subject)                             throws CompileException { return (TypeDeclaration) DeepCopier.assertNotNull(subject.accept(this.typeDeclarationCopier));               }
+    public TypeBodyDeclaration           copyTypeBodyDeclaration(TypeBodyDeclaration subject)                     throws CompileException { return (TypeBodyDeclaration) DeepCopier.assertNotNull(subject.accept(this.typeBodyDeclarationCopier));           }
+    public FunctionDeclarator            copyFunctionDeclarator(FunctionDeclarator subject)                       throws CompileException { return (FunctionDeclarator) DeepCopier.assertNotNull(subject.accept(this.functionDeclaratorCopier));            }
+    public BlockStatement                copyBlockStatement(BlockStatement subject)                               throws CompileException { return (BlockStatement) DeepCopier.assertNotNull(subject.accept(this.blockStatementCopier));                }
+    public FieldDeclarationOrInitializer copyFieldDeclarationOrInitializer(FieldDeclarationOrInitializer subject) throws CompileException { return (FieldDeclarationOrInitializer) DeepCopier.assertNotNull(subject.accept(this.fieldDeclarationOrInitializerCopier)); }
+    public Resource                      copyResource(Resource subject)                                           throws CompileException { return (Resource) DeepCopier.assertNotNull(subject.accept(this.resourceCopier));                      }
+    public TypeArgument                  copyTypeArgument(TypeArgument subject)                                   throws CompileException { return (TypeArgument) DeepCopier.assertNotNull(subject.accept(this.typeArgumentCopier));                  }
+    public ConstructorInvocation         copyConstructorInvocation(ConstructorInvocation subject)                 throws CompileException { return (ConstructorInvocation) DeepCopier.assertNotNull(subject.accept(this.constructorInvocationCopier));         }
+    public ElementValue                  copyElementValue(ElementValue subject)                                   throws CompileException { return (ElementValue) DeepCopier.assertNotNull(subject.accept(this.elementValueCopier));                  }
+    public Annotation                    copyAnnotation(Annotation subject)                                       throws CompileException { return (Annotation) DeepCopier.assertNotNull(subject.accept(this.annotationCopier));                    }
+    public Rvalue                        copyRvalue(Rvalue subject)                                               throws CompileException { return (Rvalue) DeepCopier.assertNotNull(subject.accept(this.rvalueCopier));                        }
+    public Lvalue                        copyLvalue(Lvalue subject)                                               throws CompileException { return (Lvalue) DeepCopier.assertNotNull(subject.accept(this.lvalueCopier));                        }
+    public Type                          copyType(Type subject)                                                   throws CompileException { return (Type) DeepCopier.assertNotNull(subject.accept(this.typeCopier));                          }
+    public Atom                          copyAtom(Atom subject)                                                   throws CompileException { return (Atom) DeepCopier.assertNotNull(subject.accept(this.atomCopier));                          }
+    public ArrayInitializerOrRvalue      copyArrayInitializerOrRvalue(ArrayInitializerOrRvalue subject)           throws CompileException { return (ArrayInitializerOrRvalue) DeepCopier.assertNotNull(subject.accept(this.arrayInitializerOrRvalueCopier));      }
 
     public PackageMemberTypeDeclaration copyPackageMemberTypeDeclaration(PackageMemberTypeDeclaration subject) throws CompileException { return (PackageMemberTypeDeclaration) this.copyTypeDeclaration(subject); }
     public MemberTypeDeclaration        copyMemberTypeDeclaration(MemberTypeDeclaration subject)               throws CompileException { return (MemberTypeDeclaration)        this.copyTypeDeclaration(subject); }
@@ -442,7 +443,7 @@ class DeepCopier {
     public FormalParameter[]          copyFormalParameters(FormalParameter[] subject)                   throws CompileException { FormalParameter[]          result = new FormalParameter[subject.length];            for (int i = 0; i < result.length; i++) result[i] = this.copyFormalParameter(subject[i]);                   return result; }
     public Annotation[]               copyAnnotations(Annotation[] subject)                             throws CompileException { Annotation[]               result = new Annotation[subject.length];                 for (int i = 0; i < result.length; i++) result[i] = this.copyAnnotation(subject[i]);                        return result; }
 
-    public Rvalue[]                   copyRvalues(Rvalue[] subject)                                     throws CompileException { return this.copyRvalues(Arrays.asList(subject)).toArray(new Rvalue[0]); }
+    public Rvalue[]                   copyRvalues(Rvalue[] subject)                                     throws CompileException { return (Rvalue[]) this.copyRvalues(Arrays.asList(subject)).toArray(new Rvalue[0]); }
 
     // ------------------------------ "copy*s()" methods for collections
 
@@ -498,22 +499,22 @@ class DeepCopier {
 
     public ImportDeclaration
     copySingleTypeImportDeclaration(SingleTypeImportDeclaration stid) throws CompileException {
-        return new SingleTypeImportDeclaration(stid.getLocation(), stid.identifiers.clone());
+        return new SingleTypeImportDeclaration(stid.getLocation(), (String[]) stid.identifiers.clone());
     }
 
     public ImportDeclaration
     copyTypeImportOnDemandDeclaration(TypeImportOnDemandDeclaration tiodd) throws CompileException {
-        return new TypeImportOnDemandDeclaration(tiodd.getLocation(), tiodd.identifiers.clone());
+        return new TypeImportOnDemandDeclaration(tiodd.getLocation(), (String[]) tiodd.identifiers.clone());
     }
 
     public ImportDeclaration
     copySingleStaticImportDeclaration(SingleStaticImportDeclaration stid) throws CompileException {
-        return new SingleStaticImportDeclaration(stid.getLocation(), stid.identifiers.clone());
+        return new SingleStaticImportDeclaration(stid.getLocation(), (String[]) stid.identifiers.clone());
     }
 
     public ImportDeclaration
     copyStaticImportOnDemandDeclaration(StaticImportOnDemandDeclaration siodd) throws CompileException {
-        return new StaticImportOnDemandDeclaration(siodd.getLocation(), siodd.identifiers.clone());
+        return new StaticImportOnDemandDeclaration(siodd.getLocation(), (String[]) siodd.identifiers.clone());
     }
 
     public AnonymousClassDeclaration
@@ -678,7 +679,7 @@ class DeepCopier {
             this.copyFormalParameters(subject.formalParameters),
             this.copyTypes(subject.thrownExceptions),
             this.copyOptionalConstructorInvocation(subject.constructorInvocation),
-            this.copyBlockStatements(DeepCopier.assertNotNull(subject.statements))
+            this.copyBlockStatements((List<? extends BlockStatement>) DeepCopier.assertNotNull(subject.statements))
         );
     }
 
@@ -1063,13 +1064,13 @@ class DeepCopier {
             ? new NewClassInstance(
                 subject.getLocation(),
                 this.copyOptionalRvalue(subject.qualification),
-                this.copyType(DeepCopier.assertNotNull(subject.type)),
+                this.copyType((Type) DeepCopier.assertNotNull(subject.type)),
                 this.copyRvalues(subject.arguments)
             )
             : new NewClassInstance(
                 subject.getLocation(),
                 this.copyOptionalRvalue(subject.qualification),
-                DeepCopier.assertNotNull(subject.iType),
+                (IClass) DeepCopier.assertNotNull(subject.iType),
                 this.copyRvalues(subject.arguments)
             )
         );
@@ -1156,7 +1157,7 @@ class DeepCopier {
 
     public Lvalue
     copyAmbiguousName(AmbiguousName subject) throws CompileException {
-        return new AmbiguousName(subject.getLocation(), Arrays.copyOf(subject.identifiers, subject.n));
+        return new AmbiguousName(subject.getLocation(), (String[]) Arrays.copyOf(subject.identifiers, subject.n));
     }
 
     public Lvalue
@@ -1395,7 +1396,7 @@ class DeepCopier {
 
     public Modifier
     copyModifier(Modifier modifier) throws CompileException {
-        return DeepCopier.assertNotNull(modifier.accept(this.modifierCopier));
+        return (Modifier) DeepCopier.assertNotNull(modifier.accept(this.modifierCopier));
     }
 
     public AccessModifier
