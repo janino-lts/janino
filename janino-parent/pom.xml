@@ -317,9 +317,10 @@
     <!--
       Measures the test coverage (JaCoCo) and runs a static analysis (SpotBugs); reports only, never fails the build:
         mvn -f janino-parent/pom.xml -P quality verify
-      The coverage report of all modules is in "commons-compiler-tests/target/site/jacoco-aggregate", the SpotBugs
-      reports are in "*/target/spotbugsXml.xml" and "*/target/reports/spotbugs.html"; the patterns that are
-      intentional in JANINO are excluded through "spotbugs-exclude.xml".
+      The coverage report of all modules (without samples, command line tools and stand-ins for Java 8 / 9 APIs) is
+      in "commons-compiler-tests/target/site/jacoco-aggregate", the SpotBugs reports are in "*/target/spotbugsXml.xml"
+      and "*/target/reports/spotbugs.html"; the patterns that are intentional in JANINO are excluded through
+      "spotbugs-exclude.xml".
     -->
     <profile>
       <id>quality</id>

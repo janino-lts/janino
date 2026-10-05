@@ -45,7 +45,8 @@
       See profile "quality" in "janino-parent/pom.xml". The tests in this module exercise all modules, so the coverage
       report of all modules is created here. "report-aggregate" only covers the dependencies of this module, so the
       compiler implementations (which are otherwise only added to the test classpath, see below) are declared as
-      dependencies.
+      dependencies. Code that is not part of the product (samples, command line tools, stand-ins for Java 8 / 9 APIs)
+      is still built, but not counted.
     -->
     <profile>
       <id>quality</id>
@@ -82,6 +83,16 @@
                 </goals>
                 <configuration>
                   <includeCurrentProject>true</includeCurrentProject>
+
+                  <!-- Not part of the product: samples, command line tools, stand-ins for Java 8 / 9 APIs. -->
+                  <excludes>
+                    <exclude>org/codehaus/commons/compiler/samples/**</exclude>
+                    <exclude>org/codehaus/janino/samples/**</exclude>
+                    <exclude>org/codehaus/janino/tools/**</exclude>
+                    <exclude>org/codehaus/commons/compiler/java8/**</exclude>
+                    <exclude>org/codehaus/commons/compiler/java9/**</exclude>
+                    <exclude>org/codehaus/commons/nullanalysis/**</exclude>
+                  </excludes>
                 </configuration>
               </execution>
             </executions>
