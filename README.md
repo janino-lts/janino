@@ -9,7 +9,7 @@ help with the work by creating an [issue](https://github.com/janino-lts/janino/i
 
 Janino is used by several large Apache projects, among others [Apache Spark](https://spark.apache.org/),
 [Apache Calcite](https://calcite.apache.org/), [Apache Flink](https://flink.apache.org/) and
-[Apache Hive](https://hive.apache.org/). (They use the original Janino 3.1.12 from Maven Central, not this fork.)
+[Apache Hive](https://hive.apache.org/). (They use the original Janino 3.1.12, not this continuation.)
 
 Please visit the [project homepage](https://janino-lts.github.io/janino/).
 

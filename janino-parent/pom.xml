@@ -71,13 +71,6 @@
     <module>../commons-compiler-tests</module>
   </modules>
 
-  <distributionManagement>
-    <snapshotRepository>
-      <id>ossrh</id>
-      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-    </snapshotRepository>
-  </distributionManagement>
-
   <build>
     <plugins>
       <plugin>
@@ -118,7 +111,11 @@
         </executions>
         <configuration>
           <instructions>
-            <Bundle-SymbolicName>${project.groupId}.${project.artifactId};singleton:=true</Bundle-SymbolicName>
+            <!--
+              Fixed rather than derived from the group ID, so that the symbolic names stay the same when the group ID
+              changes (OSGi bundles refer to them, e.g. "Require-Bundle" in "janino/pom.xml").
+            -->
+            <Bundle-SymbolicName>org.codehaus.janino.${project.artifactId};singleton:=true</Bundle-SymbolicName>
             <Bundle-Name>${project.artifactId}</Bundle-Name>
             <Bundle-Version>${project.version}</Bundle-Version>
             <Bundle-License>https://spdx.org/licenses/BSD-3-Clause.html</Bundle-License>
@@ -213,18 +210,6 @@
             <!-- Suppress the warning "source value 8 is obsolete and will be removed in a future release". -->
             <arg>-Xlint:-options</arg>
           </compilerArgs>
-        </configuration>
-      </plugin>
-
-      <plugin>
-        <groupId>org.sonatype.plugins</groupId>
-        <artifactId>nexus-staging-maven-plugin</artifactId>
-        <version>1.6.13</version>
-        <extensions>true</extensions>
-        <configuration>
-           <serverId>ossrh</serverId>
-           <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-           <autoReleaseAfterClose>false</autoReleaseAfterClose>
         </configuration>
       </plugin>
     </plugins>
@@ -378,7 +363,7 @@
       </modules>
     </profile>
 
-    <!-- Signs all artifacts with GPG (oss.sonatype.org requires that). -->
+    <!-- Signs all artifacts with GPG (Maven Central requires that). -->
     <profile>
       <id>have_gpg</id>
       <build>
