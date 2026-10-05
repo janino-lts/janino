@@ -2890,11 +2890,38 @@ class JlsTest extends CommonsCompilerTestSuite {
     @Test public void
     test_15_15_3__Unary_Plus_Operator() throws Exception {
         this.assertExpressionEvaluatesTrue("new Integer(+new Integer(7)).intValue() == 7");
+
+        // The operand is promoted to "int", also in constant expressions (issue #39).
+        this.assertExpressionEvaluatesTrue("(\"\" + (+'a')).equals(\"97\")");
+        this.assertExpressionEvaluatesTrue("(\"\" + (+(byte) 5)).equals(\"5\")");
+        this.assertScriptReturnsTrue("Object o = +'a'; return o.equals(97);");
+        this.assertScriptReturnsTrue("Object o = +(short) 7; return o.equals(7);");
+        this.assertScriptReturnsTrue("char c = +'a'; return c == 'a';");
+        this.assertScriptReturnsTrue("Character c = +'a'; return c == 'a';");
+        this.assertScriptReturnsTrue("byte b = +(byte) 5; return b == 5;");
     }
 
     @Test public void
     test_15_15_4__Unary_Minus_Operator() throws Exception {
         this.assertExpressionEvaluatesTrue("new Integer(-new Integer(7)).intValue() == -7");
+
+        // The operand is promoted to "int", also in constant expressions (issue #39).
+        this.assertExpressionEvaluatesTrue("-Byte.MIN_VALUE == 128");
+        this.assertExpressionEvaluatesTrue("-((byte) -128) == 128");
+        this.assertExpressionEvaluatesTrue("-Short.MIN_VALUE == 32768");
+        this.assertExpressionEvaluatesTrue("(\"\" + (-Byte.MIN_VALUE)).equals(\"128\")");
+        this.assertExpressionEvaluatesTrue("(\"\" + (-'a')).equals(\"-97\")");
+        this.assertScriptReturnsTrue("Object o = -Byte.MIN_VALUE; return o.equals(128);");
+        this.assertScriptReturnsTrue("byte b = -(byte) 5; return b == -5;");
+        this.assertScriptReturnsTrue("int i = -2147483648; long l = -9223372036854775808L; return i < 0 && l < 0;");
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "static final int  X = -Byte.MIN_VALUE;\n"
+            + "static final long Y = -Short.MIN_VALUE;\n"
+            + "public static boolean main() { return X == 128 && Y == 32768L; }\n"
+        );
+        this.assertScriptUncookable("byte b = -Byte.MIN_VALUE;");
+        this.assertScriptUncookable("short s = -Short.MIN_VALUE;");
     }
 
     @Test public void

@@ -6376,7 +6376,12 @@ class UnitCompiler {
     @Nullable private Object
     getConstantValue2(UnaryOperation uo) throws CompileException {
         if (uo.operator == "+") { // SUPPRESS CHECKSTYLE StringLiteralEquality
-            return this.getConstantValue(uo.operand);
+            Object cv = this.getConstantValue(uo.operand);
+
+            // Unary numeric promotion (JLS 15.15.3): "byte", "short" and "char" become "int".
+            if (cv instanceof Byte || cv instanceof Short) return Integer.valueOf(((Number) cv).intValue());
+            if (cv instanceof Character)                   return Integer.valueOf(((Character) cv).charValue());
+            return cv;
         }
         if (uo.operator == "-") { // SUPPRESS CHECKSTYLE StringLiteralEquality
 
@@ -6392,9 +6397,10 @@ class UnitCompiler {
 
             if (cv == UnitCompiler.NOT_CONSTANT) return UnitCompiler.NOT_CONSTANT;
 
-            // SUPPRESS CHECKSTYLE DOT__SELECTOR|L_PAREN__METH_INVOCATION:6
-            if (cv instanceof Byte)    return Byte   .valueOf((byte)  -((Byte)    cv));
-            if (cv instanceof Short)   return Short  .valueOf((short) -((Short)   cv));
+            // Unary numeric promotion (JLS 15.15.4): "byte" and "short" become "int", e.g. "-Byte.MIN_VALUE" is 128.
+            if (cv instanceof Byte || cv instanceof Short) return Integer.valueOf(-((Number) cv).intValue());
+
+            // SUPPRESS CHECKSTYLE DOT__SELECTOR|L_PAREN__METH_INVOCATION:4
             if (cv instanceof Integer) return Integer.valueOf(        -((Integer) cv));
             if (cv instanceof Long)    return Long   .valueOf(        -((Long)    cv));
             if (cv instanceof Float)   return Float  .valueOf(        -((Float)   cv));

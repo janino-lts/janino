@@ -549,13 +549,6 @@ class ExpressionDifferentialTest {
         CONDITIONAL_TYPE,
 
         /**
-         * The constant folding of the unary operators {@code +} and {@code -} does not promote a constant of type
-         * {@code byte}, {@code short} or {@code char} to {@code int}, e.g. {@code -Byte.MIN_VALUE} yields -128 instead
-         * of 128, and {@code "" + (+'a')} yields "a" instead of "97". Issue #39.
-         */
-        UNARY_PROMOTION_OF_CONSTANT,
-
-        /**
          * JANINO does not unbox the left operand of {@code ||} and {@code &&} if the right operand is constant and
          * determines the result ({@code Z || true}, {@code Z && false}), so that a {@code null} operand does not throw
          * a {@link NullPointerException}. Issue #40.
@@ -990,12 +983,7 @@ class ExpressionDifferentialTest {
                 return "(~" + this.expression(this.numericType(t, true, true), depth + 1) + ")";
             }
             String operator = this.random.nextBoolean() ? "-" : "+";
-            Type   operand  = this.numericType(t, false, true);
-            if (
-                operand.ordinal() < Type.INT.ordinal()
-                && this.avoided.contains(Defect.UNARY_PROMOTION_OF_CONSTANT)
-            ) operand = Type.INT;
-            return "(" + operator + this.expression(operand, depth + 1) + ")";
+            return "(" + operator + this.expression(this.numericType(t, false, true), depth + 1) + ")";
         }
 
         @Nullable private String
