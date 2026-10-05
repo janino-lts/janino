@@ -24,13 +24,8 @@
 
 package org.codehaus.commons.compiler.tests;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -41,13 +36,9 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import org.codehaus.commons.compiler.CompileException;
-import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.ICompilerFactory;
-import org.codehaus.commons.compiler.ISimpleCompiler;
 import org.codehaus.commons.compiler.InternalCompilerException;
 import org.codehaus.commons.nullanalysis.Nullable;
-import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.Test;
 
 /**
@@ -103,15 +94,9 @@ class ControlFlowDifferentialTest {
     @Test public void
     test() throws Exception {
 
-        ICompilerFactory janino = null, jdk = null;
-        for (ICompilerFactory cf : CompilerFactoryFactory.getAllCompilerFactories(
-            ControlFlowDifferentialTest.class.getClassLoader()
-        )) {
-            if ("org.codehaus.janino".equals(cf.getId()))               janino = cf;
-            if ("org.codehaus.commons.compiler.jdk".equals(cf.getId())) jdk    = cf;
-        }
-        Assume.assumeTrue("Both compilers must be available", janino != null && jdk != null);
-        assert janino != null && jdk != null;
+        ICompilerFactory[] compilerFactories = DifferentialTesting.janinoAndJdk();
+        ICompilerFactory   janino            = compilerFactories[0];
+        ICompilerFactory   jdk               = compilerFactories[1];
 
         Set<String>         actualDifferences = new TreeSet<>();
         Map<String, String> details           = new HashMap<>();
@@ -147,19 +132,11 @@ class ControlFlowDifferentialTest {
             }
         }
 
-        Set<String> knownDifferences = ControlFlowDifferentialTest.readKnownDifferences();
-        if (actualDifferences.equals(knownDifferences)) return;
-
-        StringBuilder sb = new StringBuilder("The differences between JANINO and JAVAC have changed.");
-        for (String d : actualDifferences) {
-            if (!knownDifferences.contains(d)) sb.append("\nNew difference: ").append(d).append('\n').append(details.get(d));
-        }
-        for (String d : knownDifferences) {
-            if (!actualDifferences.contains(d)) sb.append("\nNo longer a difference: ").append(d);
-        }
-        sb.append("\n\nAll current differences:");
-        for (String d : actualDifferences) sb.append('\n').append(d);
-        Assert.fail(sb.toString());
+        DifferentialTesting.assertDifferences(
+            ControlFlowDifferentialTest.KNOWN_DIFFERENCES,
+            actualDifferences,
+            details
+        );
     }
 
     /**
@@ -180,11 +157,11 @@ class ControlFlowDifferentialTest {
         source.append("}\n");
 
         // The JDK-based compiler is the reference; the generator must produce valid code.
-        ClassLoader expectedCl = ControlFlowDifferentialTest.compile(jdk, source.toString());
+        ClassLoader expectedCl = DifferentialTesting.compile(jdk, source.toString());
 
         ClassLoader actualCl;
         try {
-            actualCl = ControlFlowDifferentialTest.compile(janino, source.toString());
+            actualCl = DifferentialTesting.compile(janino, source.toString());
         } catch (CompileException ce) {
             if (onlyMethod == -1) return null;
             return Collections.singletonMap("m" + onlyMethod + " REJECTED", ce.toString());
@@ -215,29 +192,6 @@ class ControlFlowDifferentialTest {
             }
         }
         return result;
-    }
-
-    private static Set<String>
-    readKnownDifferences() throws IOException {
-
-        Set<String> result = new TreeSet<>();
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(
-            new FileInputStream(ControlFlowDifferentialTest.KNOWN_DIFFERENCES),
-            StandardCharsets.UTF_8
-        ))) {
-            for (String line = br.readLine(); line != null; line = br.readLine()) {
-                line = line.trim();
-                if (!line.isEmpty() && !line.startsWith("#")) result.add(line);
-            }
-        }
-        return result;
-    }
-
-    private static ClassLoader
-    compile(ICompilerFactory compilerFactory, String source) throws Exception {
-        ISimpleCompiler sc = compilerFactory.newSimpleCompiler();
-        sc.cook(source);
-        return sc.getClassLoader();
     }
 
     /**

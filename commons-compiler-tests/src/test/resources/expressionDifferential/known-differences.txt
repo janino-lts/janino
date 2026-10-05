@@ -1,0 +1,2 @@
+# Known differences between JANINO and JAVAC; see "ExpressionDifferentialTest".
+# Format: <seed> <method> <WRONG|INVALID|REJECTED>

@@ -363,6 +363,20 @@
       </build>
     </profile>
 
+    <!--
+      Adds the module "janino-benchmarks", which compares the compile time of the current build with a baseline
+      version of JANINO:
+        mvn -f janino-parent/pom.xml -P benchmarks -DskipTests clean package
+        java -jar janino-benchmarks/target/benchmarks.jar
+      See "janino-benchmarks/src/main/java/org/codehaus/janino/benchmarks/package-info.java" for details.
+    -->
+    <profile>
+      <id>benchmarks</id>
+      <modules>
+        <module>../janino-benchmarks</module>
+      </modules>
+    </profile>
+
     <!-- Signs all artifacts with GPG (oss.sonatype.org requires that). -->
     <profile>
       <id>have_gpg</id>

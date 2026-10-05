@@ -25,6 +25,7 @@
 
 package org.codehaus.commons.compiler;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -68,8 +69,8 @@ class MultiCookable extends Cookable implements IMultiCookable {
         for (int i = 0; i < count; i++) {
             readers[i] = (
                 encodings[i] == null
-                ? new InputStreamReader(inputStreams[i])
-                : new InputStreamReader(inputStreams[i], encodings[i])
+                ? new BufferedReader(new InputStreamReader(inputStreams[i]))
+                : new BufferedReader(new InputStreamReader(inputStreams[i], encodings[i]))
             );
         }
 
@@ -115,7 +116,7 @@ class MultiCookable extends Cookable implements IMultiCookable {
                 inputStreams[i] = new FileInputStream(file);
             }
 
-            this.cook(inputStreams, encodings);
+            this.cook(fileNames, inputStreams, encodings);
 
             for (int i = 0; i < count; i++) inputStreams[i].close();
         } finally {
@@ -128,7 +129,7 @@ class MultiCookable extends Cookable implements IMultiCookable {
 
     @Override public final void
     cookFiles(String[] fileNames) throws CompileException, IOException {
-        this.cook(fileNames, new String[fileNames.length]);
+        this.cookFiles(fileNames, new String[fileNames.length]);
     }
 
     @Override public final void

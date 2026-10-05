@@ -654,10 +654,15 @@ class IClass implements ITypeVariableOrIClass {
         // Identity conversion, JLS7 5.1.1
         if (this == that) return true;
 
-        // Widening primitive conversion, JLS7 5.1.2
+        // Widening primitive conversion, JLS7 5.1.2 (the descriptors of primitive types have one character each)
         {
-            String ds = that.getDescriptor() + this.getDescriptor();
-            if (ds.length() == 2 && IClass.PRIMITIVE_WIDENING_CONVERSIONS.contains(ds)) return true;
+            String thatDescriptor = that.getDescriptor();
+            String thisDescriptor = this.getDescriptor();
+            if (
+                thatDescriptor.length() == 1
+                && thisDescriptor.length() == 1
+                && IClass.PRIMITIVE_WIDENING_CONVERSIONS.contains(thatDescriptor + thisDescriptor)
+            ) return true;
         }
 
         // Widening reference conversion, JLS7 5.1.5
@@ -1173,6 +1178,13 @@ class IClass implements ITypeVariableOrIClass {
          * @return Whether this method is ABSTRACT
          */
         public abstract boolean isAbstract();
+
+        /**
+         * @return Whether this method is FINAL; {@code false} unless overridden. (Package-private, so that
+         *         implementations outside of this package need not implement it.)
+         */
+        boolean
+        isFinal() { return false; }
 
         /**
          * @return The return type of this method

@@ -2980,6 +2980,24 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    test_15_19__Shift_operators() throws Exception {
+        this.assertExpressionEvaluatesTrue("(5 << 2) == 20");
+        this.assertExpressionEvaluatesTrue("(-8L >> 1) == -4L");
+        this.assertExpressionEvaluatesTrue("(-1 >>> 28) == 15");
+
+        // Unboxing of the operands.
+        this.assertScriptReturnsTrue("Integer i = 5; Object o = i << 1; return o.equals(10);");
+        this.assertScriptReturnsTrue("Long l = 5L; Object o = l >> 1L; return o.equals(2L);");
+        this.assertScriptReturnsTrue("Character c = 'a'; Object o = c >>> 1; return o.equals(48);");
+        this.assertScriptReturnsTrue("int i = 5; Integer d = 2; Object o = i << d; return o.equals(20);");
+        this.assertScriptReturnsTrue("Byte b = 1; return String.valueOf(b << 8).equals(\"256\");");
+
+        this.assertExpressionUncookable("1.0 << 1");
+        this.assertExpressionUncookable("Double.valueOf(1.0) << 1");
+        this.assertExpressionUncookable("Boolean.TRUE << 1");
+    }
+
+    @Test public void
     test_15_20__Relation_operators() throws Exception {
         // 15.20.1 Numerical Comparison Operators <, <=, > and >=
         this.assertExpressionEvaluatesTrue("new Integer(7) > new Byte((byte) 5)");
@@ -3017,6 +3035,12 @@ class JlsTest extends CommonsCompilerTestSuite {
         this.assertExpressionEvaluatesTrue("(new Long(7L) & 12) == 4");
         this.assertExpressionEvaluatesTrue("(Long.valueOf(7) & Byte.valueOf((byte) 12)) == Short.valueOf((short) 4)");
         this.assertExpressionUncookable("(7 & Boolean.TRUE) == 4");
+        this.assertScriptReturnsTrue("Integer i = 5; Object o = i & 1; return o.equals(1);");
+        this.assertScriptReturnsTrue("Integer i = 5, j = 3; Object o = i & j; return o.equals(1);");
+        this.assertScriptReturnsTrue("Long l = 5L; Object o = l | 2L; return o.equals(7L);");
+        this.assertScriptReturnsTrue("Byte b = 5; char c = 3; Object o = b ^ c; return o.equals(6);");
+        this.assertScriptReturnsTrue("Integer i = 5; return String.valueOf(i & 6).equals(\"4\");");
+        this.assertExpressionUncookable("Double.valueOf(7) & 12");
 
         // 15.22.2 Boolean Logical Operators &, ^, and |
         this.assertExpressionEvaluatesTrue("new Boolean(true) & new Boolean(true)");
@@ -3198,6 +3222,36 @@ class JlsTest extends CommonsCompilerTestSuite {
         this.assertScriptReturnsTrue("int a = 7; a += new Integer(3); return a == 10;");
         // JANINO-155: Compound assignment does not implement boxing conversion
         this.assertScriptReturnsTrue("Double[] a = { 1.0, 2.0 }; a[0] += 1.0; return a[0] == 2.0;");
+
+        // The value of a compound assignment is the value of the variable after the assignment.
+        this.assertScriptReturnsTrue("int i = 1, j = 10; return j - (i += 2) == 7 && i == 3;");
+        this.assertScriptReturnsTrue("int i = 1; return 100 - (i += 2) == 97;");
+        this.assertScriptReturnsTrue("int i = 7; int x = (i += 2); return x == 9 && i == 9;");
+        this.assertScriptReturnsTrue("long l = 7; long x = (l <<= 2); return x == 28 && l == 28;");
+        this.assertScriptReturnsTrue("byte b = 100; int x = (b += 100); return x == -56 && b == -56;");
+        this.assertScriptReturnsTrue("int[] a = { 0, 0 }; int i = 1; a[1] -= (i += 2); return a[1] == -3;");
+        this.assertScriptReturnsTrue("int[] a = { 0, 0 }; int i = 1; a[1] = (i += 2); return a[1] == 3 && a[0] == 0;");
+        this.assertScriptReturnsTrue("int[] a = { 7 }; int x = (a[0] += 2); return x == 9 && a[0] == 9;");
+        this.assertScriptReturnsTrue("double[] a = { 7 }; double x = (a[0] *= 2); return x == 14 && a[0] == 14;");
+        this.assertScriptReturnsTrue("Integer i = 7; Integer x = (i += 2); return x == 9 && i == 9;");
+        this.assertScriptReturnsTrue("Integer[] a = { 7 }; Object x = (a[0] += 2); return x.equals(9) && a[0] == 9;");
+        this.assertScriptReturnsTrue("String s = \"a\"; Object x = (s += \"b\"); return x == s && s.equals(\"ab\");");
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "static int  f = 7;\n"
+            + "static long g = 7;\n"
+            + "static class H { int x = 7; long y = 7; }\n"
+            + "public static boolean main() {\n"
+            + "    int  a = (f += 2);\n"
+            + "    long b = 10 - (g -= 2);\n"
+            + "    H    o = new H();\n"
+            + "    int  i = 1;\n"
+            + "    o.x = (i += 2);\n"
+            + "    long c = (o.y *= 3);\n"
+            + "    return a == 9 && f == 9 && b == 5 && g == 5 && o.x == 3 && i == 3 && c == 21 && o.y == 21;\n"
+            + "}\n"
+        );
+        this.assertScriptUncookable("Byte b = 1; Object x = (b += 1);");
     }
 
     @Test public void

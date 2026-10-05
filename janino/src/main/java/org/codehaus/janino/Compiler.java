@@ -26,6 +26,7 @@
 package org.codehaus.janino;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -305,7 +306,10 @@ class Compiler extends AbstractCompiler {
     ) throws CompileException, IOException {
         try {
 
-            Scanner scanner = new Scanner(fileName, new InputStreamReader(inputStream, charset));
+            Scanner scanner = new Scanner(
+                fileName,
+                new BufferedReader(new InputStreamReader(inputStream, charset))
+            );
 
             Parser parser = new Parser(scanner);
             parser.setSourceVersion(this.sourceVersion);

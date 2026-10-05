@@ -1,0 +1,235 @@
+# Syntax errors. See "InvalidCodeTest" for the format.
+
+=== missing semicolon
+janino: REJECTED ';' expected instead of '}'
+public class P {
+    int x = 1
+}
+
+=== missing closing brace
+janino: REJECTED IDENTIFIER expected instead of 'end-of-input'
+public class P {
+
+=== unterminated string literal
+janino: REJECTED Line break in literal not allowed
+public class P {
+    String s = "abc;
+}
+
+=== unterminated comment
+janino: REJECTED Unexpected end-of-input in C-style comment
+public class P {
+    /* comment
+}
+
+=== empty character literal
+janino: REJECTED Single quote must be backslash-escaped in character literal
+public class P {
+    char c = '';
+}
+
+=== int literal too large
+janino: REJECTED Invalid integer literal "2147483648"
+public class P {
+    int x = 2147483648;
+}
+
+=== long literal too large
+janino: REJECTED Invalid integer literal "9223372036854775808L"
+public class P {
+    long x = 9223372036854775808L;
+}
+
+=== exponent missing
+janino: REJECTED Exponent missing after "E"
+public class P {
+    double d = 1e;
+}
+
+=== exponent missing after fraction
+janino: REJECTED Exponent missing after "E"
+public class P {
+    double d = 1.5e+;
+}
+
+=== hexadecimal floating-point literal without exponent
+janino: REJECTED "p" missing in hexadecimal floating-point literal
+public class P {
+    double d = 0x1.0;
+}
+
+=== binary literal without digits
+janino: REJECTED Binary digit expected after "0b"
+public class P {
+    int i = 0b;
+}
+
+=== binary literal with invalid digit
+janino: REJECTED Binary digit expected after "0b"
+public class P {
+    int i = 0b2;
+}
+
+=== octal literal with invalid digit
+janino: REJECTED ';' expected instead of '9'
+public class P {
+    int i = 09;
+}
+
+=== underscore at end of literal
+janino: REJECTED ';' expected instead of '_'
+public class P {
+    int i = 1_;
+}
+
+=== enum with type parameters
+janino: REJECTED Enum declaration must not have type parameters
+enum E<T> { X }
+
+=== enum with extends clause
+janino: REJECTED Enum declaration must not have an EXTENDS clause
+enum E extends Object { X }
+
+=== initializer with private modifier
+janino: REJECTED Only access flag "static" allowed on initializer
+public class P {
+    private { }
+}
+
+=== field with type parameters
+janino: REJECTED Type parameters not allowed on field declaration
+public class P {
+    <T> int x;
+}
+
+=== default modifier on member class
+janino: REJECTED Access modifier(s) default not allowed in this context
+public class P {
+    default class M {}
+}
+
+=== default modifier on member enum
+janino: REJECTED Access modifier(s) default not allowed in this context
+public class P {
+    default enum E { X }
+}
+
+=== default modifier on member interface
+janino: REJECTED Access modifier(s) default not allowed in this context
+public class P {
+    default interface I {}
+}
+
+=== default modifier on interface constant
+janino: REJECTED Modifier "default" not allowed for constants
+interface I {
+    default int X = 1;
+}
+
+=== interface constant with type parameters
+janino: REJECTED Type parameters not allowed with constant declaration
+interface I {
+    <T> int X = 1;
+}
+
+=== abstract method with body
+janino: REJECTED Abstract or native method must not have a body
+abstract class P {
+    abstract void f() {}
+}
+
+=== native method with body
+janino: REJECTED Abstract or native method must not have a body
+public class P {
+    native void f() {}
+}
+
+=== default modifier on parameter
+janino: REJECTED Modifier "default" not allowed on formal parameters
+public class P {
+    void f(default int x) {}
+}
+
+=== try without catch or finally
+janino: REJECTED "try" statement must have at least one resource, "catch" clause or "finally" clause
+public class P {
+    void f() { try { } }
+}
+
+=== default modifier on resource
+janino: REJECTED Modifier "default" not allowed on resource
+public class P {
+    void f() throws Exception { try (default java.io.StringReader r = new java.io.StringReader("")) { } }
+}
+
+=== statement in switch block before first label
+janino: REJECTED "case" or "default" expected
+public class P {
+    void f(int i) { switch (i) { int x = 0; } }
+}
+
+=== primitive type argument
+janino: REJECTED 'int' is not a valid type argument
+public class P {
+    java.util.List<int> l;
+}
+
+=== void as local variable type
+janino: REJECTED "void" encountered in wrong context
+public class P {
+    void f() { void x; }
+}
+
+=== missing member name after dot
+janino: REJECTED Unexpected selector ';' after "."
+public class P {
+    int f(String s) { return s.; }
+}
+
+=== number after dot
+janino: REJECTED ';' expected instead of '.1'
+public class P {
+    int f(String s) { return s.1; }
+}
+
+=== duplicate access modifier
+janino: REJECTED Duplication access modifier "public"
+public class P {
+    public public void f() {}
+}
+
+=== conflicting access modifiers
+janino: REJECTED Only one of private public is allowed
+public class P {
+    public private void f() {}
+}
+
+=== else without if
+janino: REJECTED Unexpected token "else" in primary
+public class P {
+    void f() { else {} }
+}
+
+=== keyword as identifier
+janino: REJECTED IDENTIFIER expected instead of 'class'
+public class P {
+    int class = 1;
+}
+
+=== missing operand
+janino: REJECTED Unexpected token ";" in primary
+public class P {
+    int f() { return 1 + ; }
+}
+
+=== unbalanced parentheses
+janino: REJECTED ')' expected instead of ';'
+public class P {
+    int f() { return (1 + 2; }
+}
+
+=== method declaration without return type
+janino: REJECTED IDENTIFIER expected instead of '('
+public class P {
+    f() {}
+}

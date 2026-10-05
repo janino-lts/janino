@@ -25,6 +25,7 @@
 
 package org.codehaus.janino;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -129,10 +130,10 @@ class Scanner {
     public
     Scanner(@Nullable String fileName, InputStream is) throws IOException {
         this(
-            fileName,                  // fileName
-            new InputStreamReader(is), // in
-            1,                         // initialLineNumber
-            0                          // initialColumnNumber
+            fileName,                                      // fileName
+            new BufferedReader(new InputStreamReader(is)), // in
+            1,                                             // initialLineNumber
+            0                                              // initialColumnNumber
         );
     }
 
@@ -154,8 +155,8 @@ class Scanner {
             fileName, // fileName
             (         // in
                 encoding == null
-                ? new InputStreamReader(is)
-                : new InputStreamReader(is, encoding)
+                ? new BufferedReader(new InputStreamReader(is))
+                : new BufferedReader(new InputStreamReader(is, encoding))
             ),
             1,        // initialLineNumber
             0         // initialColumnNumber

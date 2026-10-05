@@ -1,0 +1,135 @@
+<?xml version="1.0"?>
+
+<!--
+  Benchmarks that compare the compile time of the current build of JANINO with a baseline version. The module is part
+  of the build only with the profile "benchmarks" of "janino-parent", and it is never released:
+    mvn -f janino-parent/pom.xml -P benchmarks -DskipTests clean package
+    java -jar janino-benchmarks/target/benchmarks.jar
+  See "src/main/java/org/codehaus/janino/benchmarks/package-info.java" for details.
+
+  Deliberately, "janino-parent" is NOT the parent of this module: it would inherit the plugins that sign and bundle the
+  JAR file and that create the source and JAVADOC JAR files, none of which this module needs.
+
+  Notice: This POM declares the JANINO version itself; update it together with the other POMs.
+-->
+<project
+  xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+>
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.codehaus.janino</groupId>
+  <artifactId>janino-benchmarks</artifactId>
+  <version>3.1.14</version>
+  <packaging>jar</packaging>
+
+  <name>janino-benchmarks</name>
+  <description>Benchmarks that compare the compile time of two JANINO versions.</description>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.release>8</maven.compiler.release>
+    <maven.install.skip>true</maven.install.skip>
+    <maven.deploy.skip>true</maven.deploy.skip>
+
+    <!-- The JANINO version to compare with; override with "-Djanino.baseline.version=..." when building. -->
+    <janino.baseline.version>3.1.12</janino.baseline.version>
+  </properties>
+
+  <!--
+    The benchmarks load JANINO through their own class loaders (see "JaninoVersion"), so these dependencies only make
+    sure that the reactor builds them first, and that "copy-dependencies" (see below) finds them.
+  -->
+  <dependencies>
+    <dependency>
+      <groupId>org.codehaus.janino</groupId>
+      <artifactId>janino</artifactId>
+      <version>${project.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.janino</groupId>
+      <artifactId>commons-compiler</artifactId>
+      <version>${project.version}</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+
+    <!-- "target/benchmarks.jar" -->
+    <finalName>benchmarks</finalName>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <compilerArgs>
+
+            <!-- Suppress the warning "source value 8 is obsolete and will be removed in a future release". -->
+            <arg>-Xlint:-options</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>org.codehaus.janino.benchmarks.Compare</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+
+      <!-- Copies the JAR files of the two JANINO versions to "target/janino-current" and "target/janino-baseline". -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.11.0</version>
+        <executions>
+          <execution>
+            <id>janino-current</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <includeGroupIds>org.codehaus.janino</includeGroupIds>
+              <includeArtifactIds>janino,commons-compiler</includeArtifactIds>
+              <outputDirectory>${project.build.directory}/janino-current</outputDirectory>
+            </configuration>
+          </execution>
+          <execution>
+            <id>janino-baseline</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>org.codehaus.janino</groupId>
+                  <artifactId>janino</artifactId>
+                  <version>${janino.baseline.version}</version>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>org.codehaus.janino</groupId>
+                  <artifactId>commons-compiler</artifactId>
+                  <version>${janino.baseline.version}</version>
+                </artifactItem>
+              </artifactItems>
+              <outputDirectory>${project.build.directory}/janino-baseline</outputDirectory>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

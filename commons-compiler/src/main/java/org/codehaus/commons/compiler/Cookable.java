@@ -25,6 +25,7 @@
 
 package org.codehaus.commons.compiler;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -61,7 +62,7 @@ class Cookable implements ICookable {
 
     @Override public final void
     cook(InputStream is, @Nullable String encoding) throws CompileException, IOException {
-        this.cook(encoding == null ? new InputStreamReader(is) : new InputStreamReader(is, encoding));
+        this.cook(Cookable.newReader(is, encoding));
     }
 
     @Override public final void
@@ -69,7 +70,7 @@ class Cookable implements ICookable {
     throws CompileException, IOException {
         this.cook(
             fileName,
-            encoding == null ? new InputStreamReader(is) : new InputStreamReader(is, encoding)
+            Cookable.newReader(is, encoding)
         );
     }
 
@@ -96,7 +97,7 @@ class Cookable implements ICookable {
         try {
             this.cook(
                 file.getAbsolutePath(),
-                encoding == null ? new InputStreamReader(is) : new InputStreamReader(is, encoding)
+                Cookable.newReader(is, encoding)
             );
             is.close();
             is = null;
@@ -113,5 +114,19 @@ class Cookable implements ICookable {
     @Override public final void
     cookFile(String fileName, @Nullable String encoding) throws CompileException, IOException {
         this.cookFile(new File(fileName), encoding);
+    }
+
+    /**
+     * @param encoding {@code null} means the platform default encoding
+     * @return         A buffered {@link Reader} that decodes the <var>inputStream</var>; e.g. JANINO's scanner reads
+     *                 one character at a time, which is slow without a buffer
+     */
+    private static Reader
+    newReader(InputStream inputStream, @Nullable String encoding) throws IOException {
+        return new BufferedReader(
+            encoding == null
+            ? new InputStreamReader(inputStream)
+            : new InputStreamReader(inputStream, encoding)
+        );
     }
 }

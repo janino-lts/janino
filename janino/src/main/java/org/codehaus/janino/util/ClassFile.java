@@ -1009,6 +1009,29 @@ class ClassFile implements Annotatable {
     private final Map<ConstantPoolInfo, Short> constantPoolMap;
 
     /**
+     * Computes the hash code of a constant pool entry from its <var>tag</var> (JVMS8 4.4) and its <var>field</var>.
+     * <p>
+     *   The fields of most entries are small indexes into the constant pool. With a small multiplier (like 31), many
+     *   entries of a large constant pool (e.g. of different kinds, or with similar pairs of indexes) would get the same
+     *   hash code, and the {@link #constantPoolMap} would become slow; the large multiplier (2^32 divided by the golden
+     *   ratio) spreads them.
+     * </p>
+     */
+    static int
+    hash(int tag, int field) { return ClassFile.HASH_MULTIPLIER * tag + field; }
+
+    /**
+     * Computes the hash code of a constant pool entry from its <var>tag</var> (JVMS8 4.4) and its two fields; see
+     * {@link #hash(int, int)}.
+     */
+    static int
+    hash(int tag, int field1, int field2) {
+        return ClassFile.HASH_MULTIPLIER * (ClassFile.HASH_MULTIPLIER * tag + field1) + field2;
+    }
+
+    private static final int HASH_MULTIPLIER = 0x9E3779B9;
+
+    /**
      * Base for various the constant pool table entry types.
      */
     public abstract static
@@ -1132,7 +1155,7 @@ class ClassFile implements Annotatable {
         }
 
         @Override public int
-        hashCode() { return this.nameIndex; }
+        hashCode() { return ClassFile.hash(7, this.nameIndex); }
     }
 
     /**
@@ -1189,7 +1212,7 @@ class ClassFile implements Annotatable {
         }
 
         @Override public int
-        hashCode() { return this.classIndex + (this.nameAndTypeIndex << 16); }
+        hashCode() { return ClassFile.hash(9, this.classIndex, this.nameAndTypeIndex); }
     }
 
     /**
@@ -1244,7 +1267,7 @@ class ClassFile implements Annotatable {
         }
 
         @Override public int
-        hashCode() { return this.classIndex + (this.nameAndTypeIndex << 16); }
+        hashCode() { return ClassFile.hash(10, this.classIndex, this.nameAndTypeIndex); }
     }
 
     /**
@@ -1300,7 +1323,7 @@ class ClassFile implements Annotatable {
         }
 
         @Override public int
-        hashCode() { return this.classIndex + (this.nameAndTypeIndex << 16); }
+        hashCode() { return ClassFile.hash(11, this.classIndex, this.nameAndTypeIndex); }
     }
 
     /**
@@ -1337,7 +1360,7 @@ class ClassFile implements Annotatable {
         }
 
         @Override public int
-        hashCode() { return this.stringIndex; }
+        hashCode() { return ClassFile.hash(8, this.stringIndex); }
     }
 
     /**
@@ -1374,7 +1397,7 @@ class ClassFile implements Annotatable {
         }
 
         @Override public int
-        hashCode() { return this.value; }
+        hashCode() { return ClassFile.hash(3, this.value); }
     }
 
     /**
@@ -1411,7 +1434,7 @@ class ClassFile implements Annotatable {
         }
 
         @Override public int
-        hashCode() { return Float.floatToIntBits(this.value); }
+        hashCode() { return ClassFile.hash(4, Float.floatToIntBits(this.value)); }
     }
 
     /**
@@ -1448,7 +1471,7 @@ class ClassFile implements Annotatable {
         }
 
         @Override public int
-        hashCode() { return (int) this.value ^ (int) (this.value >> 32); }
+        hashCode() { return ClassFile.hash(5, (int) this.value ^ (int) (this.value >> 32)); }
     }
 
     /**
@@ -1485,7 +1508,7 @@ class ClassFile implements Annotatable {
         @Override public int
         hashCode() {
             long bits = Double.doubleToLongBits(this.value);
-            return (int) bits ^ (int) (bits >> 32);
+            return ClassFile.hash(6, (int) bits ^ (int) (bits >> 32));
         }
     }
 
@@ -1541,7 +1564,7 @@ class ClassFile implements Annotatable {
         }
 
         @Override public int
-        hashCode() { return this.nameIndex + (this.descriptorIndex << 16); }
+        hashCode() { return ClassFile.hash(12, this.nameIndex, this.descriptorIndex); }
     }
 
     /**
@@ -1639,7 +1662,7 @@ class ClassFile implements Annotatable {
         }
 
         @Override public int
-        hashCode() { return this.referenceKind + (this.referenceIndex << 16); }
+        hashCode() { return ClassFile.hash(15, this.referenceKind, this.referenceIndex); }
     }
 
     /**
@@ -1680,7 +1703,7 @@ class ClassFile implements Annotatable {
         }
 
         @Override public int
-        hashCode() { return this.descriptorIndex; }
+        hashCode() { return ClassFile.hash(16, this.descriptorIndex); }
     }
 
     /**
@@ -1728,7 +1751,7 @@ class ClassFile implements Annotatable {
         }
 
         @Override public int
-        hashCode() { return this.bootstrapMethodAttrIndex + (this.nameAndTypeIndex << 16); }
+        hashCode() { return ClassFile.hash(18, this.bootstrapMethodAttrIndex, this.nameAndTypeIndex); }
     }
 
     /**

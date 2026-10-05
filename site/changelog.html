@@ -57,7 +57,7 @@ h5 {
     </p>
     <ul>
       <li>
-        Fixed <a href="https://github.com/stefan-zobel/janino/issues/2">issue #2</a>: <code>VerifyError</code> when a
+        Fixed <a href="https://github.com/janino-lts/janino/issues/2">issue #2</a>: <code>VerifyError</code> when a
         <code>finally</code> block cannot complete normally (e.g. <code>try { return x; } finally { return y; }</code>),
         and <code>VerifyError</code>s and internal compiler errors when a <code>return</code>, <code>break</code> or
         <code>continue</code> statement leaves a <code>try</code> block whose <code>finally</code> block contains a
@@ -66,33 +66,33 @@ h5 {
         <code>finally</code> block executes.
       </li>
       <li>
-        Fixed <a href="https://github.com/stefan-zobel/janino/issues/3">issue #3</a>: A <code>finally</code> block was
+        Fixed <a href="https://github.com/janino-lts/janino/issues/3">issue #3</a>: A <code>finally</code> block was
         executed twice when a <code>catch</code> clause handled an exception, and when the copy of a
         <code>finally</code> block that is executed before a <code>return</code>, <code>break</code> or
         <code>continue</code> statement threw an exception (which was also caught by the <code>catch</code> clauses of
         the same <code>try</code> statement).
       </li>
       <li>
-        Fixed <a href="https://github.com/stefan-zobel/janino/issues/4">issue #4</a>: Try-with-resources statements now
+        Fixed <a href="https://github.com/janino-lts/janino/issues/4">issue #4</a>: Try-with-resources statements now
         close the resources when the block completes by <code>return</code>, <code>break</code> or
         <code>continue</code>, add the exceptions from <code>close()</code> as suppressed exceptions, and close the
         resources before the <code>catch</code> clauses and the <code>finally</code> block are executed (JLS 14.20.3).
       </li>
       <li>
-        Fixed <a href="https://github.com/stefan-zobel/janino/issues/5">issue #5</a>: A <code>finally</code> block was
+        Fixed <a href="https://github.com/janino-lts/janino/issues/5">issue #5</a>: A <code>finally</code> block was
         executed twice (and the monitor released twice) when a jump statement left a <code>synchronized</code>
         statement inside a <code>try</code> statement, and the <code>finally</code> block threw an exception.
       </li>
       <li>
-        Fixed <a href="https://github.com/stefan-zobel/janino/issues/7">issue #7</a>: Internal compiler errors and
+        Fixed <a href="https://github.com/janino-lts/janino/issues/7">issue #7</a>: Internal compiler errors and
         <code>VerifyError</code>s after a <code>try</code> statement whose <code>try</code> block cannot complete
         normally, e.g. <code>try { return Integer.parseInt(s); } catch (A e) { ... } catch (B e) { ... }</code>
         followed by more code.
       </li>
       <li>
         New tests: characterization tests for about 200 language constructs, which record the correct result and
-        JANINO's current behavior, and a differential test that compiles 2,000 generated methods with nested control
-        flow with JANINO and with JAVAC and compares the results.
+        Janino's current behavior, and a differential test that compiles 2,000 generated methods with nested control
+        flow with Janino and with JAVAC and compares the results.
       </li>
     </ul>
 
@@ -105,16 +105,16 @@ h5 {
       </li>
       <li>
         Resource limits for sandboxed code: The new <code>SandboxExecutor</code> executes code under
-        <code>SandboxLimits</code> (timeout, number of "ticks", allocated memory). JANINO inserts the checks of the
+        <code>SandboxLimits</code> (timeout, number of "ticks", allocated memory). Janino inserts the checks of the
         new class <code>Guard</code> into code that it compiles with a sandbox policy (at the beginning of every loop
         body and every method and constructor body, and before array creations); once a limit is exceeded, the code
         is stopped, even if it catches the <code>SandboxLimitExceededError</code>. Code compiled by the JDK-based
         implementation is only subject to the timeout. See section 3.5 of
-        <a href="https://github.com/stefan-zobel/janino/blob/HEAD/SANDBOX.md">Restricting Untrusted Code with a
+        <a href="https://github.com/janino-lts/janino/blob/HEAD/SANDBOX.md">Restricting Untrusted Code with a
         Sandbox Policy</a>.
       </li>
       <li>
-        <code>SandboxPolicy.Builder.requireExecutor()</code>: The checks that JANINO inserts throw an
+        <code>SandboxPolicy.Builder.requireExecutor()</code>: The checks that Janino inserts throw an
         <code>IllegalStateException</code> if the code is executed outside of a <code>SandboxExecutor</code> (e.g. a
         static initializer when the application instantiates the generated class, or the <code>toString()</code>
         method of a returned object), so that sandboxed code cannot run without limits by accident.
@@ -124,7 +124,7 @@ h5 {
         on its finalizer thread, outside of any <code>SandboxExecutor</code>.
       </li>
       <li>
-        <code>DeepCopier</code> can now be compiled by JANINO itself.
+        <code>DeepCopier</code> can now be compiled by Janino itself.
       </li>
       <li>
         Mitigated <a href="https://github.com/janino-compiler/janino/issues/226">issue #226</a> of the original project
@@ -143,7 +143,7 @@ h5 {
         Classes that are loaded lazily while the generated code executes inside <code>Sandbox.confine()</code> (e.g.
         anonymous classes) are now defined with the same protection domain as the other generated classes. Before,
         they got a different protection domain, which caused a <code>SecurityException</code> ("signer information
-        does not match") with the signed JANINO JARs.
+        does not match") with the signed Janino JARs.
       </li>
       <li>
         Sandbox policy violations now carry their location in the cooked document (file name and line number), see
@@ -155,7 +155,7 @@ h5 {
       <li>
         New sandbox policy presets <code>FUNCTIONAL</code>, <code>STREAMS</code>, <code>MATH</code>,
         <code>REGEX</code>, <code>JAVA_TIME</code>, <code>TEXT</code> and <code>UTILITIES</code>; see section 4.2 of
-        <a href="https://github.com/stefan-zobel/janino/blob/HEAD/SANDBOX.md">Restricting Untrusted Code with a
+        <a href="https://github.com/janino-lts/janino/blob/HEAD/SANDBOX.md">Restricting Untrusted Code with a
         Sandbox Policy</a>.
       </li>
       <li>
@@ -164,7 +164,7 @@ h5 {
         <code>ZoneRulesProvider</code>, which changes JVM-global state.
       </li>
       <li>
-        JANINO's default target version is now 8 (was 6), in line with the minimum runtime version. Thus, default
+        Janino's default target version is now 8 (was 6), in line with the minimum runtime version. Thus, default
         methods and static interface methods no longer require <code>setTargetVersion(8)</code>. The previous default
         can be restored with <code>-Dorg.codehaus.janino.UnitCompiler.defaultTargetVersion=6</code>.
       </li>
@@ -178,13 +178,13 @@ h5 {
     <h4>Version 3.1.13-SNAPSHOT-1 (pre-release)</h4>
     <ul>
       <li>
-        First pre-release of an experimental fork (a proof of concept) of JANINO, derived from
+        First pre-release of the continuation of Janino, derived from
         <a href="https://github.com/janino-compiler/janino">janino-compiler/janino</a>.
       </li>
       <li>Pull request #214: Correctly parse and unparse annotated wildcards.</li>
       <li>Fixed some JAVADOC typos and warnings.</li>
       <li>
-        JANINO now requires Java 8 or later (formerly Java 7). It is built with JDK 25 and tested on Java 8, 17, 21
+        Janino now requires Java 8 or later (formerly Java 7). It is built with JDK 25 and tested on Java 8, 17, 21
         and 25.
       </li>
       <li>
@@ -205,7 +205,7 @@ h5 {
       <li>New method <code>AbstractJavaSourceClassLoader.setTargetVersion(int)</code>.</li>
       <li>
         Calls to <code>AccessController.doPrivileged()</code> are now made through
-        <code>org.codehaus.commons.compiler.util.Privileged</code>, so that JANINO keeps working on future JREs that no
+        <code>org.codehaus.commons.compiler.util.Privileged</code>, so that Janino keeps working on future JREs that no
         longer provide that API.
       </li>
       <li>JAVADOC overview: Fixed some inline tags that current JAVADOC tools did not render.</li>

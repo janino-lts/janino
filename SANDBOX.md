@@ -1,12 +1,12 @@
 # Restricting Untrusted Code with a Sandbox Policy
 
-JANINO compiles Java source code at runtime - expressions, scripts, class bodies and complete compilation units.
+Janino compiles Java source code at runtime - expressions, scripts, class bodies and complete compilation units.
 If that source code comes from users or other untrusted parties, you will want to restrict what it can do: it should
 compute results, but it should not read files, open network connections, read system properties, start threads or
 call `System.exit()`.
 
 The **sandbox policy** mechanism does exactly that. You describe the APIs that the compiled code may use (an
-*allowlist*), and JANINO verifies every class it generates against that allowlist **before the class is loaded**.
+*allowlist*), and Janino verifies every class it generates against that allowlist **before the class is loaded**.
 Code that uses anything else is rejected at compile time. In addition, a `SandboxExecutor` can limit the CPU time
 and the memory that the code consumes (see [3.5](#35-limiting-cpu-time-and-memory)).
 
@@ -24,14 +24,14 @@ ee.cook("System.getProperty(\"user.home\")");
 
 - **Java 8 or later.** The mechanism works identically on every JVM from Java 8 through the current releases
   (tested on Java 8, 17, 21 and 25). It does not depend on the Java security manager.
-- **Both compiler implementations** are supported: JANINO itself (`org.codehaus.janino`) and the JDK-based
+- **Both compiler implementations** are supported: Janino itself (`org.codehaus.janino`) and the JDK-based
   implementation (`org.codehaus.commons.compiler.jdk`, which uses `javac`).
 - **It is opt-in.** The mechanism is **never activated automatically**, on no Java version. As long as you do not
-  set a policy, JANINO behaves exactly as before, and compiled code can use the entire Java API.
+  set a policy, Janino behaves exactly as before, and compiled code can use the entire Java API.
 
 ### Relationship to the legacy `Sandbox` class
 
-JANINO also still offers the sandbox of earlier versions, `org.codehaus.commons.compiler.Sandbox`, which is based on
+Janino also still offers the sandbox of earlier versions, `org.codehaus.commons.compiler.Sandbox`, which is based on
 the Java security manager (see [section 7](#7-the-security-manager-based-sandbox)). The security manager has been
 deprecated (Java 17) and permanently disabled (Java 24), so that class only works on older JVMs:
 
@@ -53,7 +53,7 @@ of version 3.1.13); for new code, and for any code that must run on current JVMs
 
 1. You create a `SandboxPolicy` that lists the fields, methods and constructors that compiled code may use.
 2. You set it on the cookable (`setSandboxPolicy(...)`) or on the `JavaSourceClassLoader`.
-3. JANINO compiles the source code as usual.
+3. Janino compiles the source code as usual.
 4. Before any generated class can be loaded, a **bytecode verifier** inspects it:
    - every field and method that the class refers to (including method references and lambdas),
    - its superclass and its interfaces,
@@ -144,7 +144,7 @@ names the generated class instead, e.g. `SC: Extending java.lang.Thread is not p
 you set a compile error handler (`setCompileErrorHandler()`), then each violation is also reported through it, like
 a compile error; cooking fails nevertheless.
 
-To determine the line numbers, JANINO reads the line number tables of the generated class files. Therefore, when a
+To determine the line numbers, Janino reads the line number tables of the generated class files. Therefore, when a
 policy is set, the compilers always generate the necessary debugging information (source file and line numbers, like
 `javac -g:source,lines`), regardless of `setDebuggingInformation()`.
 
@@ -166,7 +166,7 @@ Otherwise cooking fails with `Implementing com.acme.script.Calculator is not per
 
 ### 3.2 Loading classes from source files
 
-`JavaSourceClassLoader` (both implementations, including JANINO's `CachingJavaSourceClassLoader`) verifies each
+`JavaSourceClassLoader` (both implementations, including Janino's `CachingJavaSourceClassLoader`) verifies each
 class before it defines it. Set the policy before the first class is loaded:
 
 ```java
@@ -235,7 +235,7 @@ the best choice for reproducible behavior; the timeout is the last line of defen
 
 How it works:
 
-- When a policy is set, JANINO inserts a call to `Guard.tick()` at the beginning of every loop body and of every
+- When a policy is set, Janino inserts a call to `Guard.tick()` at the beginning of every loop body and of every
   method and constructor body, and checks the size of arrays before they are created (`Guard.arrayLength()`,
   `Guard.newArray()`). The verifier allows these calls implicitly.
 - `SandboxExecutor.call()` executes the task on a new (daemon) thread. The guard counts the ticks of that thread,
@@ -246,12 +246,12 @@ How it works:
   exceeded limit in any case.
 - Outside of `SandboxExecutor.call()`, the checks do nothing (unless the policy requires an executor, see below).
   They cost about one nanosecond per loop iteration.
-- JANINO makes the `Guard` class visible to the generated code even if the parent class loader cannot see it, and
+- Janino makes the `Guard` class visible to the generated code even if the parent class loader cannot see it, and
   makes sure that the code uses the same `Guard` as the executor (see `GuardClassLoader`).
 
 The limits are "best effort":
 
-- **Only JANINO inserts the checks.** Code that the `commons-compiler-jdk` back end (`javac`) compiles is only
+- **Only Janino inserts the checks.** Code that the `commons-compiler-jdk` back end (`javac`) compiles is only
   subject to the timeout, and it cannot be stopped: After the timeout, `call()` throws, but the thread keeps running
   until the code ends by itself (`SandboxLimitExceededException.isThreadTerminated()` returns `false`). The same
   applies to code that is stuck **inside a JDK method** (e.g. a regular expression with catastrophic backtracking,
@@ -288,7 +288,7 @@ SandboxPolicy policy = SandboxPolicy.builder()
     .build();
 ```
 
-With this option, JANINO inserts the "strict" checks (`Guard.tickStrict()`, `Guard.arrayLengthStrict()`,
+With this option, Janino inserts the "strict" checks (`Guard.tickStrict()`, `Guard.arrayLengthStrict()`,
 `Guard.newArrayStrict()`), which throw an `IllegalStateException` ("Sandboxed code must be executed by a
 SandboxExecutor") when they are executed outside of `SandboxExecutor.call()`. Every loop iteration, method or
 constructor invocation and array creation is checked, so code outside of the executor fails fast instead of running
@@ -329,7 +329,7 @@ Except for `STREAMS`, which includes `FUNCTIONAL`, the presets do not include ea
 `TEXT` code usually needs `Locale` and `Date` from `UTILITIES`, and `Stream.findFirst()` returns an `Optional` from
 `COLLECTIONS`.
 
-JANINO does not support lambda expressions and method references; with JANINO, implement the functional interfaces
+Janino does not support lambda expressions and method references; with Janino, implement the functional interfaces
 with anonymous classes. The `commons-compiler-jdk` back end supports both.
 
 Note that some allowed methods may run for a very long time or allocate much memory inside the JDK, e.g.
@@ -453,13 +453,13 @@ that returns only the values that scripts need is almost always the better solut
 
 ## 6. Limitations
 
-- **Resource limits are "best effort".** A `SandboxExecutor` limits the CPU time and the memory of code that JANINO
+- **Resource limits are "best effort".** A `SandboxExecutor` limits the CPU time and the memory of code that Janino
   compiles, but code that `javac` compiles, and code that is stuck inside a JDK method, can only be abandoned after
   the timeout, not stopped (see 3.5). For hard guarantees, run untrusted code in a separate JVM process with OS-level
   limits.
 - **Code outside of the executor is not limited.** Static initializers, constructors and methods of returned
   objects that your application invokes outside of `SandboxExecutor.call()` run without limits, unless the policy
-  `requireExecutor()`s (JANINO only, see 3.5).
+  `requireExecutor()`s (Janino only, see 3.5).
 - **Allowed APIs run unrestricted.** If you allow a method, everything that method does internally is allowed as
   well. Only allow APIs whose behavior you understand; prefer narrow capability objects.
 - **Objects passed in by the host.** Code may call any *allowed* method on objects that your application passes to
@@ -492,7 +492,7 @@ deprecated (as of version 3.1.13), but remains available for these applications.
 > `java.security.AccessController.doPrivileged(...)` itself, and thus perform actions that the sandbox's permissions
 > do not allow - even with no permissions at all (reported as
 > [issue #226](https://github.com/janino-compiler/janino/issues/226) of the original project). The reason is that,
-> by default, the generated classes are defined with the protection domain of JANINO itself, and the sandbox grants
+> by default, the generated classes are defined with the protection domain of Janino itself, and the sandbox grants
 > all permissions to all code outside `confine()`. To close the escape, define the generated classes with the
 > permissions of the sandbox (see [below](#closing-the-doprivileged-escape)), and combine the sandbox with a sandbox
 > policy, which rejects such code at compile time (see the end of this section) - or use a sandbox policy instead.
@@ -553,7 +553,7 @@ use the protection domain factory of the class loader:
 jscl.setProtectionDomainFactory(sourceResourceName -> new ProtectionDomain(null, permissions));
 ```
 
-By default (without a protection domain), the generated classes are defined with the protection domain of JANINO,
+By default (without a protection domain), the generated classes are defined with the protection domain of Janino,
 as in earlier versions.
 
 How the two mechanisms differ:
@@ -601,7 +601,7 @@ new Sandbox(permissions).confine(pa);   // runtime: only the system property "fo
 | `SandboxPolicy.JAVA_LANG_BASIC`, `COLLECTIONS`, `FUNCTIONAL`, `STREAMS`, `MATH`, `REGEX`, `JAVA_TIME`, `TEXT`, `UTILITIES` | Presets (section 4.2) |
 | `SandboxPolicy.isAllowed(MemberRef)`, `isSubclassingAllowed(String)` | Queries                                               |
 | `SandboxPolicy.isNeverAllowed(MemberRef)`                        | Whether a member is on the never-allowed list             |
-| `SandboxPolicy.Builder.requireExecutor()`, `SandboxPolicy.isExecutorRequired()` | Generated code throws outside of a `SandboxExecutor` (JANINO only, section 3.5) |
+| `SandboxPolicy.Builder.requireExecutor()`, `SandboxPolicy.isExecutorRequired()` | Generated code throws outside of a `SandboxExecutor` (Janino only, section 3.5) |
 | `MemberRef.field(...)`, `MemberRef.method(...)`                  | Identifies a field, method or constructor                 |
 | `ICookable.setSandboxPolicy(SandboxPolicy)`                      | Restricts expressions, scripts, class bodies, compilation units |
 | `AbstractJavaSourceClassLoader.setSandboxPolicy(SandboxPolicy)`  | Restricts classes loaded from source files                |
@@ -612,6 +612,6 @@ new Sandbox(permissions).confine(pa);   // runtime: only the system property "fo
 | `SandboxLimits`, `SandboxLimits.builder()`, `SandboxLimits.Limit` | The resource limits and their kinds (`TIME`, `TICKS`, `MEMORY`) |
 | `SandboxLimitExceededException`                                  | Thrown by `call()`: `getLimit()`, `isThreadTerminated()`  |
 | `SandboxLimitExceededError`                                      | Thrown inside the code when a limit is exceeded           |
-| `Guard`, `GuardClassLoader`                                      | The checks that JANINO inserts (`tick()`, `arrayLength()`, `newArray()`, and their "strict" variants), and the class loader that makes them visible |
+| `Guard`, `GuardClassLoader`                                      | The checks that Janino inserts (`tick()`, `arrayLength()`, `newArray()`, and their "strict" variants), and the class loader that makes them visible |
 | `org.codehaus.commons.compiler.Sandbox`, `Sandbox.isSupported()` | The security-manager-based sandbox (section 7)            |
 | `ICookable.setProtectionDomain(ProtectionDomain)`, `AbstractJavaSourceClassLoader.setProtectionDomainFactory(...)` | Defines the generated classes with restricted permissions (section 7) |

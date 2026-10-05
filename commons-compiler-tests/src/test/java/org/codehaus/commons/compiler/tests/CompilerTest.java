@@ -58,6 +58,7 @@ import org.codehaus.commons.compiler.util.resource.ResourceFinder;
 import org.codehaus.commons.compiler.util.resource.StringResource;
 import org.codehaus.commons.nullanalysis.Nullable;
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -667,6 +668,37 @@ class CompilerTest {
 
         // Invoke "pkg1.A.meth()" and verify that the return value is correct.
         Assert.assertEquals(77, cl.loadClass("pkg1.A").getDeclaredMethod("meth").invoke(null));
+    }
+
+    /**
+     * An extension directory that is a file (e.g. a JAR file instead of its directory) must be ignored, like a
+     * directory that does not exist; see <a href="https://github.com/janino-lts/janino/issues/20">issue #20</a>.
+     * Only JANINO is tested, because javac rejects extension directories for target versions 9 and later.
+     */
+    @Test public void
+    testExtensionDirectoryIsAFile() throws Exception {
+        Assume.assumeFalse(this.isJdk);
+
+        File file = File.createTempFile("janino-test", ".jar");
+        try {
+            ICompiler compiler = this.compilerFactory.newCompiler();
+            compiler.setExtensionDirectories(new File[] { file });
+            compiler.setClassPath(new File[0]);
+
+            Map<String, byte[]> classes = new HashMap<>();
+            compiler.setClassFileCreator(new MapResourceCreator(classes));
+
+            // Resolving "B" and "String" makes JANINO look for "pkg/B.class" and "pkg/String.class" on the class path,
+            // including the extension directories.
+            compiler.compile(new Resource[] {
+                new StringResource("pkg/A.java", "package pkg; public class A { B b; String s; }"),
+                new StringResource("pkg/B.java", "package pkg; public class B {}"),
+            });
+
+            Assert.assertTrue(classes.containsKey("pkg/A.class"));
+        } finally {
+            Assert.assertTrue(file.delete());
+        }
     }
 
     private static void

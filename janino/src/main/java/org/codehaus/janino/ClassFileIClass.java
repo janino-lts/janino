@@ -642,6 +642,7 @@ class ClassFileIClass extends IClass {
                 @Override public Access        getAccess()            { return access;                                      }
                 @Override public boolean       isStatic()             { return Mod.isStatic(methodInfo.getAccessFlags());   }
                 @Override public boolean       isAbstract()           { return Mod.isAbstract(methodInfo.getAccessFlags()); }
+                @Override boolean              isFinal()              { return Mod.isFinal(methodInfo.getAccessFlags());    }
                 @Override public IClass        getReturnType()        { return returnType;                                  }
                 @Override public String        getName()              { return name;                                        }
                 @Override public IClass[]      getParameterTypes2()   { return parameterTypes;                              }
