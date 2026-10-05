@@ -543,14 +543,6 @@ class ExpressionDifferentialTest {
     enum Defect {
 
         /**
-         * The narrowing primitive conversions from {@code byte}, {@code short}, {@code long}, {@code float} and
-         * {@code double} to {@code char}, and from {@code char} to {@code short} are wrong (in casts and in compound
-         * assignments). The resulting values are out of the range of the type, so that the results also depend on
-         * the JVM. Issue #37.
-         */
-        CHAR_CONVERSION,
-
-        /**
          * The type of a conditional expression whose operands have different primitive or wrapper types is often
          * wrong (JLS 15.25): JANINO reports a compile error, or the value has the wrong type. Issue #38.
          */
@@ -822,26 +814,9 @@ class ExpressionDifferentialTest {
             if (p == Type.BOOLEAN) return this.booleanType();
             List<Type> candidates = new ArrayList<>();
             for (Type t : Type.values()) {
-                if (!t.isNumeric() || !(t.isPrimitive() || t.unboxed().widensTo(p))) continue;
-                if (
-                    this.avoided.contains(Defect.CHAR_CONVERSION)
-                    && Generator.isWrongCharConversion(t.unboxed(), p)
-                ) continue;
-                candidates.add(t);
+                if (t.isNumeric() && (t.isPrimitive() || t.unboxed().widensTo(p))) candidates.add(t);
             }
             return this.pick(candidates);
-        }
-
-        /**
-         * @return Whether JANINO implements the narrowing primitive conversion from <var>from</var> to <var>to</var>
-         *         incorrectly (see {@link Defect#CHAR_CONVERSION})
-         */
-        private static boolean
-        isWrongCharConversion(Type from, Type to) {
-            return (
-                (to == Type.CHAR && from != Type.CHAR && from != Type.INT)
-                || (to == Type.SHORT && from == Type.CHAR)
-            );
         }
 
         private String
@@ -965,10 +940,6 @@ class ExpressionDifferentialTest {
             if (t.isWrapper() && u.ordinal() < Type.INT.ordinal()) return null;
             Type limit = t.isWrapper() ? u : Type.DOUBLE;
 
-            // The result of the operation is converted to type "char" (JLS 15.26.2).
-            Type integralLimit = Type.LONG;
-            if (u == Type.CHAR && this.avoided.contains(Defect.CHAR_CONVERSION)) limit = integralLimit = Type.INT;
-
             switch (t.isIntegral() ? this.random.nextInt(3) : 0) {
             case 0:
                 return (
@@ -992,7 +963,7 @@ class ExpressionDifferentialTest {
                     + " "
                     + this.pick("&=", "|=", "^=")
                     + " "
-                    + this.expression(this.numericType(t.isWrapper() ? u : integralLimit, true, false), depth + 1)
+                    + this.expression(this.numericType(t.isWrapper() ? u : Type.LONG, true, false), depth + 1)
                 );
             }
         }

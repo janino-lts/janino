@@ -12515,20 +12515,19 @@ class UnitCompiler {
 
     static { UnitCompiler.fillConversionMap(new Object[] {
 
-        new int[0],
-        Descriptor.BYTE + Descriptor.CHAR,
-        Descriptor.SHORT + Descriptor.CHAR,
-        Descriptor.CHAR + Descriptor.SHORT,
-
         new int[] { Opcode.I2B },
         Descriptor.SHORT + Descriptor.BYTE,
         Descriptor.CHAR + Descriptor.BYTE,
         Descriptor.INT + Descriptor.BYTE,
 
         new int[] { Opcode.I2S },
+        Descriptor.CHAR + Descriptor.SHORT,
         Descriptor.INT + Descriptor.SHORT,
 
+        // "byte" to "char" is a "widening and narrowing primitive conversion" (JLS 5.1.4).
         new int[] { Opcode.I2C },
+        Descriptor.BYTE + Descriptor.CHAR,
+        Descriptor.SHORT + Descriptor.CHAR,
         Descriptor.INT + Descriptor.CHAR,
 
         new int[] { Opcode.L2I, Opcode.I2B },
@@ -12536,6 +12535,8 @@ class UnitCompiler {
 
         new int[] { Opcode.L2I, Opcode.I2S },
         Descriptor.LONG + Descriptor.SHORT,
+
+        new int[] { Opcode.L2I, Opcode.I2C },
         Descriptor.LONG + Descriptor.CHAR,
 
         new int[] { Opcode.L2I },
@@ -12546,6 +12547,8 @@ class UnitCompiler {
 
         new int[] { Opcode.F2I, Opcode.I2S },
         Descriptor.FLOAT + Descriptor.SHORT,
+
+        new int[] { Opcode.F2I, Opcode.I2C },
         Descriptor.FLOAT + Descriptor.CHAR,
 
         new int[] { Opcode.F2I },
@@ -12559,6 +12562,8 @@ class UnitCompiler {
 
         new int[] { Opcode.D2I, Opcode.I2S },
         Descriptor.DOUBLE + Descriptor.SHORT,
+
+        new int[] { Opcode.D2I, Opcode.I2C },
         Descriptor.DOUBLE + Descriptor.CHAR,
 
         new int[] { Opcode.D2I },

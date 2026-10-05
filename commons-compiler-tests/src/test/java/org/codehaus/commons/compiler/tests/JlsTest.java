@@ -385,6 +385,35 @@ class JlsTest extends CommonsCompilerTestSuite {
         );
     }
 
+    /**
+     * 5.1.3 Narrowing Primitive Conversion, and 5.1.4 Widening and Narrowing Primitive Conversion ({@code byte} to
+     * {@code char}); see <a href="https://github.com/janino-lts/janino/issues/37">issue #37</a>.
+     */
+    @Test public void
+    test_5_1_3__Narrowing_primitive_conversion() throws Exception {
+
+        // To "char".
+        this.assertScriptReturnsTrue("byte   b = -1;    return (int) (char) b == 65535;");
+        this.assertScriptReturnsTrue("short  s = -1;    return (int) (char) s == 65535;");
+        this.assertScriptReturnsTrue("int    i = -1;    return (int) (char) i == 65535;");
+        this.assertScriptReturnsTrue("long   l = -1L;   return (int) (char) l == 65535;");
+        this.assertScriptReturnsTrue("float  f = -1F;   return (int) (char) f == 65535;");
+        this.assertScriptReturnsTrue("double d = -1D;   return (int) (char) d == 65535;");
+        this.assertScriptReturnsTrue("long   l = 65537; return (char) l == 1;");
+        this.assertScriptReturnsTrue("byte   b = -128;  Object o = (char) b; return o.equals((char) 0xFF80);");
+
+        // From "char".
+        this.assertScriptReturnsTrue("char c = 65535;  return (int) (short) c == -1;");
+        this.assertScriptReturnsTrue("char c = 0x8000; return (short) c == Short.MIN_VALUE;");
+        this.assertScriptReturnsTrue("char c = 0xFF80; return (byte) c == -128;");
+
+        // Other narrowing conversions.
+        this.assertScriptReturnsTrue("int    i = 0x18000;      return (short) i == Short.MIN_VALUE;");
+        this.assertScriptReturnsTrue("long   l = 0x100000080L; return (short) l == 128 && (byte) l == -128;");
+        this.assertScriptReturnsTrue("float  f = 200.5F;       return (byte) f == -56 && (short) f == 200;");
+        this.assertScriptReturnsTrue("double d = -129.5D;      return (byte) d == 127 && (int) d == -129;");
+    }
+
     @Test public void
     test_5_1_7__Boxing_conversion() throws Exception {
         this.assertScriptReturnsTrue("Boolean   b = true;        return b.booleanValue();");
@@ -3252,6 +3281,15 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "}\n"
         );
         this.assertScriptUncookable("Byte b = 1; Object x = (b += 1);");
+
+        // The result is narrowed to the type of the variable, also to and from "char" (issue #37).
+        this.assertScriptReturnsTrue("char c = 0; long j = 0xFFFFL; c |= j; return (int) c == 65535;");
+        this.assertScriptReturnsTrue("char c = 0; double d = 65535.0; c += d; return (int) c == 65535;");
+        this.assertScriptReturnsTrue("char c = 1; float f = 2F; c -= f; return (int) c == 65535;");
+        this.assertScriptReturnsTrue("char c = 0; byte b = -1; c ^= b; return (int) c == 65535;");
+        this.assertScriptReturnsTrue("short s = 0; char c = 65535; s += c; return s == -1;");
+        this.assertScriptReturnsTrue("char c = 0; long j = 0xFFFFL; int x = (c |= j); return x == 65535 && c == x;");
+        this.assertScriptReturnsTrue("char[] a = { 0 }; long j = -1L; int x = (a[0] += j); return x == 65535;");
     }
 
     @Test public void
