@@ -1078,7 +1078,11 @@ class CodeContext {
 
             Inserter ci = CodeContext.this.currentInserter;
 
-            ((Offset) ci).stackMap = this.stackMap = CodeContext.mergeStackMaps(((Offset) ci).stackMap, this.stackMap);
+            ((Offset) ci).stackMap = this.stackMap = CodeContext.mergeStackMaps(
+                ((Offset) ci).stackMap,
+                this.stackMap,
+                CodeContext.this.relaxed
+            );
         }
 
         public void
@@ -1106,8 +1110,11 @@ class CodeContext {
         toString() { return CodeContext.this.classFile.getThisClassName() + ": " + this.offset; }
     }
 
+    /**
+     * @param relaxed See {@link #relaxOperandStackChecks()}
+     */
     @Nullable private static final StackMap
-    mergeStackMaps(@Nullable StackMap sm1, @Nullable StackMap sm2) {
+    mergeStackMaps(@Nullable StackMap sm1, @Nullable StackMap sm2, boolean relaxed) {
 
         if (sm1 == null) return sm2;
 
@@ -1118,6 +1125,7 @@ class CodeContext {
         if (sm1.equals(sm2)) return sm1;
 
         if (!Arrays.equals(sm1.operands(), sm2.operands())) {
+            if (relaxed) return sm1;
             throw new InternalCompilerException("Inconsistent operand stack: " + sm1 + " vs. " + sm2);
         }
 
@@ -1467,7 +1475,24 @@ class CodeContext {
      * @return The verification type of the top operand
      */
     public VerificationTypeInfo
-    peekOperand() { return this.currentInserter().getStackMap().peekOperand(); }
+    peekOperand() {
+        StackMap sm = this.currentInserter().getStackMap();
+        if (this.relaxed && sm.operands().length == 0) return StackMapTableAttribute.TOP_VARIABLE_INFO;
+        return sm.peekOperand();
+    }
+
+    /**
+     * Relaxes the checks of the operand stack. This is done after a compile error was reported: then the compilation
+     * continues only to report further errors (if the error handler returns normally), and the generated code, which
+     * may be inconsistent, is never used.
+     */
+    void
+    relaxOperandStackChecks() { this.relaxed = true; }
+
+    /**
+     * Whether the checks of the operand stack are relaxed; see {@link #relaxOperandStackChecks()}.
+     */
+    private boolean relaxed;
 
     /**
      * Pops one entry from the current inserter's operand stack.
@@ -1479,6 +1504,11 @@ class CodeContext {
         StackMap sm = ci.getStackMap();
 
         for (;;) {
+            if (this.relaxed && sm.operands().length == 0) {
+                ci.setStackMap(sm);
+                return StackMapTableAttribute.TOP_VARIABLE_INFO;
+            }
+
             VerificationTypeInfo result = sm.peekOperand();
 
             sm = sm.popOperand();
@@ -1496,7 +1526,7 @@ class CodeContext {
     public void
     popOperand(VerificationTypeInfo expected) {
         VerificationTypeInfo actual = this.popOperand();
-        assert actual.equals(expected) : actual;
+        assert this.relaxed || actual.equals(expected) : actual;
     }
 
     /**
@@ -1510,7 +1540,7 @@ class CodeContext {
         VerificationTypeInfo vti = this.popOperand();
 
         if (vti == StackMapTableAttribute.INTEGER_VARIABLE_INFO) {
-            assert (
+            assert this.relaxed || (
                 expectedFd.equals(Descriptor.BOOLEAN)
                 || expectedFd.equals(Descriptor.BYTE)
                 || expectedFd.equals(Descriptor.CHAR)
@@ -1519,30 +1549,34 @@ class CodeContext {
             ) : expectedFd;
         } else
         if (vti == StackMapTableAttribute.LONG_VARIABLE_INFO) {
-            assert expectedFd.equals(Descriptor.LONG) : expectedFd;
+            assert this.relaxed || expectedFd.equals(Descriptor.LONG) : expectedFd;
         } else
         if (vti == StackMapTableAttribute.FLOAT_VARIABLE_INFO) {
-            assert expectedFd.equals(Descriptor.FLOAT) : expectedFd;
+            assert this.relaxed || expectedFd.equals(Descriptor.FLOAT) : expectedFd;
         } else
         if (vti == StackMapTableAttribute.DOUBLE_VARIABLE_INFO) {
-            assert expectedFd.equals(Descriptor.DOUBLE) : expectedFd;
+            assert this.relaxed || expectedFd.equals(Descriptor.DOUBLE) : expectedFd;
         } else
         if (vti == StackMapTableAttribute.NULL_VARIABLE_INFO) {
-            assert expectedFd.equals(Descriptor.VOID) || Descriptor.isReference(expectedFd) : expectedFd;
+            assert (
+                this.relaxed
+                || expectedFd.equals(Descriptor.VOID)
+                || Descriptor.isReference(expectedFd)
+            ) : expectedFd;
         } else
         if (vti instanceof StackMapTableAttribute.ObjectVariableInfo) {
-            assert Descriptor.isReference(expectedFd) : expectedFd + " vs. " + vti;
+            assert this.relaxed || Descriptor.isReference(expectedFd) : expectedFd + " vs. " + vti;
 
             final ObjectVariableInfo ovi = (StackMapTableAttribute.ObjectVariableInfo) vti;
             final ConstantClassInfo  cci = this.classFile.getConstantClassInfo(ovi.getConstantClassInfoIndex());
 
             final String computationalTypeFd = Descriptor.fromInternalForm(cci.getName(this.classFile));
-            assert expectedFd.equals(computationalTypeFd) : expectedFd + " vs. " + computationalTypeFd;
+            assert this.relaxed || expectedFd.equals(computationalTypeFd) : expectedFd + " vs. " + computationalTypeFd;
         } else
         if (vti instanceof StackMapTableAttribute.UninitializedVariableInfo) {
-            assert Descriptor.isReference(expectedFd) : expectedFd;
+            assert this.relaxed || Descriptor.isReference(expectedFd) : expectedFd;
         } else
-        {
+        if (!this.relaxed) {
             throw new AssertionError(vti);
         }
     }
@@ -1581,7 +1615,7 @@ class CodeContext {
     public void
     popUninitializedVariableOperand() {
         final VerificationTypeInfo op = this.popOperand();
-        assert op instanceof StackMapTableAttribute.UninitializedVariableInfo : String.valueOf(op);
+        assert this.relaxed || op instanceof StackMapTableAttribute.UninitializedVariableInfo : String.valueOf(op);
     }
 
     /**
@@ -1589,14 +1623,14 @@ class CodeContext {
      */
     public void
     popReferenceOperand() {
-        assert this.peekObjectOperand() || this.peekNullOperand() : this.peekOperand();
+        assert this.relaxed || this.peekObjectOperand() || this.peekNullOperand() : this.peekOperand();
         this.popOperand();
     }
 
     public void
     popNullOperand() {
         VerificationTypeInfo vti = this.popOperand();
-        assert vti == StackMapTableAttribute.NULL_VARIABLE_INFO;
+        assert this.relaxed || vti == StackMapTableAttribute.NULL_VARIABLE_INFO;
     }
 
     /**
@@ -1608,6 +1642,9 @@ class CodeContext {
     popObjectOperand() {
 
         VerificationTypeInfo vti = this.popOperand();
+        if (this.relaxed && !(vti instanceof StackMapTableAttribute.ObjectVariableInfo)) {
+            return Descriptor.JAVA_LANG_OBJECT;
+        }
         assert vti instanceof StackMapTableAttribute.ObjectVariableInfo : vti;
         final ObjectVariableInfo ovi = (StackMapTableAttribute.ObjectVariableInfo) vti;
 
@@ -1623,7 +1660,7 @@ class CodeContext {
     public VerificationTypeInfo
     popObjectOrUninitializedOrUninitializedThisOperand() {
         VerificationTypeInfo result = this.popOperand();
-        assert (
+        assert this.relaxed || (
             result instanceof StackMapTableAttribute.UninitializedVariableInfo
             || result instanceof StackMapTableAttribute.ObjectVariableInfo
             || result == StackMapTableAttribute.UNINITIALIZED_THIS_VARIABLE_INFO
@@ -1639,7 +1676,7 @@ class CodeContext {
     public VerificationTypeInfo
     popIntOrLongOperand() {
         VerificationTypeInfo result = this.popOperand();
-        assert (
+        assert this.relaxed || (
             result == StackMapTableAttribute.INTEGER_VARIABLE_INFO
             || result == StackMapTableAttribute.LONG_VARIABLE_INFO
         ) : result;

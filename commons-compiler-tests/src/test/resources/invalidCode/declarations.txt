@@ -66,7 +66,6 @@ class B extends A {}
 
 === class extends interface
 janino: REJECTED "I" is an interface; classes can only extend a class
-recovery: INVALID InternalCompilerException
 interface I {}
 public class P extends I {}
 
@@ -223,8 +222,7 @@ janino: REJECTED Null literal not allowed as element value
 @X(null) public class P {}
 
 === annotation element does not exist
-janino: INVALID AssertionError
-recovery: INVALID AssertionError
+janino: REJECTED Annotation type "X" has no element "foo"
 @interface X { int value(); }
 @X(foo = 1) public class P {}
 
@@ -237,16 +235,14 @@ enum E {
 }
 
 === instantiation of an enum
-janino: INVALID InternalCompilerException
-recovery: INVALID InternalCompilerException
+janino: REJECTED Cannot instantiate enum "E"
 enum E { X }
 public class P {
     Object f() { return new E(); }
 }
 
 === class extends enum
-janino: INVALID AssertionError
-recovery: INVALID AssertionError
+janino: REJECTED "E" is an enum; classes cannot extend an enum
 enum E { X }
 public class P extends E {}
 
@@ -260,3 +256,15 @@ janino: REJECTED IDENTIFIER expected instead of '{'
 interface I {
     static { }
 }
+
+=== anonymous subclass of an enum
+janino: REJECTED Cannot instantiate enum "E"
+enum E { X }
+public class P {
+    Object f() { return new E() {}; }
+}
+
+=== annotation with two unknown elements
+janino: REJECTED Annotation type "X" has no element "foo"
+@interface X { int value(); }
+@X(foo = 1, bar = 2) public class P {}

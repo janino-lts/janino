@@ -1191,6 +1191,19 @@ class UnitCompiler {
                 visitNormalAnnotation(NormalAnnotation na) throws CompileException {
                     for (ElementValuePair evp : na.elementValuePairs) {
                         IMethod[] definitions = annotationIClass.getDeclaredIMethods(evp.identifier);
+                        if (definitions.length == 0) {
+                            UnitCompiler.this.compileError(
+                                (
+                                    "Annotation type \""
+                                    + annotationIClass
+                                    + "\" has no element \""
+                                    + evp.identifier
+                                    + "\""
+                                ),
+                                na.getLocation()
+                            );
+                            continue;
+                        }
                         assert definitions.length == 1;
                         boolean isArray = definitions[0].getReturnType().isArray();
                         evps.put(
@@ -2878,6 +2891,10 @@ class UnitCompiler {
         {
             Scope s = rs.getEnclosingScope();
             while (s instanceof Statement || s instanceof CatchClause) s = s.getEnclosingScope();
+            if (!(s instanceof FunctionDeclarator)) {
+                this.compileError("\"return\" statement is not allowed in an initializer", rs.getLocation());
+                return true;
+            }
             enclosingFunction = (FunctionDeclarator) s;
         }
 
@@ -4754,8 +4771,12 @@ class UnitCompiler {
             // Reference comparison.
             // Note: Comparison with "null" is already handled above.
             if (!UnitCompiler.rawTypeOf(lhsType).isPrimitive() && !UnitCompiler.rawTypeOf(rhsType).isPrimitive()) {
+                int acmpIdx = opIdx;
                 if (bo.operator != "==" && bo.operator != "!=") { // SUPPRESS CHECKSTYLE StringLiteralEquality
                     this.compileError("Operator \"" + bo.operator + "\" not allowed on reference operands", bo.getLocation());
+
+                    // Continue as if the operator were "==".
+                    acmpIdx = UnitCompiler.EQ;
                 }
                 if (
                     !this.isCastReferenceConvertible(lhsType, rhsType)
@@ -4764,7 +4785,7 @@ class UnitCompiler {
 
                 this.compileGetValue(bo.rhs);
 
-                this.if_acmpxx(bo, orientation == UnitCompiler.JUMP_IF_FALSE ? opIdx ^ 1 : opIdx, dst);
+                this.if_acmpxx(bo, orientation == UnitCompiler.JUMP_IF_FALSE ? acmpIdx ^ 1 : acmpIdx, dst);
                 return;
             }
 
@@ -4839,6 +4860,9 @@ class UnitCompiler {
             @Override public Integer visitInstanceCreationReference(ClassInstanceCreationReference cicr) { return UnitCompiler.this.compileContext2(cicr); }
             @Override public Integer visitArrayCreationReference(ArrayCreationReference acr)             { return UnitCompiler.this.compileContext2(acr);  }
         });
+
+        // After a compile error, "rv" may be a placeholder for an erroneous expression, which has no context.
+        if (result == null && this.compileErrorCount > 0) return 0;
 
         assert result != null;
         return result;
@@ -4940,7 +4964,7 @@ class UnitCompiler {
                     @Override public IType visitFieldAccess(FieldAccess fa)                                            throws CompileException { return UnitCompiler.this.compileGet2(fa);    }
                     @Override public IType visitFieldAccessExpression(FieldAccessExpression fae)                       throws CompileException { return UnitCompiler.this.compileGet2(fae);   }
                     @Override public IType visitSuperclassFieldAccessExpression(SuperclassFieldAccessExpression scfae) throws CompileException { return UnitCompiler.this.compileGet2(scfae); }
-                    @Override public IType visitLocalVariableAccess(LocalVariableAccess lva)                                                   { return UnitCompiler.this.compileGet2(lva);   }
+                    @Override public IType visitLocalVariableAccess(LocalVariableAccess lva)                           throws CompileException { return UnitCompiler.this.compileGet2(lva);   }
                     @Override public IType visitParenthesizedExpression(ParenthesizedExpression pe)                    throws CompileException { return UnitCompiler.this.compileGet2(pe);    }
                 });
             }
@@ -4977,6 +5001,11 @@ class UnitCompiler {
             @Override public IType visitArrayCreationReference(ArrayCreationReference acr)             throws CompileException { return UnitCompiler.this.compileGet2(acr);  }
         });
 
+        // After a compile error, "rv" may be a placeholder for an erroneous expression, which has no value.
+        if (result == null && this.compileErrorCount > 0) {
+            return this.pushPlaceholder(rv, this.iClassLoader.TYPE_java_lang_Object);
+        }
+
         assert result != null;
         return result;
     }
@@ -5002,7 +5031,19 @@ class UnitCompiler {
     }
 
     private IType
-    compileGet2(LocalVariableAccess lva) { return this.load(lva, lva.localVariable); }
+    compileGet2(LocalVariableAccess lva) throws CompileException {
+        LocalVariable lv = lva.localVariable;
+
+        // A local variable that was never assigned has no type in the current stack map yet.
+        VerificationTypeInfo vti = this.findLocalVariableTypeInfo(lv.getSlotIndex());
+        if (vti == null) {
+            this.compileError("Local variable \"" + lva + "\" is not initialized", lva.getLocation());
+            return this.pushPlaceholder(lva, lv.type);
+        }
+
+        this.load(lva, lv.type, lv.getSlotIndex(), vti);
+        return lv.type;
+    }
 
     private IType
     compileGet2(FieldAccess fa) throws CompileException {
@@ -5714,7 +5755,7 @@ class UnitCompiler {
         if (fd instanceof MethodDeclarator && ((MethodDeclarator) fd).isStatic()) {
             this.compileError("Cannot invoke superclass method in static context", scmi.getLocation());
         }
-        this.load(scmi, this.resolve(fd.getDeclaringType()), 0);
+        this.loadThis(scmi, this.resolve(fd.getDeclaringType()));
 
         // Evaluate method parameters.
         // TODO: adjust args
@@ -5756,6 +5797,13 @@ class UnitCompiler {
 
         if (rawType.isInterface()) {
             this.compileError("Cannot instantiate \"" + iType + "\"", nci.getLocation());
+            return this.pushPlaceholder(nci, iType);
+        }
+
+        // (The instances of the enum constants are created with synthetic NEW expressions, which have no "type".)
+        if (rawType.isEnum() && nci.type != null) {
+            this.compileError("Cannot instantiate enum \"" + iType + "\"", nci.getLocation());
+            return this.pushPlaceholder(nci, iType);
         }
         this.checkAccessible(rawType, nci.getEnclosingScope(), nci.getLocation());
         if (rawType.isAbstract()) {
@@ -5850,6 +5898,12 @@ class UnitCompiler {
         // Find constructors of superclass.
         IClass sc = this.resolve(acd).getSuperclass();
         assert sc != null;
+
+        if (sc.isEnum()) {
+            this.compileError("Cannot instantiate enum \"" + sc + "\"", naci.getLocation());
+            this.pushPlaceholder(naci, sc);
+            return sc;
+        }
 
         IClass.IConstructor[] superclassIConstructors = sc.getDeclaredIConstructors();
         if (superclassIConstructors.length == 0) {
@@ -6027,6 +6081,8 @@ class UnitCompiler {
 
         if (!(arrayType instanceof IClass) || !((IClass) arrayType).isArray()) {
             this.compileError("Array initializer not allowed for non-array type \"" + arrayType.toString() + "\"");
+            this.pushPlaceholder(ai, arrayType);
+            return;
         }
 
         IClass componentType = ((IClass) arrayType).getComponentType();
@@ -7094,6 +7150,9 @@ class UnitCompiler {
             }
         });
 
+        // After a compile error, the expression may be a placeholder for an erroneous expression, which has no type.
+        if (result == null && this.compileErrorCount > 0) return this.iClassLoader.TYPE_java_lang_Object;
+
         assert result != null;
         return result;
     }
@@ -7174,6 +7233,9 @@ class UnitCompiler {
             @Override public IType visitInstanceCreationReference(ClassInstanceCreationReference cicr) throws CompileException { return UnitCompiler.this.getType2(cicr); }
             @Override public IType visitArrayCreationReference(ArrayCreationReference acr)             throws CompileException { return UnitCompiler.this.getType2(acr);  }
         });
+
+        // After a compile error, the expression may be a placeholder for an erroneous expression, which has no type.
+        if (result == null && this.compileErrorCount > 0) return this.iClassLoader.TYPE_java_lang_Object;
 
         assert result != null;
         return result;
@@ -7780,6 +7842,10 @@ class UnitCompiler {
     private IType
     getType2(ArrayAccessExpression aae) throws CompileException {
         IType componentType = UnitCompiler.getComponentType(this.getType(aae.lhs));
+
+        // After the compile error "Subscript not allowed on non-array type", there is no component type.
+        if (componentType == null && this.compileErrorCount > 0) return this.iClassLoader.TYPE_java_lang_Object;
+
         assert componentType != null : "null component type for " + aae;
         return componentType;
     }
@@ -8565,6 +8631,13 @@ class UnitCompiler {
                 Rvalue operand = (Rvalue) operands.next();
 
                 type = this.unaryNumericPromotion(operand, type);
+                if (type != IClass.INT && type != IClass.LONG) {
+                    this.compileError(
+                        "Operator \"" + operator + "\" not applicable to type \"" + type + "\"",
+                        locatable.getLocation()
+                    );
+                    type = (IClass) this.replaceWithPlaceholder(operand, type, IClass.INT);
+                }
 
                 IType  rhsType         = this.compileGetValue(operand);
                 IClass promotedRhsType = this.unaryNumericPromotion(operand, rhsType);
@@ -8579,6 +8652,7 @@ class UnitCompiler {
                         "Shift distance of type \"" + rhsType + "\" is not allowed",
                         locatable.getLocation()
                     );
+                    this.replaceWithPlaceholder(operand, promotedRhsType, IClass.INT);
                 }
 
                 this.shift(operand, operator);
@@ -8604,7 +8678,7 @@ class UnitCompiler {
     ) throws CompileException {
 
         // Convert the first operand (which is already on the operand stack) to "String".
-        this.stringConversion(locatable, type);
+        this.stringConversion(locatable, this.checkStringConcatenationOperand(locatable, type));
 
         // Compute list of operands and merge consecutive constant operands.
         List<Rvalue> tmp = new ArrayList<>();
@@ -8657,7 +8731,10 @@ class UnitCompiler {
             for (Rvalue operand : tmp) {
 
                 // "s.concat(String.valueOf(operand))"
-                UnitCompiler.this.stringConversion(operand, UnitCompiler.this.compileGetValue(operand));
+                UnitCompiler.this.stringConversion(
+                    operand,
+                    this.checkStringConcatenationOperand(operand, UnitCompiler.this.compileGetValue(operand))
+                );
                 this.invokeMethod(locatable, this.iClassLoader.METH_java_lang_String__concat__java_lang_String);
             }
             return this.iClassLoader.TYPE_java_lang_String;
@@ -8676,7 +8753,7 @@ class UnitCompiler {
             Rvalue operand = (Rvalue) it.next();
 
             // "sb.append(operand)"
-            IType t = UnitCompiler.this.compileGetValue(operand);
+            IType t = this.checkStringConcatenationOperand(operand, UnitCompiler.this.compileGetValue(operand));
             this.invokeMethod(locatable, (
                 t == IClass.BYTE    ? this.iClassLoader.METH_java_lang_StringBuilder__append__int     :
                 t == IClass.SHORT   ? this.iClassLoader.METH_java_lang_StringBuilder__append__int     :
@@ -8694,6 +8771,19 @@ class UnitCompiler {
         this.invokeMethod(locatable, this.iClassLoader.METH_java_lang_StringBuilder__toString);
 
         return this.iClassLoader.TYPE_java_lang_String;
+    }
+
+    /**
+     * Reports a compile error if the operand of a string concatenation, which is already on the operand stack, has
+     * type {@code void}.
+     *
+     * @return <var>type</var>, or, after the error, the type of a placeholder
+     */
+    private IType
+    checkStringConcatenationOperand(Locatable operand, IType type) throws CompileException {
+        if (type != IClass.VOID) return type;
+        this.compileError("\"void\" not allowed in string concatenation", operand.getLocation());
+        return this.pushPlaceholder(operand, this.iClassLoader.TYPE_java_lang_String);
     }
 
     /**
@@ -10810,6 +10900,14 @@ class UnitCompiler {
                             "\"" + superclass.toString() + "\" is an interface; classes can only extend a class",
                             td.getLocation()
                         );
+                        return UnitCompiler.this.iClassLoader.TYPE_java_lang_Object;
+                    }
+                    if (superclass.isEnum()) {
+                        UnitCompiler.this.compileError(
+                            "\"" + superclass.toString() + "\" is an enum; classes cannot extend an enum",
+                            td.getLocation()
+                        );
+                        return UnitCompiler.this.iClassLoader.TYPE_java_lang_Object;
                     }
                     return superclass;
                 }
@@ -10906,6 +11004,8 @@ class UnitCompiler {
 
         if (UnitCompiler.isStaticContext(declaringTypeBodyDeclaration)) {
             this.compileError("No current instance available in static context", locatable.getLocation());
+            this.aconstnull(locatable);
+            return;
         }
 
         int j;
@@ -10930,6 +11030,8 @@ class UnitCompiler {
                 "\"" + declaringType + "\" is not enclosed by \"" + targetIType + "\"",
                 locatable.getLocation()
             );
+            this.aconstnull(locatable);
+            return;
         }
 
         int i;
@@ -11032,18 +11134,25 @@ class UnitCompiler {
 
         if (tr.iClass != null) return tr.iClass;
 
-        // Compile error if in static function context.
+        // Compile error if in static function context, or in a static initializer or static field initializer.
         Scope s;
         for (
             s = tr.getEnclosingScope();
             s instanceof Statement || s instanceof CatchClause;
             s = s.getEnclosingScope()
-        );
+        ) {
+            if (s instanceof FieldDeclaration && ((FieldDeclaration) s).isStatic()) {
+                this.compileError("No current instance available in static field initializer", tr.getLocation());
+            }
+        }
         if (s instanceof FunctionDeclarator) {
             FunctionDeclarator function = (FunctionDeclarator) s;
             if (function instanceof MethodDeclarator && ((MethodDeclarator) function).isStatic()) {
                 this.compileError("No current instance available in static method", tr.getLocation());
             }
+        }
+        if (s instanceof Initializer && ((Initializer) s).isStatic()) {
+            this.compileError("No current instance available in static initializer", tr.getLocation());
         }
 
         // Determine declaring type.
@@ -11563,6 +11672,36 @@ class UnitCompiler {
 
     }
 
+    /**
+     * After a compile error was reported (and the error handler returned normally), pushes a value of the given type
+     * instead of the value of the erroneous expression, so that the compilation can continue.
+     *
+     * @return <var>type</var>
+     */
+    private IType
+    pushPlaceholder(Locatable locatable, IType type) {
+        IClass rawType = UnitCompiler.rawTypeOf(type);
+        if (rawType == IClass.VOID) return type;
+        if (rawType.isPrimitive()) {
+            this.consT(locatable, rawType, 0);
+        } else {
+            this.aconstnull(locatable);
+        }
+        return type;
+    }
+
+    /**
+     * After a compile error was reported (and the error handler returned normally), replaces the value of type
+     * <var>actualType</var> on the operand stack with a placeholder of type <var>placeholderType</var>.
+     *
+     * @return <var>placeholderType</var>
+     */
+    private IType
+    replaceWithPlaceholder(Locatable locatable, IType actualType, IType placeholderType) {
+        this.pop(locatable, actualType);
+        return this.pushPlaceholder(locatable, placeholderType);
+    }
+
     private void
     consT(Locatable locatable, IClass t, int value) {
         if (t == IClass.BYTE || t == IClass.CHAR || t == IClass.INT || t == IClass.SHORT || t == IClass.BOOLEAN) {
@@ -11954,7 +12093,18 @@ class UnitCompiler {
                 sourceType, // sourceType
                 pt          // targetType
             )
-        ) throw new InternalCompilerException(locatable.getLocation(), "SNO: reverse unary numeric promotion failed");
+        ) {
+
+            // After a compile error (e.g. "s++" where "s" is a String), the conversion may be impossible.
+            if (this.compileErrorCount == 0) {
+                throw new InternalCompilerException(
+                    locatable.getLocation(),
+                    "SNO: reverse unary numeric promotion failed"
+                );
+            }
+            this.replaceWithPlaceholder(locatable, sourceType, targetType);
+            return;
+        }
         if (unboxedType != null) this.boxingConversion(locatable, unboxedType, targetType);
     }
 
@@ -11976,7 +12126,7 @@ class UnitCompiler {
             "Object of type \"" + type.toString() + "\" cannot be converted to a numeric type",
             locatable.getLocation()
         );
-        return IClass.INT;
+        return (IClass) this.replaceWithPlaceholder(locatable, type, IClass.INT);
     }
 
     private void
@@ -13032,6 +13182,19 @@ class UnitCompiler {
 
     private void
     load(Locatable locatable, IType localVariableType, int localVariableIndex) {
+        this.load(
+            locatable,
+            localVariableType,
+            localVariableIndex,
+            this.getLocalVariableTypeInfo((short) localVariableIndex)
+        );
+    }
+
+    /**
+     * @param vti The type of the local variable in the current stack map
+     */
+    private void
+    load(Locatable locatable, IType localVariableType, int localVariableIndex, VerificationTypeInfo vti) {
         assert localVariableIndex >= 0 && localVariableIndex <= 65535;
 
         this.addLineNumberOffset(locatable);
@@ -13051,7 +13214,6 @@ class UnitCompiler {
             this.writeUnsignedShort(localVariableIndex);
         }
 
-        VerificationTypeInfo vti = this.getLocalVariableTypeInfo((short) localVariableIndex);
         this.getCodeContext().pushOperand(vti);
     }
 
@@ -13517,6 +13679,10 @@ class UnitCompiler {
     private void
     compileError(String message, @Nullable Location location) throws CompileException {
         ++this.compileErrorCount;
+
+        // If the error handler returns normally, the compilation continues, but its code is never used.
+        if (this.codeContext != null) this.codeContext.relaxOperandStackChecks();
+
         if (this.compileErrorHandler != null) {
             this.compileErrorHandler.handleError(message, location);
         } else {
@@ -13574,6 +13740,7 @@ class UnitCompiler {
 
     @Nullable private CodeContext
     replaceCodeContext(@Nullable CodeContext newCodeContext) {
+        if (newCodeContext != null && this.compileErrorCount > 0) newCodeContext.relaxOperandStackChecks();
         CodeContext oldCodeContext = this.codeContext;
         this.codeContext = newCodeContext;
         return oldCodeContext;
@@ -13836,7 +14003,18 @@ class UnitCompiler {
     }
 
     private void
-    referenceThis(Locatable locatable, IClass currentIClass) {
+    referenceThis(Locatable locatable, IClass currentIClass) { this.loadThis(locatable, currentIClass); }
+
+    /**
+     * Loads "this" (local variable 0) onto the operand stack. After a compile error was reported (e.g. for "this" in
+     * a static context), there may be no local variable 0; then a placeholder is pushed instead.
+     */
+    private void
+    loadThis(Locatable locatable, IClass currentIClass) {
+        if (this.compileErrorCount > 0 && this.findLocalVariableTypeInfo((short) 0) == null) {
+            this.aconstnull(locatable);
+            return;
+        }
         this.load(
             locatable,
             currentIClass, // localVariableType
@@ -14062,6 +14240,18 @@ class UnitCompiler {
      */
     private VerificationTypeInfo
     getLocalVariableTypeInfo(short lvIndex) {
+        VerificationTypeInfo result = this.findLocalVariableTypeInfo(lvIndex);
+        if (result == null) throw new InternalCompilerException("Invalid local variable index " + lvIndex);
+        return result;
+    }
+
+    /**
+     * @param lvIndex (two slots for LONG and DOUBLE local variables)
+     * @return        The type of the local variable in the current stack map, or {@code null} if the stack map has no
+     *                entry for it (e.g. because the local variable was not yet assigned)
+     */
+    @Nullable private VerificationTypeInfo
+    findLocalVariableTypeInfo(short lvIndex) {
 
         StackMap cism = this.getCodeContext().currentInserter().getStackMap();
         assert cism != null;
@@ -14072,7 +14262,7 @@ class UnitCompiler {
             nextLvIndex += vti.category();
         }
 
-        throw new InternalCompilerException("Invalid local variable index " + lvIndex);
+        return null;
     }
 
     private void

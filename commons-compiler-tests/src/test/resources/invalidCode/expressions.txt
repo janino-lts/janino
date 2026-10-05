@@ -42,7 +42,6 @@ public class P {
 
 === unary plus of String
 janino: REJECTED Object of type "java.lang.String" cannot be converted to a numeric type
-recovery: INVALID InternalCompilerException
 public class P {
     Object f() { return +"a"; }
 }
@@ -55,7 +54,6 @@ public class P {
 
 === increment of String
 janino: REJECTED Object of type "java.lang.String" cannot be converted to a numeric type
-recovery: INVALID InternalCompilerException
 public class P {
     void f(String s) { s++; }
 }
@@ -89,21 +87,18 @@ public class P {
 
 === arithmetic with null
 janino: REJECTED Binary numeric promotion not possible on types "(null type)" and "int"
-recovery: INVALID InternalCompilerException
 public class P {
     Object f() { return null - 1; }
 }
 
 === primitive compared with null
 janino: REJECTED Cannot compare primitive type "int" with "null"
-recovery: INVALID InternalCompilerException
 public class P {
     boolean f() { return 1 == null; }
 }
 
 === null compared with primitive
 janino: REJECTED Cannot compare "null" with primitive type "int"
-recovery: INVALID InternalCompilerException
 public class P {
     boolean f() { return null == 1; }
 }
@@ -116,7 +111,6 @@ public class P {
 
 === relational operator on references
 janino: REJECTED Operator "<" not allowed on reference operands
-recovery: INVALID InternalCompilerException
 public class P {
     boolean f() { return "a" < "b"; }
 }
@@ -129,7 +123,6 @@ public class P {
 
 === comparison of boolean and int
 janino: REJECTED Cannot compare types "boolean" and "int"
-recovery: INVALID InternalCompilerException
 public class P {
     boolean f() { return true == 1; }
 }
@@ -148,7 +141,6 @@ public class P {
 
 === cast between unrelated classes
 janino: REJECTED Cannot cast "java.lang.String" to "java.lang.Integer"
-recovery: INVALID InternalCompilerException
 public class P {
     Object f() { return (Integer) "a"; }
 }
@@ -172,22 +164,19 @@ public class P {
 }
 
 === shift of double
-janino: INVALID InternalCompilerException
-recovery: INVALID InternalCompilerException
+janino: REJECTED Operator "<<" not applicable to type "double"
 public class P {
     double f() { return 1.0 << 1; }
 }
 
 === length of non-array
 janino: REJECTED "length" is neither a method, a field, nor a member class of "int"
-recovery: INVALID InternalCompilerException
 public class P {
     int f(int i) { return i.length; }
 }
 
 === subscript of non-array
 janino: REJECTED Subscript not allowed on non-array type "int"
-recovery: INVALID InternalCompilerException
 public class P {
     int f(int i) { return i[0]; }
 }
@@ -200,14 +189,12 @@ public class P {
 
 === array size is double
 janino: REJECTED Invalid array size expression type
-recovery: INVALID InternalCompilerException
 public class P {
     Object f() { return new int[1.0]; }
 }
 
 === array initializer for non-array variable
 janino: REJECTED Array initializer not allowed for non-array type "int"
-recovery: INVALID InternalCompilerException
 public class P {
     void f() { int x = { 1, 2 }; }
 }
@@ -268,15 +255,13 @@ public class P {
 
 === void method in expression
 janino: REJECTED Assignment conversion not possible from type "void" to type "int"
-recovery: INVALID InternalCompilerException
 public class P {
     void g() {}
     void f() { int x = g(); }
 }
 
 === void method in string concatenation
-janino: INVALID InternalCompilerException
-recovery: INVALID InternalCompilerException
+janino: REJECTED "void" not allowed in string concatenation
 public class P {
     void g() {}
     String f() { return "a" + g(); }
@@ -284,7 +269,6 @@ public class P {
 
 === method invocation on primitive
 janino: REJECTED A method named "toString" is not declared in any enclosing class nor any supertype, nor through a static import
-recovery: INVALID InternalCompilerException
 public class P {
     Object f(int i) { return i.toString(); }
 }
@@ -325,4 +309,23 @@ public class P {
 janino: REJECTED Unexpected token "." in primary
 public class P {
     Object f() { return java.util.List<String>.class; }
+}
+
+=== void method as left operand of string concatenation
+janino: REJECTED "void" not allowed in string concatenation
+public class P {
+    void g() {}
+    String f() { return g() + "a"; }
+}
+
+=== shift of float
+janino: REJECTED Operator "<<" not applicable to type "float"
+public class P {
+    Object f() { return 1.0f << 1; }
+}
+
+=== shift distance is double
+janino: REJECTED Shift distance of type "double" is not allowed
+public class P {
+    long f(long l) { return l << 1.0; }
 }

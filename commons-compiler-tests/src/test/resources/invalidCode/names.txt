@@ -30,14 +30,12 @@ public class P {
 
 === unknown static field
 janino: REJECTED "foo" is neither a method, a field, nor a member class of "java.lang.String"
-recovery: INVALID InternalCompilerException
 public class P {
     Object f() { return String.foo; }
 }
 
 === unknown field of superclass
 janino: REJECTED Class has no field "x"
-recovery: INVALID InternalCompilerException
 public class P {
     int f() { return super.x; }
 }
@@ -50,7 +48,6 @@ public class P {
 
 === instance method invoked in static context
 janino: REJECTED Instance method "default void P.g()" cannot be invoked in static context
-recovery: INVALID InternalCompilerException
 public class P {
     void g() {}
     static void f() { g(); }
@@ -58,7 +55,6 @@ public class P {
 
 === instance method invoked through class name
 janino: REJECTED Instance method "length" cannot be invoked in static context
-recovery: INVALID InternalCompilerException
 public class P {
     int f() { return String.length(); }
 }
@@ -72,14 +68,12 @@ public class P {
 
 === this in static method
 janino: REJECTED No current instance available in static method
-recovery: INVALID InternalCompilerException
 public class P {
     static Object f() { return this; }
 }
 
 === this in static initializer
-janino: INVALID InternalCompilerException
-recovery: INVALID InternalCompilerException
+janino: REJECTED No current instance available in static initializer
 public class P {
     static Object o;
     static { o = this; }
@@ -87,14 +81,12 @@ public class P {
 
 === super method invocation in static method
 janino: REJECTED Superclass method cannot be invoked in static context
-recovery: INVALID InternalCompilerException
 public class P {
     static String f() { return super.toString(); }
 }
 
 === qualified this of a type that does not enclose
 janino: REJECTED "P" is not enclosed by "A"
-recovery: INVALID InternalCompilerException
 class A {}
 public class P {
     Object f() { return A.this; }
@@ -102,7 +94,6 @@ public class P {
 
 === instantiation of an interface
 janino: REJECTED Cannot instantiate "java.lang.Runnable"
-recovery: INVALID InternalCompilerException
 public class P {
     Object f() { return new Runnable(); }
 }
@@ -116,7 +107,6 @@ public class P {
 
 === instantiation of an inner class in static context
 janino: REJECTED No current instance available in static method
-recovery: INVALID InternalCompilerException
 public class P {
     class I {}
     static Object f() { return new I(); }
@@ -238,4 +228,10 @@ public class P {
 janino: REJECTED Expression "java.util" is not an rvalue
 public class P {
     Object f() { return java.util; }
+}
+
+=== this in static field initializer
+janino: REJECTED No current instance available in static field initializer
+public class P {
+    static Object o = this;
 }
