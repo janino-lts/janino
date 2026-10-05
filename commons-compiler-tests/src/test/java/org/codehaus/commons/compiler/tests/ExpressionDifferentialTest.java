@@ -545,13 +545,13 @@ class ExpressionDifferentialTest {
         /**
          * The value of a compound assignment ({@code x += 1}) is wrong, unless {@code x} is an instance field: JANINO
          * fails with an internal error, generates invalid code, or computes a wrong result (if the operand stack
-         * contains other values).
+         * contains other values). Issue #35.
          */
         COMPOUND_ASSIGNMENT_VALUE,
 
         /**
          * JANINO does not unbox the operands of the integer bitwise operators ({@code & | ^}) and of the shift
-         * operators, and reports a compile error.
+         * operators, and reports a compile error. Issue #36.
          */
         BITWISE_AND_SHIFT_UNBOXING,
 
@@ -559,27 +559,27 @@ class ExpressionDifferentialTest {
          * The narrowing primitive conversions from {@code byte}, {@code short}, {@code long}, {@code float} and
          * {@code double} to {@code char}, and from {@code char} to {@code short} are wrong (in casts and in compound
          * assignments). The resulting values are out of the range of the type, so that the results also depend on
-         * the JVM.
+         * the JVM. Issue #37.
          */
         CHAR_CONVERSION,
 
         /**
          * The type of a conditional expression whose operands have different primitive or wrapper types is often
-         * wrong (JLS 15.25): JANINO reports a compile error, or the value has the wrong type.
+         * wrong (JLS 15.25): JANINO reports a compile error, or the value has the wrong type. Issue #38.
          */
         CONDITIONAL_TYPE,
 
         /**
          * The constant folding of the unary operators {@code +} and {@code -} does not promote a constant of type
          * {@code byte}, {@code short} or {@code char} to {@code int}, e.g. {@code -Byte.MIN_VALUE} yields -128 instead
-         * of 128, and {@code "" + (+'a')} yields "a" instead of "97".
+         * of 128, and {@code "" + (+'a')} yields "a" instead of "97". Issue #39.
          */
         UNARY_PROMOTION_OF_CONSTANT,
 
         /**
          * JANINO does not unbox the left operand of {@code ||} and {@code &&} if the right operand is constant and
          * determines the result ({@code Z || true}, {@code Z && false}), so that a {@code null} operand does not throw
-         * a {@link NullPointerException}.
+         * a {@link NullPointerException}. Issue #40.
          */
         UNBOXING_OF_LOGICAL_OPERAND,
     }
