@@ -112,6 +112,24 @@
             <additionalClasspathElement>${project.basedir}/../commons-compiler-jdk/target/classes</additionalClasspathElement>
           </additionalClasspathElements>
         </configuration>
+        <executions>
+
+          <!--
+            Runs the source charset tests once more with a platform default charset that can not represent all
+            characters, because the default charset is UTF-8 on most build machines.
+          -->
+          <execution>
+            <id>non-utf8-default-charset</id>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <test>SourceCharsetTest</test>
+              <reportsDirectory>${project.build.directory}/surefire-reports-non-utf8</reportsDirectory>
+              <argLine>@{argLine} -Xss2m ${test.locale.argLine} -Dfile.encoding=ISO-8859-1</argLine>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
