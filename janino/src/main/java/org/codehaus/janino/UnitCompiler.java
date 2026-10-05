@@ -1028,11 +1028,7 @@ class UnitCompiler {
 
             Object ocv = ( // Optional constant value
                 fd.isFinal() && vd.initializer instanceof Rvalue
-                ? this.constantAssignmentConversion(
-                    vd.initializer,                                 // locatable
-                    this.getConstantValue((Rvalue) vd.initializer), // value
-                    this.getRawType(type)                           // targetType
-                )
+                ? this.getConstantFieldValue((Rvalue) vd.initializer, this.getRawType(type))
                 : UnitCompiler.NOT_CONSTANT
             );
 
@@ -9288,18 +9284,37 @@ class UnitCompiler {
             @Override @Nullable public Object
             getConstantValue() throws CompileException {
                 if (finaL && initializer != null) {
-                    Object constantInitializerValue = UnitCompiler.this.getConstantValue(initializer);
-                    if (constantInitializerValue != UnitCompiler.NOT_CONSTANT) {
-                        return UnitCompiler.this.constantAssignmentConversion(
-                            initializer,              // locatable
-                            constantInitializerValue, // value
-                            this.getType()            // targetType
-                        );
-                    }
+                    return UnitCompiler.this.getConstantFieldValue(initializer, this.getType());
                 }
                 return UnitCompiler.NOT_CONSTANT;
             }
         };
+    }
+
+    /**
+     * Determines the constant value of a {@code final} field with the given <var>initializer</var>. Only a field of a
+     * primitive type or of type {@link String} can be a constant variable (JLS 4.12.4); the initializer {@code null},
+     * however, counts as a constant for every reference type, so that such a field needs no initialization at run
+     * time.
+     *
+     * @return The constant value (converted to the <var>fieldType</var>), or {@link #NOT_CONSTANT}
+     */
+    @Nullable private Object
+    getConstantFieldValue(ArrayInitializerOrRvalue initializer, IType fieldType) throws CompileException {
+
+        Object cv = this.getConstantValue(initializer);
+        if (cv == UnitCompiler.NOT_CONSTANT) return UnitCompiler.NOT_CONSTANT;
+        if (cv != null && !this.isConstantVariableType(fieldType)) return UnitCompiler.NOT_CONSTANT;
+
+        return this.constantAssignmentConversion(initializer, cv, fieldType);
+    }
+
+    /**
+     * @return Whether a variable of the given <var>type</var> can be a constant variable (JLS 4.12.4)
+     */
+    private boolean
+    isConstantVariableType(IType type) {
+        return UnitCompiler.isPrimitive(type) || type == this.iClassLoader.TYPE_java_lang_String;
     }
 
     /**
@@ -9315,12 +9330,18 @@ class UnitCompiler {
         if (vd.initializer == null) return null;
 
         // Check if initializer is constant-final.
-        if (
-            fd.isStatic()
-            && fd.isFinal()
-            && vd.initializer instanceof Rvalue
-            && this.getConstantValue((Rvalue) vd.initializer) != UnitCompiler.NOT_CONSTANT
-        ) return null;
+        if (fd.isStatic() && fd.isFinal() && vd.initializer instanceof Rvalue) {
+            Object cv = this.getConstantValue((Rvalue) vd.initializer);
+            if (
+                cv == null
+                || (
+                    cv != UnitCompiler.NOT_CONSTANT
+                    && this.isConstantVariableType(
+                        this.iClassLoader.getArrayIClass(this.getRawType(fd.type), vd.brackets)
+                    )
+                )
+            ) return null;
+        }
 
         return vd.initializer;
     }
@@ -12134,7 +12155,7 @@ class UnitCompiler {
             }
         } else
         if (targetType == IClass.CHAR) {
-            if (value instanceof Short) {
+            if (value instanceof Character) {
                 return value;
             } else
             if (value instanceof Byte || value instanceof Short || value instanceof Integer) {

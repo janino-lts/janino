@@ -386,6 +386,75 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     /**
+     * 4.12.4 {@code final} Variables: only a variable of a primitive type or of type {@link String} can be a constant
+     * variable; see <a href="https://github.com/janino-lts/janino/issues/45">issue #45</a>.
+     */
+    @Test public void
+    test_4_12_4__Constant_variables() throws Exception {
+
+        // Fields of type "char".
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "static final char C1 = 'a';\n"
+            + "static final char C2 = Character.MAX_VALUE;\n"
+            + "static final char C3 = (short) 97;\n"
+            + "static final char C4 = 97;\n"
+            + "static class H { final char c = 'b'; }\n"
+            + "public static boolean main() {\n"
+            + "    int x = 0;\n"
+            + "    switch ('a') { case C1: x = 1; }\n"
+            + "    return (\"\" + C1 + C3 + C4 + new H().c).equals(\"aaab\") && C2 == 65535 && x == 1;\n"
+            + "}\n"
+        );
+
+        // Fields of reference types with constant initializers are not constant variables.
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "static final Integer      I = 5;\n"
+            + "static final Long         L = 5L;\n"
+            + "static final Boolean      Z = true;\n"
+            + "static final Byte         B = 5;\n"
+            + "static final Short        S = 7;\n"
+            + "static final Character    C = 'a';\n"
+            + "static final Object       O1 = 5;\n"
+            + "static final Object       O2 = \"x\";\n"
+            + "static final CharSequence CS = \"x\";\n"
+            + "static class H { final Integer i = 5; final Object o = \"y\"; }\n"
+            + "public static boolean main() {\n"
+            + "    H h = new H();\n"
+            + "    return (\n"
+            + "        I == Integer.valueOf(5) && L == 5L && Z && B == 5 && S == 7 && C == 'a'\n"
+            + "        && O1.equals(Integer.valueOf(5)) && O2.equals(\"x\") && CS.equals(\"x\")\n"
+            + "        && h.i == Integer.valueOf(5) && h.o.equals(\"y\")\n"
+            + "        && (\"\" + I + C + O2).equals(\"5ax\")\n"
+            + "    );\n"
+            + "}\n"
+        );
+
+        // Fields of interfaces are implicitly "static final".
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "interface I { Integer X = 5; char C = 'a'; Object O = \"x\"; }\n"
+            + "public static boolean main() { return I.X == 5 && I.C == 'a' && I.O.equals(\"x\"); }\n"
+        );
+
+        // Unchanged: "null" initializers, and constant variables of type "String".
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "static final Object O = null;\n"
+            + "static final String N = null;\n"
+            + "static final String S = \"x\";\n"
+            + "public static boolean main() {\n"
+            + "    int x = 0;\n"
+            + "    switch (\"x\") { case S: x = 1; }\n"
+            + "    return (\n"
+            + "        O == null && N == null && (\"\" + O).equals(\"null\") && (\"\" + N).equals(\"null\") && x == 1\n"
+            + "    );\n"
+            + "}\n"
+        );
+    }
+
+    /**
      * 5.1.3 Narrowing Primitive Conversion, and 5.1.4 Widening and Narrowing Primitive Conversion ({@code byte} to
      * {@code char}); see <a href="https://github.com/janino-lts/janino/issues/37">issue #37</a>.
      */
