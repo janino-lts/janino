@@ -421,6 +421,9 @@ class ReflectionIClass extends IClass {
         @Override public boolean
         isAbstract() { return Modifier.isAbstract(this.method.getModifiers()); }
 
+        @Override boolean
+        isFinal() { return Modifier.isFinal(this.method.getModifiers()); }
+
         @Override public IClass
         getReturnType() { return ReflectionIClass.this.classToIClass(this.method.getReturnType()); }
 

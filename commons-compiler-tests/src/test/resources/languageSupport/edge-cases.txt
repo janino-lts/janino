@@ -78,3 +78,36 @@ public class P { public static Object run() { Integer a = 127, b = 127; return S
 jls: ok
 janino: OK
 public class P { @FunctionalInterface interface F { void f(); } public static Object run() { return "ok"; } }
+
+=== overload of a final method
+jls: A.f() P.f(int)
+janino: OK
+class A { public final String f() { return "A.f()"; } }
+public class P extends A {
+    public String f(int x) { return "P.f(int)"; }
+    public static Object run() { return new P().f() + " " + new P().f(1); }
+}
+
+=== method with the signature of a private final method of the superclass
+jls: PA
+janino: OK
+class A {
+    private final String f() { return "A"; }
+    String g() { return f(); }
+}
+public class P extends A {
+    public String f() { return "P"; }
+    public static Object run() { P p = new P(); return p.f() + p.g(); }
+}
+
+=== override of a non-final method of a class with final methods
+jls: A.f P.g
+janino: OK
+class A {
+    public final String f() { return "A.f"; }
+    public String g() { return "A.g"; }
+}
+public class P extends A {
+    public String g() { return "P.g"; }
+    public static Object run() { A a = new P(); return a.f() + " " + a.g(); }
+}

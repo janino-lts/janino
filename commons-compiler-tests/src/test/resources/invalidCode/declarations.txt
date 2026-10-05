@@ -30,8 +30,7 @@ class A { int f() { return 0; } }
 public class P extends A { long f() { return 0; } }
 
 === override of final method
-janino: INVALID LinkageError
-recovery: ACCEPTED
+janino: REJECTED Cannot override the final method "default void A.f()"
 class A { final void f() {} }
 public class P extends A { void f() {} }
 
@@ -54,8 +53,7 @@ class A { static void f() {} }
 public class P extends A { void f() {} }
 
 === class extends final class
-janino: INVALID LinkageError
-recovery: ACCEPTED
+janino: REJECTED "A" is final; classes cannot extend a final class
 final class A {}
 public class P extends A {}
 
@@ -75,8 +73,7 @@ class A {}
 public class P implements A {}
 
 === interface extends class
-janino: INVALID LinkageError
-recovery: ACCEPTED
+janino: REJECTED "A" is not an interface; interfaces can only extend interfaces
 class A {}
 interface I extends A {}
 
@@ -105,8 +102,7 @@ janino: REJECTED Access modifier(s) private not allowed in this context
 private class P {}
 
 === duplicate field
-janino: INVALID LinkageError
-recovery: ACCEPTED
+janino: REJECTED Redeclaration of field "x"
 public class P {
     int x;
     int x;
@@ -133,13 +129,11 @@ public class P {
 }
 
 === duplicate enum constant
-janino: INVALID LinkageError
-recovery: ACCEPTED
+janino: REJECTED Redeclaration of field "X"
 enum E { X, X }
 
 === duplicate member type
-janino: INVALID LinkageError
-recovery: ACCEPTED
+janino: REJECTED Redeclaration of member type "M"
 public class P {
     class M {}
     class M {}
@@ -268,3 +262,23 @@ public class P {
 janino: REJECTED Annotation type "X" has no element "foo"
 @interface X { int value(); }
 @X(foo = 1, bar = 2) public class P {}
+
+=== private method with the signature of a final method of the superclass
+janino: ACCEPTED
+recovery: ACCEPTED
+class A { public final void f() {} }
+public class P extends A { private void f() {} }
+
+=== static method hides static final method
+janino: ACCEPTED
+recovery: ACCEPTED
+class A { static final void f() {} }
+public class P extends A { static void f() {} }
+
+=== duplicate field with different types
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    int x;
+    long x;
+}

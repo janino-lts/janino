@@ -366,8 +366,7 @@ public class P {
 }
 
 === increment of uninitialized local variable
-janino: INVALID LinkageError
-recovery: ACCEPTED
+janino: REJECTED Local variable "x" is not initialized
 public class P {
     int f() { int x; x++; return 0; }
 }
@@ -376,4 +375,16 @@ public class P {
 janino: REJECTED Local variable "x" is not initialized
 public class P {
     int f() { int x; x += 1; return 0; }
+}
+
+=== post-increment of uninitialized local variable in an expression
+janino: REJECTED Local variable "x" is not initialized
+public class P {
+    int f() { int x; return x++; }
+}
+
+=== pre-decrement of uninitialized local variable in an expression
+janino: REJECTED Local variable "x" is not initialized
+public class P {
+    int f() { int x; return --x; }
 }

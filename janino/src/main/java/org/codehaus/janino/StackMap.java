@@ -70,6 +70,20 @@ class StackMap {
     VerificationTypeInfo[]
     locals() { return (VerificationTypeInfo[]) this.locals.clone(); }
 
+    /**
+     * @param lvIndex (two slots for LONG and DOUBLE local variables)
+     * @return        The type of the local variable, or {@code null} if this stack map has no entry for it
+     */
+    @Nullable VerificationTypeInfo
+    findLocal(int lvIndex) {
+        int nextLvIndex = 0;
+        for (VerificationTypeInfo vti : this.locals) {
+            if (nextLvIndex == lvIndex) return vti;
+            nextLvIndex += vti.category();
+        }
+        return null;
+    }
+
     // -----------------------
 
     /**

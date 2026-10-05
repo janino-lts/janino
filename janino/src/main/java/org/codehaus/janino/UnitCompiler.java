@@ -914,8 +914,92 @@ class UnitCompiler {
             );
         }
 
+        // Report what the JVM would reject when it loads the class.
+        this.checkDuplicateFields(cd, cf);
+        this.checkFinalMethodOverrides(cd, iClass, cf);
+
         // Add the generated class file to a thread-local store.
         this.addClassFile(cf);
+    }
+
+    /**
+     * Reports a compile error for fields with the same name <em>and</em> the same type, which the JVM rejects (JVMS8
+     * 4.5). (Fields with the same name and different types are accepted by the JVM, and thus by JANINO.)
+     */
+    private void
+    checkDuplicateFields(AbstractTypeDeclaration td, ClassFile cf) throws CompileException {
+
+        List<ClassFile.FieldInfo> fieldInfos = cf.fieldInfos;
+        if (fieldInfos.size() < 2) return;
+
+        Set<String> namesAndDescriptors = new HashSet<String>();
+        for (ClassFile.FieldInfo fi : fieldInfos) {
+            String name = fi.getName(cf);
+            if (!namesAndDescriptors.add(name + ' ' + fi.getDescriptor(cf))) {
+                this.compileError("Redeclaration of field \"" + name + "\"", td.getLocation());
+            }
+        }
+    }
+
+    /**
+     * Reports a compile error for each method of the class that overrides a final method of a superclass, which the
+     * JVM rejects when it loads the class. Like the JVM, this considers the methods as they are written to the class
+     * file:
+     * <ul>
+     *   <li>
+     *     Methods of the class that are neither static nor private (private instance methods are written as static
+     *     methods).
+     *   </li>
+     *   <li>
+     *     Final methods of the superclasses with the same name and descriptor that are neither static nor private.
+     *     A package-private method counts only if its class is declared in the same compilation unit: classes of
+     *     other compilation units may be loaded through another class loader, and then belong to another runtime
+     *     package, so that the JVM does not regard the method as overridden.
+     *   </li>
+     * </ul>
+     */
+    private void
+    checkFinalMethodOverrides(AbstractClassDeclaration cd, IClass iClass, ClassFile cf) throws CompileException {
+
+        // Collect the final methods of the superclasses that the methods of the class could override.
+        List<IMethod> finalMethods = null;
+        for (IClass sc = iClass.getSuperclass(); sc != null; sc = sc.getSuperclass()) {
+            for (IMethod m : sc.getDeclaredIMethods()) {
+                if (!m.isFinal() || m.isStatic() || m.getAccess() == Access.PRIVATE) continue;
+                if (
+                    m.getAccess() == Access.DEFAULT
+                    && this.findClass(Descriptor.toClassName(sc.getDescriptor())) != sc
+                ) continue;
+                if (finalMethods == null) finalMethods = new ArrayList<IMethod>();
+                finalMethods.add(m);
+            }
+        }
+        if (finalMethods == null) return;
+
+        for (ClassFile.MethodInfo mi : cf.methodInfos) {
+            short accessFlags = mi.getAccessFlags();
+            if (Mod.isStatic(accessFlags) || Mod.isPrivateAccess(accessFlags)) continue;
+
+            String name = mi.getName();
+            if ("<init>".equals(name)) continue;
+
+            for (IMethod fm : finalMethods) {
+                if (name.equals(fm.getName()) && mi.getDescriptor().equals(fm.getDescriptor().toString())) {
+                    this.compileError("Cannot override the final method \"" + fm + "\"", cd.getLocation());
+                }
+            }
+        }
+    }
+
+    /**
+     * @return Whether the <var>modifiers</var> contain "final"
+     */
+    private static boolean
+    hasFinalModifier(Modifier[] modifiers) {
+        for (Modifier m : modifiers) {
+            if (m instanceof AccessModifier && "final".equals(((AccessModifier) m).keyword)) return true;
+        }
+        return false;
     }
 
     /**
@@ -1049,6 +1133,15 @@ class UnitCompiler {
 
         // Determine extended interfaces.
         IClass[] rawInterfaces = UnitCompiler.rawTypesOf((id.interfaces = this.getTypes(id.extendedTypes)));
+        for (IClass ri : rawInterfaces) {
+            if (!ri.isInterface()) {
+                this.compileError((
+                    "\""
+                    + ri.toString()
+                    + "\" is not an interface; interfaces can only extend interfaces"
+                ), id.getLocation());
+            }
+        }
 
         short accessFlags = this.accessFlags(id.getModifiers());
         accessFlags |= Mod.INTERFACE;
@@ -1097,6 +1190,9 @@ class UnitCompiler {
         for (FieldDeclaration constantDeclaration : id.constantDeclarations) this.addFields(constantDeclaration, cf);
 
         this.compileDeclaredMemberTypes(id, cf);
+
+        // Report what the JVM would reject when it loads the interface.
+        this.checkDuplicateFields(id, cf);
 
         // Add the generated class file to a thread-local store.
         this.addClassFile(cf);
@@ -1411,7 +1507,17 @@ class UnitCompiler {
      */
     private void
     compileDeclaredMemberTypes(TypeDeclaration decl, ClassFile cf) throws CompileException {
-        for (MemberTypeDeclaration mtd : decl.getMemberTypeDeclarations()) {
+        Collection<MemberTypeDeclaration> mtds  = decl.getMemberTypeDeclarations();
+        @Nullable Set<String>             names = mtds.size() > 1 ? new HashSet<String>() : null;
+        for (MemberTypeDeclaration mtd : mtds) {
+
+            // Two member types with the same name would yield two entries for the same class in the "InnerClasses"
+            // attribute, which the JVM rejects.
+            if (names != null && !names.add(mtd.getName())) {
+                this.compileError("Redeclaration of member type \"" + mtd.getName() + "\"", mtd.getLocation());
+                continue;
+            }
+
             this.compile(mtd);
 
             // Add InnerClasses attribute entry for member type declaration.
@@ -4377,6 +4483,13 @@ class UnitCompiler {
         {
             LocalVariable lv = this.isIntLv(c);
             if (lv != null) {
+
+                // A local variable that was never assigned has no type in the current stack map yet.
+                if (this.findLocalVariableTypeInfo(lv.getSlotIndex()) == null) {
+                    this.compileError("Local variable \"" + c.operand + "\" is not initialized", c.getLocation());
+                    return;
+                }
+
                 this.iinc(c, lv, c.operator);
                 return;
             }
@@ -5268,6 +5381,13 @@ class UnitCompiler {
         // Optimized crement of "int" local variable.
         LocalVariable lv = this.isIntLv(c);
         if (lv != null) {
+
+            // A local variable that was never assigned has no type in the current stack map yet.
+            if (this.findLocalVariableTypeInfo(lv.getSlotIndex()) == null) {
+                this.compileError("Local variable \"" + c.operand + "\" is not initialized", c.getLocation());
+                return this.pushPlaceholder(c, IClass.INT);
+            }
+
             if (!c.pre) this.load(c, lv);
             this.iinc(c, lv, c.operator);
             if (c.pre) this.load(c, lv);
@@ -10887,7 +11007,17 @@ class UnitCompiler {
 
                 if (atd instanceof AnonymousClassDeclaration) {
                     IClass bt = UnitCompiler.this.getRawType(((AnonymousClassDeclaration) atd).baseType);
-                    return UnitCompiler.isInterface(bt) ? UnitCompiler.this.iClassLoader.TYPE_java_lang_Object : bt;
+                    if (UnitCompiler.isInterface(bt)) return UnitCompiler.this.iClassLoader.TYPE_java_lang_Object;
+
+                    // (An anonymous subclass of an enum is reported as "Cannot instantiate enum".)
+                    if (bt.isFinal() && !bt.isEnum()) {
+                        UnitCompiler.this.compileError(
+                            "\"" + bt.toString() + "\" is final; classes cannot extend a final class",
+                            td.getLocation()
+                        );
+                        return UnitCompiler.this.iClassLoader.TYPE_java_lang_Object;
+                    }
+                    return bt;
                 }
 
                 if (atd instanceof NamedClassDeclaration) {
@@ -10905,6 +11035,13 @@ class UnitCompiler {
                     if (superclass.isEnum()) {
                         UnitCompiler.this.compileError(
                             "\"" + superclass.toString() + "\" is an enum; classes cannot extend an enum",
+                            td.getLocation()
+                        );
+                        return UnitCompiler.this.iClassLoader.TYPE_java_lang_Object;
+                    }
+                    if (superclass.isFinal()) {
+                        UnitCompiler.this.compileError(
+                            "\"" + superclass.toString() + "\" is final; classes cannot extend a final class",
                             td.getLocation()
                         );
                         return UnitCompiler.this.iClassLoader.TYPE_java_lang_Object;
@@ -11366,6 +11503,9 @@ class UnitCompiler {
 
             @Override public boolean
             isStatic() { return methodDeclarator.isStatic(); }
+
+            @Override boolean
+            isFinal() { return UnitCompiler.hasFinalModifier(methodDeclarator.getModifiers()); }
 
             @Override public boolean
             isAbstract() {
@@ -14256,13 +14396,7 @@ class UnitCompiler {
         StackMap cism = this.getCodeContext().currentInserter().getStackMap();
         assert cism != null;
 
-        int nextLvIndex = 0;
-        for (VerificationTypeInfo vti : cism.locals()) {
-            if (nextLvIndex == lvIndex) return vti;
-            nextLvIndex += vti.category();
-        }
-
-        return null;
+        return cism.findLocal(lvIndex);
     }
 
     private void

@@ -1180,6 +1180,13 @@ class IClass implements ITypeVariableOrIClass {
         public abstract boolean isAbstract();
 
         /**
+         * @return Whether this method is FINAL; {@code false} unless overridden. (Package-private, so that
+         *         implementations outside of this package need not implement it.)
+         */
+        boolean
+        isFinal() { return false; }
+
+        /**
          * @return The return type of this method
          */
         public abstract IClass getReturnType() throws CompileException;
