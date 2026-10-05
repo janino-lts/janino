@@ -5284,8 +5284,13 @@ class UnitCompiler {
         if (
             !this.tryIdentityConversion(resultType, lhsType)
             && !this.tryNarrowingPrimitiveConversion(a, resultType, lhsType)
-        ) throw new InternalCompilerException(a.getLocation(), "SNO: \"" + a.operator + "\" reconversion failed");
-        this.dupx(a);
+            && !this.tryBoxingConversion(a, resultType, lhsType) // Java 5
+        ) {
+            this.compileError("Operand types unsuitable for \"" + a.operator + "\"", a.getLocation());
+            this.replaceWithPlaceholder(a, resultType, lhsType);
+        }
+        // Duplicate the converted result below the LHS context.
+        this.dupxx(a, lhsCs);
         this.compileSet(a.lhs);
         return lhsType;
     }
@@ -8018,7 +8023,11 @@ class UnitCompiler {
             return (
                 lhsType == IClass.BOOLEAN || lhsType == this.iClassLoader.TYPE_java_lang_Boolean
                 ? IClass.BOOLEAN
-                : this.binaryNumericPromotionType(bo, lhsType, this.getType(bo.rhs))
+                : this.binaryNumericPromotionType(
+                    bo,
+                    this.getUnboxedType(lhsType),
+                    this.getUnboxedType(this.getType(bo.rhs))
+                )
             );
         }
 
@@ -8050,7 +8059,7 @@ class UnitCompiler {
 
         if (bo.operator == "<<"  || bo.operator == ">>"  || bo.operator == ">>>") { // SUPPRESS CHECKSTYLE StringLiteralEquality
             IType lhsType = this.getType(bo.lhs);
-            return this.unaryNumericPromotionType(bo, lhsType);
+            return this.unaryNumericPromotionType(bo, this.getUnboxedType(lhsType));
         }
 
         this.compileError("Unexpected operator \"" + bo.operator + "\"", bo.getLocation());

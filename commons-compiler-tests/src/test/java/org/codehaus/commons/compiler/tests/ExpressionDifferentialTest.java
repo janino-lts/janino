@@ -543,19 +543,6 @@ class ExpressionDifferentialTest {
     enum Defect {
 
         /**
-         * The value of a compound assignment ({@code x += 1}) is wrong, unless {@code x} is an instance field: JANINO
-         * fails with an internal error, generates invalid code, or computes a wrong result (if the operand stack
-         * contains other values). Issue #35.
-         */
-        COMPOUND_ASSIGNMENT_VALUE,
-
-        /**
-         * JANINO does not unbox the operands of the integer bitwise operators ({@code & | ^}) and of the shift
-         * operators, and reports a compile error. Issue #36.
-         */
-        BITWISE_AND_SHIFT_UNBOXING,
-
-        /**
          * The narrowing primitive conversions from {@code byte}, {@code short}, {@code long}, {@code float} and
          * {@code double} to {@code char}, and from {@code char} to {@code short} are wrong (in casts and in compound
          * assignments). The resulting values are out of the range of the type, so that the results also depend on
@@ -724,7 +711,7 @@ class ExpressionDifferentialTest {
 
             List<String> statements = new ArrayList<>();
             for (int i = this.random.nextInt(3); i > 0; i--) {
-                statements.add(this.assignment(this.randomType(), 1, true));
+                statements.add(this.assignment(this.randomType(), 1));
             }
             String expression = this.expression(this.randomType(), 0);
 
@@ -758,7 +745,7 @@ class ExpressionDifferentialTest {
                 switch (this.random.nextInt(10)) {
                 case 0:  result = this.cast(t, depth);                           break;
                 case 1:  result = this.conditional(t, depth);                    break;
-                case 2:  result = "(" + this.assignment(t, depth, false) + ")";  break;
+                case 2:  result = "(" + this.assignment(t, depth) + ")";         break;
                 case 3:  result = this.unary(t, depth);                          break;
                 case 4:
                 case 5:
@@ -918,20 +905,17 @@ class ExpressionDifferentialTest {
         }
 
         /**
-         * @param statement Whether the result serves as an expression statement, or as an expression
-         * @return          An assignment, a compound assignment, or an increment or decrement of a variable of type
-         *                  <var>t</var>, without enclosing parentheses
+         * @return An assignment, a compound assignment, or an increment or decrement of a variable of type
+         *         <var>t</var>, without enclosing parentheses
          */
         private String
-        assignment(Type t, int depth, boolean statement) {
+        assignment(Type t, int depth) {
 
             String variable = this.variable(t, depth);
             String result   = null;
             switch (this.random.nextInt(3)) {
             case 1:
-                if (statement || !this.avoided.contains(Defect.COMPOUND_ASSIGNMENT_VALUE)) {
-                    result = this.compoundAssignment(t, variable, depth);
-                }
+                result = this.compoundAssignment(t, variable, depth);
                 break;
             case 2:
                 result = this.crement(t, variable);
@@ -1061,23 +1045,13 @@ class ExpressionDifferentialTest {
                 return this.binary(this.operands(t, false), this.pick("*", "/", "%", "+", "-"), depth);
             case 1:
                 return this.binary(
-                    this.integralOperands(this.numericType(t, true, true), this.numericType(Type.LONG, true, false)),
+                    new Type[] { this.numericType(t, true, true), this.numericType(Type.LONG, true, false) },
                     this.pick("<<", ">>", ">>>"),
                     depth
                 );
             default:
-                Type[] operands = this.operands(t, true);
-                return this.binary(this.integralOperands(operands[0], operands[1]), this.pick("&", "|", "^"), depth);
+                return this.binary(this.operands(t, true), this.pick("&", "|", "^"), depth);
             }
-        }
-
-        /**
-         * @return The types of the operands of a shift operator or of an integer bitwise operator
-         */
-        private Type[]
-        integralOperands(Type a, Type b) {
-            if (this.avoided.contains(Defect.BITWISE_AND_SHIFT_UNBOXING)) return new Type[] { a.unboxed(), b.unboxed() };
-            return new Type[] { a, b };
         }
 
         private String
