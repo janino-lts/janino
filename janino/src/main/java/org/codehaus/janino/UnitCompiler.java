@@ -6487,8 +6487,10 @@ class UnitCompiler {
                 // String concatenation?
                 // SUPPRESS CHECKSTYLE StringLiteralEquality
                 if (bo.operator == "+" && (lhs instanceof String || rhs instanceof String)) {
-                    StringBuilder sb = new StringBuilder(lhs.toString()).append(rhs);
-                    while (it.hasNext()) sb.append(it.next().toString());
+
+                    // An operand may be "null" (string conversion yields "null", JLS 5.1.11).
+                    StringBuilder sb = new StringBuilder(String.valueOf(lhs)).append(rhs);
+                    while (it.hasNext()) sb.append(it.next());
                     return sb.toString();
                 }
 

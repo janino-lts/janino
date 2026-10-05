@@ -3078,6 +3078,32 @@ class JlsTest extends CommonsCompilerTestSuite {
 //            + "                for (Object classFile : new Object[1]) System.out.printf(\"%s%s\", classFile, sourceFile);\n"
             + "            }\n"
         );
+
+        // String conversion of "null" (JLS 5.1.11), in every operand position (issue #49).
+        this.assertExpressionEvaluatesTrue("(null + \"a\").equals(\"nulla\")");
+        this.assertExpressionEvaluatesTrue("(\"a\" + null + null).equals(\"anullnull\")");
+        this.assertExpressionEvaluatesTrue("(\"a\" + \"b\" + null).equals(\"abnull\")");
+        this.assertExpressionEvaluatesTrue("(null + \"a\" + null).equals(\"nullanull\")");
+        this.assertExpressionEvaluatesTrue("(\"a\" + null).equals(\"anull\")");
+        this.assertExpressionEvaluatesTrue("(\"a\" + null + \"b\").equals(\"anullb\")");
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "static final String N = null;\n"
+            + "static final Object O = null;\n"
+            + "static final String S = \"a\" + null + null;\n"
+            + "public static boolean main() {\n"
+            + "    return (\n"
+            + "        (N + \"a\" + N).equals(\"nullanull\")\n"
+            + "        && (\"\" + O + N).equals(\"nullnull\")\n"
+            + "        && S.equals(\"anullnull\")\n"
+            + "    );\n"
+            + "}\n"
+        );
+
+        // Other operand types.
+        this.assertExpressionEvaluatesTrue("(1 + 2 + \"a\").equals(\"3a\")");
+        this.assertExpressionEvaluatesTrue("(\"a\" + 1 + 2).equals(\"a12\")");
+        this.assertExpressionEvaluatesTrue("(\"\" + 'a' + true + 1.5f).equals(\"atrue1.5\")");
     }
 
     @Test public void
