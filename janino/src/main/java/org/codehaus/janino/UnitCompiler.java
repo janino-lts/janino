@@ -1271,10 +1271,9 @@ class UnitCompiler {
                 visitSingleElementAnnotation(SingleElementAnnotation sea) throws CompileException {
                     IMethod[] definitions = annotationIClass.getDeclaredIMethods("value");
                     assert definitions.length == 1;
-                    boolean isArray = definitions[0].getReturnType().isArray();
                     evps.put(
                         cf.addConstantUtf8Info("value"),
-                        UnitCompiler.this.compileElementValue(sea.elementValue, cf, isArray)
+                        UnitCompiler.this.compileElementValue(sea.elementValue, cf, definitions[0].getReturnType())
                     );
                     return null;
                 }
@@ -1297,10 +1296,9 @@ class UnitCompiler {
                             continue;
                         }
                         assert definitions.length == 1;
-                        boolean isArray = definitions[0].getReturnType().isArray();
                         evps.put(
                             cf.addConstantUtf8Info(evp.identifier),
-                            UnitCompiler.this.compileElementValue(evp.elementValue, cf, isArray)
+                            UnitCompiler.this.compileElementValue(evp.elementValue, cf, definitions[0].getReturnType())
                         );
                     }
                     return null;
@@ -1318,8 +1316,16 @@ class UnitCompiler {
         }
     }
 
+    /**
+     * @param elementType The type of the annotation element, or {@code null} if unknown; a constant value is converted
+     *                    to that type (or to its component type), if possible (JLS 9.6.2, 9.7.1)
+     */
     private ClassFile.ElementValue
-    compileElementValue(ElementValue elementValue, final ClassFile cf, boolean compileAsArray) throws CompileException {
+    compileElementValue(ElementValue elementValue, final ClassFile cf, @Nullable IClass elementType)
+    throws CompileException {
+
+        final boolean          compileAsArray = elementType != null && elementType.isArray();
+        @Nullable final IClass constantType   = compileAsArray ? elementType.getComponentType() : elementType;
 
         ClassFile.ElementValue
         result = (ClassFile.ElementValue) elementValue.accept(
@@ -1382,6 +1388,13 @@ class UnitCompiler {
                         );
                     }
 
+                    // Convert the value to the type of the element, e.g. "0" to "0L" for a "long" element. A value
+                    // that cannot be converted (e.g. "300" for a "byte" element) is compiled as it is, as before.
+                    if (constantType != null && UnitCompiler.this.isConstantVariableType(constantType)) {
+                        Object converted = UnitCompiler.this.convertConstant(cv, constantType);
+                        if (converted != UnitCompiler.NOT_CONVERTIBLE) cv = converted;
+                    }
+
                     if (cv instanceof Boolean)   { return new ClassFile.BooleanElementValue(cf.addConstantIntegerInfo((Boolean) cv ? 1 : 0)); }
                     if (cv instanceof Byte)      { return new ClassFile.ByteElementValue(cf.addConstantIntegerInfo((Byte) cv));               }
                     if (cv instanceof Short)     { return new ClassFile.ShortElementValue(cf.addConstantIntegerInfo((Short) cv));             }
@@ -1414,10 +1427,13 @@ class UnitCompiler {
                         visitSingleElementAnnotation(SingleElementAnnotation sea) throws CompileException {
                             IMethod[] definitions = annotationIClass.getDeclaredIMethods("value");
                             assert definitions.length == 1;
-                            boolean expectArray = definitions[0].getReturnType().isArray();
                             evps.put(
                                 cf.addConstantUtf8Info("value"),
-                                UnitCompiler.this.compileElementValue(sea.elementValue, cf, expectArray)
+                                UnitCompiler.this.compileElementValue(
+                                    sea.elementValue,
+                                    cf,
+                                    definitions[0].getReturnType()
+                                )
                             );
                             return null;
                         }
@@ -1427,10 +1443,13 @@ class UnitCompiler {
                             for (ElementValuePair evp : na.elementValuePairs) {
                                 IMethod[] definitions = annotationIClass.getDeclaredIMethods(evp.identifier);
                                 assert definitions.length == 1;
-                                boolean expectArray = Descriptor.isArrayReference(definitions[0].getDescriptor().returnFd);
                                 evps.put(
                                     cf.addConstantUtf8Info(evp.identifier),
-                                    UnitCompiler.this.compileElementValue(evp.elementValue, cf, expectArray)
+                                    UnitCompiler.this.compileElementValue(
+                                        evp.elementValue,
+                                        cf,
+                                        definitions[0].getReturnType()
+                                    )
                                 );
                             }
                             return null;
@@ -1445,7 +1464,7 @@ class UnitCompiler {
                     evs = new ClassFile.ElementValue[evai.elementValues.length];
 
                     for (int i = 0; i < evai.elementValues.length; i++) {
-                        evs[i] = UnitCompiler.this.compileElementValue(evai.elementValues[i], cf, false);
+                        evs[i] = UnitCompiler.this.compileElementValue(evai.elementValues[i], cf, constantType);
                     }
                     return new ClassFile.ArrayElementValue(evs);
                 }
@@ -3780,7 +3799,11 @@ class UnitCompiler {
                 mi.addAttribute(
                     new ClassFile.AnnotationDefaultAttribute(
                         classFile.addConstantUtf8Info("AnnotationDefault"),
-                        UnitCompiler.this.compileElementValue(defaultValue, classFile, fd.type instanceof ArrayType)
+                        UnitCompiler.this.compileElementValue(
+                            defaultValue,
+                            classFile,
+                            UnitCompiler.this.getRawType(fd.type)
+                        )
                     )
                 );
             }
@@ -12118,6 +12141,36 @@ class UnitCompiler {
     @Nullable private Object
     constantAssignmentConversion(Locatable locatable, @Nullable Object value, IType targetType) throws CompileException {
 
+        Object result = this.convertConstant(value, targetType);
+        if (result != UnitCompiler.NOT_CONVERTIBLE) return result;
+
+        if (value == null) {
+            this.compileError(
+                "Cannot convert 'null' to type \"" + targetType.toString() + "\"",
+                locatable.getLocation()
+            );
+        } else
+        {
+            this.compileError((
+                "Cannot convert constant of type \""
+                + value.getClass().getName()
+                + "\" to type \""
+                + targetType.toString()
+                + "\""
+            ), locatable.getLocation());
+        }
+        return value;
+    }
+
+    /**
+     * Converts a constant value like the "assignment conversion" (JLS7 5.2) of a constant; does not report errors.
+     *
+     * @return The converted value (see {@link #constantAssignmentConversion(Locatable, Object, IType)}), or {@link
+     *         #NOT_CONVERTIBLE} if the <var>value</var> cannot be converted to the <var>targetType</var>
+     */
+    @Nullable private Object
+    convertConstant(@Nullable Object value, IType targetType) throws CompileException {
+
         if (value == UnitCompiler.NOT_CONSTANT) return UnitCompiler.NOT_CONSTANT;
 
         if (targetType == IClass.BOOLEAN) {
@@ -12227,23 +12280,13 @@ class UnitCompiler {
             return value;
         }
 
-        if (value == null) {
-            this.compileError(
-                "Cannot convert 'null' to type \"" + targetType.toString() + "\"",
-                locatable.getLocation()
-            );
-        } else
-        {
-            this.compileError((
-                "Cannot convert constant of type \""
-                + value.getClass().getName()
-                + "\" to type \""
-                + targetType.toString()
-                + "\""
-            ), locatable.getLocation());
-        }
-        return value;
+        return UnitCompiler.NOT_CONVERTIBLE;
     }
+
+    /**
+     * Special return value of {@link #convertConstant(Object, IType)}.
+     */
+    private static final Object NOT_CONVERTIBLE = new Object();
 
     /**
      * Implements "unary numeric promotion" (JLS7 5.6.1).

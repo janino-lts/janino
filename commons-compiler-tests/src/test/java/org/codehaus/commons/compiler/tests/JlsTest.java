@@ -1231,6 +1231,101 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "    }\n"
             + "}"
         ), "Main");
+
+        // The default value is converted to the type of the element (JLS 9.6.2); see
+        // https://github.com/janino-lts/janino/issues/48.
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.annotation.Retention;\n"
+            + "import java.lang.annotation.RetentionPolicy;\n"
+            + "\n"
+            + "@Retention(RetentionPolicy.RUNTIME) @interface Defaults {\n"
+            + "    long     l()   default 0;\n"
+            + "    float    f()   default 1;\n"
+            + "    double   d()   default 2;\n"
+            + "    byte     b()   default 3;\n"
+            + "    short    s()   default 4;\n"
+            + "    char     c()   default 97;\n"
+            + "    int      i()   default 'a';\n"
+            + "    long[]   ls()  default { 1, 2 };\n"
+            + "    double[] ds()  default 5;\n"
+            + "    String   str() default \"x\";\n"
+            + "    boolean  z()   default true;\n"
+            + "}\n"
+            + "\n"
+            + "@Defaults public\n"
+            + "class Main {\n"
+            + "\n"
+            + "    public static boolean\n"
+            + "    main() {\n"
+            + "        Defaults a = (Defaults) Main.class.getAnnotation(Defaults.class);\n"
+            + "        return (\n"
+            + "            a.l() == 0L && a.f() == 1F && a.d() == 2D && a.b() == 3 && a.s() == 4 && a.c() == 'a'\n"
+            + "            && a.i() == 97 && a.ls().length == 2 && a.ls()[1] == 2L && a.ds().length == 1\n"
+            + "            && a.ds()[0] == 5D && a.str().equals(\"x\") && a.z()\n"
+            + "        );\n"
+            + "    }\n"
+            + "}"
+        ), "Main");
+    }
+
+    /**
+     * The element values are converted to the types of the elements (JLS 9.7.1); see <a
+     * href="https://github.com/janino-lts/janino/issues/48">issue #48</a>.
+     */
+    @Test public void
+    test_9_7_1__Normal_Annotations() throws Exception {
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.annotation.Retention;\n"
+            + "import java.lang.annotation.RetentionPolicy;\n"
+            + "\n"
+            + "@Retention(RetentionPolicy.RUNTIME) @interface Ann {\n"
+            + "    long l(); float f(); double d(); byte b(); short s(); char c(); int i();\n"
+            + "    long[] ls(); double[] ds(); String str(); boolean z();\n"
+            + "}\n"
+            + "@Retention(RetentionPolicy.RUNTIME) @interface V     { long value(); }\n"
+            + "@Retention(RetentionPolicy.RUNTIME) @interface Outer { V inner(); }\n"
+            + "\n"
+            + "@Ann(\n"
+            + "    l = 5, f = 6, d = 7, b = 8, s = 'a', c = 98, i = 'b', ls = 3, ds = { 1, 2 },\n"
+            + "    str = \"y\", z = false\n"
+            + ")\n"
+            + "@V(7)\n"
+            + "@Outer(inner = @V(9))\n"
+            + "class Converted {}\n"
+            + "\n"
+            + "@Ann(\n"
+            + "    l = 5L, f = 6F, d = 7D, b = (byte) 8, s = (short) 97, c = 'b', i = 98, ls = { 3L },\n"
+            + "    ds = { 1D, 2D }, str = \"y\", z = false\n"
+            + ")\n"
+            + "class Exact {}\n"
+            + "\n"
+            + "public\n"
+            + "class Main {\n"
+            + "\n"
+            + "    public static boolean\n"
+            + "    main() {\n"
+            + "        V     v = (V)     Converted.class.getAnnotation(V.class);\n"
+            + "        Outer o = (Outer) Converted.class.getAnnotation(Outer.class);\n"
+            + "        return (\n"
+            + "            Main.check((Ann) Converted.class.getAnnotation(Ann.class))\n"
+            + "            && Main.check((Ann) Exact.class.getAnnotation(Ann.class))\n"
+            + "            && v.value() == 7L\n"
+            + "            && o.inner().value() == 9L\n"
+            + "        );\n"
+            + "    }\n"
+            + "\n"
+            + "    static boolean\n"
+            + "    check(Ann a) {\n"
+            + "        return (\n"
+            + "            a.l() == 5L && a.f() == 6F && a.d() == 7D && a.b() == 8 && a.s() == 97 && a.c() == 'b'\n"
+            + "            && a.i() == 98 && a.ls().length == 1 && a.ls()[0] == 3L && a.ds().length == 2\n"
+            + "            && a.ds()[1] == 2D && a.str().equals(\"y\") && !a.z()\n"
+            + "        );\n"
+            + "    }\n"
+            + "}"
+        ), "Main");
     }
 
     @Test public void
