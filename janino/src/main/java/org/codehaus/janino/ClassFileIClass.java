@@ -384,16 +384,32 @@ class ClassFileIClass extends IClass {
 
                     final ClassFile cf = ClassFileIClass.this.classFile;
 
-                    @Override public Object visitBooleanElementValue(BooleanElementValue subject) { return this.getConstantValue(subject.constantValueIndex); }
-                    @Override public Object visitByteElementValue(ByteElementValue subject)       { return this.getConstantValue(subject.constantValueIndex); }
-                    @Override public Object visitCharElementValue(CharElementValue subject)       { return this.getConstantValue(subject.constantValueIndex); }
                     @Override public Object visitClassElementValue(ClassElementValue subject)     { return this.getConstantValue(subject.constantValueIndex); }
                     @Override public Object visitDoubleElementValue(DoubleElementValue subject)   { return this.getConstantValue(subject.constantValueIndex); }
                     @Override public Object visitFloatElementValue(FloatElementValue subject)     { return this.getConstantValue(subject.constantValueIndex); }
                     @Override public Object visitIntElementValue(IntElementValue subject)         { return this.getConstantValue(subject.constantValueIndex); }
                     @Override public Object visitLongElementValue(LongElementValue subject)       { return this.getConstantValue(subject.constantValueIndex); }
-                    @Override public Object visitShortElementValue(ShortElementValue subject)     { return this.getConstantValue(subject.constantValueIndex); }
                     @Override public Object visitStringElementValue(StringElementValue subject)   { return this.getConstantValue(subject.constantValueIndex); }
+
+                    @Override public Object
+                    visitBooleanElementValue(BooleanElementValue subject) {
+                        return this.getConstantValue(subject.constantValueIndex, Descriptor.BOOLEAN);
+                    }
+
+                    @Override public Object
+                    visitByteElementValue(ByteElementValue subject) {
+                        return this.getConstantValue(subject.constantValueIndex, Descriptor.BYTE);
+                    }
+
+                    @Override public Object
+                    visitCharElementValue(CharElementValue subject) {
+                        return this.getConstantValue(subject.constantValueIndex, Descriptor.CHAR);
+                    }
+
+                    @Override public Object
+                    visitShortElementValue(ShortElementValue subject) {
+                        return this.getConstantValue(subject.constantValueIndex, Descriptor.SHORT);
+                    }
 
                     @Override public Object
                     visitAnnotation(Annotation subject) {
@@ -438,6 +454,11 @@ class ClassFileIClass extends IClass {
 
                     private Object
                     getConstantValue(short index) { return this.cf.getConstantValuePoolInfo(index).getValue(this.cf); }
+
+                    private Object
+                    getConstantValue(short index, String descriptor) {
+                        return ClassFileIClass.toType(this.getConstantValue(index), descriptor);
+                    }
                 }
             );
 
@@ -684,7 +705,7 @@ class ClassFileIClass extends IClass {
         final Object constantValue = (
             cva == null
             ? IClass.NOT_CONSTANT
-            : cva.getConstantValue(this.classFile).getValue(this.classFile)
+            : ClassFileIClass.toType(cva.getConstantValue(this.classFile).getValue(this.classFile), descriptor)
         );
 
         final Access access = ClassFileIClass.accessFlags2Access(fieldInfo.getAccessFlags());
@@ -706,6 +727,25 @@ class ClassFileIClass extends IClass {
         };
         this.resolvedFields.put(fieldInfo, result);
         return result;
+    }
+
+    /**
+     * The "ConstantValue" attribute of a field, and the element value of an annotation, of type {@code boolean},
+     * {@code byte}, {@code char} or {@code short} refers to a {@code CONSTANT_Integer} (JVMS 4.7.2, 4.7.16.1); converts
+     * such a value to the given type, so that, e.g., the constant value of a {@code boolean} field is a {@link
+     * Boolean}, like for fields that are declared in source code or loaded through reflection.
+     *
+     * @param descriptor The descriptor of the type of the field or element
+     */
+    private static Object
+    toType(Object value, String descriptor) {
+        if (!(value instanceof Integer)) return value;
+        int i = (Integer) value;
+        if (Descriptor.BOOLEAN.equals(descriptor)) return Boolean.valueOf(i != 0);
+        if (Descriptor.BYTE.equals(descriptor))    return Byte.valueOf((byte) i);
+        if (Descriptor.CHAR.equals(descriptor))    return Character.valueOf((char) i);
+        if (Descriptor.SHORT.equals(descriptor))   return Short.valueOf((short) i);
+        return value;
     }
 
     private static Access

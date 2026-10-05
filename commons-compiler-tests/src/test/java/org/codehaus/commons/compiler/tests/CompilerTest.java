@@ -61,7 +61,9 @@ import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -89,6 +91,8 @@ class CompilerTest {
     private final String                              compilerFactoryId;
     private final boolean                             isJdk;
     @SuppressWarnings("unused") private final boolean isJanino;
+
+    @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
     @Parameters(name = "CompilerFactory={0}") public static Collection<Object[]>
     compilerFactories() throws Exception { return TestUtil.getCompilerFactoriesForParameters(); }
@@ -668,6 +672,79 @@ class CompilerTest {
 
         // Invoke "pkg1.A.meth()" and verify that the return value is correct.
         Assert.assertEquals(77, cl.loadClass("pkg1.A").getDeclaredMethod("meth").invoke(null));
+    }
+
+    /**
+     * The constant values of fields that are read from class files must have the types of the fields (JLS 4.12.4,
+     * 15.29); see <a href="https://github.com/janino-lts/janino/issues/46">issue #46</a>: JANINO folded the constants
+     * of {@code boolean} and {@code char} fields as {@code int} values.
+     */
+    @Test public void
+    testConstantsFromClassFiles() throws Exception {
+
+        // Compile the class that declares the constants into a directory.
+        File      dir = this.temporaryFolder.newFolder();
+        ICompiler c1  = this.compilerFactory.newCompiler();
+        c1.setDestinationDirectory(dir, false);
+        c1.compile(new Resource[] {
+            new StringResource(
+                "pkg/A.java",
+                ""
+                + "package pkg;\n"
+                + "public class A {\n"
+                + "    public static final boolean F = true, G = false;\n"
+                + "    public static final char    C = 97; // 'a'\n"
+                + "    public static final byte    B = -1;\n"
+                + "    public static final short   S = -2;\n"
+                + "}\n"
+            ),
+        });
+
+        // Compile a class that uses the constants, against the class files.
+        Map<String, byte[]> classes = new HashMap<>();
+        ICompiler           c2      = this.compilerFactory.newCompiler();
+        c2.setClassPath(new File[] { dir });
+        c2.setClassFileCreator(new MapResourceCreator(classes));
+        c2.compile(new Resource[] {
+            new StringResource(
+                "pkg/B.java",
+                ""
+                + "package pkg;\n"
+                + "public class B {\n"
+                + "    public static String s() { return \"\" + A.F + A.G + A.C + A.B + A.S; }\n"
+                + "    public static boolean notF() { return !A.F; }\n"
+                + "    public static int sw(char c) { switch (c) { case A.C: return 1; default: return 0; } }\n"
+                + "    public static byte b() { byte b = A.C; return b; }\n"
+                + "    int loop() { while (A.F) { } }\n"
+                + "}\n"
+            ),
+        });
+
+        ClassLoader cl = new ResourceFinderClassLoader(
+            new MultiResourceFinder(new DirectoryResourceFinder(dir), new MapResourceFinder(classes)),
+            ClassLoader.getSystemClassLoader()
+        );
+        Class<?> b = cl.loadClass("pkg.B");
+        Assert.assertEquals("truefalsea-1-2", b.getMethod("s").invoke(null));
+        Assert.assertEquals(false, b.getMethod("notF").invoke(null));
+        Assert.assertEquals(1, b.getMethod("sw", char.class).invoke(null, 'a'));
+        Assert.assertEquals((byte) 97, b.getMethod("b").invoke(null));
+
+        // The loop condition is constant, so the statement after the loop is unreachable (JLS 14.22).
+        ICompiler c3 = this.compilerFactory.newCompiler();
+        c3.setClassPath(new File[] { dir });
+        c3.setClassFileCreator(new MapResourceCreator(new HashMap<String, byte[]>()));
+        try {
+            c3.compile(new Resource[] {
+                new StringResource(
+                    "pkg/C.java",
+                    "package pkg; public class C { void m() { while (A.F) { } int x = 1; } }"
+                ),
+            });
+            Assert.fail("Unreachable statement not detected");
+        } catch (CompileException ce) {
+            ;
+        }
     }
 
     /**
