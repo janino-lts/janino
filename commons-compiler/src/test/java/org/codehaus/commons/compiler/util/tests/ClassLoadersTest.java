@@ -57,7 +57,7 @@ class ClassLoadersTest {
 
     /**
      * A directory that cannot be listed must be treated like an empty directory; see <a
-     * href="https://github.com/stefan-zobel/janino/issues/20">issue #20</a>. Skipped where the directory cannot be
+     * href="https://github.com/janino-lts/janino/issues/20">issue #20</a>. Skipped where the directory cannot be
      * made unreadable (e.g. on Windows, or when running as "root").
      */
     @Test public void

@@ -52,7 +52,7 @@ import util.TestUtil;
  * Characterization tests for <em>invalid</em> code: each case is a compilation unit that violates a rule of the JLS,
  * and must be rejected with a {@link CompileException}. (For valid code, see {@link LanguageSupportTest}.)
  * <p>
- *   See <a href="https://github.com/stefan-zobel/janino/issues/29">issue #29</a>. The cases are read from the files in
+ *   See <a href="https://github.com/janino-lts/janino/issues/29">issue #29</a>. The cases are read from the files in
  *   {@value #RESOURCE_DIR}, in the following format:
  * </p>
  * <pre>

@@ -672,7 +672,7 @@ class CompilerTest {
 
     /**
      * An extension directory that is a file (e.g. a JAR file instead of its directory) must be ignored, like a
-     * directory that does not exist; see <a href="https://github.com/stefan-zobel/janino/issues/20">issue #20</a>.
+     * directory that does not exist; see <a href="https://github.com/janino-lts/janino/issues/20">issue #20</a>.
      * Only JANINO is tested, because javac rejects extension directories for target versions 9 and later.
      */
     @Test public void

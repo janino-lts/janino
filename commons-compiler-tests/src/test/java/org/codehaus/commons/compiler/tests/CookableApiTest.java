@@ -58,7 +58,7 @@ import util.TestUtil;
  * Tests all {@code cook...()} methods of {@link ICookable} and {@link IMultiCookable}: each method must compile the
  * documents, report the file name in compile errors if it has one, and decode the documents with the given encoding.
  * <p>
- *   See <a href="https://github.com/stefan-zobel/janino/issues/19">issue #19</a>: {@code cookFiles(String[])} always
+ *   See <a href="https://github.com/janino-lts/janino/issues/19">issue #19</a>: {@code cookFiles(String[])} always
  *   failed, and the other {@code cookFiles(...)} methods did not report the file names.
  * </p>
  */

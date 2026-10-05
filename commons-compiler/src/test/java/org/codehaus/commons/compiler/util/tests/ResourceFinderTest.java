@@ -115,7 +115,7 @@ class ResourceFinderTest {
 
     /**
      * A file that is not a directory (e.g. a JAR file instead of its directory) must be treated like a directory
-     * that does not exist; see <a href="https://github.com/stefan-zobel/janino/issues/20">issue #20</a>.
+     * that does not exist; see <a href="https://github.com/janino-lts/janino/issues/20">issue #20</a>.
      */
     @Test public void
     testJarDirectoriesResourceFinderWithFile() throws Exception {
@@ -127,7 +127,7 @@ class ResourceFinderTest {
 
     /**
      * A directory that cannot be listed must be treated like a directory that does not exist; see <a
-     * href="https://github.com/stefan-zobel/janino/issues/20">issue #20</a>. Skipped where the directory cannot be
+     * href="https://github.com/janino-lts/janino/issues/20">issue #20</a>. Skipped where the directory cannot be
      * made unreadable (e.g. on Windows, or when running as "root").
      */
     @Test public void
