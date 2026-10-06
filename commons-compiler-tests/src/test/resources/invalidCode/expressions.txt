@@ -368,3 +368,34 @@ recovery: ACCEPTED
 public class P {
     Object f(java.util.Comparator<String> c) { return c.naturalOrder(); }
 }
+
+=== conditional expression with an int constant that is not representable in the type of the variable
+janino: REJECTED Assignment conversion not possible from type "int" to type "byte"
+public class P {
+    void f(boolean z, byte b) { byte x = z ? b : 500; }
+}
+
+=== conditional expression with a negative int constant assigned to a char variable
+janino: REJECTED Assignment conversion not possible from type "int" to type "char"
+public class P {
+    void f(boolean z, char c) { char x = z ? c : -1; }
+}
+
+=== conditional expression of type int assigned to a short variable
+janino: REJECTED Assignment conversion not possible from type "int" to type "short"
+public class P {
+    void f(boolean z, short s, char c) { short x = z ? s : c; }
+}
+
+=== constant conditional expression of type long assigned to a byte variable
+janino: REJECTED Assignment conversion not possible from type "long" to type "byte"
+public class P {
+    void f() { byte x = true ? 1 : 2L; }
+}
+
+=== constant conditional expression of type long as a case label
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f(int i) { switch (i) { case true ? 1 : 2L: } }
+}

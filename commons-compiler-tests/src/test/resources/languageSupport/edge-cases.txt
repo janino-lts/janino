@@ -114,28 +114,64 @@ public class P extends A {
 
 === conditional expression: constant condition, operands int and double, in string concatenation
 jls: 1.0
-janino: WRONG 1
+janino: OK
 public class P {
     public static Object run() { return "" + (true ? 1 : 2.0); }
 }
 
 === conditional expression: constant condition, int constant and char variable, in string concatenation
 jls: a
-janino: WRONG 97
+janino: OK
 public class P {
     public static Object run() { char c = 'a'; return "" + (true ? 97 : c); }
 }
 
 === conditional expression: constant condition, operands int and long, boxed
 jls: 1
-janino: INVALID InternalCompilerException
+janino: OK
 public class P {
     public static Object run() { Object o = true ? 1 : 2L; return o; }
 }
 
 === conditional expression: constant condition, operands int and long, compared
 jls: true
-janino: INVALID InternalCompilerException
+janino: OK
 public class P {
     public static Object run() { return (true ? 1 : 2L) == 1L; }
+}
+
+
+=== conditional expression: Byte operand and int constant
+jls: Byte 5
+janino: WRONG Integer 5
+public class P {
+    public static Object run() { boolean z = false; Byte B = 1; Object o = z ? B : 5; return o.getClass().getSimpleName() + " " + o; }
+}
+
+=== conditional expression: constant condition, short and char operands
+jls: Integer 1
+janino: WRONG Short 1
+public class P {
+    public static Object run() { short s = 1; char c = 'a'; Object o = true ? s : c; return o.getClass().getSimpleName() + " " + o; }
+}
+
+=== conditional expression: constant condition, char operand and short constant
+jls: Integer 66
+janino: WRONG Character B
+public class P {
+    public static Object run() { char c = 'a'; Object o = false ? c : (short) 66; return o.getClass().getSimpleName() + " " + o; }
+}
+
+=== conditional expression: constant condition, byte and char operands, value out of the range of byte
+jls: Integer 200
+janino: WRONG Byte -56
+public class P {
+    public static Object run() { byte b = 1; char c = (char) 200; Object o = false ? b : c; return o.getClass().getSimpleName() + " " + o; }
+}
+
+=== conditional expression: constant condition, char operand and byte constant
+jls: Integer 97
+janino: WRONG Character a
+public class P {
+    public static Object run() { char c = 'a'; Object o = true ? c : (byte) 1; return o.getClass().getSimpleName() + " " + o; }
 }

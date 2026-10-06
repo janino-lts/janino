@@ -3480,6 +3480,53 @@ class JlsTest extends CommonsCompilerTestSuite {
         this.assertExpressionEvaluatesTrue("(\"\" + (true ? (byte) 1 : 2L)).equals(\"1\")");
     }
 
+    @Test public void
+    test_15_25__Conditional_operator__4() throws Exception {
+
+        // An "int" constant that is representable in the type of the other operand (issue #56).
+        String decl = "boolean z = false; byte b = 1; short s = 1; char c = 'a'; Short S = 1; Long J = 1L; ";
+        this.assertScriptReturnsTrue(decl + "Object x = z ? b : 5; return x.equals((byte) 5);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? 5 : b; return x.equals((byte) 1);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? s : 5; return x.equals((short) 5);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? c : 66; return x.equals('B');");
+        this.assertScriptReturnsTrue(decl + "byte x = z ? b : 5; return x == 5;");
+        this.assertScriptReturnsTrue(decl + "char x = !z ? c : 66; return x == 'a';");
+
+        // Two operands of different types, neither of which is such a constant: binary numeric promotion.
+        this.assertScriptReturnsTrue(decl + "Object x = z ? s : c; return x.equals(97);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? b : c; return x.equals(97);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? c : s; return x.equals(1);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? (short) -1 : c; return x.equals(97);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? c : (byte) 1; return x.equals(1);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? c : (short) 66; return x.equals(66);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? S : c; return x.equals(97);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? J : s; return x.equals(1L);");
+        this.assertScriptReturnsTrue(decl + "int x = z ? s : c; return x == 97;");
+
+        // The constant value of a conditional expression has the type of the expression (issue #55).
+        this.assertExpressionEvaluatesTrue("(\"\" + (true ? 1 : 2.0)).equals(\"1.0\")");
+        this.assertExpressionEvaluatesTrue("(\"\" + (false ? 1L : 2.5f)).equals(\"2.5\")");
+        this.assertExpressionEvaluatesTrue("(\"\" + (true ? (byte) 1 : 2L)).equals(\"1\")");
+        this.assertExpressionEvaluatesTrue("String.valueOf(true ? 1 : 2.0).equals(\"1.0\")");
+        this.assertExpressionEvaluatesTrue("(true ? 1 : 2L) == 1L");
+        this.assertScriptReturnsTrue("char c = 'a'; return (\"\" + (true ? 97 : c)).equals(\"a\");");
+        this.assertScriptReturnsTrue("Object x = true ? 1 : 2L; return x.equals(1L);");
+        this.assertScriptReturnsTrue("Object x = true ? 1 : 'a'; return x.equals((char) 1);");
+        this.assertScriptReturnsTrue("Long x = true ? 1 : 2L; return x == 1L;");
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "static String d(double x) { return \"d\" + x; }\n"
+            + "public static boolean main() { return d(true ? 1 : 2.0).equals(\"d1.0\"); }\n"
+        );
+
+        // Invalid neighbors: the constant is not representable, or the type of the expression is wider than the
+        // type of the variable.
+        this.assertScriptUncookable("boolean z = false; byte b = 1; byte x = z ? b : 500;");
+        this.assertScriptUncookable("boolean z = false; char c = 'a'; char x = z ? c : -1;");
+        this.assertScriptUncookable("boolean z = false; short s = 1; char c = 'a'; short x = z ? s : c;");
+        this.assertScriptUncookable("byte x = true ? 1 : 2L;");
+    }
+
     /**
      * 15.26 Assignment Operators
      */

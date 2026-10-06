@@ -29,6 +29,7 @@ below remain for that reason, or because they have not been fixed yet.
 | `Boolean Z = null; boolean x = Z \|\| true;` (also `Z && false`) | `NullPointerException` | `x == true`, no exception | [#40](https://github.com/janino-lts/janino/issues/40) |
 | `Byte B = 1; Object x = z ? B : 5;` | `x` is a `Byte` | `x` is an `Integer` | [#38](https://github.com/janino-lts/janino/issues/38) |
 | `char c = 'a'; Object x = false ? c : (short) 66;` | `x` is an `Integer` | `x` is a `Character` | [#38](https://github.com/janino-lts/janino/issues/38) |
+| `"" + (true ? 1 : 2.0)` | `"1.0"` | `"1"` (the constant value has the type of the selected operand; fixed in the main line) | [#55](https://github.com/janino-lts/janino/issues/55) |
 | `enum E { A, B { String n() { return "b"; } }; String n() { return "a"; } }`; `E.B.n()` | `"b"` | `"a"` (class bodies of enum constants are ignored) | [#44](https://github.com/janino-lts/janino/issues/44) |
 | `class P { @Retention(RUNTIME) @interface A {} @A static class Q {} }`; `Q.class.isAnnotationPresent(A.class)` | `true` | `false` (annotation types declared as member types; top-level annotation types work) | [#43](https://github.com/janino-lts/janino/issues/43) |
 
@@ -64,20 +65,19 @@ constant expression, the expressions that Janino does not fold (see section 1) a
 - `byte b = MAX > 5 ? 1 : 2;` with `static final int MAX = 10;`;
 - `int f() { while (MAX > 0) { } }` ("Method must return a value", because the condition is not constant).
 
-**Conditional expressions with operands of different primitive or wrapper types**
-([#38](https://github.com/janino-lts/janino/issues/38)):
+**Conditional expressions with operands of different narrow numeric types** (in 3.1.15; fixed in the main line,
+[#51](https://github.com/janino-lts/janino/issues/51) and [#56](https://github.com/janino-lts/janino/issues/56)):
 
-- `byte b = 1; byte x = z ? b : 5;`
-- `char c = 'a'; Object x = z ? c : 66;`
-- `Long J = 5L; short s = 1; Object x = z ? J : s;`
-- `Short S = 5; char c = 1; int x = z ? S : c;`
-- `char c = 'a'; Object x = z ? (short) -1 : c;`
+- an `int` constant with an operand of type `byte`, `short` or `char`: `byte b = 1; byte x = z ? b : 5;`,
+  `char c = 'a'; Object x = z ? c : 66;`;
+- two operands of different types, one of them of type `byte`, `short` or `char`: `z ? s : c`,
+  `z ? (short) -1 : c`, `z ? c : (short) 66`, `Long J = 5L; short s = 1; Object x = z ? J : s;`;
+- an `int` constant that is not representable in the type of the other operand: `byte b = 1; Object x = z ? b : 500;`;
+- `z ? c : (short) -1`, also with a constant condition (3.1.12 compiled `true ? c : (short) -1` with the wrong type
+  `char`, and `false ? c : (short) -1` into code that throws an `ArrayIndexOutOfBoundsException`).
 
-In 3.1.15, also `char c = 'a'; Object x = z ? c : (short) -1;` (also with `(byte) -1`, and also when the condition is
-the constant `true` or `false`) and `byte b = 1; Object x = z ? b : 500;` are rejected. This is fixed in the main
-line ([#51](https://github.com/janino-lts/janino/issues/51)): these expressions have the type `int`, like with
-`javac`. (3.1.12 compiled `true ? c : (short) -1` with the wrong type `char`, and `false ? c : (short) -1` into code
-that throws an `ArrayIndexOutOfBoundsException`.)
+In the main line, these expressions have the types of `javac`. The types of such expressions that compile in 3.1.15
+are unchanged (section 1, #38).
 
 **Static interface methods** ([#53](https://github.com/janino-lts/janino/issues/53)): a class that implements an
 interface with a static method is rejected if both are declared in the compiled code, e.g.
@@ -134,11 +134,15 @@ as the source suggests (e.g. an assignment to a `final` local variable assigns i
 - `catch` of a type that is not a `Throwable`: `catch (String e)`;
 - `catch` parameter that redeclares a local variable: `int e = 0; try { } catch (RuntimeException e) { }`;
 - case label out of the range of the switch type: `switch (b) { case 1000: }` with `byte b`;
+- case label of type `long`, `float` or `double`, whose value is truncated to `int`: `case 1L:`, `case 1.0:`,
+  `case 4294967297L:` (which matches the value 1);
 - recursive constructor invocation: `P() { this(); }`.
 
 **Expressions, names and imports:**
 
 - illegal forward reference in a field initializer: `int a = b; int b = 1;`;
+- a constant conditional expression of type `long`, `float` or `double` assigned to a variable of a narrower type:
+  `byte b = true ? 1 : 2L;` (rejected in the main line, [#55](https://github.com/janino-lts/janino/issues/55));
 - `instanceof` with a `final` class and an interface that it does not implement: `"x" instanceof Runnable`;
 - invocation of a static interface method through an instance: `comparator.naturalOrder()`;
 - `private` member type of another top-level class, also of a JDK class: `java.util.ArrayList.Itr x;`;

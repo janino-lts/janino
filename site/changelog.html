@@ -62,6 +62,23 @@ h5 {
         <code>double</code> constant (e.g. <code>z ? c : 1L</code>), which were rejected before. The class files of
         code that compiled before are unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/55">issue #55</a>: The constant value of a
+        conditional expression with a constant condition and operands of different types had the type of the
+        selected operand instead of the type of the expression: <code>"" + (true ? 1 : 2.0)</code> was
+        <code>"1"</code> instead of <code>"1.0"</code>, and <code>Object o = true ? 1 : 2L;</code> compiled into a
+        class file that the JVM rejects. As a consequence, such an expression is now rejected where its type does not
+        fit, like by JAVAC: <code>byte b = true ? 1 : 2L;</code> compiled before, with the value of the selected
+        operand.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/56">issue #56</a>: Conditional expressions in
+        which one operand has the type <code>byte</code>, <code>short</code> or <code>char</code> and the other
+        operand has a different numeric type were rejected, e.g. <code>z ? b : 5</code> (now of type
+        <code>byte</code>, like by JAVAC) and <code>z ? s : c</code> (now of type <code>int</code>). The types of
+        such expressions that compiled before are unchanged (see
+        <a href="https://github.com/janino-lts/janino/issues/38">issue #38</a>).
+      </li>
     </ul>
 
     <h4>Version 3.1.15 2026-10-06</h4>

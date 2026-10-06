@@ -5346,19 +5346,67 @@ class UnitCompiler {
 
             this.compileBoolean(ce.lhs, toRhs, UnitCompiler.JUMP_IF_FALSE);
 
+            // The constant values allow for the narrowing of an "int" constant, e.g. in "z ? b : 5" (type "byte").
             this.compileGetValue(ce.mhs);
-            this.assignmentConversion(ce.mhs, mhsType, expressionType, UnitCompiler.NOT_CONSTANT);
+            this.assignmentConversion(ce.mhs, mhsType, expressionType, this.getConstantValue(ce.mhs));
             this.gotO(ce, toEnd);
 
             this.getCodeContext().currentInserter().setStackMap(sm);
             toRhs.setBasicBlock();
             this.compileGetValue(ce.rhs);
-            this.assignmentConversion(ce.mhs, rhsType, expressionType, UnitCompiler.NOT_CONSTANT);
+            this.assignmentConversion(ce.rhs, rhsType, expressionType, this.getConstantValue(ce.rhs));
 
             toEnd.set();
         }
 
         return expressionType;
+    }
+
+    /**
+     * Implements the rule of JLS7 15.25, list 1, bullet 4, bullet 2: One operand of the conditional expression
+     * <var>ce</var> has the type <var>t</var> ({@code byte}, {@code short} or {@code char}), and the other operand
+     * (with the type <var>otherType</var> and the constant value <var>otherCv</var>) is a constant expression of type
+     * {@code int} whose value is representable in <var>t</var>; then the type of the conditional expression is
+     * <var>t</var>.
+     * <p>
+     *   Janino 3.1.12 applied the rule also to constants of other types and to operands that are not constant (issue
+     *   #38). For compatibility, that is kept where the code compiled: with a constant condition, where the selected
+     *   operand can be cast to <var>t</var>; otherwise, where the other operand is converted to <var>t</var> without
+     *   a narrowing conversion. Where the code did not compile, the rule is not applied, and the type is determined
+     *   by binary numeric promotion, like by JAVAC (issue #56).
+     * </p>
+     *
+     * @return Whether the type of the conditional expression is <var>t</var>
+     */
+    private boolean
+    narrowConditionalType(ConditionalExpression ce, IClass t, IType otherType, @Nullable Object otherCv)
+    throws CompileException {
+
+        Object lhsCv = this.getConstantValue(ce.lhs);
+
+        if (otherCv != UnitCompiler.NOT_CONSTANT) {
+
+            // The constant must be representable in T (issue #51).
+            if (this.convertConstant(otherCv, t) == UnitCompiler.NOT_CONVERTIBLE) return false;
+
+            // A constant of type "int": the rule of the JLS.
+            if (otherCv instanceof Integer) return true;
+
+            // A constant of another type: compatibility, see above. (With a constant condition, the selected
+            // operand is cast to T; both operands are primitive here, so that cast is always possible.)
+            return lhsCv instanceof Boolean;
+        }
+
+        // The other operand is not constant: compatibility, see above.
+        if (lhsCv instanceof Boolean) {
+            IType selectedType = ((Boolean) lhsCv).booleanValue() ? this.getType(ce.mhs) : this.getType(ce.rhs);
+            if (UnitCompiler.isPrimitive(selectedType)) return true;
+            IClass unboxedType = this.isUnboxingConvertible(selectedType);
+            return unboxedType != null && (unboxedType == t || this.isWideningPrimitiveConvertible(unboxedType, t));
+        }
+        if (otherType instanceof IClass && this.isWideningPrimitiveConvertible((IClass) otherType, t)) return true;
+        IClass unboxedType = this.isUnboxingConvertible(otherType);
+        return unboxedType != null && (unboxedType == t || this.isWideningPrimitiveConvertible(unboxedType, t));
     }
 
     private IType
@@ -6473,12 +6521,13 @@ class UnitCompiler {
             cv = this.getConstantValue(ce.rhs);
         }
 
-        // E.g. "true ? 'a' : (short) -1" has type "int" and "true ? 'a' : 1L" has type "long" (binary numeric
-        // promotion), so their values are 97 and 97L, not 'a'.
-        if (
-            (ceType == IClass.INT || ceType == IClass.LONG || ceType == IClass.FLOAT || ceType == IClass.DOUBLE)
-            && (cv instanceof Byte || cv instanceof Short || cv instanceof Character)
-        ) return this.convertConstant(cv, ceType);
+        // The value has the type of the conditional expression, not the type of the selected operand (JLS7 15.28):
+        // e.g. "true ? 1 : 2.0" has type "double", so its value is 1.0, not 1, and "true ? 97 : c" (with a "char c")
+        // has type "char", so its value is 'a', not 97 (issues #51 and #55).
+        if (ceType instanceof IClass && ((IClass) ceType).isPrimitiveNumeric()) {
+            Object converted = this.convertConstant(cv, ceType);
+            if (converted != UnitCompiler.NOT_CONVERTIBLE) return converted;
+        }
 
         return cv;
     }
@@ -7938,15 +7987,14 @@ class UnitCompiler {
                 && (mhsType == IClass.SHORT || mhsType == this.iClassLoader.TYPE_java_lang_Short)
             ) return IClass.SHORT;
 
-            // JLS7 15.25, list 1, bullet 4, bullet 2: "b ? (byte) 1 : byte => byte". If the constant is not
-            // representable in the type of the other operand (e.g. "b ? 'a' : (short) -1"), the rule does not apply,
-            // and the type is determined by binary numeric promotion (bullet 4).
+            // JLS7 15.25, list 1, bullet 4, bullet 2: "b ? (byte) 1 : byte => byte". If the rule does not apply,
+            // the type is determined by binary numeric promotion (bullet 4).
             Object rhscv = this.getConstantValue(ce.rhs);
             if (
                 (mhsType == IClass.BYTE || mhsType == IClass.SHORT || mhsType == IClass.CHAR)
                 && rhscv != null
             ) {
-                if (this.convertConstant(rhscv, mhsType) != UnitCompiler.NOT_CONVERTIBLE) return mhsType;
+                if (this.narrowConditionalType(ce, (IClass) mhsType, rhsType, rhscv)) return mhsType;
                 return this.binaryNumericPromotionType(ce, mhsType, this.getUnboxedType(rhsType));
             }
             Object mhscv = this.getConstantValue(ce.mhs);
@@ -7954,7 +8002,7 @@ class UnitCompiler {
                 (rhsType == IClass.BYTE || rhsType == IClass.SHORT || rhsType == IClass.CHAR)
                 && mhscv != null
             ) {
-                if (this.convertConstant(mhscv, rhsType) != UnitCompiler.NOT_CONVERTIBLE) return rhsType;
+                if (this.narrowConditionalType(ce, (IClass) rhsType, mhsType, mhscv)) return rhsType;
                 return this.binaryNumericPromotionType(ce, this.getUnboxedType(mhsType), rhsType);
             }
 
