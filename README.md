@@ -11,11 +11,11 @@ Janino is used by several large Apache projects, among others [Apache Spark](htt
 [Apache Calcite](https://calcite.apache.org/), [Apache Flink](https://flink.apache.org/) and
 [Apache Hive](https://hive.apache.org/). (They use the original Janino 3.1.12, not this continuation.)
 
-Please visit the [project homepage](https://janino-lts.github.io/janino/).
-
 Janino compiles Java source code like `javac`, but not in every respect: it accepts some invalid code, rejects some
 valid code, and some valid code behaves differently. All known deviations are listed in
 [Differences between Janino and javac](JAVAC_DIFFERENCES.md).
+
+Please visit the [project homepage](https://janino-lts.github.io/janino/).
 
 ## Maven coordinates
 

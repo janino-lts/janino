@@ -132,3 +132,32 @@ public class P {
     P() { try { v = String.valueOf(Integer.parseInt("x")); } catch (NumberFormatException e) { v = "c"; } }
     public static Object run() { return new P().v; }
 }
+
+=== anonymous class in a catch clause accesses a local variable declared before the try statement
+jls: ok7
+janino: OK
+public class P {
+    public static Object run() {
+        final int x = 7;
+        try { throw new IllegalStateException("x"); }
+        catch (IllegalStateException e) {
+            Runnable r = new Runnable() { public void run() { if (x != 7) throw new Error(); } };
+            r.run();
+            return "ok" + x;
+        }
+    }
+}
+
+=== anonymous class in a catch clause accesses the final catch parameter
+jls: ok x
+janino: OK
+public class P {
+    public static Object run() {
+        try { throw new IllegalStateException("x"); }
+        catch (final IllegalStateException e) {
+            Runnable r = new Runnable() { public void run() { if (e.getMessage() == null) throw new Error(); } };
+            r.run();
+            return "ok " + e.getMessage();
+        }
+    }
+}

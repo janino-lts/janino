@@ -379,13 +379,14 @@ class ControlFlowDifferentialTest {
                 boolean ccn = body.canCompleteNormally;
                 if (hasCatch) {
 
-                    // One or two CATCH clauses; the exception variables of different types share a local variable
-                    // slot, which affects the stack map frames.
+                    // One or two CATCH clauses, or a multi-catch clause; the exception variables of different types
+                    // share a local variable slot, which affects the stack map frames.
                     String[] types;
-                    switch (this.random.nextInt(3)) {
+                    switch (this.random.nextInt(4)) {
                     case 0:  types = new String[] { "RuntimeException" };                                  break;
                     case 1:  types = new String[] { "IllegalStateException", "RuntimeException" };         break;
-                    default: types = new String[] { "IllegalArgumentException", "IllegalStateException" }; break;
+                    case 2:  types = new String[] { "IllegalArgumentException", "IllegalStateException" }; break;
+                    default: types = new String[] { "IllegalArgumentException | IllegalStateException" }; break;
                     }
                     for (int i = 0; i < types.length; i++) {
                         Fragment handler = this.block(depth + 1, in);

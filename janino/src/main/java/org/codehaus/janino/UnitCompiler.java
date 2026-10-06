@@ -3444,13 +3444,43 @@ class UnitCompiler {
     private boolean
     compile2(ThrowStatement ts) throws CompileException {
         IType expressionType = this.compileGetValue(ts.expression);
-        this.checkThrownException(
-            ts,                    // locatable
-            expressionType,        // type
-            ts.getEnclosingScope() // scope
-        );
+
+        // JLS7 11.2.2: "throw e;" with a multi-catch parameter "e" ("catch (A | B e)") throws the alternatives,
+        // not their common supertype.
+        CatchParameter multiCatchParameter = this.multiCatchParameter(ts.expression);
+        if (multiCatchParameter != null) {
+            for (Type t : multiCatchParameter.types) {
+                this.checkThrownException(
+                    ts,                    // locatable
+                    this.getRawType(t),    // type
+                    ts.getEnclosingScope() // scope
+                );
+            }
+        } else {
+            this.checkThrownException(
+                ts,                    // locatable
+                expressionType,        // type
+                ts.getEnclosingScope() // scope
+            );
+        }
         this.athrow(ts);
         return false;
+    }
+
+    /**
+     * The local variables of the multi-catch parameters ({@code catch (A | B e)}); see {@link
+     * #getLocalVariable(CatchParameter)}.
+     */
+    private final Map<LocalVariable, CatchParameter> multiCatchParameters = new HashMap<>();
+
+    /**
+     * @return The multi-catch parameter ({@code catch (A | B e)}) that the <var>rv</var> accesses, or {@code null}
+     */
+    @Nullable private CatchParameter
+    multiCatchParameter(Rvalue rv) throws CompileException {
+        Atom a = rv instanceof AmbiguousName ? this.reclassify((AmbiguousName) rv) : rv;
+        if (!(a instanceof LocalVariableAccess)) return null;
+        return (CatchParameter) this.multiCatchParameters.get(((LocalVariableAccess) a).localVariable);
     }
 
     /**
@@ -3878,38 +3908,45 @@ class UnitCompiler {
                 this.getCodeContext().saveLocalVariables();
                 try {
 
-                    CatchClause catchClause = (CatchClause) catchClauses.get(i);
+                    CatchClause    catchClause    = (CatchClause) catchClauses.get(i);
+                    CatchParameter catchParameter = catchClause.catchParameter;
 
-                    if (catchClause.catchParameter.types.length != 1) {
-                        throw UnitCompiler.compileException(catchClause, "Multi-type CATCH parameter NYI");
-                    }
-                    IClass caughtExceptionType = this.getRawType(catchClause.catchParameter.types[0]);
+                    IClass[] caughtExceptionTypes = this.checkCatchParameter(catchParameter);
 
                     // Verify that the CATCH clause is reachable.
                     if (!catchClause.reachable) {
                         this.compileError("Catch clause is unreachable", catchClause.getLocation());
                     }
 
+                    // The type of the exception variable is the type of the parameter; for a multi-catch parameter,
+                    // that is the nearest common superclass of the alternatives (see "getLocalVariable()").
+                    LocalVariable exceptionVariable     = this.getLocalVariable(catchParameter);
+                    IClass        exceptionVariableType = UnitCompiler.rawTypeOf(exceptionVariable.type);
+
                     // Push the exception on the operand stack.
-                    this.getCodeContext().pushObjectOperand(caughtExceptionType.getDescriptor());
+                    this.getCodeContext().pushObjectOperand(exceptionVariableType.getDescriptor());
 
                     // Allocate the "exception variable".
                     LocalVariableSlot
-                    exceptionVarSlot = this.allocateLocalVariableSlot(caughtExceptionType, catchClause.catchParameter.name);
+                    exceptionVarSlot = this.allocateLocalVariableSlot(exceptionVariableType, catchParameter.name);
 
                     // Kludge: Treat the exception variable like a local variable of the catch clause body.
-                    this.getLocalVariable(catchClause.catchParameter).setSlot(exceptionVarSlot);
+                    exceptionVariable.setSlot(exceptionVarSlot);
 
-                    this.addExceptionTableEntries(
-                        key,                                   // key
-                        beginningOfBody,                       // startPC
-                        afterBody,                             // endPC
-                        this.getCodeContext().newBasicBlock(), // handlerPC
-                        caughtExceptionType.getDescriptor()    // catchTypeFD
-                    );
+                    // One exception table entry per alternative of a multi-catch parameter, with a common handler.
+                    CodeContext.Offset handlerPc = this.getCodeContext().newBasicBlock();
+                    for (IClass caughtExceptionType : caughtExceptionTypes) {
+                        this.addExceptionTableEntries(
+                            key,                                // key
+                            beginningOfBody,                    // startPC
+                            afterBody,                          // endPC
+                            handlerPc,                          // handlerPC
+                            caughtExceptionType.getDescriptor() // catchTypeFD
+                        );
+                    }
                     this.store(
                         catchClause,                    // locatable
-                        caughtExceptionType,            // lvType
+                        exceptionVariableType,          // lvType
                         exceptionVarSlot.getSlotIndex() // lvIndex
                     );
 
@@ -3932,6 +3969,55 @@ class UnitCompiler {
         this.getCodeContext().currentInserter().setStackMap(smAfterBody);
 
         return bodyCcn | catchCcn;
+    }
+
+    /**
+     * Checks that the types of the <var>catchParameter</var> are throwable (the JVM rejects a class file with an
+     * exception handler for another type), and that no alternative of a multi-catch parameter ({@code catch (A | B
+     * e)}) is a subtype of another alternative (JLS7 14.20).
+     *
+     * @return The raw types of the <var>catchParameter</var>
+     */
+    private IClass[]
+    checkCatchParameter(CatchParameter catchParameter) throws CompileException {
+
+        IClass[] types = new IClass[catchParameter.types.length];
+        for (int i = 0; i < types.length; i++) {
+            IClass type = (types[i] = this.getRawType(catchParameter.types[i]));
+
+            if (!this.iClassLoader.TYPE_java_lang_Throwable.isAssignableFrom(type)) {
+                this.compileError(
+                    "Catch parameter type \"" + type + "\" is not assignable to \"Throwable\"",
+                    catchParameter.getLocation()
+                );
+            }
+
+            for (int j = 0; j < i; j++) {
+                IClass subtype, supertype;
+                if (types[j].isAssignableFrom(type)) {
+                    subtype   = type;
+                    supertype = types[j];
+                } else
+                if (type.isAssignableFrom(types[j])) {
+                    subtype   = types[j];
+                    supertype = type;
+                } else
+                {
+                    continue;
+                }
+                this.compileError((
+                    "Alternative \""
+                    + subtype
+                    + "\" of multi-catch parameter \""
+                    + catchParameter.name
+                    + "\" is a subtype of alternative \""
+                    + supertype
+                    + "\""
+                ), catchParameter.getLocation());
+            }
+        }
+
+        return types;
     }
 
     // ------------ FunctionDeclarator.compile() -------------
@@ -4691,12 +4777,17 @@ class UnitCompiler {
 
         if (parameter.localVariable != null) return parameter.localVariable;
 
-        if (parameter.types.length != 1) {
-            throw UnitCompiler.compileException(parameter, "Multi-type CATCH parameters NYI");
-        }
+        // JLS7 14.20: The type of a multi-catch parameter ("catch (A | B e)") is the least upper bound of the
+        // alternatives, here (with erased types) their nearest common superclass; the parameter is implicitly final.
         IType parameterType = this.getType(parameter.types[0]);
+        for (int i = 1; i < parameter.types.length; i++) {
+            parameterType = this.commonSupertype(parameterType, this.getType(parameter.types[i]));
+        }
 
-        return (parameter.localVariable = new LocalVariable(parameter.finaL, parameterType));
+        LocalVariable result = new LocalVariable(parameter.finaL || parameter.types.length > 1, parameterType);
+        if (parameter.types.length > 1) this.multiCatchParameters.put(result, parameter);
+
+        return (parameter.localVariable = result);
     }
 
     // ------------------ Rvalue.compile() ----------------
@@ -7643,7 +7734,7 @@ class UnitCompiler {
             @Override @Nullable public Void visitFieldAccess(FieldAccess fa)                                            throws CompileException { UnitCompiler.this.compileSet2(fa);    return null; }
             @Override @Nullable public Void visitFieldAccessExpression(FieldAccessExpression fae)                       throws CompileException { UnitCompiler.this.compileSet2(fae);   return null; }
             @Override @Nullable public Void visitSuperclassFieldAccessExpression(SuperclassFieldAccessExpression scfae) throws CompileException { UnitCompiler.this.compileSet2(scfae); return null; }
-            @Override @Nullable public Void visitLocalVariableAccess(LocalVariableAccess lva)                                                   { UnitCompiler.this.compileSet2(lva);   return null; }
+            @Override @Nullable public Void visitLocalVariableAccess(LocalVariableAccess lva)                            throws CompileException { UnitCompiler.this.compileSet2(lva);   return null; }
             @Override @Nullable public Void visitParenthesizedExpression(ParenthesizedExpression pe)                    throws CompileException { UnitCompiler.this.compileSet2(pe);    return null; }
         });
     }
@@ -7653,7 +7744,19 @@ class UnitCompiler {
     }
 
     private void
-    compileSet2(LocalVariableAccess lva) { this.store(lva, lva.localVariable); }
+    compileSet2(LocalVariableAccess lva) throws CompileException {
+
+        // JLS7 14.20: A multi-catch parameter ("catch (A | B e)") is implicitly final.
+        CatchParameter multiCatchParameter = (CatchParameter) this.multiCatchParameters.get(lva.localVariable);
+        if (multiCatchParameter != null) {
+            this.compileError(
+                "Multi-catch parameter \"" + multiCatchParameter.name + "\" must not be assigned",
+                lva.getLocation()
+            );
+        }
+
+        this.store(lva, lva.localVariable);
+    }
 
     private void
     compileSet2(FieldAccess fa) throws CompileException {
@@ -9626,7 +9729,22 @@ class UnitCompiler {
                             Scope s;
 
                             // Does one of the enclosing blocks declare a local variable with that name?
-                            for (s = scope; s instanceof BlockStatement; s = s.getEnclosingScope()) {
+                            for (
+                                s = scope;
+                                s instanceof BlockStatement || s instanceof CatchClause;
+                                s = s.getEnclosingScope()
+                            ) {
+
+                                // Is it the parameter of an enclosing CATCH clause?
+                                if (s instanceof CatchClause) {
+                                    CatchParameter cp = ((CatchClause) s).catchParameter;
+                                    if (cp.name.equals(localVariableName)) {
+                                        lv = this.getLocalVariable(cp);
+                                        break DETERMINE_LV;
+                                    }
+                                    continue;
+                                }
+
                                 BlockStatement       bs = (BlockStatement) s;
                                 Scope                es = bs.getEnclosingScope();
 

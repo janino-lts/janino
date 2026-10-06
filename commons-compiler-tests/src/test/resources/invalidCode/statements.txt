@@ -540,3 +540,123 @@ janino: REJECTED Local variable "x" is not initialized
 public class P {
     int f(boolean z) { int x; int y = 0; if (z) { x = 1; } else { y = x; } return y; }
 }
+
+=== multi-catch parameter is assigned
+janino: REJECTED Multi-catch parameter "e" must not be assigned
+public class P {
+    void f() {
+        try { throw new IllegalStateException(); }
+        catch (IllegalStateException | IllegalArgumentException e) { e = new IllegalStateException(); }
+    }
+}
+
+=== multi-catch alternatives related by subclassing
+janino: REJECTED Alternative "java.lang.IllegalArgumentException" of multi-catch parameter "e" is a subtype
+public class P {
+    void f() { try { throw new IllegalStateException(); } catch (RuntimeException | IllegalArgumentException e) { } }
+}
+
+=== multi-catch alternatives related by subclassing, subclass first
+janino: REJECTED Alternative "java.lang.IllegalArgumentException" of multi-catch parameter "e" is a subtype
+public class P {
+    void f() { try { throw new IllegalStateException(); } catch (IllegalArgumentException | RuntimeException e) { } }
+}
+
+=== multi-catch with the same alternative twice
+janino: REJECTED Alternative "java.lang.IllegalStateException" of multi-catch parameter "e" is a subtype
+public class P {
+    void f() { try { throw new IllegalStateException(); } catch (IllegalStateException | IllegalStateException e) { } }
+}
+
+=== multi-catch alternative that is not a Throwable
+janino: REJECTED Catch parameter type "java.lang.String" is not assignable to "Throwable"
+public class P {
+    void f() { try { throw new IllegalStateException(); } catch (String | IllegalStateException e) { } }
+}
+
+=== catch of Object with a non-empty try block
+janino: REJECTED Catch parameter type "java.lang.Object" is not assignable to "Throwable"
+public class P {
+    void f() { try { throw new IllegalStateException(); } catch (Object e) { } }
+}
+
+=== catch of java.io.Serializable with a non-empty try block
+janino: REJECTED Catch parameter type "java.io.Serializable" is not assignable to "Throwable"
+public class P {
+    void f() { try { throw new IllegalStateException(); } catch (java.io.Serializable e) { } }
+}
+
+=== catch of non-throwable type with a non-empty try block
+janino: REJECTED Catch parameter type "java.lang.String" is not assignable to "Throwable"
+public class P {
+    void f() { try { throw new IllegalStateException(); } catch (String e) { } }
+}
+
+=== multi-catch clause after a catch of a superclass of an alternative
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f() {
+        try { throw new IllegalStateException(); }
+        catch (Exception e) { }
+        catch (IllegalStateException | IllegalArgumentException e) { }
+    }
+}
+
+=== multi-catch of a checked exception that is never thrown
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void m() throws java.io.IOException { }
+    void f() { try { m(); } catch (java.io.IOException | java.sql.SQLException e) { } }
+}
+
+=== rethrow of a multi-catch parameter whose alternatives are not declared
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void g() throws java.io.IOException, java.sql.SQLException { }
+    void f() { try { g(); } catch (java.io.IOException | java.sql.SQLException e) { throw e; } }
+}
+
+=== exception thrown in a catch clause is caught by the same try statement
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f() { try { } catch (Exception e) { throw new java.io.IOException(); } }
+}
+
+=== rethrow of a catch parameter whose type is not declared
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f() { try { if (false) throw new java.io.IOException(); } catch (Exception e) { throw e; } }
+}
+
+=== multi-catch parameter redeclares a local variable
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f() {
+        int e = 0;
+        try { throw new IllegalStateException(); } catch (IllegalStateException | IllegalArgumentException e) { }
+    }
+}
+
+=== local variable redeclares a multi-catch parameter
+janino: REJECTED Redefinition of local variable "e"
+public class P {
+    void f() {
+        try { throw new IllegalStateException(); }
+        catch (IllegalStateException | IllegalArgumentException e) { int e = 0; }
+    }
+}
+
+=== checked exception with an all-uppercase class name is neither caught nor declared
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    static class X extends Exception { }
+    static void m() throws X { throw new X(); }
+    void f() { m(); }
+}

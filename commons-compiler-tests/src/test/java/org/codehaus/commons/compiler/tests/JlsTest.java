@@ -2416,6 +2416,125 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    test_14_20__The_try_Statement__Multi_catch() throws Exception {
+
+        // A multi-catch clause ("catch (A | B e)") catches each of its alternatives; the type of the parameter is
+        // the nearest common superclass of the alternatives; the parameter is implicitly final, so an anonymous
+        // class may access it; "throw e;" rethrows the alternatives (precise rethrow).
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.io.IOException;\n"
+            + "import java.sql.SQLException;\n"
+            + "public class Main {\n"
+            + "    static class ExA extends Exception { }\n"
+            + "    static class ExB extends Exception { }\n"
+            + "    static StringBuilder t = new StringBuilder();\n"
+            + "    static class R implements AutoCloseable { public void close() { t.append('c'); } }\n"
+            + "    static void thrower(int i) throws IOException, SQLException, ExA, ExB {\n"
+            + "        switch (i) {\n"
+            + "        case 1: throw new IllegalStateException(\"ise\");\n"
+            + "        case 2: throw new IllegalArgumentException(\"iae\");\n"
+            + "        case 3: throw new IOException(\"io\");\n"
+            + "        case 4: throw new SQLException(\"sql\");\n"
+            + "        case 5: throw new ExA();\n"
+            + "        case 6: throw new ExB();\n"
+            + "        case 7: throw new ArithmeticException(\"ae\");\n"
+            + "        default: break;\n"
+            + "        }\n"
+            + "    }\n"
+            + "    static String f(int i) {\n"
+            + "        try {\n"
+            + "            thrower(i);\n"
+            + "            return \"-\";\n"
+            + "        } catch (IllegalStateException | IllegalArgumentException e) {\n"
+            + "            RuntimeException re = e;\n"
+            + "            return \"R\" + re.getMessage();\n"
+            + "        } catch (final IOException | SQLException e) {\n"
+            + "            Exception x = e;\n"
+            + "            return \"E\" + x.getMessage();\n"
+            + "        } catch (ExA | ExB e) {\n"
+            + "            return e.getClass().getSimpleName();\n"
+            + "        } catch (ArithmeticException | StackOverflowError e) {\n"
+            + "            Throwable th = e;\n"
+            + "            return \"T\" + th.getMessage();\n"
+            + "        }\n"
+            + "    }\n"
+            + "    static String rethrow(int i) throws IOException, SQLException {\n"
+            + "        try {\n"
+            + "            thrower(i);\n"
+            + "            return \"-\";\n"
+            + "        } catch (IOException | SQLException e) {\n"
+            + "            throw e;\n"
+            + "        } catch (ExA | ExB e) {\n"
+            + "            return \"ab\";\n"
+            + "        }\n"
+            + "    }\n"
+            + "    static String g(int i) {\n"
+            + "        try {\n"
+            + "            return rethrow(i);\n"
+            + "        } catch (IOException e) {\n"
+            + "            return \"I\";\n"
+            + "        } catch (SQLException e) {\n"
+            + "            return \"S\";\n"
+            + "        }\n"
+            + "    }\n"
+            + "    static String h() {\n"
+            + "        for (int i = 0; i < 4; i++) {\n"
+            + "            try (R r = new R()) {\n"
+            + "                if (i == 1) throw new IllegalStateException();\n"
+            + "                if (i == 2) throw new IllegalArgumentException(\"x\");\n"
+            + "                t.append(i);\n"
+            + "            } catch (IllegalStateException | IllegalArgumentException e) {\n"
+            + "                Runnable rn = new Runnable() {\n"
+            + "                    public void run() { t.append(e.getMessage() == null ? 'C' : 'D'); }\n"
+            + "                };\n"
+            + "                rn.run();\n"
+            + "                if (i == 1) continue;\n"
+            + "                break;\n"
+            + "            } finally {\n"
+            + "                t.append('F');\n"
+            + "            }\n"
+            + "            t.append('.');\n"
+            + "        }\n"
+            + "        return t.toString();\n"
+            + "    }\n"
+            + "    public static boolean main() {\n"
+            + "        return (\n"
+            + "            \"-\".equals(f(0)) && \"Rise\".equals(f(1)) && \"Riae\".equals(f(2))\n"
+            + "            && \"Eio\".equals(f(3)) && \"Esql\".equals(f(4))\n"
+            + "            && \"ExA\".equals(f(5)) && \"ExB\".equals(f(6)) && \"Tae\".equals(f(7))\n"
+            + "            && \"-\".equals(g(0)) && \"I\".equals(g(3)) && \"S\".equals(g(4)) && \"ab\".equals(g(5))\n"
+            + "            && \"0cF.cCFcDF\".equals(h())\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n"
+        ), "Main");
+
+        // A multi-catch parameter must not be assigned; the alternatives must not be related by subclassing, and
+        // must be throwable.
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { void f() { try { throw new IllegalStateException(); }"
+            + " catch (IllegalStateException | IllegalArgumentException e) { e = null; } } }"
+        ), "must not be assigned|may not be assigned|compiler.err.multicatch.parameter.may.not.be.assigned");
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { void f() { try { throw new IllegalStateException(); }"
+            + " catch (RuntimeException | IllegalArgumentException e) { } } }"
+        ), "is a subtype of|related by subclassing|compiler.err.multicatch.types.must.be.disjoint");
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { void f() { try { throw new IllegalStateException(); }"
+            + " catch (IllegalStateException | IllegalStateException e) { } } }"
+        ), "is a subtype of|related by subclassing|compiler.err.multicatch.types.must.be.disjoint");
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { void f() { try { throw new IllegalStateException(); }"
+            + " catch (String | IllegalStateException e) { } } }"
+        ), "is not assignable to \"Throwable\"|incompatible types|compiler.err.prob.found.req");
+    }
+
+    @Test public void
     test_14_20_1__Execution_of_try_catch__1() throws Exception {
         this.assertClassBodyMainReturnsTrue(
             ""

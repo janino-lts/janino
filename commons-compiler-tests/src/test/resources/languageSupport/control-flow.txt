@@ -441,3 +441,13 @@ public class P {
     }
     public static Object run() { return String.valueOf(f()); }
 }
+
+=== catch of an exception class with an all-uppercase name that a method declares in its throws clause
+jls: X-
+janino: REJECTED Catch clause is unreachable
+public class P {
+    static class X extends Exception { }
+    static void m(boolean b) throws X { if (b) throw new X(); }
+    static String f(boolean b) { try { m(b); return "-"; } catch (X e) { return "X"; } }
+    public static Object run() { return f(true) + f(false); }
+}

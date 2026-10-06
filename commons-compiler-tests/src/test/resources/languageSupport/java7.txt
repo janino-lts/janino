@@ -7,8 +7,8 @@ import java.util.*;
 public class P { public static Object run() { List<String> l = new ArrayList<>(); l.add("a"); return String.valueOf(l.size()); } }
 
 === multi-catch
+janino: OK
 jls: caught
-janino: REJECTED Multi-type CATCH parameters NYI
 public class P {
     public static Object run() {
         try { if (true) throw new IllegalStateException(); return "no"; }
@@ -238,5 +238,355 @@ public class P {
     public static Object run() {
         try (R r = new R("1"); R s = fail()) { t.append('B'); } catch (RuntimeException e) { t.append('C'); }
         return t.toString();
+    }
+}
+
+=== multi-catch: the second alternative is thrown
+jls: caught a
+janino: OK
+public class P {
+    public static Object run() {
+        try { if (true) throw new IllegalArgumentException("a"); return "no"; }
+        catch (IllegalStateException | IllegalArgumentException e) { return "caught " + e.getMessage(); }
+    }
+}
+
+=== multi-catch: the parameter has the type of the common superclass
+jls: s
+janino: OK
+public class P {
+    public static Object run() {
+        try { throw new IllegalStateException("s"); }
+        catch (IllegalStateException | IllegalArgumentException e) { RuntimeException r = e; return r.getMessage(); }
+    }
+}
+
+=== multi-catch: the parameter is an instance of the thrown class
+jls: IllegalArgumentException IllegalArgumentException
+janino: OK
+public class P {
+    public static Object run() {
+        try { throw new IllegalArgumentException("a"); }
+        catch (IllegalStateException | IllegalArgumentException e) {
+            Object o = e;
+            return o.getClass().getSimpleName() + " " + e.getClass().getSimpleName();
+        }
+    }
+}
+
+=== multi-catch: precise rethrow of the alternatives
+jls: -IS
+janino: OK
+import java.io.*;
+import java.sql.*;
+public class P {
+    static void g(int i) throws IOException, SQLException {
+        try { if (i == 1) throw new IOException("io"); if (i == 2) throw new SQLException("sql"); }
+        catch (IOException | SQLException e) { throw e; }
+    }
+    public static Object run() {
+        String r = "";
+        for (int i = 0; i < 3; i++) {
+            try { g(i); r += "-"; } catch (IOException e) { r += "I"; } catch (SQLException e) { r += "S"; }
+        }
+        return r;
+    }
+}
+
+=== multi-catch with a finally block
+jls: aCF
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        try { t.append('a'); if (t.length() > 0) throw new IllegalStateException(); t.append('b'); }
+        catch (IllegalStateException | IllegalArgumentException e) { t.append('C'); }
+        finally { t.append('F'); }
+        return t.toString();
+    }
+}
+
+=== multi-catch in a try-with-resources statement
+jls: acCF
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static class R implements AutoCloseable { public void close() { t.append('c'); } }
+    public static Object run() {
+        try (R r = new R()) { t.append('a'); if (t.length() > 0) throw new IllegalArgumentException(); }
+        catch (IllegalStateException | IllegalArgumentException e) { t.append('C'); }
+        finally { t.append('F'); }
+        return t.toString();
+    }
+}
+
+=== multi-catch: two multi-catch clauses and a single-type clause
+jls: -11223
+janino: OK
+public class P {
+    static String f(int i) {
+        try {
+            if (i == 1) throw new IllegalStateException();
+            if (i == 2) throw new IllegalArgumentException();
+            if (i == 3) throw new UnsupportedOperationException();
+            if (i == 4) throw new ArithmeticException();
+            if (i == 5) throw new NullPointerException();
+            return "-";
+        }
+        catch (IllegalStateException | IllegalArgumentException e) { return "1"; }
+        catch (UnsupportedOperationException | ArithmeticException e) { return "2"; }
+        catch (RuntimeException e) { return "3"; }
+    }
+    public static Object run() { String r = ""; for (int i = 0; i < 6; i++) r += f(i); return r; }
+}
+
+=== multi-catch of the checked exceptions of a method
+jls: -IOExceptionClassNotFoundException
+janino: OK
+import java.io.*;
+public class P {
+    static void m(int i) throws IOException, ClassNotFoundException {
+        if (i == 1) throw new IOException();
+        if (i == 2) throw new ClassNotFoundException();
+    }
+    static String f(int i) {
+        try { m(i); return "-"; }
+        catch (IOException | ClassNotFoundException e) { return e.getClass().getSimpleName(); }
+    }
+    public static Object run() { return f(0) + f(1) + f(2); }
+}
+
+=== multi-catch of checked exceptions declared in the compilation unit
+jls: ExAExB
+janino: OK
+public class P {
+    static class ExA extends Exception { }
+    static class ExB extends Exception { }
+    static void m(boolean b) throws ExA, ExB { if (b) throw new ExA(); throw new ExB(); }
+    static String f(boolean b) {
+        try { m(b); return "-"; } catch (ExA | ExB e) { return e.getClass().getSimpleName(); }
+    }
+    public static Object run() { return f(true) + f(false); }
+}
+
+=== multi-catch: an anonymous class accesses the parameter
+jls: ok x
+janino: OK
+public class P {
+    public static Object run() {
+        try { throw new IllegalStateException("x"); }
+        catch (IllegalStateException | IllegalArgumentException e) {
+            Runnable r = new Runnable() { public void run() { if (e.getMessage() == null) throw new Error(); } };
+            r.run();
+            return "ok " + e.getMessage();
+        }
+    }
+}
+
+=== multi-catch: a local class accesses the parameter
+jls: x
+janino: OK
+public class P {
+    public static Object run() {
+        try { throw new IllegalStateException("x"); }
+        catch (IllegalStateException | IllegalArgumentException e) {
+            class L { String g() { return e.getMessage(); } }
+            return new L().g();
+        }
+    }
+}
+
+=== multi-catch with the final modifier
+jls: f
+janino: OK
+public class P {
+    public static Object run() {
+        try { throw new IllegalArgumentException("f"); }
+        catch (final IllegalStateException | IllegalArgumentException e) { return e.getMessage(); }
+    }
+}
+
+=== multi-catch with three alternatives
+jls: -IlIlAr
+janino: OK
+public class P {
+    static String f(int i) {
+        try {
+            if (i == 1) throw new IllegalStateException();
+            if (i == 2) throw new IllegalArgumentException();
+            if (i == 3) throw new ArithmeticException();
+            return "-";
+        } catch (IllegalStateException | IllegalArgumentException | ArithmeticException e) {
+            return e.getClass().getSimpleName().substring(0, 2);
+        }
+    }
+    public static Object run() { return f(0) + f(1) + f(2) + f(3); }
+}
+
+=== multi-catch in a loop with break and continue, with a finally block
+jls: 0F.CFCF
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    public static Object run() {
+        for (int i = 0; i < 4; i++) {
+            try {
+                if (i == 1) throw new IllegalStateException();
+                if (i == 2) throw new IllegalArgumentException();
+                t.append(i);
+            } catch (IllegalStateException | IllegalArgumentException e) {
+                t.append('C');
+                if (i == 1) continue;
+                break;
+            } finally {
+                t.append('F');
+            }
+            t.append('.');
+        }
+        return t.toString();
+    }
+}
+
+=== multi-catch: string concatenation with the parameter
+jls: java.lang.IllegalStateException: m
+janino: OK
+public class P {
+    public static Object run() {
+        try { throw new IllegalStateException("m"); }
+        catch (IllegalStateException | IllegalArgumentException e) { return "" + e; }
+    }
+}
+
+=== multi-catch in a static initializer and in a constructor
+jls: ic
+janino: OK
+public class P {
+    static String s;
+    static {
+        try { if (s == null) throw new IllegalStateException("i"); }
+        catch (IllegalStateException | IllegalArgumentException e) { s = e.getMessage(); }
+    }
+    String f;
+    P() {
+        try { if (f == null) throw new IllegalArgumentException("c"); }
+        catch (IllegalStateException | IllegalArgumentException e) { f = e.getMessage(); }
+    }
+    public static Object run() { return s + new P().f; }
+}
+
+=== multi-catch: the common superclass is Throwable
+jls: IllegalStateException true
+janino: OK
+public class P {
+    public static Object run() {
+        try { throw new IllegalStateException(); }
+        catch (StackOverflowError | IllegalStateException e) {
+            Object o = e;
+            return o.getClass().getSimpleName() + " " + (e instanceof Throwable);
+        }
+    }
+}
+
+=== multi-catch: the common superclass is Exception
+jls: x
+janino: OK
+import java.io.*;
+public class P {
+    static void m() throws IOException { throw new IOException("x"); }
+    public static Object run() {
+        try { m(); return "-"; } catch (IOException | RuntimeException e) { return e.getMessage(); }
+    }
+}
+
+=== multi-catch: the parameter as a method argument
+jls: E:q
+janino: OK
+import java.io.*;
+import java.sql.*;
+public class P {
+    static String m(Exception e) { return "E:" + e.getMessage(); }
+    static void g() throws IOException, SQLException { throw new SQLException("q"); }
+    public static Object run() {
+        try { g(); return "-"; } catch (IOException | SQLException e) { return m(e); }
+    }
+}
+
+=== multi-catch in a synchronized block
+jls: y
+janino: OK
+public class P {
+    public static Object run() {
+        synchronized (P.class) {
+            try { throw new IllegalArgumentException("y"); }
+            catch (IllegalStateException | IllegalArgumentException e) { return e.getMessage(); }
+        }
+    }
+}
+
+=== multi-catch: instanceof with the parameter
+jls: true false
+janino: OK
+public class P {
+    public static Object run() {
+        try { throw new IllegalArgumentException(); }
+        catch (IllegalStateException | IllegalArgumentException e) {
+            return (e instanceof IllegalArgumentException) + " " + (e instanceof IllegalStateException);
+        }
+    }
+}
+
+=== multi-catch: the rethrown parameter is caught by an enclosing try statement
+jls: outer n
+janino: OK
+public class P {
+    public static Object run() {
+        try {
+            try { throw new IllegalStateException("n"); }
+            catch (IllegalStateException | IllegalArgumentException e) { throw e; }
+        } catch (RuntimeException e) {
+            return "outer " + e.getMessage();
+        }
+    }
+}
+
+=== multi-catch: nested try statements with multi-catch clauses
+jls: IllegalStateException in
+janino: OK
+public class P {
+    public static Object run() {
+        try { throw new IllegalStateException(); }
+        catch (IllegalStateException | IllegalArgumentException e) {
+            try { throw new IllegalArgumentException("in"); }
+            catch (IllegalStateException | IllegalArgumentException f) {
+                return e.getClass().getSimpleName() + " " + f.getMessage();
+            }
+        }
+    }
+}
+
+=== multi-catch: the alternatives implement an interface whose method is invoked on the parameter
+jls: x
+janino: REJECTED A method named "n" is not declared in any enclosing class nor any supertype
+public class P {
+    interface I { String n(); }
+    static class ExA extends Exception implements I { public String n() { return "x"; } }
+    static class ExB extends Exception implements I { public String n() { return "y"; } }
+    static void m(boolean b) throws ExA, ExB { if (b) throw new ExA(); throw new ExB(); }
+    public static Object run() {
+        try { m(true); return "-"; } catch (ExA | ExB e) { return e.n(); }
+    }
+}
+
+=== try-with-resources: an anonymous class accesses the resource variable
+jls: ok
+janino: REJECTED Unknown variable or type "r"
+public class P {
+    static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
+    public static Object run() {
+        try (final R r = new R()) {
+            Runnable q = new Runnable() { public void run() { if (r.n() == null) throw new Error(); } };
+            q.run();
+            return "ok";
+        }
     }
 }

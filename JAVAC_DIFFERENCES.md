@@ -101,14 +101,28 @@ class throws an `IllegalAccessError` or fails to verify. `javac` generates an ac
 or an annotation (`final class L {}`, `abstract class L {}`, `@A class L {}`) is rejected (`IDENTIFIER expected
 instead of 'class'`).
 
+**Multi-catch** ([#21](https://github.com/janino-lts/janino/issues/21), in the main line): the type of the parameter
+of `catch (A | B e)` is the nearest common superclass of the alternatives, not their least upper bound with the
+interfaces that all alternatives implement: `e.n()` with a method `n()` of an interface that `A` and `B` implement,
+but not their common superclass, is rejected (`A method named "n" is not declared in any enclosing class nor any
+supertype`); with a cast, `((I) e).n()`, it compiles.
+
+**Try-with-resources:** an anonymous or local class in the block cannot access the resource variable
+(`try (R r = ...) { new Runnable() { public void run() { r.use(); } }; }`: `Unknown variable or type "r"`).
+
+**Exception classes with all-uppercase names:** a type in the `throws` clause of a method or constructor declared
+in the compiled code is ignored if its simple name consists of uppercase letters only (`throws X`, `throws IOEXC`),
+because Janino takes it for a type parameter. The `catch` of such an exception that the method throws is rejected
+(`Catch clause is unreachable`); and the exception need neither be caught nor declared (section 3).
+
 ## 3. Invalid code that Janino accepts
 
 `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it behaves
 as the source suggests (e.g. an assignment to a `final` local variable assigns it). See
 [issue #33](https://github.com/janino-lts/janino/issues/33) for the compatibility considerations. One exception: the
 access to a `protected` member of a class in another package through an expression whose type is neither the
-accessing class nor a subclass of it (`((Object) this).clone()`, `Object o = new P(); o.clone()`) is rejected since
-3.1.16, like by `javac`, although the JVM loaded such classes when the verifier could infer the type `P` from the
+accessing class nor a subclass of it (`((Object) this).clone()`, `Object o = new P(); o.clone()`) is rejected in the
+main line, like by `javac`, although the JVM loaded such classes when the verifier could infer the type `P` from the
 bytecode ([#54](https://github.com/janino-lts/janino/issues/54)); it rejected them for a parameter, a field or a
 method result of type `Object`.
 
@@ -155,10 +169,21 @@ method result of type `Object`.
 - duplicate label: `L: while (true) { L: while (true) { break L; } }`;
 - unreachable body of `while (false) { ... }` and `for (; false; ) { ... }`;
 - `synchronized (null) {}`;
-- `catch` of a checked exception that the `try` block cannot throw: `try { } catch (java.io.IOException e) { }`;
-- `catch` clause after a `catch` of a superclass: `catch (Exception e) { } catch (RuntimeException e) { }`;
-- `catch` of a type that is not a `Throwable`: `catch (String e)`;
-- `catch` parameter that redeclares a local variable: `int e = 0; try { } catch (RuntimeException e) { }`;
+- `catch` of a checked exception that the `try` block cannot throw: `try { } catch (java.io.IOException e) { }`,
+  also as an alternative of a multi-catch clause: `catch (IOException | SQLException e)` with a `try` block that
+  throws only `IOException`;
+- `catch` clause after a `catch` of a superclass: `catch (Exception e) { } catch (RuntimeException e) { }`, also
+  of a superclass of an alternative of a multi-catch clause: `catch (Exception e) { } catch (IOException |
+  SQLException e) { }`;
+- `catch` of a type that is not a `Throwable` with an empty `try` block: `try { } catch (String e) { }` (with a
+  non-empty `try` block, this is rejected);
+- `catch` parameter that redeclares a local variable: `int e = 0; try { } catch (RuntimeException e) { }`, also a
+  multi-catch parameter;
+- a checked exception that is thrown in a `catch` or `finally` clause and that a `catch` clause of the same `try`
+  statement catches: `try { } catch (Exception e) { throw new IOException(); }`, also the rethrow of the parameter:
+  `catch (IOException | SQLException e) { throw e; }` in a method that declares neither exception, and
+  `catch (Exception e) { throw e; }` in a method that does not declare the checked exceptions of the `try` block;
+- a checked exception whose class name is all uppercase that is neither caught nor declared (section 2);
 - case label out of the range of the switch type: `switch (b) { case 1000: }` with `byte b`;
 - case label of type `long`, `float` or `double`, whose value is truncated to `int`: `case 1L:`, `case 1.0:`,
   `case 4294967297L:` (which matches the value 1);

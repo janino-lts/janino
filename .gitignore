@@ -1,6 +1,7 @@
 # ignore bin and build dirs
 **/bin/
 **/build/
+**/upload/
 **/target
 
 # ignore .project since everyone's different!

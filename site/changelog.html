@@ -159,6 +159,25 @@ h5 {
         bodies now has the <code>final</code> flag, like with JAVAC (JLS 8.9); otherwise, the class files of code that
         compiled correctly before are unchanged.
       </li>
+      <li>
+        Implemented <a href="https://github.com/janino-lts/janino/issues/21">issue #21</a>: Multi-catch clauses
+        (<code>catch (IOException | SQLException e)</code>, JLS7 14.20) are compiled now; before, they were parsed,
+        but rejected ("Multi-type CATCH parameters NYI"). Each alternative gets an exception table entry with the
+        common handler; the type of the parameter is the nearest common superclass of the alternatives (not their
+        least upper bound with the interfaces that they implement, see <code>JAVAC_DIFFERENCES.md</code>); the
+        parameter is implicitly <code>final</code>, and <code>throw e;</code> rethrows the alternatives, not the
+        superclass. Like JAVAC, Janino rejects an assignment to the parameter, and alternatives that are related by
+        subclassing. In addition, a <code>catch</code> parameter whose type is not a <code>Throwable</code>, e.g.
+        <code>catch (Object e)</code> or <code>catch (java.io.Serializable e)</code>, is rejected with a compile
+        error; before, such code compiled into a class file that the JVM rejects. The class files of code that
+        compiled before are unchanged.
+      </li>
+      <li>
+        Fixed: An anonymous or local class in a <code>catch</code> clause could access neither the <code>catch</code>
+        parameter nor a local variable that is declared before the <code>try</code> statement; the compiler failed
+        with an <code>InternalCompilerException</code> ("Synthetic field ... neither maps a synthetic field of an
+        enclosing instance nor a local variable").
+      </li>
     </ul>
 
     <h4>Version 3.1.15 2026-10-06</h4>

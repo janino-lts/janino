@@ -321,10 +321,7 @@
               <li>Underscores in numeric literals (JLS7 3.10.1)</li>
               <li>String <code>switch</code> statement (JLS7 14.11)</li>
               <li><code>try</code>-with-resources statement (JLS7 14.20.3)</li>
-              <li>
-                <code>catch</code>ing and rethrowing multiple exception types: Partially implemented; parsed and
-                unparsed, but not compilable
-              </li>
+              <li>Multi-catch clauses (<code>catch (IOException | SQLException e)</code>) (JLS7 14.20)</li>
               <li>Type inference for generic instance creation (a.k.a. the "diamond operator") (JLS11 15.9.1)</li>
             </ul>
           </li>
@@ -461,16 +458,6 @@
               <li>
                 Overload resolution: A variable arity method is preferred over a method that requires boxing, e.g.
                 <code>f(1)</code> invokes <code>f(int...)</code> instead of <code>f(Object)</code>
-              </li>
-            </ul>
-          </li>
-
-          <li>
-            Java 7 language features:
-            <ul>
-              <li>
-                <code>catch</code>ing and rethrowing multiple exception types: Partially implemented; parsed and
-                unparsed, but not compilable
               </li>
             </ul>
           </li>
