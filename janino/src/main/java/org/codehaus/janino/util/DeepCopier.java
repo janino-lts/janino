@@ -980,6 +980,7 @@ class DeepCopier {
     copySuperclassMethodInvocation(SuperclassMethodInvocation subject) throws CompileException {
         return new SuperclassMethodInvocation(
             subject.getLocation(),
+            this.copyOptionalType(subject.qualification),
             subject.methodName,
             this.copyRvalues(subject.arguments)
         );

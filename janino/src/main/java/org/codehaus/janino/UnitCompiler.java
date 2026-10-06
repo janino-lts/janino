@@ -4106,6 +4106,7 @@ class UnitCompiler {
             short accessFlags = this.accessFlags(fd.getModifiers());
 
             if (fd.formalParameters.variableArity) accessFlags |= Mod.VARARGS;
+            if (this.superclassMethodAccessors.contains(fd)) accessFlags |= Mod.SYNTHETIC;
 
             if (fd.getDeclaringType() instanceof InterfaceDeclaration) {
 
@@ -6378,10 +6379,61 @@ class UnitCompiler {
             this.compileError("Cannot invoke superclass method in non-method scope", scmi.getLocation());
             return IClass.INT;
         }
-        if (fd instanceof MethodDeclarator && ((MethodDeclarator) fd).isStatic()) {
+        boolean isAccessor = this.superclassMethodAccessors.contains(fd);
+        if (fd instanceof MethodDeclarator && ((MethodDeclarator) fd).isStatic() && !isAccessor) {
             this.compileError("Cannot invoke superclass method in static context", scmi.getLocation());
         }
-        this.loadThis(scmi, this.resolve(fd.getDeclaringType()));
+
+        IClass qualification = this.superclassMethodInvocationQualification(scmi);
+        IClass currentClass  = this.resolve(fd.getDeclaringType());
+
+        int              opcode                = Opcode.INVOKESPECIAL;
+        IClass           declaringIClass       = iMethod.getDeclaringIClass();
+        String           methodName            = iMethod.getName();
+        MethodDescriptor methodDescriptor      = iMethod.getDescriptor();
+        boolean          useInterfaceMethodref = false;
+
+        if (qualification != null && qualification.isInterface()) {
+
+            // "InterfaceName.super.m()": Invoke the default method of the direct superinterface (JLS8 15.12.3).
+            this.loadThis(scmi, currentClass);
+            declaringIClass       = qualification;
+            useInterfaceMethodref = true;
+        } else
+        if (qualification != null && qualification != currentClass) {
+
+            // "ClassName.super.m()" with a lexically enclosing class: The JVM allows "invokespecial" only on the
+            // superclasses of the current class, so, like JAVAC, invoke a synthetic static method of the enclosing
+            // class that invokes the superclass method on the enclosing instance.
+            AbstractClassDeclaration enclosingClass = this.qualifiedSuperclassMethodInvocationClass(
+                fd.getDeclaringType(),
+                qualification,
+                scmi
+            );
+            MethodDeclarator accessor = this.superclassMethodAccessor(enclosingClass, iMethod, scmi.getLocation());
+
+            QualifiedThisReference qtr = new QualifiedThisReference(
+                scmi.getLocation(),
+                new SimpleType(scmi.getLocation(), qualification)
+            );
+            qtr.setEnclosingScope(scmi.getEnclosingScope());
+            this.compileGetValue(qtr);
+
+            opcode           = Opcode.INVOKESTATIC;
+            declaringIClass  = qualification;
+            methodName       = accessor.name;
+            methodDescriptor = this.toIMethod(accessor).getDescriptor();
+        } else
+        if (isAccessor) {
+
+            // In the synthetic accessor method (which is static), the instance is the first parameter.
+            ParameterAccess pa = new ParameterAccess(scmi.getLocation(), fd.formalParameters.parameters[0]);
+            pa.setEnclosingScope(scmi.getEnclosingScope());
+            this.compileGetValue(pa);
+        } else
+        {
+            this.loadThis(scmi, currentClass);
+        }
 
         // Evaluate method parameters.
         // TODO: adjust args
@@ -6397,15 +6449,143 @@ class UnitCompiler {
 
         // Invoke!
         this.invoke(
-            scmi,                         // locatable
-            Opcode.INVOKESPECIAL,         // opcode
-            iMethod.getDeclaringIClass(), // declaringIClass
-            iMethod.getName(),            // methodName
-            iMethod.getDescriptor(),      // methodMd
-            false                         // useInterfaceMethodref
+            scmi,                 // locatable
+            opcode,               // opcode
+            declaringIClass,      // declaringIClass
+            methodName,           // methodName
+            methodDescriptor,     // methodMd
+            useInterfaceMethodref // useInterfaceMethodref
         );
 
         return iMethod.getReturnType();
+    }
+
+    /**
+     * The synthetic static methods through which inner classes invoke superclass methods of their enclosing classes
+     * ("{@code ClassName.super.m()}"), by enclosing class declaration and invoked method; see {@link
+     * #superclassMethodAccessor(AbstractClassDeclaration, IMethod, Location)}.
+     */
+    private final Map<AbstractClassDeclaration, Map<IMethod, MethodDeclarator>>
+    superclassMethodAccessorsByClass = new HashMap<>();
+
+    /**
+     * All the synthetic accessor methods of {@link #superclassMethodAccessorsByClass}.
+     */
+    private final Set<FunctionDeclarator> superclassMethodAccessors = new HashSet<>();
+
+    /**
+     * @return The raw type of the qualification of the <var>smi</var>, or {@code null} iff it has none
+     */
+    @Nullable private IClass
+    superclassMethodInvocationQualification(SuperclassMethodInvocation smi) throws CompileException {
+        return smi.qualification == null ? null : this.getRawType(smi.qualification);
+    }
+
+    /**
+     * Determines the class whose superclass method a qualified superclass method invocation ("{@code
+     * ClassName.super.m()}") invokes: The <var>currentType</var> itself, or a class declaration that lexically
+     * encloses it (JLS7 15.12.1); reports a compile error if the <var>qualification</var> is neither.
+     */
+    private AbstractClassDeclaration
+    qualifiedSuperclassMethodInvocationClass(
+        TypeDeclaration currentType,
+        IClass          qualification,
+        Locatable       locatable
+    ) throws CompileException {
+
+        for (Scope s = currentType; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (s instanceof AbstractClassDeclaration && this.resolve((AbstractClassDeclaration) s) == qualification) {
+                return (AbstractClassDeclaration) s;
+            }
+        }
+
+        this.compileError((
+            "\""
+            + qualification
+            + "\" is neither the current class nor an enclosing class of \""
+            + this.resolve(currentType)
+            + "\""
+        ), locatable.getLocation());
+
+        for (Scope s = currentType;; s = s.getEnclosingScope()) {
+            if (s instanceof AbstractClassDeclaration) return (AbstractClassDeclaration) s;
+        }
+    }
+
+    /**
+     * Returns the synthetic static method of the <var>enclosingClass</var> that invokes the superclass method
+     * <var>iMethod</var> on its first parameter, and creates it if it does not exist yet (like JAVAC):
+     * <pre>
+     *     static RT access$N01(EnclosingClass x0, P1 x1, ...) throws ... { return super.m(x1, ...); }
+     * </pre>
+     * The method is compiled with the other methods of the <var>enclosingClass</var>, after its member types (see
+     * {@link #compile2(AbstractClassDeclaration)}).
+     */
+    private MethodDeclarator
+    superclassMethodAccessor(AbstractClassDeclaration enclosingClass, IMethod iMethod, Location loc)
+    throws CompileException {
+
+        Map<IMethod, MethodDeclarator> accessors = (
+            (Map<IMethod, MethodDeclarator>) this.superclassMethodAccessorsByClass.get(enclosingClass)
+        );
+        if (accessors == null) {
+            accessors = new HashMap<>();
+            this.superclassMethodAccessorsByClass.put(enclosingClass, accessors);
+        }
+
+        MethodDeclarator result = (MethodDeclarator) accessors.get(iMethod);
+        if (result != null) return result;
+
+        IClass[]          parameterTypes   = iMethod.getParameterTypes();
+        FormalParameter[] formalParameters = new FormalParameter[parameterTypes.length + 1];
+        Rvalue[]          arguments        = new Rvalue[parameterTypes.length];
+        formalParameters[0] = new FormalParameter(
+            loc,                                                  // location
+            new Modifier[0],                                      // modifiers
+            new SimpleType(loc, this.resolve(enclosingClass)),    // type
+            "x0"                                                  // name
+        );
+        for (int i = 0; i < parameterTypes.length; i++) {
+            formalParameters[i + 1] = new FormalParameter(
+                loc,                                   // location
+                new Modifier[0],                       // modifiers
+                new SimpleType(loc, parameterTypes[i]), // type
+                "x" + (i + 1)                          // name
+            );
+            arguments[i] = new ParameterAccess(loc, formalParameters[i + 1]);
+        }
+
+        IClass[] thrownExceptions     = iMethod.getThrownExceptions();
+        Type[]   thrownExceptionTypes = new Type[thrownExceptions.length];
+        for (int i = 0; i < thrownExceptions.length; i++) {
+            thrownExceptionTypes[i] = new SimpleType(loc, thrownExceptions[i]);
+        }
+
+        Rvalue         invocation = new SuperclassMethodInvocation(loc, iMethod.getName(), arguments);
+        BlockStatement statement  = (
+            iMethod.getReturnType() == IClass.VOID
+            ? (BlockStatement) new ExpressionStatement(invocation)
+            : new ReturnStatement(loc, invocation)
+        );
+
+        result = new MethodDeclarator(
+            loc,                                                // location
+            null,                                               // docComment
+            UnitCompiler.accessModifiers(loc, "static"),        // modifiers
+            null,                                               // typeParameters
+            new SimpleType(loc, iMethod.getReturnType()),       // type
+            "access$" + accessors.size() + "01",                // name
+            new FormalParameters(loc, formalParameters, false), // formalParameters
+            thrownExceptionTypes,                               // thrownExceptions
+            null,                                               // defaultValue
+            Collections.singletonList(statement)                // statements
+        );
+        enclosingClass.addDeclaredMethod(result);
+
+        accessors.put(iMethod, result);
+        this.superclassMethodAccessors.add(result);
+
+        return result;
     }
 
     private IType
@@ -10646,14 +10826,23 @@ class UnitCompiler {
 
         Rvalue lhs;
         {
-            ThisReference tr = new ThisReference(scfae.getLocation());
-            tr.setEnclosingScope(scfae.getEnclosingScope());
-            IType type;
+            Rvalue thisReference;
+            IType  type;
             if (scfae.qualification != null) {
-                type = this.getType(scfae.qualification);
+
+                // "ClassName.super.fld": The field of the superclass of the current class, or of a lexically
+                // enclosing class (JLS7 15.11.2); "ClassName.this" is the instance.
+                type          = this.getType(scfae.qualification);
+                thisReference = new QualifiedThisReference(
+                    scfae.getLocation(),
+                    new SimpleType(scfae.getLocation(), type)
+                );
+                thisReference.setEnclosingScope(scfae.getEnclosingScope());
             } else
             {
-                type = this.getType(tr);
+                thisReference = new ThisReference(scfae.getLocation());
+                thisReference.setEnclosingScope(scfae.getEnclosingScope());
+                type          = this.getType(thisReference);
             }
 
             IType superclass = UnitCompiler.getSuperclass(type);
@@ -10661,7 +10850,7 @@ class UnitCompiler {
                 throw new CompileException("Cannot use \"super\" on \"" + type + "\"", scfae.getLocation());
             }
 
-            lhs = new Cast(scfae.getLocation(), new SimpleType(scfae.getLocation(), superclass), tr);
+            lhs = new Cast(scfae.getLocation(), new SimpleType(scfae.getLocation(), superclass), thisReference);
         }
 
         Rvalue value;
@@ -10860,25 +11049,133 @@ class UnitCompiler {
     }
 
     /**
+     * @return The default method that the "{@code InterfaceName.super.m()}" invocation <var>smi</var> invokes
+     */
+    private IClass.IMethod
+    findSuperinterfaceIMethod(SuperclassMethodInvocation smi, IClass superinterface) throws CompileException {
+
+        // Determine the type declaration immediately enclosing the method invocation.
+        TypeDeclaration typeDeclaration;
+        for (Scope s = smi.getEnclosingScope();; s = s.getEnclosingScope()) {
+            if (s instanceof FunctionDeclarator) {
+                FunctionDeclarator fd = (FunctionDeclarator) s;
+                if (fd instanceof MethodDeclarator && ((MethodDeclarator) fd).isStatic()) {
+                    this.compileError("Superinterface method cannot be invoked in static context", smi.getLocation());
+                }
+            }
+            if (s instanceof TypeDeclaration) {
+                typeDeclaration = (TypeDeclaration) s;
+                break;
+            }
+        }
+        IClass type = this.resolve(typeDeclaration);
+
+        // JLS8 15.12.1: "It is a compile-time error if I is not a direct superinterface of T, or if there exists
+        // some other direct superclass or direct superinterface of T, J, such that J is a subtype of I."
+        IClass[] interfaces = type.getInterfaces();
+        boolean  isDirect   = false;
+        for (IClass i : interfaces) isDirect |= i == superinterface;
+        if (!isDirect) {
+            this.compileError(
+                "\"" + superinterface + "\" is not a direct superinterface of \"" + type + "\"",
+                smi.getLocation()
+            );
+        }
+        IClass superclass = type.getSuperclass();
+        for (int i = 0; i <= interfaces.length; i++) {
+            IClass j = i < interfaces.length ? interfaces[i] : superclass;
+            if (j == null || j == superinterface || !superinterface.isAssignableFrom(j)) continue;
+            this.compileError((
+                "Cannot invoke a method of \""
+                + superinterface
+                + "\" through \""
+                + superinterface
+                + ".super\": \""
+                + j
+                + "\", another direct supertype of \""
+                + type
+                + "\", is a subtype of \""
+                + superinterface
+                + "\""
+            ), smi.getLocation());
+        }
+
+        if (this.getTargetVersion() < 8) {
+            this.compileError(
+                "Superinterface method invocation only available for target version 8+",
+                smi.getLocation()
+            );
+        }
+
+        IMethod iMethod = this.findIMethod(superinterface, smi);
+        if (iMethod == null) {
+            this.compileError(
+                "Interface \"" + superinterface + "\" has no method named \"" + smi.methodName + "\"",
+                smi.getLocation()
+            );
+            return this.fakeIMethod(superinterface, smi.methodName, smi.arguments);
+        }
+
+        // JLS8 15.12.3: "It is a compile-time error if the compile-time declaration is abstract."
+        if (iMethod.isAbstract()) {
+            this.compileError((
+                "Abstract method \""
+                + iMethod
+                + "\" cannot be invoked through \""
+                + superinterface
+                + ".super\""
+            ), smi.getLocation());
+        }
+
+        this.checkThrownExceptions(smi, iMethod);
+
+        return iMethod;
+    }
+
+    /**
      * @return The {@link IClass.IMethod} that implements the <var>superclassMethodInvocation</var>
      */
     public IClass.IMethod
     findIMethod(SuperclassMethodInvocation superclassMethodInvocation) throws CompileException {
+
+        IClass qualification = this.superclassMethodInvocationQualification(superclassMethodInvocation);
+
+        // "InterfaceName.super.m()": A default method of a direct superinterface (JLS8 15.12.1, 15.12.3).
+        if (qualification != null && qualification.isInterface()) {
+            return this.findSuperinterfaceIMethod(superclassMethodInvocation, qualification);
+        }
+
+        TypeDeclaration          currentType = null;
         AbstractClassDeclaration declaringClass;
         for (Scope s = superclassMethodInvocation.getEnclosingScope();; s = s.getEnclosingScope()) {
             if (s instanceof FunctionDeclarator) {
                 FunctionDeclarator fd = (FunctionDeclarator) s;
-                if (fd instanceof MethodDeclarator && ((MethodDeclarator) fd).isStatic()) {
+                if (
+                    fd instanceof MethodDeclarator
+                    && ((MethodDeclarator) fd).isStatic()
+                    && !this.superclassMethodAccessors.contains(fd)
+                ) {
                     this.compileError(
                         "Superclass method cannot be invoked in static context",
                         superclassMethodInvocation.getLocation()
                     );
                 }
             }
+            if (currentType == null && s instanceof TypeDeclaration) currentType = (TypeDeclaration) s;
             if (s instanceof AbstractClassDeclaration) {
                 declaringClass = (AbstractClassDeclaration) s;
                 break;
             }
+        }
+
+        // "ClassName.super.m()": The superclass method of the current class, or of a lexically enclosing class
+        // (JLS7 15.12.1).
+        if (qualification != null) {
+            declaringClass = this.qualifiedSuperclassMethodInvocationClass(
+                currentType,
+                qualification,
+                superclassMethodInvocation
+            );
         }
 
         IClass superclass = this.resolve(declaringClass).getSuperclass();

@@ -245,7 +245,10 @@
               <li>Unary operators <code>+</code>, <code>-</code>, <code>~</code>, <code>!</code></li>
               <li>Parenthesized expression</li>
               <li>Field access (like <code>System.out</code>)</li>
-              <li>Superclass member access (<code>super.meth()</code>, <code>super.field</code>)</li>
+              <li>
+                Superclass member access (<code>super.meth()</code>, <code>super.field</code>,
+                <code>Outer.super.meth()</code>, <code>Outer.super.field</code>)
+              </li>
               <li><code>this</code> (reference to current instance)</li>
               <li>Alternate constructor invocation (<code>this(a, b, c);</code>)</li>
               <li>Superclass constructor invocation (<code>super(a, b, c);</code>)</li>
@@ -333,6 +336,7 @@
               <li>Method references: Partially implemented; parsed and unparsed, but not compilable</li>
               <li>Default methods</li>
               <li>Static interface methods</li>
+              <li>Superinterface method invocation (<code>Interface.super.meth()</code>)</li>
             </ul>
           </li>
 
@@ -422,7 +426,6 @@
                 <code>assert</code>: Partially implemented - assertions are always enabled, as if the JVM was started
                 with the "<code>-ea</code>" command line option
               </li>
-              <li>Qualified superclass method invocation (<code>Outer.super.meth()</code>)</li>
             </ul>
           </li>
 
@@ -470,9 +473,6 @@
               <li>
                 Access to "effectively final" local variables from local and anonymous classes (the variables must be
                 declared <code>final</code>)
-              </li>
-              <li>
-                Superinterface method invocation (<code>Interface.super.meth()</code>), e.g. of default methods
               </li>
               <li>Repeating annotations</li>
               <li>Type annotations</li>

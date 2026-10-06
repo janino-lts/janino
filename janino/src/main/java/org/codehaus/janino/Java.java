@@ -5517,15 +5517,38 @@ class Java {
     public static final
     class SuperclassMethodInvocation extends Invocation {
 
+        /**
+         * The optional qualification before "{@code .super.meth(...)}": An enclosing class, or a direct superinterface
+         * (JLS8 15.12.1).
+         */
+        @Nullable public final Type qualification;
+
         public
         SuperclassMethodInvocation(Location location, String methodName, Rvalue[] arguments) {
+            this(location, null, methodName, arguments);
+        }
+
+        public
+        SuperclassMethodInvocation(
+            Location       location,
+            @Nullable Type qualification,
+            String         methodName,
+            Rvalue[]       arguments
+        ) {
             super(location, methodName, arguments);
+            this.qualification = qualification;
         }
 
         // Implement "Atom".
 
         @Override public String
-        toString() { return "super." + this.methodName + "()"; }
+        toString() {
+            return (
+                this.qualification != null
+                ? this.qualification.toString() + ".super."
+                : "super."
+            ) + this.methodName + "()";
+        }
 
         @Override @Nullable public <R, EX extends Throwable> R
         accept(RvalueVisitor<R, EX> visitor) throws EX { return visitor.visitSuperclassMethodInvocation(this); }

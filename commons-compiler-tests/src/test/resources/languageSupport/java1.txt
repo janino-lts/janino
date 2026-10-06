@@ -10,8 +10,8 @@ public class P {
 }
 
 === qualified superclass method invocation (Outer.super.m())
+janino: OK
 jls: base
-janino: REJECTED Qualified superclass method invocation NYI
 public class P {
     static class Base { String m() { return "base"; } }
     static class Sub extends Base {
@@ -160,4 +160,224 @@ public class P {
             return "ok " + e.getMessage();
         }
     }
+}
+
+=== Outer.super.m(): with arguments
+jls: p1x
+janino: OK
+public class P {
+    static class Base { String p(int a, String b) { return "p" + a + b; } }
+    static class Sub extends Base {
+        String p(int a, String b) { return "sub"; }
+        class Inner { String call() { return Sub.super.p(1, "x"); } }
+    }
+    public static Object run() { Sub s = new Sub(); return s.new Inner().call(); }
+}
+
+=== Outer.super.m(): from an inner class of an inner class
+jls: base
+janino: OK
+public class P {
+    static class Base { String m() { return "base"; } }
+    static class Sub extends Base {
+        String m() { return "sub"; }
+        class Inner { class Inner2 { String call2() { return Sub.super.m(); } } }
+    }
+    public static Object run() { Sub s = new Sub(); Sub.Inner i = s.new Inner(); return i.new Inner2().call2(); }
+}
+
+=== Outer.super.m(): from an anonymous class in a method of the outer class
+jls: base
+janino: OK
+public class P {
+    static class Base { String m() { return "base"; } }
+    static class Sub extends Base {
+        String m() { return "sub"; }
+        String viaAnon() {
+            Object o = new Object() { public String toString() { return Sub.super.m(); } };
+            return o.toString();
+        }
+    }
+    public static Object run() { return new Sub().viaAnon(); }
+}
+
+=== Outer.super.m(): from a local class in a method of the outer class
+jls: base
+janino: OK
+public class P {
+    static class Base { String m() { return "base"; } }
+    static class Sub extends Base {
+        String m() { return "sub"; }
+        String viaLocal() { class L { String g() { return Sub.super.m(); } } return new L().g(); }
+    }
+    public static Object run() { return new Sub().viaLocal(); }
+}
+
+=== Outer.super.m(): from an anonymous class in a constructor of the outer class
+jls: base
+janino: OK
+public class P {
+    static class Base { String m() { return "base"; } }
+    static class Sub extends Base {
+        String m() { return "sub"; }
+        String f;
+        Sub() { f = new Object() { public String toString() { return Sub.super.m(); } }.toString(); }
+    }
+    public static Object run() { return new Sub().f; }
+}
+
+=== Outer.super.m(): the qualification is the current class
+jls: subbase
+janino: OK
+public class P {
+    static class Base { String m() { return "base"; } }
+    static class Sub extends Base { String m() { return "sub" + Sub.super.m(); } }
+    public static Object run() { return new Sub().m(); }
+}
+
+=== Outer.super.m(): a void method
+jls: base
+janino: OK
+public class P {
+    static StringBuilder t = new StringBuilder();
+    static class Base { void m() { t.append("base"); } }
+    static class Sub extends Base {
+        void m() { t.append("sub"); }
+        class Inner { void call() { Sub.super.m(); } }
+    }
+    public static Object run() { new Sub().new Inner().call(); return t.toString(); }
+}
+
+=== Outer.super.m(): the superclass method throws a checked exception
+jls: caught io
+janino: OK
+public class P {
+    static class Base { String m() throws java.io.IOException { throw new java.io.IOException("io"); } }
+    static class Sub extends Base {
+        String m() { return "sub"; }
+        class Inner {
+            String call() {
+                try { return Sub.super.m(); } catch (java.io.IOException e) { return "caught " + e.getMessage(); }
+            }
+        }
+    }
+    public static Object run() { return new Sub().new Inner().call(); }
+}
+
+=== Outer.super.m(): two methods from two inner classes
+jls: basebasenbase
+janino: OK
+public class P {
+    static class Base { String m() { return "base"; } String n() { return "basen"; } }
+    static class Sub extends Base {
+        String m() { return "sub"; }
+        String n() { return "subn"; }
+        class A { String a() { return Sub.super.m() + Sub.super.n(); } }
+        class B { String b() { return Sub.super.m(); } }
+    }
+    public static Object run() { Sub s = new Sub(); return s.new A().a() + s.new B().b(); }
+}
+
+=== Outer.super.m(): a method of Object
+jls: true
+janino: OK
+public class P {
+    static class Base { }
+    static class Sub extends Base {
+        public String toString() { return "sub"; }
+        class Inner { String call() { return Sub.super.toString().startsWith("P$Sub@") + ""; } }
+    }
+    public static Object run() { return new Sub().new Inner().call(); }
+}
+
+=== Outer.super.m(): the accessor method is static and synthetic
+jls: true true base
+janino: OK
+import java.lang.reflect.*;
+public class P {
+    static class Base { String m() { return "base"; } }
+    static class Sub extends Base {
+        String m() { return "sub"; }
+        class Inner { String call() { return Sub.super.m(); } }
+    }
+    public static Object run() throws Exception {
+        Method a = Sub.class.getDeclaredMethod("access$001", Sub.class);
+        return a.isSynthetic() + " " + Modifier.isStatic(a.getModifiers()) + " " + new Sub().new Inner().call();
+    }
+}
+
+=== Outer.super.m(): on an instance of a subclass, and from an inner class of the subclass
+jls: base sub
+janino: OK
+public class P {
+    static class Base { String m() { return "base"; } }
+    static class Sub extends Base {
+        String m() { return "sub"; }
+        class Inner { String call() { return Sub.super.m(); } }
+    }
+    static class Sub2 extends Sub {
+        String m() { return "sub2"; }
+        class Inner2 { String call() { return Sub2.super.m(); } }
+    }
+    public static Object run() { Sub2 s = new Sub2(); return s.new Inner().call() + " " + s.new Inner2().call(); }
+}
+
+=== Outer.super.m(): a primitive result in arithmetic and in string concatenation
+jls: 42/2
+janino: OK
+public class P {
+    static class Base { int m(int x) { return x + 1; } }
+    static class Sub extends Base {
+        int m(int x) { return 0; }
+        class Inner { Object call() { return Sub.super.m(41) + "/" + ("" + Sub.super.m(1)); } }
+    }
+    public static Object run() { return new Sub().new Inner().call(); }
+}
+
+=== qualified superclass field access (Outer.super.f) from an inner class
+jls: basef
+janino: OK
+public class P {
+    static class Base { String f = "basef"; }
+    static class Sub extends Base {
+        String f = "subf";
+        class Inner { String call() { return Sub.super.f; } }
+    }
+    public static Object run() { return new Sub().new Inner().call(); }
+}
+
+=== qualified superclass field access (Outer.super.f) from an inner class of an inner class
+jls: basef
+janino: OK
+public class P {
+    static class Base { String f = "basef"; }
+    static class Sub extends Base {
+        String f = "subf";
+        class Inner { class Inner2 { String call() { return Sub.super.f; } } }
+    }
+    public static Object run() { return new Sub().new Inner().new Inner2().call(); }
+}
+
+=== qualified superclass field access (Outer.super.f) from an inner class: assignment
+jls: subfset
+janino: OK
+public class P {
+    static class Base { String f = "basef"; }
+    static class Sub extends Base {
+        String f = "subf";
+        class Inner { String call() { Sub.super.f = "set"; return Sub.this.f + ((Base) Sub.this).f; } }
+    }
+    public static Object run() { return new Sub().new Inner().call(); }
+}
+
+=== qualified superclass field access (Outer.super.f) in the class itself
+jls: basefbasef
+janino: OK
+public class P {
+    static class Base { String f = "basef"; }
+    static class Sub extends Base {
+        String f = "subf";
+        String call() { return Sub.super.f + super.f; }
+    }
+    public static Object run() { return new Sub().call(); }
 }

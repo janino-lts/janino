@@ -179,6 +179,22 @@ h5 {
         with an <code>InternalCompilerException</code> ("Synthetic field ... neither maps a synthetic field of an
         enclosing instance nor a local variable").
       </li>
+      <li>
+        Implemented <a href="https://github.com/janino-lts/janino/issues/22">issue #22</a>: Qualified superclass
+        method invocations are compiled now; before, they were rejected ("Qualified superclass method invocation
+        NYI"). <code>Interface.super.meth()</code> invokes a default method of a direct superinterface (JLS8 15.12.1;
+        <code>invokespecial</code> of the interface method, which requires target version 8 or later);
+        <code>Outer.super.meth()</code> invokes a superclass method of a lexically enclosing class from an inner
+        class; like JAVAC, Janino generates a synthetic static accessor method (<code>access$001</code>, ...) in the
+        enclosing class for that. Like JAVAC, Janino rejects an interface that is not a direct superinterface, or
+        that another direct supertype extends, an abstract method, and a class that is neither the current class nor
+        an enclosing class.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/66">issue #66</a>: The qualified superclass
+        field access <code>Outer.super.fld</code> from an inner class was rejected ("Cannot cast"); it compiled
+        only within the class <code>Outer</code> itself.
+      </li>
     </ul>
 
     <h4>Version 3.1.15 2026-10-06</h4>

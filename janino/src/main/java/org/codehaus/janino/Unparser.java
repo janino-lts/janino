@@ -957,7 +957,13 @@ class Unparser implements AutoCloseable {
 
         @Override @Nullable public Void
         visitSuperclassMethodInvocation(SuperclassMethodInvocation smi) {
-            Unparser.this.pw.print("super." + smi.methodName);
+            if (smi.qualification != null) {
+                Unparser.this.unparseType(smi.qualification);
+                Unparser.this.pw.print(".super." + smi.methodName);
+            } else
+            {
+                Unparser.this.pw.print("super." + smi.methodName);
+            }
             Unparser.this.unparseFunctionInvocationArguments(smi.arguments);
             return null;
         }

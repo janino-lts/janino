@@ -364,3 +364,84 @@ public class P extends java.io.FilterInputStream {
     P() { super(null); }
     Object f() { return new java.io.FilterInputStream(null); }
 }
+
+=== I.super.m() where I is not a direct superinterface
+janino: REJECTED "P$I" is not a direct superinterface of "P$C"
+public class P {
+    interface I { default String m() { return "i"; } }
+    interface J extends I { }
+    static class C implements J { public String m() { return I.super.m(); } }
+}
+
+=== I.super.m() where another direct superinterface extends I
+janino: REJECTED Cannot invoke a method of "P$I" through "P$I.super"
+public class P {
+    interface I { default String m() { return "i"; } }
+    interface J extends I { default String m() { return "j"; } }
+    static class C implements I, J { public String m() { return I.super.m(); } }
+}
+
+=== I.super.m() where m is abstract
+janino: REJECTED Abstract method "public abstract java.lang.String P$I.m()" cannot be invoked through "P$I.super"
+public class P {
+    interface I { String m(); }
+    static class C implements I { public String m() { return I.super.m(); } }
+}
+
+=== I.super.m() in a static method
+janino: REJECTED Superinterface method cannot be invoked in static context
+public class P {
+    interface I { default String m() { return "i"; } }
+    static class C implements I { static String s() { return I.super.m(); } }
+}
+
+=== I.super.m() in a class that does not implement I
+janino: REJECTED "P$I" is not a direct superinterface of "P$C"
+public class P {
+    interface I { default String m() { return "i"; } }
+    static class C { public String m() { return I.super.m(); } }
+}
+
+=== I.super.m() with an unknown method
+janino: REJECTED Interface "P$I" has no method named "nosuch"
+public class P {
+    interface I { default String m() { return "i"; } }
+    static class C implements I { public String m() { return I.super.nosuch(); } }
+}
+
+=== Outer.super.m() where the qualification is the superclass, not an enclosing class
+janino: REJECTED "P$Base" is neither the current class nor an enclosing class of "P$Sub"
+public class P {
+    static class Base { String m() { return "base"; } }
+    static class Sub extends Base { String m() { return Base.super.m(); } }
+}
+
+=== Outer.super.m() with an unknown method
+janino: REJECTED Class "P$Base" has no method named "m"
+public class P {
+    static class Base { }
+    static class Sub extends Base { class Inner { String call() { return Sub.super.m(); } } }
+}
+
+=== Outer.super.m() from a static nested class
+janino: REJECTED "Nested" is not enclosed by "P$Sub"
+public class P {
+    static class Base { String m() { return "base"; } }
+    static class Sub extends Base { static class Nested { String call() { return Sub.super.m(); } } }
+}
+
+=== Outer.super.m() from a local class in a static method
+janino: REJECTED "L" is not enclosed by "P$Sub"
+public class P {
+    static class Base { String m() { return "base"; } }
+    static class Sub extends Base {
+        static String s() { class L { String g() { return Sub.super.m(); } } return new L().g(); }
+    }
+}
+
+=== Outer.super.f from a static nested class
+janino: REJECTED "Nested" is not enclosed by "P$Sub"
+public class P {
+    static class Base { String f = "basef"; }
+    static class Sub extends Base { static class Nested { String call() { return Sub.super.f; } } }
+}

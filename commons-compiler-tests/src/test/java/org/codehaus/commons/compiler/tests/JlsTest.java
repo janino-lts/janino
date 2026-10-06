@@ -3140,6 +3140,107 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    test_15_12_1__Qualified_superclass_and_superinterface_method_invocations() throws Exception {
+
+        // "ClassName.super.m()" invokes the superclass method of the current class, or of a lexically enclosing
+        // class (through a synthetic static accessor method of that class, like JAVAC); "InterfaceName.super.m()"
+        // invokes a default method of a direct superinterface.
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.reflect.Method;\n"
+            + "import java.lang.reflect.Modifier;\n"
+            + "public class Main {\n"
+            + "    static StringBuilder t = new StringBuilder();\n"
+            + "    interface H { default String h() { return \"h\"; } }\n"
+            + "    interface I extends H {\n"
+            + "        default String m() { return \"i\"; }\n"
+            + "        default String n(int x) { return \"n\" + x; }\n"
+            + "    }\n"
+            + "    interface J { default String m() { return \"j\"; } }\n"
+            + "    interface K extends I { default String m() { return \"k\" + I.super.m(); } }\n"
+            + "    static class C implements I, J {\n"
+            + "        final String c;\n"
+            + "        C() { c = I.super.n(0); }\n"
+            + "        public String m() { return I.super.m() + J.super.m() + I.super.n(1) + I.super.h(); }\n"
+            + "    }\n"
+            + "    static class Base {\n"
+            + "        String f = \"basef\";\n"
+            + "        String m() { return \"base\"; }\n"
+            + "        String p(int a, String b) { return \"p\" + a + b; }\n"
+            + "        void v() { t.append(\"basev\"); }\n"
+            + "        String e() throws Exception { throw new Exception(\"e\"); }\n"
+            + "    }\n"
+            + "    static class Sub extends Base {\n"
+            + "        String f = \"subf\";\n"
+            + "        String m() { return \"sub\"; }\n"
+            + "        String p(int a, String b) { return \"subp\"; }\n"
+            + "        void v() { t.append(\"subv\"); }\n"
+            + "        String e() { return \"sube\"; }\n"
+            + "        String own() { return Sub.super.m() + Sub.super.f; }\n"
+            + "        class Inner {\n"
+            + "            String call() {\n"
+            + "                Sub.super.v();\n"
+            + "                String r = Sub.super.m() + Sub.super.p(1, \"x\") + Sub.super.f + Sub.this.m();\n"
+            + "                try { r += Sub.super.e(); } catch (Exception ex) { r += ex.getMessage(); }\n"
+            + "                return r;\n"
+            + "            }\n"
+            + "            class Inner2 { String call2() { return Sub.super.m() + Sub.super.f; } }\n"
+            + "        }\n"
+            + "        String anon() {\n"
+            + "            return new Object() { public String toString() { return Sub.super.m(); } }.toString();\n"
+            + "        }\n"
+            + "        String local() { class L { String g() { return Sub.super.m(); } } return new L().g(); }\n"
+            + "    }\n"
+            + "    static class Sub2 extends Sub {\n"
+            + "        String m() { return \"sub2\"; }\n"
+            + "        class Inner3 { String call3() { return Sub2.super.m(); } }\n"
+            + "    }\n"
+            + "    public static boolean main() throws Exception {\n"
+            + "        C c = new C();\n"
+            + "        Sub s = new Sub();\n"
+            + "        Sub2 s2 = new Sub2();\n"
+            + "        Method a = Sub.class.getDeclaredMethod(\"access$001\", Sub.class);\n"
+            + "        return (\n"
+            + "            \"ijn1h\".equals(c.m()) && \"n0\".equals(c.c) && \"ki\".equals(new K() {}.m())\n"
+            + "            && \"basebasef\".equals(s.own())\n"
+            + "            && \"basep1xbasefsube\".equals(s.new Inner().call())\n"
+            + "            && \"basebasef\".equals(s.new Inner().new Inner2().call2())\n"
+            + "            && \"base\".equals(s.anon()) && \"base\".equals(s.local())\n"
+            + "            && \"basep1xbasefsub2e\".equals(s2.new Inner().call())\n"
+            + "            && \"sub\".equals(s2.new Inner3().call3())\n"
+            + "            && a.isSynthetic() && Modifier.isStatic(a.getModifiers())\n"
+            + "            && \"basevbasev\".equals(t.toString())\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n"
+        ), "Main");
+
+        // The qualifying interface must be a direct superinterface that no other direct supertype extends, and the
+        // method must not be abstract; the qualifying class must be the current class or an enclosing class.
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { interface I { default String m() { return \"i\"; } } interface J extends I { }"
+            + " static class C implements J { public String m() { return I.super.m(); } } }"
+        ), "not a direct superinterface|not an enclosing class|compiler.err.not.encl.class");
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { interface I { default String m() { return \"i\"; } }"
+            + " interface J extends I { default String m() { return \"j\"; } }"
+            + " static class C implements I, J { public String m() { return I.super.m(); } } }"
+        ), "another direct supertype|bad type qualifier|compiler.err.illegal.default.super.call");
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { interface I { String m(); }"
+            + " static class C implements I { public String m() { return I.super.m(); } } }"
+        ), "cannot be invoked through|cannot be accessed directly|compiler.err.abstract.cant.be.accessed.directly");
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { static class Base { String m() { return \"b\"; } }"
+            + " static class Sub extends Base { String m() { return Base.super.m(); } } }"
+        ), "neither the current class nor an enclosing class|not an enclosing class|compiler.err.not.encl.class");
+    }
+
+    @Test public void
     test_15_12_2_4__Phase3Identify_applicable_variable_arity_methods__1() throws Exception {
         this.assertExpressionEvaluatesTrue("\"two one\".equals(String.format(\"%2$s %1$s\", \"one\", \"two\"))");
     }

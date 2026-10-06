@@ -3593,8 +3593,12 @@ class Parser {
 
                     // '.' 'super' '.' Identifier Arguments
                     // Qualified superclass method invocation (JLS7 15.12.1.1.4) (LHS is a ClassName).
-                    // TODO: Qualified superclass method invocation
-                    throw this.compileException("Qualified superclass method invocation NYI");
+                    return new SuperclassMethodInvocation(
+                        location,                        // location
+                        atom.toTypeOrCompileException(), // qualification
+                        identifier,                      // methodName
+                        this.parseArguments()            // arguments
+                    );
                 } else {
 
                     // '.' 'super' '.' Identifier
