@@ -3470,6 +3470,14 @@ class JlsTest extends CommonsCompilerTestSuite {
         this.assertScriptReturnsTrue("Object x = true ? 'a' : (short) -1; return x.equals(97);");
         this.assertScriptReturnsTrue("char c = true ? 'a' : (short) -1; return c == 'a';");
         this.assertScriptReturnsTrue("byte b = true ? 'a' : (short) -1; return b == 97;");
+
+        // The same with a "long", "float" or "double" operand.
+        this.assertScriptReturnsTrue("Object x = true ? 'a' : 1L; return x.equals(97L);");
+        this.assertScriptReturnsTrue("Object x = true ? 'a' : 1.5f; return x.equals(97.0f);");
+        this.assertScriptReturnsTrue("Object x = true ? (short) -1 : 2.5; return x.equals(-1.0);");
+        this.assertScriptReturnsTrue(cz + "Object x = !z ? c : 1L; return x.equals(97L);");
+        this.assertExpressionEvaluatesTrue("(\"\" + (true ? 'a' : 1.5)).equals(\"97.0\")");
+        this.assertExpressionEvaluatesTrue("(\"\" + (true ? (byte) 1 : 2L)).equals(\"1\")");
     }
 
     /**

@@ -57,8 +57,10 @@ h5 {
         (e.g. <code>z ? c : (short) -1</code>) were rejected. They now have the type <code>int</code>, like with JAVAC;
         before 3.1.15, some of them compiled with the wrong type <code>char</code>, or into code that failed at run
         time. The same applies to an <code>int</code> constant that is not representable in the type of the other
-        operand (e.g. <code>z ? b : 500</code> with a <code>byte b</code>), which was rejected before. The class files
-        of code that compiled before are unchanged.
+        operand (e.g. <code>z ? b : 500</code> with a <code>byte b</code>), and to a <code>byte</code>,
+        <code>short</code> or <code>char</code> operand with a <code>long</code>, <code>float</code> or
+        <code>double</code> constant (e.g. <code>z ? c : 1L</code>), which were rejected before. The class files of
+        code that compiled before are unchanged.
       </li>
     </ul>
 

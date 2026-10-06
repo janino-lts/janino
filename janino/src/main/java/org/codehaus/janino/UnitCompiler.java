@@ -6473,10 +6473,12 @@ class UnitCompiler {
             cv = this.getConstantValue(ce.rhs);
         }
 
-        // E.g. "true ? 'a' : (short) -1" has type "int" (binary numeric promotion), so its value is 97, not 'a'.
-        if (ceType == IClass.INT && (cv instanceof Byte || cv instanceof Short || cv instanceof Character)) {
-            return this.convertConstant(cv, IClass.INT);
-        }
+        // E.g. "true ? 'a' : (short) -1" has type "int" and "true ? 'a' : 1L" has type "long" (binary numeric
+        // promotion), so their values are 97 and 97L, not 'a'.
+        if (
+            (ceType == IClass.INT || ceType == IClass.LONG || ceType == IClass.FLOAT || ceType == IClass.DOUBLE)
+            && (cv instanceof Byte || cv instanceof Short || cv instanceof Character)
+        ) return this.convertConstant(cv, ceType);
 
         return cv;
     }
