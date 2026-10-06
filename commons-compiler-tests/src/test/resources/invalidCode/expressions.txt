@@ -329,3 +329,42 @@ janino: REJECTED Shift distance of type "double" is not allowed
 public class P {
     long f(long l) { return l << 1.0; }
 }
+
+=== blank final field assigned in a method
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    final int x;
+    P() { x = 1; }
+    void f() { x = 2; }
+}
+
+=== assignment to an interface field
+janino: ACCEPTED
+recovery: ACCEPTED
+interface I { int X = 1; }
+public class P {
+    void f() { I.X = 2; }
+}
+
+=== assignment to an enum constant
+janino: ACCEPTED
+recovery: ACCEPTED
+enum E { A }
+public class P {
+    void f() { E.A = null; }
+}
+
+=== instanceof with a final class and an interface that it does not implement
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    boolean f() { return "x" instanceof Runnable; }
+}
+
+=== static interface method invoked through an instance
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    Object f(java.util.Comparator<String> c) { return c.naturalOrder(); }
+}

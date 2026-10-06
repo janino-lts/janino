@@ -1,6 +1,6 @@
 # Annotations (Java 5 and later). See "LanguageSupportTest" for the format.
 
-=== declared annotation type, element read at runtime
+=== generics: annotation element read through the erased return type of getAnnotation(), without a cast
 jls: 7
 janino: REJECTED A method named "value" is not declared in any enclosing class nor any supertype, nor through a static import
 import java.lang.annotation.*;

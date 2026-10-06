@@ -111,3 +111,31 @@ public class P extends A {
     public String g() { return "P.g"; }
     public static Object run() { A a = new P(); return a.f() + " " + a.g(); }
 }
+
+=== conditional expression: constant condition, operands int and double, in string concatenation
+jls: 1.0
+janino: WRONG 1
+public class P {
+    public static Object run() { return "" + (true ? 1 : 2.0); }
+}
+
+=== conditional expression: constant condition, int constant and char variable, in string concatenation
+jls: a
+janino: WRONG 97
+public class P {
+    public static Object run() { char c = 'a'; return "" + (true ? 97 : c); }
+}
+
+=== conditional expression: constant condition, operands int and long, boxed
+jls: 1
+janino: INVALID InternalCompilerException
+public class P {
+    public static Object run() { Object o = true ? 1 : 2L; return o; }
+}
+
+=== conditional expression: constant condition, operands int and long, compared
+jls: true
+janino: INVALID InternalCompilerException
+public class P {
+    public static Object run() { return (true ? 1 : 2L) == 1L; }
+}

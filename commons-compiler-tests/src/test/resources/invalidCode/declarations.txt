@@ -2,7 +2,7 @@
 #
 # The cases recorded as "ACCEPTED" stay as they are, deliberately: JANINO has always accepted this code, and
 # applications that generate code may depend on that. Do not turn them into compile errors by default (see
-# issue #33).
+# issue #33). The cases recorded as "INVALID LinkageError" are defects (issue #54).
 
 === duplicate top-level type
 janino: REJECTED Redeclaration of type "A", previously declared in Line 1, Column 1
@@ -281,4 +281,128 @@ recovery: ACCEPTED
 public class P {
     int x;
     long x;
+}
+
+=== blank final field never assigned
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    final int x;
+}
+
+=== blank static final field never assigned
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    static final int X;
+}
+
+=== override throws a broader checked exception
+janino: ACCEPTED
+recovery: ACCEPTED
+class A { void f() throws java.io.IOException {} }
+public class P extends A { void f() throws Exception {} }
+
+=== override adds a checked exception
+janino: ACCEPTED
+recovery: ACCEPTED
+class A { void f() {} }
+public class P extends A { void f() throws Exception {} }
+
+=== throws clause with a type that is not a Throwable
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f() throws String {}
+}
+
+=== interface method implemented with weaker access
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P implements Runnable {
+    void run() {}
+}
+
+=== default method overrides a method of Object
+janino: ACCEPTED
+recovery: ACCEPTED
+interface I { default boolean equals(Object o) { return true; } }
+public class P {}
+
+=== annotation element with a parameter
+janino: ACCEPTED
+recovery: ACCEPTED
+@interface X { int value(int i); }
+public class P {}
+
+=== annotation element of type Object
+janino: ACCEPTED
+recovery: ACCEPTED
+@interface X { Object value(); }
+public class P {}
+
+=== two default methods with the same signature inherited from two interfaces
+janino: ACCEPTED
+recovery: ACCEPTED
+interface A { default void f() {} }
+interface B { default void f() {} }
+public class P implements A, B {}
+
+=== annotation without a value for an element without a default
+janino: ACCEPTED
+recovery: ACCEPTED
+@interface X { int value(); }
+@X public class P {}
+
+=== @Override on a class
+janino: ACCEPTED
+recovery: ACCEPTED
+@Override public class P {}
+
+=== @FunctionalInterface on an interface with two abstract methods
+janino: ACCEPTED
+recovery: ACCEPTED
+@FunctionalInterface interface I { void f(); void g(); }
+public class P {}
+
+=== @SafeVarargs on a non-final instance method
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    @SafeVarargs void f(String... s) {}
+}
+
+=== annotation with @Target(METHOD) on a field
+janino: ACCEPTED
+recovery: ACCEPTED
+import java.lang.annotation.*;
+@Target(ElementType.METHOD) @interface X {}
+public class P { @X int f; }
+
+=== abstract static method
+janino: INVALID LinkageError
+recovery: ACCEPTED
+public abstract class P {
+    abstract static void f();
+}
+
+=== private abstract method
+janino: INVALID LinkageError
+recovery: ACCEPTED
+public abstract class P {
+    private abstract void f();
+}
+
+=== final volatile field
+janino: INVALID LinkageError
+recovery: ACCEPTED
+public class P {
+    final volatile int x = 1;
+}
+
+=== duplicate interface in implements clause
+janino: INVALID LinkageError
+recovery: ACCEPTED
+public class P implements Runnable, Runnable {
+    public void run() {}
 }

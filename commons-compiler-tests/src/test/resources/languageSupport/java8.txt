@@ -64,3 +64,11 @@ public class P {
         return o.toString();
     }
 }
+
+=== static interface method: a class implements the interface, both declared in source code
+jls: ok
+janino: REJECTED Non-abstract class "P" must implement method "public static abstract void I.s()"
+interface I { static void s() {} }
+public class P implements I {
+    public static Object run() { return "ok"; }
+}
