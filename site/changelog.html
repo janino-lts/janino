@@ -102,6 +102,19 @@ h5 {
         superclass (<code>((Object) this).clone()</code>), or through a local variable of the superclass type, is
         rejected as well, like by JAVAC, although the JVM loaded such classes before.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/57">issue #57</a>: Since 3.1.13, valid code with
+        a local variable that is assigned in the body of a <code>do</code> statement, or in the right operand of
+        <code>&amp;&amp;</code> or <code>||</code>, compiled into class files that the JVM rejects ("Instruction type
+        does not match stack map", "Inconsistent stackmap frames"), e.g.
+        <code>int x; do { x = 1; } while (z); return x;</code>. The stack map frame of a branch target is now the
+        merge of all paths to it. In addition, a local variable that is assigned in the condition of a
+        <code>while</code> or <code>for</code> statement, or of a conditional expression, can now be read in the body
+        or in the operands (<code>for (int i = 0; (x = i) &lt; n; i++) { use(x); }</code>), which failed with an
+        <code>InternalCompilerException</code> in all versions. The class files of code that compiled correctly
+        before are unchanged, except that the constant pool entries of a class with <code>for</code> statements may
+        be ordered differently.
+      </li>
     </ul>
 
     <h4>Version 3.1.15 2026-10-06</h4>
