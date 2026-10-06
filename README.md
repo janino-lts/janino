@@ -13,6 +13,10 @@ Janino is used by several large Apache projects, among others [Apache Spark](htt
 
 Please visit the [project homepage](https://janino-lts.github.io/janino/).
 
+Janino compiles Java source code like `javac`, but not in every respect: it accepts some invalid code, rejects some
+valid code, and some valid code behaves differently. All known deviations are listed in
+[Differences between Janino and javac](JAVAC_DIFFERENCES.md).
+
 ## Maven coordinates
 
 From version 3.1.15 on, Janino is available on Maven Central under the group ID `io.github.janino-lts` (the original

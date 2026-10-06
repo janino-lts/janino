@@ -143,9 +143,14 @@ h5 {
         was wrong (#37, #39, #45, #46, #48); the compilation of Janino's own sources yields one different opcode
         (#37). Some code that Janino accepted, but JAVAC rejects, is now rejected as well:
         <code>byte b = -Byte.MIN_VALUE;</code> (#39), a statement after <code>while (A.F) {}</code> with a
-        <code>boolean</code> constant <code>true</code> from a class file (#46), <code>z ? c : (short) -1</code>
-        with a <code>char c</code> (#45), and the code of #30, which the JVM rejected. Other invalid code that Janino
-        accepts is still accepted (<a href="https://github.com/janino-lts/janino/issues/33">issue #33</a>).
+        <code>boolean</code> constant <code>true</code> from a class file (#46), and the code of #30, which the JVM
+        rejected. Other invalid code that Janino accepts is still accepted
+        (<a href="https://github.com/janino-lts/janino/issues/33">issue #33</a>). As a side effect of #45, the valid
+        conditional expressions <code>true ? c : (short) -1</code> and <code>false ? c : (short) -1</code> (with a
+        <code>char c</code>, also with other negative <code>byte</code> or <code>short</code> constants) are now
+        rejected; JAVAC accepts them with the type <code>int</code>. Before, they compiled with the wrong type
+        <code>char</code>, or into code that failed at run time. The proper fix belongs to
+        <a href="https://github.com/janino-lts/janino/issues/38">issue #38</a>.
       </li>
       <li>
         New tests: a differential test that compiles generated expressions with Janino and with JAVAC and compares
