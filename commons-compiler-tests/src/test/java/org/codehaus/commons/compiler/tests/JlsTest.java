@@ -581,6 +581,120 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    test_6_6_2_1__Access_to_a_protected_Member() throws Exception {
+
+        // A protected instance member of a class in another package is accessible through an expression only if the
+        // type of the expression is the class in which the access occurs, or a subclass of it (issue #54).
+        String u   = "Protected member cannot be accessed through an expression|compiler.err.report.access";
+        String fis = "import java.io.*; public class Foo extends FilterInputStream { Foo() { super(null); }\n";
+
+        this.assertCompilationUnitMainReturnsTrue(
+            fis
+            + "    static class Bar extends Foo {}\n"
+            + "    Object f() { return this.in; }\n"
+            + "    Object g() { return in; }\n"
+            + "    Object h() { return super.in; }\n"
+            + "    static Object i(Foo foo) { return foo.in; }\n"
+            + "    static Object j(Bar bar) { return bar.in; }\n"
+            + "    public static boolean main() {\n"
+            + "        Foo foo = new Foo();\n"
+            + "        return foo.f() == null && foo.g() == null && foo.h() == null && i(foo) == null\n"
+            + "            && j(new Bar()) == null;\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "public class Foo implements Cloneable {\n"
+            + "    static class Bar extends Foo {}\n"
+            + "    Object f() throws Exception { return super.clone(); }\n"
+            + "    Object g() throws Exception { return this.clone(); }\n"
+            + "    Object h() throws Exception { return clone(); }\n"
+            + "    public static boolean main() throws Exception {\n"
+            + "        Foo foo = new Foo(); Bar bar = new Bar(); int[] a = { 1 };\n"
+            + "        return foo.f() != null && foo.g() != null && foo.h() != null && foo.clone() != null\n"
+            + "            && bar.clone() != null && a.clone() != a;\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "public class Foo extends java.io.ByteArrayOutputStream {\n"
+            + "    public static boolean main() { Foo foo = new Foo(); foo.count = 1; return foo.count == 1; }\n"
+            + "}\n",
+            "Foo"
+        );
+
+        // A protected static member is accessible through any expression.
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "public class Foo extends ClassLoader {\n"
+            + "    public static boolean main() {\n"
+            + "        return (registerAsParallelCapable() || true)\n"
+            + "            && (ClassLoader.registerAsParallelCapable() || true);\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+
+        // The type of the expression is the superclass, a sibling subclass, or "this" cast to the superclass.
+        this.assertCompilationUnitUncookable(fis + "static Object f(FilterInputStream s) { return s.in; } }", u);
+        this.assertCompilationUnitUncookable(fis + "static Object f(BufferedInputStream s) { return s.in; } }", u);
+        this.assertCompilationUnitUncookable(fis + "Object f() { return ((FilterInputStream) this).in; } }", u);
+        this.assertCompilationUnitUncookable(
+            fis + "static Object f() { FilterInputStream s = new Foo(); return s.in; } }",
+            u
+        );
+        this.assertCompilationUnitUncookable(
+            "class Foo { static Object f(Object o) throws Exception { return o.clone(); } }",
+            u
+        );
+        this.assertCompilationUnitUncookable(
+            "class Foo implements Cloneable { Object f() throws Exception { return ((Object) this).clone(); } }",
+            u
+        );
+        this.assertCompilationUnitUncookable(
+            "class Foo implements Cloneable { Object f() throws Exception { Object o = new Foo(); return o.clone(); } }"
+            ,
+            u
+        );
+        this.assertCompilationUnitUncookable(
+            "import java.io.*; class Foo extends ByteArrayOutputStream {"
+            + " void f(ByteArrayOutputStream s) { s.count = 1; } }",
+            u
+        );
+    }
+
+    @Test public void
+    test_6_6_2_2__Qualified_Access_to_a_protected_Constructor() throws Exception {
+
+        // A protected constructor can be invoked by a class instance creation expression only from within the package
+        // of the class, but by an anonymous class instance creation expression or "super(...)" from anywhere (issue
+        // #54).
+        String u = "Protected constructor cannot be invoked|has protected access|compiler.err.report.access";
+        this.assertCompilationUnitUncookable(
+            ""
+            + "class Foo extends java.io.FilterInputStream {\n"
+            + "    Foo() { super(null); }\n"
+            + "    static Object f() { return new java.io.FilterInputStream(null); }\n"
+            + "}\n",
+            u
+        );
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "public class Foo extends java.io.FilterInputStream {\n"
+            + "    Foo() { super(null); }\n"
+            + "    public static boolean main() {\n"
+            + "        return new Foo() != null && new java.io.FilterInputStream(null) {} != null;\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+    }
+
+    @Test public void
     test_7_5__Import_declarations() throws Exception {
 
         // Default imports
@@ -670,6 +784,50 @@ class JlsTest extends CommonsCompilerTestSuite {
         this.assertCompilationUnitUncookable("protected private          class Foo {}", "allowed");
         this.assertCompilationUnitUncookable("private public             class Foo {}", "allowed");
         this.assertCompilationUnitUncookable("abstract final             class Foo {}", "Only one of abstract final is allowed|illegal combination");
+    }
+
+    @Test public void
+    test_8_1_5__Superinterfaces() throws Exception {
+
+        // The same interface twice (issue #54).
+        String u = "Duplicate interface|repeated interface|compiler.err.repeated.interface";
+        this.assertCompilationUnitUncookable("class Foo implements Runnable, Runnable { public void run() {} }", u);
+        this.assertCompilationUnitUncookable("class Foo implements java.lang.Cloneable, Cloneable {}", u);
+        this.assertCompilationUnitUncookable("interface I {} interface Foo extends I, I {}", u);
+
+        // A superinterface of another superinterface, or of the superclass, may be repeated.
+        this.assertCompilationUnitCookable("interface I {} interface J extends I {} class Foo implements I, J {}");
+        this.assertCompilationUnitCookable(
+            "abstract class A implements Cloneable {} class Foo extends A implements Cloneable {}"
+        );
+    }
+
+    @Test public void
+    test_8_3_1__Field_Modifiers() throws Exception {
+
+        // "final" and "volatile" (issue #54).
+        String u = "(?i)illegal combination of modifiers|compiler.err.illegal.combination.of.modifiers";
+        this.assertClassBodyUncookable("final volatile int x = 1;", u);
+        this.assertClassBodyUncookable("static final volatile int x = 1;", u);
+        this.assertClassBodyCookable("transient final int x = 1;");
+        this.assertClassBodyCookable("static transient volatile int x;");
+    }
+
+    @Test public void
+    test_8_4_3__Method_Modifiers() throws Exception {
+
+        // "abstract" with another modifier (issue #54).
+        String u = "(?i)illegal combination of modifiers|compiler.err.illegal.combination.of.modifiers";
+        this.assertCompilationUnitUncookable("abstract class Foo { abstract static void f(); }", u);
+        this.assertCompilationUnitUncookable("abstract class Foo { private abstract void f(); }", u);
+        this.assertCompilationUnitUncookable("abstract class Foo { abstract native void f(); }", u);
+        this.assertCompilationUnitUncookable("abstract class Foo { abstract synchronized void f(); }", u);
+        this.assertCompilationUnitUncookable("abstract class Foo { abstract strictfp void f(); }", u);
+        this.assertCompilationUnitUncookable("interface Foo { abstract static void f(); }", u);
+        this.assertCompilationUnitUncookable("interface Foo { abstract default void f() {} }", u + "|must not have a body");
+        this.assertCompilationUnitCookable(
+            "abstract class Foo { abstract void f(); native void g(); synchronized native void h(); }"
+        );
     }
 
     @Test public void
@@ -3670,5 +3828,48 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "    return s.equals(\"not eight\");\n"
             + "}\n"
         );
+    }
+
+    @Test public void
+    test_16__Definite_Assignment() throws Exception {
+
+        // A local variable that is assigned in the body of a loop, in a condition or in a branch; the local variable
+        // "y" is declared after "x", which matters for the stack maps that Janino generates (issue #54).
+        String u = "is not initialized|might not have been initialized|compiler.err.var.might.not";
+        String d = "boolean z = false; int x; int y = 0; ";
+
+        // Definitely assigned.
+        this.assertScriptReturnsTrue(d + "do { x = 1; } while (z); return x == 1;");
+        this.assertScriptReturnsTrue(d + "do { x = 1; } while (!z && x < 0); return x == 1;");
+        this.assertScriptReturnsTrue(d + "do { if (z) { x = 1; } else { x = 2; } } while (x < 0); return x == 2;");
+        this.assertScriptReturnsTrue(d + "if (!z && (x = 1) > 0) return x == 1; return false;");
+        this.assertScriptReturnsTrue(d + "if (z || (x = 0) > 0) { y = 1; } else { y = x + 5; } return y == 5;");
+        this.assertScriptReturnsTrue(d + "boolean b = z || (x = 1) > 0; return b;");
+        this.assertScriptReturnsTrue(d + "boolean b = (x = 1) > 0 && (y = x) > 0; return b && y == 1;");
+        this.assertScriptReturnsTrue(d + "int v = (x = 1) > 5 ? 5 : x; return v == 1;");
+        this.assertScriptReturnsTrue(d + "int v = (x = 1) > 0 ? x : x; return v == 1;");
+        this.assertScriptReturnsTrue(d + "while (!z && (x = 1) > 0) { y = x; z = true; } return y == 1;");
+        this.assertScriptReturnsTrue(d + "for (int i = 0; (x = i) < 3; i++) { y += x; } return y == 3;");
+        this.assertScriptReturnsTrue(d + "if (z) x = 1; else x = 2; return x == 2;");
+        this.assertScriptReturnsTrue(d + "switch (y) { case 0: x = 1; break; default: x = 2; } return x == 1;");
+        this.assertScriptReturnsTrue(d + "try { x = 1; } finally { y = 2; } return x + y == 3;");
+        this.assertScriptReturnsTrue(d + "L: { x = 1; if (z) break L; x = 2; } return x == 2;");
+        this.assertScriptReturnsTrue(d + "while (true) { x = 1; if (y == 0) break; } return x == 1;");
+        this.assertScriptReturnsTrue("long x; int y = 0; do { x = 1L; } while (x < 0); return x == 1L;");
+
+        // Not definitely assigned.
+        this.assertScriptUncookable(d + "for (int i = 0; i < 1; i++) x = 1; y = x;", u);
+        this.assertScriptUncookable(d + "while (z) { x = 1; } y = x;", u);
+        this.assertScriptUncookable(d + "if (z) x = 1; y = x;", u);
+        this.assertScriptUncookable(d + "if (z) { x = 1; } else { y = x; }", u);
+        this.assertScriptUncookable(d + "switch (y) { case 0: x = 1; break; } y = x;", u);
+        this.assertScriptUncookable(d + "try { x = 1; } catch (RuntimeException e) { } y = x;", u);
+        this.assertScriptUncookable(d + "L: { if (z) break L; x = 1; } y = x;", u);
+        this.assertScriptUncookable(d + "for (int i = 0; i < 1; x = ++i) {} y = x;", u);
+        this.assertScriptUncookable(d + "do { if (z) break; x = 1; } while (z); y = x;", u);
+        this.assertScriptUncookable(d + "boolean b = z && (x = 1) > 0; y = x;", u);
+        this.assertScriptUncookable(d + "x++;", u);
+        this.assertScriptUncookable(d + "x += 1;", u);
+        this.assertScriptUncookable("long x; int y = 0; if (y == 0) x = 1; y = (int) x;", u);
     }
 }

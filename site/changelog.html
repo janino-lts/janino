@@ -87,6 +87,21 @@ h5 {
         a class <code>P</code> that implements <code>I</code> is accepted, as it was with interfaces from class
         files.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/54">issue #54</a>: Invalid code that compiled
+        into class files that the JVM rejects is now rejected with a compile error: illegal combinations of modifiers
+        (<code>abstract static</code>, <code>private abstract</code>, <code>abstract native</code>,
+        <code>abstract synchronized</code>, <code>abstract strictfp</code>, <code>final volatile</code>), the same
+        interface twice in an <code>implements</code> or <code>extends</code> clause, the access to a
+        <code>protected</code> member of a class in another package through an expression whose type is neither the
+        accessing class nor a subclass of it (e.g. <code>o.clone()</code> with an <code>Object o</code>, JLS
+        6.6.2.1), the invocation of a <code>protected</code> constructor with <code>new</code> from another package
+        (JLS 6.6.2.2), and the use of a local variable that is not definitely assigned, e.g. one that is assigned only
+        in the body of a loop or in one branch of an <code>if</code> statement (some of these cases failed with an
+        <code>InternalCompilerException</code> before). The access through an expression that is cast to the
+        superclass (<code>((Object) this).clone()</code>), or through a local variable of the superclass type, is
+        rejected as well, like by JAVAC, although the JVM loaded such classes before.
+      </li>
     </ul>
 
     <h4>Version 3.1.15 2026-10-06</h4>

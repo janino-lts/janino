@@ -1021,6 +1021,12 @@ class UnitCompiler {
      */
     private void
     addFields(FieldDeclaration fd, ClassFile cf) throws CompileException {
+
+        // The JVM rejects a field that is both "final" and "volatile" (JVMS8 4.5) (issue #54).
+        if (fd.isFinal() && fd.isVolatile()) {
+            this.compileError("Illegal combination of modifiers \"final\" and \"volatile\"", fd.getLocation());
+        }
+
         for (VariableDeclarator vd : fd.variableDeclarators) {
 
             Type type = fd.type;
@@ -1129,7 +1135,8 @@ class UnitCompiler {
 
         // Determine extended interfaces.
         IClass[] rawInterfaces = UnitCompiler.rawTypesOf((id.interfaces = this.getTypes(id.extendedTypes)));
-        for (IClass ri : rawInterfaces) {
+        for (int i = 0; i < rawInterfaces.length; i++) {
+            IClass ri = rawInterfaces[i];
             if (!ri.isInterface()) {
                 this.compileError((
                     "\""
@@ -1137,6 +1144,7 @@ class UnitCompiler {
                     + "\" is not an interface; interfaces can only extend interfaces"
                 ), id.getLocation());
             }
+            this.checkDuplicateInterface(rawInterfaces, i, id.extendedTypes[i]);
         }
 
         short accessFlags = this.accessFlags(id.getModifiers());
@@ -1896,31 +1904,52 @@ class UnitCompiler {
                 }
             }
 
-            CodeContext.Offset toCondition = this.getCodeContext().new BasicBlock();
-            StackMap smBeforeBody = this.codeContext.currentInserter().getStackMap();
-            this.gotO(fs, toCondition);
-
-            // Compile body.
-            fs.whereToContinue = null;
-            this.codeContext.currentInserter().setStackMap(smBeforeBody);
-            final CodeContext.Offset bodyOffset = this.getCodeContext().newBasicBlock();
-            boolean                  bodyCcn    = this.compile(fs.body);
-            if (fs.whereToContinue != null) fs.whereToContinue.set();
-
-            // Compile update.
-            if (ou != null) {
-                if (!bodyCcn && fs.whereToContinue == null) {
-                    this.warning("FUUR", "For update is unreachable", fs.getLocation());
-                } else
-                {
-                    for (Rvalue rv : ou) this.compile(rv);
-                }
+            // GOTO condition.
+            final CodeContext.Offset bodyOffset;
+            final Inserter           bodyInserter;
+            {
+                CodeContext.Offset toCondition = this.getCodeContext().new BasicBlock();
+                this.gotO(fs, toCondition);
+                bodyOffset   = this.getCodeContext().newBasicBlock();
+                bodyInserter = this.codeContext.newInserter();
+                toCondition.set();
             }
-            fs.whereToContinue = null;
 
-            // Compile condition.
-            toCondition.set();
+            // Compile the condition first, like in "compile2(WhileStatement)": The body and the update are inserted
+            // before it, and the body is compiled with the stack map of the branch to it, which includes the local
+            // variables that the condition assigns when it is TRUE, e.g. "for (...; (x = f()) > 0; ...) { use(x); }".
             this.compileBoolean(oc, bodyOffset, UnitCompiler.JUMP_IF_TRUE);
+
+            StackMap smBody = bodyOffset.getStackMap();
+            if (smBody == null) {
+
+                // The condition never branches to the body (it is the constant FALSE).
+                smBody = this.codeContext.currentInserter().getStackMap();
+                bodyOffset.setStackMap(smBody);
+            }
+
+            // Now compile the body and the update.
+            this.codeContext.pushInserter(bodyInserter);
+            try {
+                this.codeContext.currentInserter().setStackMap(smBody);
+
+                fs.whereToContinue = null;
+                boolean bodyCcn = this.compile(fs.body);
+                if (fs.whereToContinue != null) fs.whereToContinue.set();
+
+                // Compile update.
+                if (ou != null) {
+                    if (!bodyCcn && fs.whereToContinue == null) {
+                        this.warning("FUUR", "For update is unreachable", fs.getLocation());
+                    } else
+                    {
+                        for (Rvalue rv : ou) this.compile(rv);
+                    }
+                }
+                fs.whereToContinue = null;
+            } finally {
+                this.codeContext.popInserter();
+            }
         } finally {
             this.getCodeContext().restoreLocalVariables();
         }
@@ -2156,9 +2185,13 @@ class UnitCompiler {
         try {
 
             try {
-                StackMap smBeforeBody = this.codeContext.currentInserter().getStackMap();
+
+                // The body is compiled with the stack map of the branch to it, which includes the local variables
+                // that the condition assigns when it is TRUE, e.g. "while (z && (x = f()) > 0) { use(x); }".
+                StackMap smBody = bodyOffset.getStackMap();
+                if (smBody == null) smBody = this.codeContext.currentInserter().getStackMap();
                 this.codeContext.pushInserter(bodyInserter);
-                this.codeContext.currentInserter().setStackMap(smBeforeBody);
+                this.codeContext.currentInserter().setStackMap(smBody);
 
                 if (!this.compile(ws.body) && ws.whereToContinue == null) {
                     this.warning("DSNTC", "\"where\" statement never repeats", ws.getLocation());
@@ -3659,6 +3692,8 @@ class UnitCompiler {
     compile2(FunctionDeclarator fd, final ClassFile classFile) throws CompileException {
         ClassFile.MethodInfo mi;
 
+        if (fd instanceof MethodDeclarator) this.checkMethodModifiers((MethodDeclarator) fd);
+
         if (this.getTargetVersion() < 8 && fd instanceof MethodDeclarator && ((MethodDeclarator) fd).isDefault()) {
             this.compileError((
                 ""
@@ -4503,8 +4538,7 @@ class UnitCompiler {
             LocalVariable lv = this.isIntLv(c);
             if (lv != null) {
 
-                // A local variable that was never assigned has no type in the current stack map yet.
-                if (this.findLocalVariableTypeInfo(lv.getSlotIndex()) == null) {
+                if (!this.isDefinitelyAssigned(lv.getSlotIndex())) {
                     this.compileError("Local variable \"" + c.operand + "\" is not initialized", c.getLocation());
                     return;
                 }
@@ -5144,9 +5178,14 @@ class UnitCompiler {
 
     private IClass
     compileGet2(BooleanRvalue brv) throws CompileException {
-        CodeContext.Offset isTrue = this.getCodeContext().new BasicBlock();
-        isTrue.setStackMap(this.getCodeContext().currentInserter().getStackMap());
+        CodeContext.Offset isTrue   = this.getCodeContext().new BasicBlock();
+        StackMap           smBefore = this.getCodeContext().currentInserter().getStackMap();
         this.compileBoolean(brv, isTrue, UnitCompiler.JUMP_IF_TRUE);
+
+        // The stack map of "isTrue" is that of the branches to it, which includes the local variables that the
+        // expression assigns, e.g. "(x = 1) > 0"; iff the expression is the constant FALSE, there is no branch.
+        if (isTrue.getStackMap() == null) isTrue.setStackMap(smBefore);
+
         this.consT(brv, 0);
         CodeContext.Offset end = this.getCodeContext().new BasicBlock();
         this.gotO(brv, end);
@@ -5166,9 +5205,9 @@ class UnitCompiler {
     compileGet2(LocalVariableAccess lva) throws CompileException {
         LocalVariable lv = lva.localVariable;
 
-        // A local variable that was never assigned has no type in the current stack map yet.
+        // A local variable that is not definitely assigned has no type in the current stack map, or the type "top".
         VerificationTypeInfo vti = this.findLocalVariableTypeInfo(lv.getSlotIndex());
-        if (vti == null) {
+        if (vti == null || vti == StackMapTableAttribute.TOP_VARIABLE_INFO) {
             this.compileError("Local variable \"" + lva + "\" is not initialized", lva.getLocation());
             return this.pushPlaceholder(lva, lv.type);
         }
@@ -5180,6 +5219,7 @@ class UnitCompiler {
     private IType
     compileGet2(FieldAccess fa) throws CompileException {
         this.checkAccessible(fa.field, fa.getEnclosingScope(), fa.getLocation());
+        this.checkProtectedFieldAccessibleThroughReceiver(fa);
         this.getfield(fa, fa.field);
         return fa.field.getType();
     }
@@ -5351,7 +5391,10 @@ class UnitCompiler {
             this.assignmentConversion(ce.mhs, mhsType, expressionType, this.getConstantValue(ce.mhs));
             this.gotO(ce, toEnd);
 
-            this.getCodeContext().currentInserter().setStackMap(sm);
+            // The RHS is compiled with the stack map of the branches to it, which includes the local variables that
+            // the condition assigns when it is FALSE; iff the condition never branches, with the stack map before it.
+            StackMap smRhs = toRhs.getStackMap();
+            this.getCodeContext().currentInserter().setStackMap(smRhs != null ? smRhs : sm);
             toRhs.setBasicBlock();
             this.compileGetValue(ce.rhs);
             this.assignmentConversion(ce.rhs, rhsType, expressionType, this.getConstantValue(ce.rhs));
@@ -5454,8 +5497,7 @@ class UnitCompiler {
         LocalVariable lv = this.isIntLv(c);
         if (lv != null) {
 
-            // A local variable that was never assigned has no type in the current stack map yet.
-            if (this.findLocalVariableTypeInfo(lv.getSlotIndex()) == null) {
+            if (!this.isDefinitelyAssigned(lv.getSlotIndex())) {
                 this.compileError("Local variable \"" + c.operand + "\" is not initialized", c.getLocation());
                 return this.pushPlaceholder(c, IClass.INT);
             }
@@ -5688,7 +5730,8 @@ class UnitCompiler {
         IClass.IMethod iMethod = this.findIMethod(mi);
 
         // Compute the objectref for an instance method.
-        Atom ot = mi.target;
+        IType receiverType = null;
+        Atom  ot           = mi.target;
         if (ot == null) {
 
             // JLS7 6.5.7.1, 15.12.4.1.1.1
@@ -5770,7 +5813,7 @@ class UnitCompiler {
                 } else {
 
                     // JLS9 15.12.4.1.3.2 and .4.2
-                    this.compileGetValue(rot);
+                    receiverType = this.compileGetValue(rot);
 
                     if (this.getCodeContext().peekNullOperand()) {
                         this.compileError("Method invocation target is always null");
@@ -5820,6 +5863,14 @@ class UnitCompiler {
         }
         // Invoke!
         this.checkAccessible(iMethod, mi.getEnclosingScope(), mi.getLocation());
+        if (receiverType != null) {
+            this.checkProtectedMemberAccessibleThroughReceiver(
+                iMethod,
+                receiverType,
+                mi.getEnclosingScope(),
+                mi.getLocation()
+            );
+        }
         if (!iMethod.getDeclaringIClass().isInterface() && !iMethod.isStatic() && iMethod.getAccess() == Access.PRIVATE) {
 
             // In order to make a non-static private method invocable for enclosing types, enclosed types and types
@@ -7314,6 +7365,7 @@ class UnitCompiler {
     private void
     compileSet2(FieldAccess fa) throws CompileException {
         this.checkAccessible(fa.field, fa.getEnclosingScope(), fa.getLocation());
+        this.checkProtectedFieldAccessibleThroughReceiver(fa);
         this.putfield(fa, fa.field);
     }
     private void
@@ -8504,6 +8556,84 @@ class UnitCompiler {
     }
 
     /**
+     * Checks the restriction on the access to a {@code protected} instance member through a receiver expression
+     * (JLS7 6.6.2.1): If the member is declared in a class in another package, then the type of the receiver must be
+     * the class in whose body the access occurs, or an enclosing class, or a subclass of one of these. The JVM
+     * verifies the same (JVMS8 4.10.1.8) and rejects the class otherwise (issue #54).
+     */
+    private void
+    checkProtectedMemberAccessibleThroughReceiver(
+        IClass.IMember member,
+        IType          receiverType,
+        Scope          contextScope,
+        Location       location
+    ) throws CompileException {
+
+        if (member.getAccess() != Access.PROTECTED) return;
+        if (member instanceof IClass.IMethod && ((IClass.IMethod) member).isStatic()) return;
+        if (member instanceof IClass.IField && ((IClass.IField) member).isStatic()) return;
+
+        IClass declaringIClass = member.getDeclaringIClass();
+        IClass rawReceiverType = UnitCompiler.rawTypeOf(receiverType);
+
+        // The members of an array type are public (JLS7 10.7).
+        if (rawReceiverType.isArray()) return;
+
+        IClass iClassDeclaringContext = this.getIClassDeclaringContext(contextScope);
+        if (iClassDeclaringContext == null) return;
+
+        // Within the package of the declaring class, a protected member is accessible like a member with package
+        // access.
+        if (Descriptor.areInSamePackage(declaringIClass.getDescriptor(), iClassDeclaringContext.getDescriptor())) {
+            return;
+        }
+
+        for (IClass c = iClassDeclaringContext; c != null; c = c.getOuterIClass()) {
+            if (declaringIClass.isAssignableFrom(c) && c.isAssignableFrom(rawReceiverType)) return;
+        }
+
+        this.compileError((
+            member.toString()
+            + ": Protected member cannot be accessed through an expression of type \""
+            + receiverType
+            + "\", which is neither \""
+            + iClassDeclaringContext
+            + "\" nor a subclass of it."
+        ), location);
+    }
+
+    /**
+     * @see #checkProtectedMemberAccessibleThroughReceiver(IClass.IMember, IType, Scope, Location)
+     */
+    private void
+    checkProtectedFieldAccessibleThroughReceiver(FieldAccess fa) throws CompileException {
+
+        if (fa.field.getAccess() != Access.PROTECTED || fa.field.isStatic() || this.isType(fa.lhs)) return;
+
+        // "super.field" is compiled as a field access through "this", cast to the superclass (see
+        // "determineValue(SuperclassFieldAccessExpression)"); that access is permitted.
+        if (fa.lhs instanceof Cast && ((Cast) fa.lhs).value instanceof ThisReference) return;
+
+        this.checkProtectedMemberAccessibleThroughReceiver(
+            fa.field,
+            this.getType(this.toRvalueOrCompileException(fa.lhs)),
+            fa.getEnclosingScope(),
+            fa.getLocation()
+        );
+    }
+
+    /**
+     * @return The class that declares the given context, or {@code null} iff the context is not declared in a class
+     */
+    @Nullable private IClass
+    getIClassDeclaringContext(Scope contextScope) throws CompileException {
+        for (Scope s = contextScope; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (s instanceof TypeDeclaration) return this.resolve((TypeDeclaration) s);
+        }
+        return null;
+    }
+
+    /**
      * Determines whether the given {@link IClass} is accessible in the given context, according to JLS7 6.6.1.2 and
      * 6.6.1.4.
      */
@@ -9067,6 +9197,29 @@ class UnitCompiler {
             arguments,     // arguments
             scope          // contextScope
         );
+
+        // A protected constructor can be invoked by a class instance creation expression that does not declare an
+        // anonymous class only from within the package in which it is declared (JLS7 6.6.2.2); the JVM rejects the
+        // class otherwise (issue #54).
+        if (locatable instanceof NewClassInstance && iConstructor.getAccess() == Access.PROTECTED) {
+            IClass iClassDeclaringContext = this.getIClassDeclaringContext(scope);
+            if (
+                iClassDeclaringContext != null
+                && !Descriptor.areInSamePackage(
+                    iConstructor.getDeclaringIClass().getDescriptor(),
+                    iClassDeclaringContext.getDescriptor()
+                )
+            ) {
+                this.compileError((
+                    iConstructor.toString()
+                    + ": Protected constructor cannot be invoked from type \""
+                    + iClassDeclaringContext
+                    + "\", which is not declared in the same package as \""
+                    + iConstructor.getDeclaringIClass()
+                    + "\"."
+                ), locatable.getLocation());
+            }
+        }
 
         // Check exceptions that the constructor may throw.
         IClass[] thrownExceptions = iConstructor.getThrownExceptions();
@@ -11211,6 +11364,7 @@ class UnitCompiler {
                                 + "\" is not an interface; classes can only implement interfaces"
                             ), td.getLocation());
                         }
+                        UnitCompiler.this.checkDuplicateInterface(res, i, ncd.implementedTypes[i]);
                     }
                     return res;
                 } else
@@ -13303,10 +13457,12 @@ class UnitCompiler {
         assert opIdx == UnitCompiler.EQ || opIdx == UnitCompiler.NE : opIdx;
 
         this.addLineNumberOffset(locatable);
+
+        // Pop the operands BEFORE writing the branch, so that the stack map that is merged into the branch target's
+        // stack map is the one AFTER the branch instruction.
+        this.getCodeContext().popReferenceOperand();
+        this.getCodeContext().popReferenceOperand();
         this.getCodeContext().writeBranch(Opcode.IF_ACMPEQ + opIdx, dst);
-        this.getCodeContext().popReferenceOperand();
-        this.getCodeContext().popReferenceOperand();
-        dst.setStackMap(this.getCodeContext().currentInserter().getStackMap());
     }
 
     /**
@@ -13319,10 +13475,9 @@ class UnitCompiler {
         assert dst instanceof BasicBlock;
 
         this.addLineNumberOffset(locatable);
+        this.getCodeContext().popIntOperand();
+        this.getCodeContext().popIntOperand();
         this.getCodeContext().writeBranch(Opcode.IF_ICMPEQ + opIdx, dst);
-        this.getCodeContext().popIntOperand();
-        this.getCodeContext().popIntOperand();
-        dst.setStackMap(this.getCodeContext().currentInserter().getStackMap());
     }
 
     private static final int EQ = 0;
@@ -13339,16 +13494,14 @@ class UnitCompiler {
 
     private void
     ifnonnull(Locatable locatable, CodeContext.Offset dst) {
-        this.getCodeContext().writeBranch(Opcode.IFNONNULL, dst);
         this.getCodeContext().popReferenceOperand();
-        dst.setStackMap(this.getCodeContext().currentInserter().getStackMap());
+        this.getCodeContext().writeBranch(Opcode.IFNONNULL, dst);
     }
 
     private void
     ifnull(Locatable locatable, CodeContext.Offset dst) {
-        this.getCodeContext().writeBranch(Opcode.IFNULL, dst);
         this.getCodeContext().popReferenceOperand();
-        dst.setStackMap(this.getCodeContext().currentInserter().getStackMap());
+        this.getCodeContext().writeBranch(Opcode.IFNULL, dst);
     }
 
     /**
@@ -13359,9 +13512,8 @@ class UnitCompiler {
         assert opIdx >= UnitCompiler.EQ && opIdx <= UnitCompiler.LE;
 
         this.addLineNumberOffset(locatable);
-        this.getCodeContext().writeBranch(Opcode.IFEQ + opIdx, dst);
         this.getCodeContext().popIntOperand();
-        dst.setStackMap(this.getCodeContext().currentInserter().getStackMap());
+        this.getCodeContext().writeBranch(Opcode.IFEQ + opIdx, dst);
     }
 
     /**
@@ -14463,6 +14615,47 @@ class UnitCompiler {
         return sb.toString();
     }
 
+    /**
+     * Checks for the combinations of method modifiers that the JVM rejects (JVMS8 4.6), as far as the parser does not
+     * reject them ("abstract final") (issue #54).
+     */
+    private void
+    checkMethodModifiers(MethodDeclarator md) throws CompileException {
+
+        if (!md.isAbstract()) return;
+
+        String otherModifier = (
+            md.isStatic()                    ? "static"       :
+            md.getAccess() == Access.PRIVATE ? "private"      :
+            md.isNative()                    ? "native"       :
+            md.isSynchronized()              ? "synchronized" :
+            md.isStrictfp()                  ? "strictfp"     :
+            md.isDefault()                   ? "default"      :
+            null
+        );
+        if (otherModifier != null) {
+            this.compileError(
+                "Illegal combination of modifiers \"abstract\" and \"" + otherModifier + "\"",
+                md.getLocation()
+            );
+        }
+    }
+
+    /**
+     * Reports a compile error iff the <var>i</var>th of the <var>interfaces</var> is the same as one of the preceding
+     * ones; the JVM rejects a class or interface that names the same direct superinterface twice (JVMS8 4.1) (issue
+     * #54).
+     */
+    private void
+    checkDuplicateInterface(IClass[] interfaces, int i, Type type) throws CompileException {
+        for (int j = 0; j < i; ++j) {
+            if (interfaces[j].getDescriptor().equals(interfaces[i].getDescriptor())) {
+                this.compileError("Duplicate interface \"" + interfaces[i] + "\"", type.getLocation());
+                return;
+            }
+        }
+    }
+
     private short
     accessFlags(Modifier[] modifiers) throws CompileException {
         int result = 0;
@@ -14548,6 +14741,18 @@ class UnitCompiler {
         assert cism != null;
 
         return cism.findLocal(lvIndex);
+    }
+
+    /**
+     * @param lvIndex (two slots for LONG and DOUBLE local variables)
+     * @return        Whether the local variable is definitely assigned, i.e. has a type in the current stack map; a
+     *                local variable that is assigned on one path only has the type "top" after the merge of the paths
+     *                (issue #54)
+     */
+    private boolean
+    isDefinitelyAssigned(short lvIndex) {
+        VerificationTypeInfo vti = this.findLocalVariableTypeInfo(lvIndex);
+        return vti != null && vti != StackMapTableAttribute.TOP_VARIABLE_INFO;
     }
 
     private void

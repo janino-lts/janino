@@ -100,6 +100,7 @@ class LanguageSupportTest extends CommonsCompilerTestSuite {
         "edge-cases.txt",
         "control-flow.txt",
         "finally.txt",
+        "access.txt",
     };
 
     private static final Pattern LOCATION_PREFIX = Pattern.compile("^(?:(?:File '[^']*', )?Line \\d+, Column \\d+: )+");

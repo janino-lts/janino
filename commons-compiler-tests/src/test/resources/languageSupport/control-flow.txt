@@ -261,3 +261,183 @@ public class P {
     }
     public static Object run() { return parse("x") + "/" + parse("7"); }
 }
+
+=== do statement that assigns a local variable which is read after it
+jls: 1
+janino: OK
+public class P {
+    static int f(boolean z) { int x; do { x = 1; } while (z); return x; }
+    public static Object run() { return String.valueOf(f(false)); }
+}
+
+=== do statement with a negated condition that assigns a local variable declared before another one
+jls: 1
+janino: OK
+public class P {
+    static int f(boolean z) { int x; int y = 0; do { x = 1; } while (!z); return x; }
+    public static Object run() { return String.valueOf(f(true)); }
+}
+
+=== do statement that reads lines until null
+jls: 2
+janino: OK
+public class P {
+    static int f(java.io.BufferedReader r) throws Exception {
+        String line; int n = 0;
+        do { line = r.readLine(); if (line != null) n++; } while (line != null);
+        return n;
+    }
+    public static Object run() throws Exception {
+        return String.valueOf(f(new java.io.BufferedReader(new java.io.StringReader("ab\ncd"))));
+    }
+}
+
+=== do statement that assigns a local variable of type long
+jls: 1
+janino: OK
+public class P {
+    static long f(boolean z) { long x; do { x = 1L; } while (z); return x; }
+    public static Object run() { return String.valueOf(f(false)); }
+}
+
+=== do statement that assigns a local variable in both branches of an if statement
+jls: 1
+janino: OK
+public class P {
+    static int f(boolean z) { int x; int y = 0; do { if (z) { x = 1; } else { x = 2; } } while (x < 0); return x; }
+    public static Object run() { return String.valueOf(f(true)); }
+}
+
+=== do statement whose condition reads the local variable assigned in the body
+jls: 6
+janino: OK
+public class P {
+    static int f(int n) { int x; int y = 0; do { x = n--; y += x; } while (x > 0); return y; }
+    public static Object run() { return String.valueOf(f(3)); }
+}
+
+=== conditional-and in an if statement with an assignment in the right operand, read in the then branch
+jls: 1
+janino: OK
+public class P {
+    static int f(boolean z) { int x; int y = 0; if (z && (x = 1) > 0) return x; return 0; }
+    public static Object run() { return String.valueOf(f(true)); }
+}
+
+=== conditional-or as a value with an assignment in the right operand
+jls: true
+janino: OK
+public class P {
+    static boolean f(boolean z) { int x; int y = 0; boolean b = z || (x = 1) > 0; return b; }
+    public static Object run() { return String.valueOf(f(true)); }
+}
+
+=== conditional-or with an assignment in the right operand, returned
+jls: true
+janino: OK
+public class P {
+    static boolean f(boolean z) { int x; int y = 0; return z || (x = 1) > 0; }
+    public static Object run() { return String.valueOf(f(false)); }
+}
+
+=== conditional-or in an if statement with an assignment in the right operand, read in the else branch
+jls: 5
+janino: OK
+public class P {
+    static int f(boolean z) { int x; int y = 0; if (z || (x = 0) > 0) { y = 1; } else { y = x + 5; } return y; }
+    public static Object run() { return String.valueOf(f(false)); }
+}
+
+=== conditional-and as a value with assignments in both operands
+jls: true
+janino: OK
+public class P {
+    static boolean f(boolean z) { int x; int w; int y = 0; boolean b = (x = 1) > 0 && (w = x) > 0; return b; }
+    public static Object run() { return String.valueOf(f(true)); }
+}
+
+=== conditional expression with an assignment in the condition, read in both operands
+jls: 1
+janino: OK
+public class P {
+    static int f(boolean z) { int x; int y = 0; int v = (x = 1) > 0 ? x : x; return v; }
+    public static Object run() { return String.valueOf(f(true)); }
+}
+
+=== conditional expression with an assignment in the condition, read in the right operand
+jls: 1
+janino: OK
+public class P {
+    static int f(boolean z) { int x; int y = 0; int v = (x = 1) > 5 ? 5 : x; return v; }
+    public static Object run() { return String.valueOf(f(true)); }
+}
+
+=== while statement with an assignment in the condition, read in the body
+jls: 1
+janino: OK
+public class P {
+    static int f(boolean z) { int x; int y = 0; while (!z && (x = 1) > 0) { y = x; z = true; } return y; }
+    public static Object run() { return String.valueOf(f(false)); }
+}
+
+=== for statement with an assignment in the condition, read in the body
+jls: 3
+janino: OK
+public class P {
+    static int f(boolean z) {
+        int x; int y = 0;
+        for (int i = 0; z && (x = i) < 3; i++) { y += x; if (i == 2) z = false; }
+        return y;
+    }
+    public static Object run() { return String.valueOf(f(true)); }
+}
+
+=== for statement that reads lines until null
+jls: 5
+janino: OK
+public class P {
+    static int f(java.io.BufferedReader r) throws Exception {
+        String line; int n = 0;
+        for (int i = 0; (line = r.readLine()) != null; i++) { n += line.length() + i; }
+        return n;
+    }
+    public static Object run() throws Exception {
+        return String.valueOf(f(new java.io.BufferedReader(new java.io.StringReader("ab\ncd"))));
+    }
+}
+
+=== switch statement with default that assigns a local variable in every case
+jls: 1
+janino: OK
+public class P {
+    static int f(int y) { int x; int w = 0; switch (y) { case 0: x = 1; break; default: x = 2; break; } return x; }
+    public static Object run() { return String.valueOf(f(0)); }
+}
+
+=== try statement whose block assigns a local variable, with a finally clause
+jls: 3
+janino: OK
+public class P {
+    static int f() { int x; int y = 0; try { x = 1; } finally { y = 2; } return x + y; }
+    public static Object run() { return String.valueOf(f()); }
+}
+
+=== while (true) statement that assigns a local variable before break
+jls: 1
+janino: OK
+public class P {
+    static int f() { int x; int y = 0; while (true) { x = 1; if (y == 0) break; } return x; }
+    public static Object run() { return String.valueOf(f()); }
+}
+
+=== labeled continue in nested for statements
+jls: 3
+janino: OK
+public class P {
+    static int f() {
+        int y = 0;
+        L: for (int i = 0; i < 3; i++) { for (int j = 0; j < 3; j++) { if (j == 1) continue L; y += j + i; } }
+        return y;
+    }
+    public static Object run() { return String.valueOf(f()); }
+}

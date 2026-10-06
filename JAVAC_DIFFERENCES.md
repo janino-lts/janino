@@ -79,11 +79,24 @@ constant expression, the expressions that Janino does not fold (see section 1) a
 In the main line, these expressions have the types of `javac`. The types of such expressions that compile in 3.1.15
 are unchanged (section 1, #38).
 
+**Arrays:** `a.clone()` of an array `a` has the type `Object` instead of the array type (JLS 10.7): `int[] b =
+a.clone();` is rejected; with a cast, `(int[]) a.clone()`, it compiles.
+
+**Inner classes:** a `protected` member that an enclosing class inherits from a class in another package, accessed
+from an inner class (`in` or `P.this.in` in `class P extends FilterInputStream { class Q { ... } }`, or
+`P.this.clone()`): the code compiles, but the generated class throws an `IllegalAccessError` or fails to verify.
+`javac` generates an accessor method.
+
 ## 3. Invalid code that Janino accepts
 
 `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it behaves
 as the source suggests (e.g. an assignment to a `final` local variable assigns it). See
-[issue #33](https://github.com/janino-lts/janino/issues/33) for the compatibility considerations.
+[issue #33](https://github.com/janino-lts/janino/issues/33) for the compatibility considerations. One exception: the
+access to a `protected` member of a class in another package through an expression whose type is neither the
+accessing class nor a subclass of it (`((Object) this).clone()`, `Object o = new P(); o.clone()`) is rejected since
+3.1.16, like by `javac`, although the JVM loaded such classes when the verifier could infer the type `P` from the
+bytecode ([#54](https://github.com/janino-lts/janino/issues/54)); it rejected them for a parameter, a field or a
+method result of type `Object`.
 
 **`final` variables and definite assignment:**
 
@@ -106,6 +119,7 @@ as the source suggests (e.g. an assignment to a `final` local variable assigns i
 - override that throws a broader checked exception, or a checked exception that the overridden method does not throw;
 - `throws` clause with a type that is not a `Throwable`: `void f() throws String {}`;
 - two fields with the same name and different types: `int x; long x;`;
+- `native strictfp` method (the JVM accepts the combination);
 - `static default` interface method; interface field without initializer: `interface I { int X; }`;
 - default method that overrides a method of `Object`: `default boolean equals(Object o) { ... }`;
 - a class that inherits two default methods with the same signature from two interfaces;
@@ -155,20 +169,7 @@ as the source suggests (e.g. an assignment to a `final` local variable assigns i
 - unknown type as a type argument: `List<Foo> l;`;
 - generic array creation: `new List<String>[1]`.
 
-## 4. Invalid code for which Janino generates class files that the JVM rejects
-
-`javac` rejects the following code. Janino compiles it, but the JVM rejects the generated class when it is loaded
-(`VerifyError` or `ClassFormatError`, [#54](https://github.com/janino-lts/janino/issues/54)):
-
-- a local variable that is assigned only in the body of a `for` statement, and read after it:
-  `int x; for (int i = 0; i < 1; i++) x = 1; return x;` (the equivalent `while` statement is rejected correctly);
-- invocation of a `protected` method of another class on an instance of a different type: `o.clone()` with
-  `Object o`;
-- `abstract static` and `private abstract` methods;
-- `final volatile` fields;
-- the same interface twice in an `implements` clause: `class P implements Runnable, Runnable`.
-
-## 5. Optional deviations
+## 4. Optional deviations
 
 `org.codehaus.janino.JaninoOption` contains options that deviate from the JLS on purpose. Neither is enabled by
 default:

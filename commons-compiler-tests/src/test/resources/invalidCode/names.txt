@@ -3,7 +3,7 @@
 # The cases recorded as "ACCEPTED" stay as they are, deliberately: JANINO has always accepted this code, and
 # applications that generate code may depend on that. Do not turn them into compile errors by default (see
 # issue #33). The cases marked "generics" are accepted because type arguments are parsed, but otherwise
-# ignored. The case recorded as "INVALID LinkageError" is a defect (issue #54).
+# ignored.
 
 === unknown type
 janino: REJECTED Cannot determine simple type name "Foo"
@@ -242,58 +242,125 @@ janino: ACCEPTED
 recovery: ACCEPTED
 public class P {
     java.util.ArrayList.Itr x;
-}
-
+}
+
 === on-demand import of a package that does not exist
 janino: ACCEPTED
 recovery: ACCEPTED
 import foo.*;
-public class P {}
-
+public class P {}
+
 === static import of an instance method
 janino: ACCEPTED
 recovery: ACCEPTED
 import static java.lang.String.length;
-public class P {}
-
+public class P {}
+
 === protected method invoked on an instance of an unrelated type
-janino: INVALID LinkageError
-recovery: ACCEPTED
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
 public class P {
     void f(Object o) throws Exception { o.clone(); }
-}
-
+}
+
 === generics: wrong number of type arguments
 janino: ACCEPTED
 recovery: ACCEPTED
 public class P {
     java.util.List<String, String> l;
-}
-
+}
+
 === generics: type arguments for a type that is not generic
 janino: ACCEPTED
 recovery: ACCEPTED
 public class P {
     String<Integer> s;
-}
-
+}
+
 === generics: incompatible parameterized types
 janino: ACCEPTED
 recovery: ACCEPTED
 public class P {
     java.util.List<String> l = new java.util.ArrayList<Integer>();
-}
-
+}
+
 === generics: unknown type as a type argument
 janino: ACCEPTED
 recovery: ACCEPTED
 public class P {
     java.util.List<Foo> l;
-}
-
+}
+
 === generics: generic array creation
 janino: ACCEPTED
 recovery: ACCEPTED
 public class P {
     Object f() { return new java.util.List<String>[1]; }
+}
+
+=== protected method invoked through a local variable of the superclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
+public class P implements Cloneable {
+    Object f() throws Exception { Object o = new P(); return o.clone(); }
+}
+
+=== protected method invoked through this, cast to the superclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
+public class P implements Cloneable {
+    Object f() throws Exception { return ((Object) this).clone(); }
+}
+
+=== protected method invoked through the result of a method of the superclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
+public class P implements Cloneable {
+    static Object g() { return new P(); }
+    Object f() throws Exception { return g().clone(); }
+}
+
+=== protected method of the superclass invoked in a default method
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
+interface I {
+    default Object f(Object o) throws Exception { return o.clone(); }
+}
+public class P implements I {
+}
+
+=== protected field of the superclass read through an expression of the superclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.FilterInputStream"
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    Object f(java.io.FilterInputStream s) { return s.in; }
+}
+
+=== protected field of the superclass assigned through an expression of the superclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.ByteArrayOutputStream"
+public class P extends java.io.ByteArrayOutputStream {
+    void f(java.io.ByteArrayOutputStream s) { s.count = 1; }
+}
+
+=== protected field of the superclass read through an expression of a sibling subclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.BufferedInputStream"
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    Object f(java.io.BufferedInputStream s) { return s.in; }
+}
+
+=== protected field of the superclass read through a local variable of the superclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.FilterInputStream"
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    Object f() { java.io.FilterInputStream s = new P(); return s.in; }
+}
+
+=== protected field of the superclass read through this, cast to the superclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.FilterInputStream"
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    Object f() { return ((java.io.FilterInputStream) this).in; }
+}
+
+=== protected constructor invoked from a subclass in another package
+janino: REJECTED Protected constructor cannot be invoked from type "P"
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    Object f() { return new java.io.FilterInputStream(null); }
 }
