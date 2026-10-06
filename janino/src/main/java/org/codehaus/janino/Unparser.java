@@ -386,7 +386,7 @@ class Unparser implements AutoCloseable {
                 Unparser.this.unparseFunctionInvocationArguments(ec.arguments);
             }
 
-            if (!Unparser.classDeclarationBodyIsEmpty(ec)) {
+            if (ec.hasClassBody || !Unparser.classDeclarationBodyIsEmpty(ec)) {
                 Unparser.this.pw.println(" {");
                 Unparser.this.pw.print(AutoIndentWriter.INDENT);
                 Unparser.this.unparseClassDeclarationBody(ec);
@@ -957,7 +957,13 @@ class Unparser implements AutoCloseable {
 
         @Override @Nullable public Void
         visitSuperclassMethodInvocation(SuperclassMethodInvocation smi) {
-            Unparser.this.pw.print("super." + smi.methodName);
+            if (smi.qualification != null) {
+                Unparser.this.unparseType(smi.qualification);
+                Unparser.this.pw.print(".super." + smi.methodName);
+            } else
+            {
+                Unparser.this.pw.print("super." + smi.methodName);
+            }
             Unparser.this.unparseFunctionInvocationArguments(smi.arguments);
             return null;
         }

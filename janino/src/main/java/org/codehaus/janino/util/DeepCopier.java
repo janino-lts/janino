@@ -980,6 +980,7 @@ class DeepCopier {
     copySuperclassMethodInvocation(SuperclassMethodInvocation subject) throws CompileException {
         return new SuperclassMethodInvocation(
             subject.getLocation(),
+            this.copyOptionalType(subject.qualification),
             subject.methodName,
             this.copyRvalues(subject.arguments)
         );
@@ -1262,9 +1263,16 @@ class DeepCopier {
             subject.docComment,
             this.copyModifiers(subject.getModifiers()),
             subject.name,
-            this.copyOptionalRvalues(subject.arguments)
+            this.copyOptionalRvalues(subject.arguments),
+            subject.hasClassBody
         );
 
+        for (MethodDeclarator md : subject.getMethodDeclarations()) {
+            result.addDeclaredMethod(this.copyMethodDeclarator(md));
+        }
+        for (MemberTypeDeclaration mtd : subject.getMemberTypeDeclarations()) {
+            result.addMemberTypeDeclaration(this.copyMemberTypeDeclaration(mtd));
+        }
         for (FieldDeclarationOrInitializer fdoi : subject.fieldDeclarationsAndInitializers) {
             result.addFieldDeclarationOrInitializer(this.copyFieldDeclarationOrInitializer(fdoi));
         }

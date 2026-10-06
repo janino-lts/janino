@@ -885,15 +885,22 @@ class Parser {
     public EnumConstant
     parseEnumConstant() throws CompileException, IOException {
 
+        Location   location   = this.location();
+        String     docComment = this.doc();
+        Modifier[] modifiers  = this.enumConstantModifiers(this.parseModifiers());
+        String     name       = this.read(TokenType.IDENTIFIER);
+        Rvalue[]   arguments  = this.peek("(") ? this.parseArguments() : null;
+
         EnumConstant result = new EnumConstant(
-            this.location(),                                   // location
-            this.doc(),                                        // docComment
-            this.enumConstantModifiers(this.parseModifiers()), // modifiers
-            this.read(TokenType.IDENTIFIER),                   // name
-            this.peek("(") ? this.parseArguments() : null      // arguments
+            location,       // location
+            docComment,     // docComment
+            modifiers,      // modifiers
+            name,           // name
+            arguments,      // arguments
+            this.peek("{")  // hasClassBody
         );
 
-        if (this.peek("{")) {
+        if (result.hasClassBody) {
             this.parseClassBody(result);
         }
 
@@ -908,7 +915,9 @@ class Parser {
      *       Block |                                    // Instance (JLS7 8.6) or static initializer (JLS7 8.7)
      *       'void' Identifier MethodDeclarationRest |
      *       'class' ClassDeclarationRest |
+     *       'enum' EnumDeclarationRest |
      *       'interface' InterfaceDeclarationRest |
+     *       '@' 'interface' AnnotationTypeDeclarationRest |
      *       ConstructorDeclarator |
      *       [ TypeArguments ] Type Identifier MethodDeclarationRest |
      *       Type Identifier FieldDeclarationRest ';'
@@ -994,7 +1003,7 @@ class Parser {
             if (docComment == null) {
                 this.warning("MATDCM", "Member annotation type doc comment missing", this.location());
             }
-            classDeclaration.addMemberTypeDeclaration((MemberTypeDeclaration) this.parseInterfaceDeclarationRest(
+            classDeclaration.addMemberTypeDeclaration((MemberTypeDeclaration) this.parseAnnotationTypeDeclarationRest(
                 docComment,                                        // docComment
                 this.interfaceModifiers(modifiers),                // modifiers
                 InterfaceDeclarationContext.NAMED_TYPE_DECLARATION // context
@@ -1192,7 +1201,9 @@ class Parser {
      *     ModifiersOpt (
      *       'void' Identifier MethodDeclarationRest |
      *       'class' ClassDeclarationRest |
+     *       'enum' EnumDeclarationRest |
      *       'interface' InterfaceDeclarationRest |
+     *       '@' 'interface' AnnotationTypeDeclarationRest |
      *       Type Identifier (
      *         MethodDeclarationRest |
      *         FieldDeclarationRest
@@ -1258,7 +1269,7 @@ class Parser {
                     throw this.compileException("Modifier \"default\" not allowed on member enum declaration");
                 }
                 interfaceDeclaration.addMemberTypeDeclaration(
-                    (MemberTypeDeclaration) this.parseClassDeclarationRest(
+                    (MemberTypeDeclaration) this.parseEnumDeclarationRest(
                         docComment,                              // docComment
                         this.classModifiers(modifiers),          // modifiers
                         ClassDeclarationContext.TYPE_DECLARATION // context
@@ -1298,7 +1309,7 @@ class Parser {
                     );
                 }
                 interfaceDeclaration.addMemberTypeDeclaration(
-                    (MemberTypeDeclaration) this.parseInterfaceDeclarationRest(
+                    (MemberTypeDeclaration) this.parseAnnotationTypeDeclarationRest(
                         docComment,                                        // docComment
                         this.interfaceModifiers(modifiers),                // modifiers
                         InterfaceDeclarationContext.NAMED_TYPE_DECLARATION // context
@@ -3582,8 +3593,12 @@ class Parser {
 
                     // '.' 'super' '.' Identifier Arguments
                     // Qualified superclass method invocation (JLS7 15.12.1.1.4) (LHS is a ClassName).
-                    // TODO: Qualified superclass method invocation
-                    throw this.compileException("Qualified superclass method invocation NYI");
+                    return new SuperclassMethodInvocation(
+                        location,                        // location
+                        atom.toTypeOrCompileException(), // qualification
+                        identifier,                      // methodName
+                        this.parseArguments()            // arguments
+                    );
                 } else {
 
                     // '.' 'super' '.' Identifier

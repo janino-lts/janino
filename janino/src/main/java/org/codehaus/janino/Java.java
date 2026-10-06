@@ -1537,8 +1537,17 @@ class Java {
             return visitor.visitMemberClassDeclaration(this);
         }
 
+        /**
+         * @return Whether this member class is declared {@code static}, or is a member of an interface, which makes it
+         *         implicitly static (JLS8 9.5)
+         */
         public boolean
-        isStatic() { return Java.hasAccessModifier(this.getModifiers(), "static"); }
+        isStatic() {
+            return (
+                Java.hasAccessModifier(this.getModifiers(), "static")
+                || this.getEnclosingScope() instanceof InterfaceDeclaration
+            );
+        }
     }
 
     /**
@@ -1744,6 +1753,13 @@ class Java {
          */
         @Nullable public final Rvalue[] arguments;
 
+        /**
+         * Whether the enum constant has a class body (JLS 8.9.1), which may be empty. The members of the class body
+         * are those of this {@link AbstractClassDeclaration}; the compiler compiles them into an anonymous subclass
+         * of the enum.
+         */
+        public final boolean hasClassBody;
+
         public
         EnumConstant(
             Location           location,
@@ -1752,10 +1768,26 @@ class Java {
             String             name,
             @Nullable Rvalue[] arguments
         ) {
+            this(location, docComment, modifiers, name, arguments, false);
+        }
+
+        /**
+         * @param hasClassBody See {@link #hasClassBody}
+         */
+        public
+        EnumConstant(
+            Location           location,
+            @Nullable String   docComment,
+            Modifier[]         modifiers,
+            String             name,
+            @Nullable Rvalue[] arguments,
+            boolean            hasClassBody
+        ) {
             super(location, modifiers, null);
-            this.docComment = docComment;
-            this.name       = name;
-            this.arguments  = arguments;
+            this.docComment   = docComment;
+            this.name         = name;
+            this.arguments    = arguments;
+            this.hasClassBody = hasClassBody;
         }
 
         @Override public String
@@ -2348,7 +2380,10 @@ class Java {
             this.statements         = statements;
 
             this.type.setEnclosingScope(this);
-            for (FormalParameter fp : formalParameters.parameters) fp.type.setEnclosingScope(this);
+            for (FormalParameter fp : formalParameters.parameters) {
+                fp.type.setEnclosingScope(this);
+                for (Annotation a : fp.getAnnotations()) a.setEnclosingScope(this);
+            }
             for (Type te : thrownExceptions) te.setEnclosingScope(this);
             if (statements != null) {
                 for (Java.BlockStatement bs : statements) {
@@ -2480,6 +2515,12 @@ class Java {
 
             public boolean
             isFinal() { return Java.hasAccessModifier(this.modifiers, "final"); }
+
+            /**
+             * @return The annotations of this parameter declaration
+             */
+            public Annotation[]
+            getAnnotations() { return Java.getAnnotations(this.modifiers); }
 
             /**
              * @param hasEllipsis Whether this is the last function parameter and has an ellipsis ("...") after the
@@ -5476,15 +5517,38 @@ class Java {
     public static final
     class SuperclassMethodInvocation extends Invocation {
 
+        /**
+         * The optional qualification before "{@code .super.meth(...)}": An enclosing class, or a direct superinterface
+         * (JLS8 15.12.1).
+         */
+        @Nullable public final Type qualification;
+
         public
         SuperclassMethodInvocation(Location location, String methodName, Rvalue[] arguments) {
+            this(location, null, methodName, arguments);
+        }
+
+        public
+        SuperclassMethodInvocation(
+            Location       location,
+            @Nullable Type qualification,
+            String         methodName,
+            Rvalue[]       arguments
+        ) {
             super(location, methodName, arguments);
+            this.qualification = qualification;
         }
 
         // Implement "Atom".
 
         @Override public String
-        toString() { return "super." + this.methodName + "()"; }
+        toString() {
+            return (
+                this.qualification != null
+                ? this.qualification.toString() + ".super."
+                : "super."
+            ) + this.methodName + "()";
+        }
 
         @Override @Nullable public <R, EX extends Throwable> R
         accept(RvalueVisitor<R, EX> visitor) throws EX { return visitor.visitSuperclassMethodInvocation(this); }

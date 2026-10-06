@@ -11,11 +11,18 @@ Janino is used by several large Apache projects, among others [Apache Spark](htt
 [Apache Calcite](https://calcite.apache.org/), [Apache Flink](https://flink.apache.org/) and
 [Apache Hive](https://hive.apache.org/). (They use the original Janino 3.1.12, not this continuation.)
 
-Please visit the [project homepage](https://janino-lts.github.io/janino/).
-
 Janino compiles Java source code like `javac`, but not in every respect: it accepts some invalid code, rejects some
 valid code, and some valid code behaves differently. All known deviations are listed in
 [Differences between Janino and javac](JAVAC_DIFFERENCES.md).
+
+[Janino and javac: the compatibility mode and the compliance mode](JAVAC_COMPLIANCE.md) sketches how these
+deviations could be handled in the long run. It is no more than a non-binding idea of a possible roadmap, not a
+plan and not a commitment.
+
+To restrict what untrusted code that is compiled at runtime may do, see
+[Restricting Untrusted Code with a Sandbox Policy](SANDBOX.md).
+
+Please visit the [project homepage](https://janino-lts.github.io/janino/) for more documentation.
 
 ## Maven coordinates
 
@@ -26,7 +33,7 @@ versions up to 3.1.12 have the group ID `org.codehaus.janino`):
 <dependency>
     <groupId>io.github.janino-lts</groupId>
     <artifactId>janino</artifactId>
-    <version>3.1.15</version>
+    <version>3.1.16</version>
 </dependency>
 ```
 
@@ -52,6 +59,3 @@ Maven does not recognize the two as versions of the same artifact: if another de
 (If the library uses `commons-compiler-jdk`, add `io.github.janino-lts:commons-compiler-jdk` as well.) The releases
 up to 3.1.14 of this continuation are not on Maven Central; they are available as
 [GitHub releases](https://github.com/janino-lts/janino/releases) with the group ID `org.codehaus.janino`.
-
-To restrict what untrusted code that is compiled at runtime may do, see
-[Restricting Untrusted Code with a Sandbox Policy](SANDBOX.md).

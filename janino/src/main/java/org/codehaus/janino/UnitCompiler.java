@@ -231,6 +231,7 @@ import org.codehaus.janino.util.ClassFile.MethodInfo;
 import org.codehaus.janino.util.ClassFile.StackMapTableAttribute;
 import org.codehaus.janino.util.ClassFile.StackMapTableAttribute.ObjectVariableInfo;
 import org.codehaus.janino.util.ClassFile.StackMapTableAttribute.VerificationTypeInfo;
+import org.codehaus.janino.util.DeepCopier;
 
 /**
  * This class actually implements the Java compiler. It is associated with exactly one compilation unit which it
@@ -431,9 +432,9 @@ class UnitCompiler {
             @Override @Nullable public Void visitMemberEnumDeclaration(MemberEnumDeclaration med)                                     throws CompileException { UnitCompiler.this.compile2((InnerClassDeclaration) med);   return null; }
             @Override @Nullable public Void visitPackageMemberEnumDeclaration(PackageMemberEnumDeclaration pmed)                      throws CompileException { UnitCompiler.this.compile2(pmed);                          return null; }
             @Override @Nullable public Void visitPackageMemberAnnotationTypeDeclaration(PackageMemberAnnotationTypeDeclaration pmatd) throws CompileException { UnitCompiler.this.compile2(pmatd);                         return null; }
+            @Override @Nullable public Void visitMemberAnnotationTypeDeclaration(MemberAnnotationTypeDeclaration matd)                throws CompileException { UnitCompiler.this.compile2((InterfaceDeclaration) matd);  return null; }
 
             @Override @Nullable public Void visitEnumConstant(EnumConstant ec)                                         throws CompileException { UnitCompiler.this.compileError("Compilation of enum constant NYI",                      ec.getLocation());   return null; }
-            @Override @Nullable public Void visitMemberAnnotationTypeDeclaration(MemberAnnotationTypeDeclaration matd) throws CompileException { UnitCompiler.this.compileError("Compilation of member annotation type declaration NYI", matd.getLocation()); return null; }
         });
     }
 
@@ -504,29 +505,53 @@ class UnitCompiler {
 
         // Check that all methods of the non-abstract class are implemented.
         if (!(cd instanceof NamedClassDeclaration && ((NamedClassDeclaration) cd).isAbstract())) {
-            IMethod[] ms = iClass.getIMethods();
-            for (IMethod base : ms) {
-                if (base.isAbstract()) {
-                    if ("<clinit>".equals(base.getName())) continue;
-                    IMethod override = iClass.findIMethod(base.getName(), base.getParameterTypes());
-                    if (
-                        override == null           // It wasn't overridden
-                        || override.isAbstract()   // It was overridden with an abstract method
-                                                   // The override does not provide a covariant return type
-                        || !base.getReturnType().isAssignableFrom(override.getReturnType())
-                    ) {
-                        this.compileError(
-                            "Non-abstract class \"" + iClass + "\" must implement method \"" + base + "\"",
-                            cd.getLocation()
-                        );
+            List<IMethod> unimplemented = this.unimplementedAbstractMethods(iClass);
+            if (
+                cd instanceof EnumDeclaration
+                && !unimplemented.isEmpty()
+                && !((EnumDeclaration) cd).getConstants().isEmpty()
+            ) {
+
+                // An enum that has an abstract method is implicitly abstract; each of its constants must have a
+                // class body (JLS 8.9.2), and that class body must implement the method (which is checked when the
+                // class body is compiled).
+                for (EnumConstant ec : ((EnumDeclaration) cd).getConstants()) {
+                    if (!ec.hasClassBody) {
+                        this.compileError((
+                            "Enum constant \""
+                            + ec.name
+                            + "\" must have a class body that implements method \""
+                            + unimplemented.get(0)
+                            + "\""
+                        ), ec.getLocation());
                     }
+                }
+            } else {
+                for (IMethod base : unimplemented) {
+                    this.compileError(
+                        "Non-abstract class \"" + iClass + "\" must implement method \"" + base + "\"",
+                        cd.getLocation()
+                    );
                 }
             }
         }
 
         short accessFlags = this.accessFlags(cd.getModifiers());
         if (cd instanceof PackageMemberTypeDeclaration) accessFlags |= Mod.SUPER;
-        if (cd instanceof EnumDeclaration) accessFlags |= Mod.ENUM;
+        if (cd instanceof EnumDeclaration) {
+
+            // An enum must not be declared abstract (JLS 8.9); a declared "final" is ignored, as before, and
+            // replaced with the implicit modifiers.
+            if (Mod.isAbstract(accessFlags)) {
+                this.compileError("Modifier \"abstract\" not allowed on enum declaration", cd.getLocation());
+            }
+            accessFlags = (short) (
+                (accessFlags & ~(Mod.ABSTRACT | Mod.FINAL))
+                | this.enumAccessFlags((EnumDeclaration) cd)
+            );
+        }
+        if (this.isEnumConstantBody(cd)) accessFlags |= Mod.ENUM; // Like "javac".
+        if (UnitCompiler.isMemberTypeOfInterface(cd)) accessFlags |= Mod.PUBLIC;
 
         // Create "ClassFile" object.
         ClassFile cf = this.newClassFile(accessFlags, iClass, iClass.getSuperclass(), iClass.getInterfaces());
@@ -562,10 +587,10 @@ class UnitCompiler {
             );
             short innerNameIndex = cf.addConstantUtf8Info(((MemberTypeDeclaration) cd).getName());
             cf.addInnerClassesAttributeEntry(new ClassFile.InnerClassesAttribute.Entry(
-                innerClassInfoIndex,  // innerClassInfoIndex
-                outerClassInfoIndex,  // outerClassInfoIndex
-                innerNameIndex,       // innerNameIndex
-                accessFlags           // innerClassAccessFlags
+                innerClassInfoIndex,                                        // innerClassInfoIndex
+                outerClassInfoIndex,                                        // outerClassInfoIndex
+                innerNameIndex,                                             // innerNameIndex
+                this.innerClassAccessFlags((MemberTypeDeclaration) cd)      // innerClassAccessFlags
             ));
         }
 
@@ -598,17 +623,31 @@ class UnitCompiler {
             // Create field and static initializer for each enum constant.
             for (EnumConstant ec : ed.getConstants()) {
 
-                // E <constant> = new E(<ordinal>, <name> [ optional-constructor-args ]);
+                // E <constant> = new E(<name>, <ordinal> [ optional-constructor-args ]);
+                // or, if the enum constant has a class body (JLS 8.9.1):
+                // E <constant> = new E(<name>, <ordinal> [ optional-constructor-args ]) { <class-body> };
+                Rvalue[] arguments = ec.arguments != null ? ec.arguments : new Rvalue[0];
+                Rvalue   initializer;
+                if (ec.hasClassBody) {
+                    initializer = new NewAnonymousClassInstance(
+                        ec.getLocation(),                         // location
+                        null,                                     // qualification
+                        this.enumConstantBodyClass(ec, iClass),   // anonymousClassDeclaration
+                        arguments                                 // arguments
+                    );
+                } else {
+                    initializer = new NewClassInstance(
+                        ec.getLocation(), // location
+                        null,             // qualification
+                        iClass,           // iClass
+                        arguments         // arguments
+                    );
+                }
                 VariableDeclarator variableDeclarator = new VariableDeclarator(
-                    ec.getLocation(),     // location
-                    ec.name,              // name
-                    0,                    // brackets
-                    new NewClassInstance( // initializer
-                        ec.getLocation(),                                                   // location
-                        null,                                                               // qualification
-                        iClass,                                                             // iClass
-                        ec.arguments != null ? ec.arguments : new Rvalue[0] // arguments
-                    )
+                    ec.getLocation(), // location
+                    ec.name,          // name
+                    0,                // brackets
+                    initializer       // initializer
                 );
 
                 FieldDeclaration fd = new FieldDeclaration(
@@ -1021,6 +1060,12 @@ class UnitCompiler {
      */
     private void
     addFields(FieldDeclaration fd, ClassFile cf) throws CompileException {
+
+        // The JVM rejects a field that is both "final" and "volatile" (JVMS8 4.5) (issue #54).
+        if (fd.isFinal() && fd.isVolatile()) {
+            this.compileError("Illegal combination of modifiers \"final\" and \"volatile\"", fd.getLocation());
+        }
+
         for (VariableDeclarator vd : fd.variableDeclarators) {
 
             Type type = fd.type;
@@ -1129,7 +1174,8 @@ class UnitCompiler {
 
         // Determine extended interfaces.
         IClass[] rawInterfaces = UnitCompiler.rawTypesOf((id.interfaces = this.getTypes(id.extendedTypes)));
-        for (IClass ri : rawInterfaces) {
+        for (int i = 0; i < rawInterfaces.length; i++) {
+            IClass ri = rawInterfaces[i];
             if (!ri.isInterface()) {
                 this.compileError((
                     "\""
@@ -1137,6 +1183,7 @@ class UnitCompiler {
                     + "\" is not an interface; interfaces can only extend interfaces"
                 ), id.getLocation());
             }
+            this.checkDuplicateInterface(rawInterfaces, i, id.extendedTypes[i]);
         }
 
         short accessFlags = this.accessFlags(id.getModifiers());
@@ -1144,6 +1191,7 @@ class UnitCompiler {
         accessFlags |= Mod.ABSTRACT;
         if (id instanceof AnnotationTypeDeclaration)  accessFlags |= Mod.ANNOTATION;
         if (id instanceof MemberInterfaceDeclaration) accessFlags |= Mod.STATIC;
+        if (UnitCompiler.isMemberTypeOfInterface(id)) accessFlags |= Mod.PUBLIC;
 
         ClassFile cf = this.newClassFile(
             accessFlags,
@@ -1154,6 +1202,25 @@ class UnitCompiler {
 
         // Add interface annotations with retention != SOURCE.
         this.compileAnnotations(id.getAnnotations(), cf, cf);
+
+        if (id instanceof MemberInterfaceDeclaration) {
+
+            // Add an "InnerClasses" attribute entry for this member interface declaration on its own class file
+            // (JVMS8, section 4.7.6, "The InnerClasses Attribute"), like for a member class declaration. The JVM
+            // takes the modifiers of a member type ("Class.getModifiers()", and thus "Class.isAnnotation()"), its
+            // declaring class and its simple name from that entry.
+            MemberInterfaceDeclaration mid = (MemberInterfaceDeclaration) id;
+
+            short innerClassInfoIndex = cf.addConstantClassInfo(iClass.getDescriptor());
+            short outerClassInfoIndex = cf.addConstantClassInfo(this.resolve(mid.getDeclaringType()).getDescriptor());
+            short innerNameIndex      = cf.addConstantUtf8Info(mid.getName());
+            cf.addInnerClassesAttributeEntry(new ClassFile.InnerClassesAttribute.Entry(
+                innerClassInfoIndex,             // innerClassInfoIndex
+                outerClassInfoIndex,             // outerClassInfoIndex
+                innerNameIndex,                  // innerNameIndex
+                this.innerClassAccessFlags(mid)  // innerClassAccessFlags
+            ));
+        }
 
         // Set "SourceFile" attribute.
         if (this.debugSource) {
@@ -1224,7 +1291,38 @@ class UnitCompiler {
      * Converts and adds the <var>annotations</var> to the <var>target</var>.
      */
     private void
-    compileAnnotations(Annotation[] annotations, Annotatable target, final ClassFile cf) throws CompileException {
+    compileAnnotations(Annotation[] annotations, final Annotatable target, ClassFile cf) throws CompileException {
+        this.compileAnnotations(annotations, cf, new AnnotationSink() {
+
+            @Override public void
+            add(boolean runtimeVisible, String fieldDescriptor, Map<Short, ClassFile.ElementValue> elementValuePairs) {
+                target.addAnnotationsAttributeEntry(runtimeVisible, fieldDescriptor, elementValuePairs);
+            }
+        });
+    }
+
+    /**
+     * Receives the converted annotations of one annotated element; see {@code compileAnnotations(Annotation[],
+     * ClassFile, AnnotationSink)}.
+     */
+    private
+    interface AnnotationSink {
+
+        /**
+         * @param runtimeVisible    Whether the annotation's retention is {@code RUNTIME} (vs. {@code CLASS})
+         * @param fieldDescriptor   The field descriptor of the annotation type
+         * @param elementValuePairs Maps "element_name_index" ({@link ClassFile.ConstantUtf8Info}) to "element_value",
+         *                          see JVMS8 4.7.16
+         */
+        void add(boolean runtimeVisible, String fieldDescriptor, Map<Short, ClassFile.ElementValue> elementValuePairs);
+    }
+
+    /**
+     * Converts the <var>annotations</var> and passes those with retention {@code CLASS} or {@code RUNTIME} to the
+     * <var>sink</var>.
+     */
+    private void
+    compileAnnotations(Annotation[] annotations, final ClassFile cf, AnnotationSink sink) throws CompileException {
 
         final Set<IClass> seenAnnotations = new HashSet<>();
         ANNOTATIONS: for (final Annotation a : annotations) {
@@ -1270,6 +1368,13 @@ class UnitCompiler {
                 @Override @Nullable public Void
                 visitSingleElementAnnotation(SingleElementAnnotation sea) throws CompileException {
                     IMethod[] definitions = annotationIClass.getDeclaredIMethods("value");
+                    if (definitions.length == 0) {
+                        UnitCompiler.this.compileError(
+                            "Annotation type \"" + annotationIClass + "\" has no element \"value\"",
+                            sea.getLocation()
+                        );
+                        return null;
+                    }
                     assert definitions.length == 1;
                     evps.put(
                         cf.addConstantUtf8Info("value"),
@@ -1311,8 +1416,8 @@ class UnitCompiler {
                 }
             });
 
-            // Add the annotation to the target (class/interface, method or field).
-            target.addAnnotationsAttributeEntry(runtimeVisible, annotationIClass.getDescriptor(), evps);
+            // Add the annotation to the target (class/interface, method, field or parameter).
+            sink.add(runtimeVisible, annotationIClass.getDescriptor(), evps);
         }
     }
 
@@ -1540,12 +1645,174 @@ class UnitCompiler {
             short outerClassInfoIndex = cf.addConstantClassInfo(this.resolve(decl).getDescriptor());
             short innerNameIndex      = cf.addConstantUtf8Info(mtd.getName());
             cf.addInnerClassesAttributeEntry(new ClassFile.InnerClassesAttribute.Entry(
-                innerClassInfoIndex,                 // innerClassInfoIndex
-                outerClassInfoIndex,                 // outerClassInfoIndex
-                innerNameIndex,                      // innerNameIndex
-                this.accessFlags(mtd.getModifiers()) // innerClassAccessFlags
+                innerClassInfoIndex,             // innerClassInfoIndex
+                outerClassInfoIndex,             // outerClassInfoIndex
+                innerNameIndex,                  // innerNameIndex
+                this.innerClassAccessFlags(mtd)  // innerClassAccessFlags
             ));
         }
+    }
+
+    /**
+     * @return The "inner_class_access_flags" of the "InnerClasses" attribute entry for the <var>mtd</var> (JVMS8,
+     *         section 4.7.6): The declared modifiers, plus the implicit ones (JLS8 8.5.1, 8.9, 9.1.1, 9.5): A member
+     *         interface is implicitly static and abstract, an annotation type is an interface, and a member enum is
+     *         implicitly static and final
+     */
+    private short
+    innerClassAccessFlags(MemberTypeDeclaration mtd) throws CompileException {
+
+        // "ACC_STRICT" is a method flag; "javac" clears it, too.
+        short result = (short) (this.accessFlags(mtd.getModifiers()) & ~Mod.STRICTFP);
+
+        if (UnitCompiler.isMemberTypeOfInterface(mtd)) result |= Mod.PUBLIC | Mod.STATIC;
+
+        if (mtd instanceof InterfaceDeclaration) {
+            result |= Mod.STATIC | Mod.INTERFACE | Mod.ABSTRACT;
+            if (mtd instanceof AnnotationTypeDeclaration) result |= Mod.ANNOTATION;
+        } else
+        if (mtd instanceof EnumDeclaration) {
+            result = (short) ((result & ~Mod.FINAL) | Mod.STATIC | this.enumAccessFlags((EnumDeclaration) mtd));
+        }
+
+        return result;
+    }
+
+    /**
+     * @return The implicit access flags of the enum <var>ed</var> (JLS8 8.9): {@code ACC_ENUM}, plus {@code
+     *         ACC_ABSTRACT} iff the enum has an abstract method that it does not implement (then each constant has a
+     *         class body that implements it), plus {@code ACC_FINAL} iff no constant has a class body
+     */
+    private short
+    enumAccessFlags(EnumDeclaration ed) throws CompileException {
+
+        short result = Mod.ENUM;
+
+        if (
+            !ed.getConstants().isEmpty()
+            && !this.unimplementedAbstractMethods(this.resolve(ed)).isEmpty()
+        ) {
+            result |= Mod.ABSTRACT;
+        } else
+        if (!UnitCompiler.hasConstantsWithClassBodies(ed)) {
+            result |= Mod.FINAL;
+        }
+
+        return result;
+    }
+
+    /**
+     * @return Whether at least one constant of the enum <var>ed</var> has a class body (JLS8 8.9.1)
+     */
+    private static boolean
+    hasConstantsWithClassBodies(EnumDeclaration ed) {
+        for (EnumConstant ec : ed.getConstants()) {
+            if (ec.hasClassBody) return true;
+        }
+        return false;
+    }
+
+    /**
+     * @return The abstract methods of the <var>iClass</var>, declared or inherited, that it does not implement
+     */
+    private List<IMethod>
+    unimplementedAbstractMethods(IClass iClass) throws CompileException {
+
+        List<IMethod> result = new ArrayList<>();
+        for (IMethod base : iClass.getIMethods()) {
+            if (!base.isAbstract()) continue;
+            if ("<clinit>".equals(base.getName())) continue;
+
+            IMethod override = iClass.findIMethod(base.getName(), base.getParameterTypes());
+            if (
+                override == null           // It wasn't overridden
+                || override.isAbstract()   // It was overridden with an abstract method
+                                           // The override does not provide a covariant return type
+                || !base.getReturnType().isAssignableFrom(override.getReturnType())
+            ) result.add(base);
+        }
+
+        return result;
+    }
+
+    /**
+     * Creates the anonymous subclass of the enum that implements the class body of the enum constant <var>ec</var>
+     * (JLS8 8.9.1), from a copy of the members of the class body. The constant is initialized with an instance of
+     * that class.
+     */
+    private AnonymousClassDeclaration
+    enumConstantBodyClass(EnumConstant ec, IClass enumIClass) throws CompileException {
+
+        Location loc = ec.getLocation();
+
+        AnonymousClassDeclaration acd = new AnonymousClassDeclaration(loc, new SimpleType(loc, enumIClass));
+
+        if (!ec.constructors.isEmpty()) {
+            this.compileError("Class body of enum constant must not declare a constructor", loc);
+        }
+
+        DeepCopier dc = new DeepCopier();
+        for (MethodDeclarator md : ec.getMethodDeclarations()) {
+            acd.addDeclaredMethod(dc.copyMethodDeclarator(md));
+        }
+        for (MemberTypeDeclaration mtd : ec.getMemberTypeDeclarations()) {
+            acd.addMemberTypeDeclaration(dc.copyMemberTypeDeclaration(mtd));
+        }
+        for (FieldDeclarationOrInitializer fdoi : ec.fieldDeclarationsAndInitializers) {
+            acd.addFieldDeclarationOrInitializer(dc.copyFieldDeclarationOrInitializer(fdoi));
+        }
+
+        this.enumConstantBodyClasses.add(acd);
+
+        return acd;
+    }
+
+    /**
+     * The anonymous classes that implement the class bodies of enum constants; see {@link
+     * #enumConstantBodyClass(EnumConstant, IClass)}.
+     */
+    private final Set<TypeDeclaration> enumConstantBodyClasses = new HashSet<>();
+
+    /**
+     * @return Whether the <var>td</var> is the anonymous class that implements the class body of an enum constant
+     */
+    private boolean
+    isEnumConstantBody(TypeDeclaration td) { return this.enumConstantBodyClasses.contains(td); }
+
+    /**
+     * @return The ordinal of the enum constant iff the <var>scope</var> is the field declaration of an enum constant
+     *         (see {@code compile2(AbstractClassDeclaration)}), otherwise -1
+     */
+    private static int
+    enumConstantOrdinal(Scope scope) {
+
+        if (!(scope instanceof FieldDeclaration)) return -1;
+        FieldDeclaration fd = (FieldDeclaration) scope;
+
+        if (!(fd.getEnclosingScope() instanceof EnumDeclaration)) return -1;
+        EnumDeclaration ed = (EnumDeclaration) fd.getEnclosingScope();
+
+        if (fd.variableDeclarators.length != 1) return -1;
+        String fieldName = fd.variableDeclarators[0].name;
+
+        int ordinal = 0;
+        for (EnumConstant ec : ed.getConstants()) {
+            if (fieldName.equals(ec.name)) return ordinal;
+            ordinal++;
+        }
+        return -1;
+    }
+
+    /**
+     * @return Whether the <var>td</var> is a member type of an interface, which is implicitly public and static
+     *         (JLS8 9.5)
+     */
+    private static boolean
+    isMemberTypeOfInterface(TypeDeclaration td) {
+        return (
+            td instanceof MemberTypeDeclaration
+            && ((MemberTypeDeclaration) td).getDeclaringType() instanceof InterfaceDeclaration
+        );
     }
 
     /**
@@ -1896,31 +2163,52 @@ class UnitCompiler {
                 }
             }
 
-            CodeContext.Offset toCondition = this.getCodeContext().new BasicBlock();
-            StackMap smBeforeBody = this.codeContext.currentInserter().getStackMap();
-            this.gotO(fs, toCondition);
-
-            // Compile body.
-            fs.whereToContinue = null;
-            this.codeContext.currentInserter().setStackMap(smBeforeBody);
-            final CodeContext.Offset bodyOffset = this.getCodeContext().newBasicBlock();
-            boolean                  bodyCcn    = this.compile(fs.body);
-            if (fs.whereToContinue != null) fs.whereToContinue.set();
-
-            // Compile update.
-            if (ou != null) {
-                if (!bodyCcn && fs.whereToContinue == null) {
-                    this.warning("FUUR", "For update is unreachable", fs.getLocation());
-                } else
-                {
-                    for (Rvalue rv : ou) this.compile(rv);
-                }
+            // GOTO condition.
+            final CodeContext.Offset bodyOffset;
+            final Inserter           bodyInserter;
+            {
+                CodeContext.Offset toCondition = this.getCodeContext().new BasicBlock();
+                this.gotO(fs, toCondition);
+                bodyOffset   = this.getCodeContext().newBasicBlock();
+                bodyInserter = this.codeContext.newInserter();
+                toCondition.set();
             }
-            fs.whereToContinue = null;
 
-            // Compile condition.
-            toCondition.set();
+            // Compile the condition first, like in "compile2(WhileStatement)": The body and the update are inserted
+            // before it, and the body is compiled with the stack map of the branch to it, which includes the local
+            // variables that the condition assigns when it is TRUE, e.g. "for (...; (x = f()) > 0; ...) { use(x); }".
             this.compileBoolean(oc, bodyOffset, UnitCompiler.JUMP_IF_TRUE);
+
+            StackMap smBody = bodyOffset.getStackMap();
+            if (smBody == null) {
+
+                // The condition never branches to the body (it is the constant FALSE).
+                smBody = this.codeContext.currentInserter().getStackMap();
+                bodyOffset.setStackMap(smBody);
+            }
+
+            // Now compile the body and the update.
+            this.codeContext.pushInserter(bodyInserter);
+            try {
+                this.codeContext.currentInserter().setStackMap(smBody);
+
+                fs.whereToContinue = null;
+                boolean bodyCcn = this.compile(fs.body);
+                if (fs.whereToContinue != null) fs.whereToContinue.set();
+
+                // Compile update.
+                if (ou != null) {
+                    if (!bodyCcn && fs.whereToContinue == null) {
+                        this.warning("FUUR", "For update is unreachable", fs.getLocation());
+                    } else
+                    {
+                        for (Rvalue rv : ou) this.compile(rv);
+                    }
+                }
+                fs.whereToContinue = null;
+            } finally {
+                this.codeContext.popInserter();
+            }
         } finally {
             this.getCodeContext().restoreLocalVariables();
         }
@@ -2156,9 +2444,13 @@ class UnitCompiler {
         try {
 
             try {
-                StackMap smBeforeBody = this.codeContext.currentInserter().getStackMap();
+
+                // The body is compiled with the stack map of the branch to it, which includes the local variables
+                // that the condition assigns when it is TRUE, e.g. "while (z && (x = f()) > 0) { use(x); }".
+                StackMap smBody = bodyOffset.getStackMap();
+                if (smBody == null) smBody = this.codeContext.currentInserter().getStackMap();
                 this.codeContext.pushInserter(bodyInserter);
-                this.codeContext.currentInserter().setStackMap(smBeforeBody);
+                this.codeContext.currentInserter().setStackMap(smBody);
 
                 if (!this.compile(ws.body) && ws.whereToContinue == null) {
                     this.warning("DSNTC", "\"where\" statement never repeats", ws.getLocation());
@@ -3152,13 +3444,43 @@ class UnitCompiler {
     private boolean
     compile2(ThrowStatement ts) throws CompileException {
         IType expressionType = this.compileGetValue(ts.expression);
-        this.checkThrownException(
-            ts,                    // locatable
-            expressionType,        // type
-            ts.getEnclosingScope() // scope
-        );
+
+        // JLS7 11.2.2: "throw e;" with a multi-catch parameter "e" ("catch (A | B e)") throws the alternatives,
+        // not their common supertype.
+        CatchParameter multiCatchParameter = this.multiCatchParameter(ts.expression);
+        if (multiCatchParameter != null) {
+            for (Type t : multiCatchParameter.types) {
+                this.checkThrownException(
+                    ts,                    // locatable
+                    this.getRawType(t),    // type
+                    ts.getEnclosingScope() // scope
+                );
+            }
+        } else {
+            this.checkThrownException(
+                ts,                    // locatable
+                expressionType,        // type
+                ts.getEnclosingScope() // scope
+            );
+        }
         this.athrow(ts);
         return false;
+    }
+
+    /**
+     * The local variables of the multi-catch parameters ({@code catch (A | B e)}); see {@link
+     * #getLocalVariable(CatchParameter)}.
+     */
+    private final Map<LocalVariable, CatchParameter> multiCatchParameters = new HashMap<>();
+
+    /**
+     * @return The multi-catch parameter ({@code catch (A | B e)}) that the <var>rv</var> accesses, or {@code null}
+     */
+    @Nullable private CatchParameter
+    multiCatchParameter(Rvalue rv) throws CompileException {
+        Atom a = rv instanceof AmbiguousName ? this.reclassify((AmbiguousName) rv) : rv;
+        if (!(a instanceof LocalVariableAccess)) return null;
+        return (CatchParameter) this.multiCatchParameters.get(((LocalVariableAccess) a).localVariable);
     }
 
     /**
@@ -3586,38 +3908,45 @@ class UnitCompiler {
                 this.getCodeContext().saveLocalVariables();
                 try {
 
-                    CatchClause catchClause = (CatchClause) catchClauses.get(i);
+                    CatchClause    catchClause    = (CatchClause) catchClauses.get(i);
+                    CatchParameter catchParameter = catchClause.catchParameter;
 
-                    if (catchClause.catchParameter.types.length != 1) {
-                        throw UnitCompiler.compileException(catchClause, "Multi-type CATCH parameter NYI");
-                    }
-                    IClass caughtExceptionType = this.getRawType(catchClause.catchParameter.types[0]);
+                    IClass[] caughtExceptionTypes = this.checkCatchParameter(catchParameter);
 
                     // Verify that the CATCH clause is reachable.
                     if (!catchClause.reachable) {
                         this.compileError("Catch clause is unreachable", catchClause.getLocation());
                     }
 
+                    // The type of the exception variable is the type of the parameter; for a multi-catch parameter,
+                    // that is the nearest common superclass of the alternatives (see "getLocalVariable()").
+                    LocalVariable exceptionVariable     = this.getLocalVariable(catchParameter);
+                    IClass        exceptionVariableType = UnitCompiler.rawTypeOf(exceptionVariable.type);
+
                     // Push the exception on the operand stack.
-                    this.getCodeContext().pushObjectOperand(caughtExceptionType.getDescriptor());
+                    this.getCodeContext().pushObjectOperand(exceptionVariableType.getDescriptor());
 
                     // Allocate the "exception variable".
                     LocalVariableSlot
-                    exceptionVarSlot = this.allocateLocalVariableSlot(caughtExceptionType, catchClause.catchParameter.name);
+                    exceptionVarSlot = this.allocateLocalVariableSlot(exceptionVariableType, catchParameter.name);
 
                     // Kludge: Treat the exception variable like a local variable of the catch clause body.
-                    this.getLocalVariable(catchClause.catchParameter).setSlot(exceptionVarSlot);
+                    exceptionVariable.setSlot(exceptionVarSlot);
 
-                    this.addExceptionTableEntries(
-                        key,                                   // key
-                        beginningOfBody,                       // startPC
-                        afterBody,                             // endPC
-                        this.getCodeContext().newBasicBlock(), // handlerPC
-                        caughtExceptionType.getDescriptor()    // catchTypeFD
-                    );
+                    // One exception table entry per alternative of a multi-catch parameter, with a common handler.
+                    CodeContext.Offset handlerPc = this.getCodeContext().newBasicBlock();
+                    for (IClass caughtExceptionType : caughtExceptionTypes) {
+                        this.addExceptionTableEntries(
+                            key,                                // key
+                            beginningOfBody,                    // startPC
+                            afterBody,                          // endPC
+                            handlerPc,                          // handlerPC
+                            caughtExceptionType.getDescriptor() // catchTypeFD
+                        );
+                    }
                     this.store(
                         catchClause,                    // locatable
-                        caughtExceptionType,            // lvType
+                        exceptionVariableType,          // lvType
                         exceptionVarSlot.getSlotIndex() // lvIndex
                     );
 
@@ -3642,6 +3971,55 @@ class UnitCompiler {
         return bodyCcn | catchCcn;
     }
 
+    /**
+     * Checks that the types of the <var>catchParameter</var> are throwable (the JVM rejects a class file with an
+     * exception handler for another type), and that no alternative of a multi-catch parameter ({@code catch (A | B
+     * e)}) is a subtype of another alternative (JLS7 14.20).
+     *
+     * @return The raw types of the <var>catchParameter</var>
+     */
+    private IClass[]
+    checkCatchParameter(CatchParameter catchParameter) throws CompileException {
+
+        IClass[] types = new IClass[catchParameter.types.length];
+        for (int i = 0; i < types.length; i++) {
+            IClass type = (types[i] = this.getRawType(catchParameter.types[i]));
+
+            if (!this.iClassLoader.TYPE_java_lang_Throwable.isAssignableFrom(type)) {
+                this.compileError(
+                    "Catch parameter type \"" + type + "\" is not assignable to \"Throwable\"",
+                    catchParameter.getLocation()
+                );
+            }
+
+            for (int j = 0; j < i; j++) {
+                IClass subtype, supertype;
+                if (types[j].isAssignableFrom(type)) {
+                    subtype   = type;
+                    supertype = types[j];
+                } else
+                if (type.isAssignableFrom(types[j])) {
+                    subtype   = types[j];
+                    supertype = type;
+                } else
+                {
+                    continue;
+                }
+                this.compileError((
+                    "Alternative \""
+                    + subtype
+                    + "\" of multi-catch parameter \""
+                    + catchParameter.name
+                    + "\" is a subtype of alternative \""
+                    + supertype
+                    + "\""
+                ), catchParameter.getLocation());
+            }
+        }
+
+        return types;
+    }
+
     // ------------ FunctionDeclarator.compile() -------------
 
     private void
@@ -3658,6 +4036,8 @@ class UnitCompiler {
     private void
     compile2(FunctionDeclarator fd, final ClassFile classFile) throws CompileException {
         ClassFile.MethodInfo mi;
+
+        if (fd instanceof MethodDeclarator) this.checkMethodModifiers((MethodDeclarator) fd);
 
         if (this.getTargetVersion() < 8 && fd instanceof MethodDeclarator && ((MethodDeclarator) fd).isDefault()) {
             this.compileError((
@@ -3726,6 +4106,7 @@ class UnitCompiler {
             short accessFlags = this.accessFlags(fd.getModifiers());
 
             if (fd.formalParameters.variableArity) accessFlags |= Mod.VARARGS;
+            if (this.superclassMethodAccessors.contains(fd)) accessFlags |= Mod.SYNTHETIC;
 
             if (fd.getDeclaringType() instanceof InterfaceDeclaration) {
 
@@ -3757,6 +4138,35 @@ class UnitCompiler {
 
         // Add method annotations with retention != SOURCE.
         this.compileAnnotations(fd.getAnnotations(), mi, classFile);
+
+        // Add parameter annotations with retention != SOURCE (JVMS8 4.7.18 and 4.7.19). The "num_parameters" is the
+        // number of parameters of the method descriptor, so that it includes the parameters that are prepended to
+        // the declared ones: The enclosing instance and the captured local variables of inner class constructors,
+        // the name and the ordinal of enum constructors, and the "this" of a private instance method (see above).
+        // ("javac" writes the number of declared parameters, and relies on the "EnclosingMethod" attribute, which
+        // this compiler does not generate, when the reflection API matches the annotations to the parameters.)
+        {
+            final ClassFile.MethodInfo mi2             = mi;
+            final FormalParameter[]    fps             = fd.formalParameters.parameters;
+            final int                  numParameters   = new MethodDescriptor(mi.getDescriptor()).parameterFds.length;
+            final int                  parameterOffset = numParameters - fps.length;
+            for (int i = 0; i < fps.length; i++) {
+                final int parameterIndex = i + parameterOffset;
+                this.compileAnnotations(fps[i].getAnnotations(), classFile, new AnnotationSink() {
+
+                    @Override public void
+                    add(boolean runtimeVisible, String fieldDescriptor, Map<Short, ClassFile.ElementValue> evps) {
+                        mi2.addParameterAnnotationsAttributeEntry(
+                            runtimeVisible,
+                            parameterIndex,
+                            numParameters,
+                            fieldDescriptor,
+                            evps
+                        );
+                    }
+                });
+            }
+        }
 
         // Add "Exceptions" attribute (JVMS 4.7.4).
         {
@@ -3885,9 +4295,13 @@ class UnitCompiler {
 
                 ConstructorDeclarator constructorDeclarator = (ConstructorDeclarator) fd;
 
-                if (fd.getDeclaringType() instanceof EnumDeclaration) {
+                if (
+                    fd.getDeclaringType() instanceof EnumDeclaration
+                    || this.isEnumConstantBody(fd.getDeclaringType())
+                ) {
 
-                    // Define special constructor parameters "String $name" and "int $ordinal" for enums.
+                    // Define special constructor parameters "String $name" and "int $ordinal" for enums, and for
+                    // the class bodies of enum constants, which pass them on to the enum's constructor.
                     LocalVariable lv1 = this.allocateLocalVariableAndMarkAsInitialized(true /*finaL*/, this.iClassLoader.TYPE_java_lang_String);
                     constructorDeclarator.syntheticParameters.put("$name", lv1);
 
@@ -4364,12 +4778,17 @@ class UnitCompiler {
 
         if (parameter.localVariable != null) return parameter.localVariable;
 
-        if (parameter.types.length != 1) {
-            throw UnitCompiler.compileException(parameter, "Multi-type CATCH parameters NYI");
-        }
+        // JLS7 14.20: The type of a multi-catch parameter ("catch (A | B e)") is the least upper bound of the
+        // alternatives, here (with erased types) their nearest common superclass; the parameter is implicitly final.
         IType parameterType = this.getType(parameter.types[0]);
+        for (int i = 1; i < parameter.types.length; i++) {
+            parameterType = this.commonSupertype(parameterType, this.getType(parameter.types[i]));
+        }
 
-        return (parameter.localVariable = new LocalVariable(parameter.finaL, parameterType));
+        LocalVariable result = new LocalVariable(parameter.finaL || parameter.types.length > 1, parameterType);
+        if (parameter.types.length > 1) this.multiCatchParameters.put(result, parameter);
+
+        return (parameter.localVariable = result);
     }
 
     // ------------------ Rvalue.compile() ----------------
@@ -4503,8 +4922,7 @@ class UnitCompiler {
             LocalVariable lv = this.isIntLv(c);
             if (lv != null) {
 
-                // A local variable that was never assigned has no type in the current stack map yet.
-                if (this.findLocalVariableTypeInfo(lv.getSlotIndex()) == null) {
+                if (!this.isDefinitelyAssigned(lv.getSlotIndex())) {
                     this.compileError("Local variable \"" + c.operand + "\" is not initialized", c.getLocation());
                     return;
                 }
@@ -5144,9 +5562,14 @@ class UnitCompiler {
 
     private IClass
     compileGet2(BooleanRvalue brv) throws CompileException {
-        CodeContext.Offset isTrue = this.getCodeContext().new BasicBlock();
-        isTrue.setStackMap(this.getCodeContext().currentInserter().getStackMap());
+        CodeContext.Offset isTrue   = this.getCodeContext().new BasicBlock();
+        StackMap           smBefore = this.getCodeContext().currentInserter().getStackMap();
         this.compileBoolean(brv, isTrue, UnitCompiler.JUMP_IF_TRUE);
+
+        // The stack map of "isTrue" is that of the branches to it, which includes the local variables that the
+        // expression assigns, e.g. "(x = 1) > 0"; iff the expression is the constant FALSE, there is no branch.
+        if (isTrue.getStackMap() == null) isTrue.setStackMap(smBefore);
+
         this.consT(brv, 0);
         CodeContext.Offset end = this.getCodeContext().new BasicBlock();
         this.gotO(brv, end);
@@ -5166,9 +5589,9 @@ class UnitCompiler {
     compileGet2(LocalVariableAccess lva) throws CompileException {
         LocalVariable lv = lva.localVariable;
 
-        // A local variable that was never assigned has no type in the current stack map yet.
+        // A local variable that is not definitely assigned has no type in the current stack map, or the type "top".
         VerificationTypeInfo vti = this.findLocalVariableTypeInfo(lv.getSlotIndex());
-        if (vti == null) {
+        if (vti == null || vti == StackMapTableAttribute.TOP_VARIABLE_INFO) {
             this.compileError("Local variable \"" + lva + "\" is not initialized", lva.getLocation());
             return this.pushPlaceholder(lva, lv.type);
         }
@@ -5180,6 +5603,7 @@ class UnitCompiler {
     private IType
     compileGet2(FieldAccess fa) throws CompileException {
         this.checkAccessible(fa.field, fa.getEnclosingScope(), fa.getLocation());
+        this.checkProtectedFieldAccessibleThroughReceiver(fa);
         this.getfield(fa, fa.field);
         return fa.field.getType();
     }
@@ -5346,19 +5770,70 @@ class UnitCompiler {
 
             this.compileBoolean(ce.lhs, toRhs, UnitCompiler.JUMP_IF_FALSE);
 
+            // The constant values allow for the narrowing of an "int" constant, e.g. in "z ? b : 5" (type "byte").
             this.compileGetValue(ce.mhs);
-            this.assignmentConversion(ce.mhs, mhsType, expressionType, UnitCompiler.NOT_CONSTANT);
+            this.assignmentConversion(ce.mhs, mhsType, expressionType, this.getConstantValue(ce.mhs));
             this.gotO(ce, toEnd);
 
-            this.getCodeContext().currentInserter().setStackMap(sm);
+            // The RHS is compiled with the stack map of the branches to it, which includes the local variables that
+            // the condition assigns when it is FALSE; iff the condition never branches, with the stack map before it.
+            StackMap smRhs = toRhs.getStackMap();
+            this.getCodeContext().currentInserter().setStackMap(smRhs != null ? smRhs : sm);
             toRhs.setBasicBlock();
             this.compileGetValue(ce.rhs);
-            this.assignmentConversion(ce.mhs, rhsType, expressionType, UnitCompiler.NOT_CONSTANT);
+            this.assignmentConversion(ce.rhs, rhsType, expressionType, this.getConstantValue(ce.rhs));
 
             toEnd.set();
         }
 
         return expressionType;
+    }
+
+    /**
+     * Implements the rule of JLS7 15.25, list 1, bullet 4, bullet 2: One operand of the conditional expression
+     * <var>ce</var> has the type <var>t</var> ({@code byte}, {@code short} or {@code char}), and the other operand
+     * (with the type <var>otherType</var> and the constant value <var>otherCv</var>) is a constant expression of type
+     * {@code int} whose value is representable in <var>t</var>; then the type of the conditional expression is
+     * <var>t</var>.
+     * <p>
+     *   Janino 3.1.12 applied the rule also to constants of other types and to operands that are not constant (issue
+     *   #38). For compatibility, that is kept where the code compiled: with a constant condition, where the selected
+     *   operand can be cast to <var>t</var>; otherwise, where the other operand is converted to <var>t</var> without
+     *   a narrowing conversion. Where the code did not compile, the rule is not applied, and the type is determined
+     *   by binary numeric promotion, like by JAVAC (issue #56).
+     * </p>
+     *
+     * @return Whether the type of the conditional expression is <var>t</var>
+     */
+    private boolean
+    narrowConditionalType(ConditionalExpression ce, IClass t, IType otherType, @Nullable Object otherCv)
+    throws CompileException {
+
+        Object lhsCv = this.getConstantValue(ce.lhs);
+
+        if (otherCv != UnitCompiler.NOT_CONSTANT) {
+
+            // The constant must be representable in T (issue #51).
+            if (this.convertConstant(otherCv, t) == UnitCompiler.NOT_CONVERTIBLE) return false;
+
+            // A constant of type "int": the rule of the JLS.
+            if (otherCv instanceof Integer) return true;
+
+            // A constant of another type: compatibility, see above. (With a constant condition, the selected
+            // operand is cast to T; both operands are primitive here, so that cast is always possible.)
+            return lhsCv instanceof Boolean;
+        }
+
+        // The other operand is not constant: compatibility, see above.
+        if (lhsCv instanceof Boolean) {
+            IType selectedType = ((Boolean) lhsCv).booleanValue() ? this.getType(ce.mhs) : this.getType(ce.rhs);
+            if (UnitCompiler.isPrimitive(selectedType)) return true;
+            IClass unboxedType = this.isUnboxingConvertible(selectedType);
+            return unboxedType != null && (unboxedType == t || this.isWideningPrimitiveConvertible(unboxedType, t));
+        }
+        if (otherType instanceof IClass && this.isWideningPrimitiveConvertible((IClass) otherType, t)) return true;
+        IClass unboxedType = this.isUnboxingConvertible(otherType);
+        return unboxedType != null && (unboxedType == t || this.isWideningPrimitiveConvertible(unboxedType, t));
     }
 
     private IType
@@ -5406,8 +5881,7 @@ class UnitCompiler {
         LocalVariable lv = this.isIntLv(c);
         if (lv != null) {
 
-            // A local variable that was never assigned has no type in the current stack map yet.
-            if (this.findLocalVariableTypeInfo(lv.getSlotIndex()) == null) {
+            if (!this.isDefinitelyAssigned(lv.getSlotIndex())) {
                 this.compileError("Local variable \"" + c.operand + "\" is not initialized", c.getLocation());
                 return this.pushPlaceholder(c, IClass.INT);
             }
@@ -5640,7 +6114,8 @@ class UnitCompiler {
         IClass.IMethod iMethod = this.findIMethod(mi);
 
         // Compute the objectref for an instance method.
-        Atom ot = mi.target;
+        IType receiverType = null;
+        Atom  ot           = mi.target;
         if (ot == null) {
 
             // JLS7 6.5.7.1, 15.12.4.1.1.1
@@ -5722,7 +6197,7 @@ class UnitCompiler {
                 } else {
 
                     // JLS9 15.12.4.1.3.2 and .4.2
-                    this.compileGetValue(rot);
+                    receiverType = this.compileGetValue(rot);
 
                     if (this.getCodeContext().peekNullOperand()) {
                         this.compileError("Method invocation target is always null");
@@ -5772,6 +6247,14 @@ class UnitCompiler {
         }
         // Invoke!
         this.checkAccessible(iMethod, mi.getEnclosingScope(), mi.getLocation());
+        if (receiverType != null) {
+            this.checkProtectedMemberAccessibleThroughReceiver(
+                iMethod,
+                receiverType,
+                mi.getEnclosingScope(),
+                mi.getLocation()
+            );
+        }
         if (!iMethod.getDeclaringIClass().isInterface() && !iMethod.isStatic() && iMethod.getAccess() == Access.PRIVATE) {
 
             // In order to make a non-static private method invocable for enclosing types, enclosed types and types
@@ -5896,10 +6379,61 @@ class UnitCompiler {
             this.compileError("Cannot invoke superclass method in non-method scope", scmi.getLocation());
             return IClass.INT;
         }
-        if (fd instanceof MethodDeclarator && ((MethodDeclarator) fd).isStatic()) {
+        boolean isAccessor = this.superclassMethodAccessors.contains(fd);
+        if (fd instanceof MethodDeclarator && ((MethodDeclarator) fd).isStatic() && !isAccessor) {
             this.compileError("Cannot invoke superclass method in static context", scmi.getLocation());
         }
-        this.loadThis(scmi, this.resolve(fd.getDeclaringType()));
+
+        IClass qualification = this.superclassMethodInvocationQualification(scmi);
+        IClass currentClass  = this.resolve(fd.getDeclaringType());
+
+        int              opcode                = Opcode.INVOKESPECIAL;
+        IClass           declaringIClass       = iMethod.getDeclaringIClass();
+        String           methodName            = iMethod.getName();
+        MethodDescriptor methodDescriptor      = iMethod.getDescriptor();
+        boolean          useInterfaceMethodref = false;
+
+        if (qualification != null && qualification.isInterface()) {
+
+            // "InterfaceName.super.m()": Invoke the default method of the direct superinterface (JLS8 15.12.3).
+            this.loadThis(scmi, currentClass);
+            declaringIClass       = qualification;
+            useInterfaceMethodref = true;
+        } else
+        if (qualification != null && qualification != currentClass) {
+
+            // "ClassName.super.m()" with a lexically enclosing class: The JVM allows "invokespecial" only on the
+            // superclasses of the current class, so, like JAVAC, invoke a synthetic static method of the enclosing
+            // class that invokes the superclass method on the enclosing instance.
+            AbstractClassDeclaration enclosingClass = this.qualifiedSuperclassMethodInvocationClass(
+                fd.getDeclaringType(),
+                qualification,
+                scmi
+            );
+            MethodDeclarator accessor = this.superclassMethodAccessor(enclosingClass, iMethod, scmi.getLocation());
+
+            QualifiedThisReference qtr = new QualifiedThisReference(
+                scmi.getLocation(),
+                new SimpleType(scmi.getLocation(), qualification)
+            );
+            qtr.setEnclosingScope(scmi.getEnclosingScope());
+            this.compileGetValue(qtr);
+
+            opcode           = Opcode.INVOKESTATIC;
+            declaringIClass  = qualification;
+            methodName       = accessor.name;
+            methodDescriptor = this.toIMethod(accessor).getDescriptor();
+        } else
+        if (isAccessor) {
+
+            // In the synthetic accessor method (which is static), the instance is the first parameter.
+            ParameterAccess pa = new ParameterAccess(scmi.getLocation(), fd.formalParameters.parameters[0]);
+            pa.setEnclosingScope(scmi.getEnclosingScope());
+            this.compileGetValue(pa);
+        } else
+        {
+            this.loadThis(scmi, currentClass);
+        }
 
         // Evaluate method parameters.
         // TODO: adjust args
@@ -5915,15 +6449,143 @@ class UnitCompiler {
 
         // Invoke!
         this.invoke(
-            scmi,                         // locatable
-            Opcode.INVOKESPECIAL,         // opcode
-            iMethod.getDeclaringIClass(), // declaringIClass
-            iMethod.getName(),            // methodName
-            iMethod.getDescriptor(),      // methodMd
-            false                         // useInterfaceMethodref
+            scmi,                 // locatable
+            opcode,               // opcode
+            declaringIClass,      // declaringIClass
+            methodName,           // methodName
+            methodDescriptor,     // methodMd
+            useInterfaceMethodref // useInterfaceMethodref
         );
 
         return iMethod.getReturnType();
+    }
+
+    /**
+     * The synthetic static methods through which inner classes invoke superclass methods of their enclosing classes
+     * ("{@code ClassName.super.m()}"), by enclosing class declaration and invoked method; see {@link
+     * #superclassMethodAccessor(AbstractClassDeclaration, IMethod, Location)}.
+     */
+    private final Map<AbstractClassDeclaration, Map<IMethod, MethodDeclarator>>
+    superclassMethodAccessorsByClass = new HashMap<>();
+
+    /**
+     * All the synthetic accessor methods of {@link #superclassMethodAccessorsByClass}.
+     */
+    private final Set<FunctionDeclarator> superclassMethodAccessors = new HashSet<>();
+
+    /**
+     * @return The raw type of the qualification of the <var>smi</var>, or {@code null} iff it has none
+     */
+    @Nullable private IClass
+    superclassMethodInvocationQualification(SuperclassMethodInvocation smi) throws CompileException {
+        return smi.qualification == null ? null : this.getRawType(smi.qualification);
+    }
+
+    /**
+     * Determines the class whose superclass method a qualified superclass method invocation ("{@code
+     * ClassName.super.m()}") invokes: The <var>currentType</var> itself, or a class declaration that lexically
+     * encloses it (JLS7 15.12.1); reports a compile error if the <var>qualification</var> is neither.
+     */
+    private AbstractClassDeclaration
+    qualifiedSuperclassMethodInvocationClass(
+        TypeDeclaration currentType,
+        IClass          qualification,
+        Locatable       locatable
+    ) throws CompileException {
+
+        for (Scope s = currentType; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (s instanceof AbstractClassDeclaration && this.resolve((AbstractClassDeclaration) s) == qualification) {
+                return (AbstractClassDeclaration) s;
+            }
+        }
+
+        this.compileError((
+            "\""
+            + qualification
+            + "\" is neither the current class nor an enclosing class of \""
+            + this.resolve(currentType)
+            + "\""
+        ), locatable.getLocation());
+
+        for (Scope s = currentType;; s = s.getEnclosingScope()) {
+            if (s instanceof AbstractClassDeclaration) return (AbstractClassDeclaration) s;
+        }
+    }
+
+    /**
+     * Returns the synthetic static method of the <var>enclosingClass</var> that invokes the superclass method
+     * <var>iMethod</var> on its first parameter, and creates it if it does not exist yet (like JAVAC):
+     * <pre>
+     *     static RT access$N01(EnclosingClass x0, P1 x1, ...) throws ... { return super.m(x1, ...); }
+     * </pre>
+     * The method is compiled with the other methods of the <var>enclosingClass</var>, after its member types (see
+     * {@link #compile2(AbstractClassDeclaration)}).
+     */
+    private MethodDeclarator
+    superclassMethodAccessor(AbstractClassDeclaration enclosingClass, IMethod iMethod, Location loc)
+    throws CompileException {
+
+        Map<IMethod, MethodDeclarator> accessors = (
+            (Map<IMethod, MethodDeclarator>) this.superclassMethodAccessorsByClass.get(enclosingClass)
+        );
+        if (accessors == null) {
+            accessors = new HashMap<>();
+            this.superclassMethodAccessorsByClass.put(enclosingClass, accessors);
+        }
+
+        MethodDeclarator result = (MethodDeclarator) accessors.get(iMethod);
+        if (result != null) return result;
+
+        IClass[]          parameterTypes   = iMethod.getParameterTypes();
+        FormalParameter[] formalParameters = new FormalParameter[parameterTypes.length + 1];
+        Rvalue[]          arguments        = new Rvalue[parameterTypes.length];
+        formalParameters[0] = new FormalParameter(
+            loc,                                                  // location
+            new Modifier[0],                                      // modifiers
+            new SimpleType(loc, this.resolve(enclosingClass)),    // type
+            "x0"                                                  // name
+        );
+        for (int i = 0; i < parameterTypes.length; i++) {
+            formalParameters[i + 1] = new FormalParameter(
+                loc,                                   // location
+                new Modifier[0],                       // modifiers
+                new SimpleType(loc, parameterTypes[i]), // type
+                "x" + (i + 1)                          // name
+            );
+            arguments[i] = new ParameterAccess(loc, formalParameters[i + 1]);
+        }
+
+        IClass[] thrownExceptions     = iMethod.getThrownExceptions();
+        Type[]   thrownExceptionTypes = new Type[thrownExceptions.length];
+        for (int i = 0; i < thrownExceptions.length; i++) {
+            thrownExceptionTypes[i] = new SimpleType(loc, thrownExceptions[i]);
+        }
+
+        Rvalue         invocation = new SuperclassMethodInvocation(loc, iMethod.getName(), arguments);
+        BlockStatement statement  = (
+            iMethod.getReturnType() == IClass.VOID
+            ? (BlockStatement) new ExpressionStatement(invocation)
+            : new ReturnStatement(loc, invocation)
+        );
+
+        result = new MethodDeclarator(
+            loc,                                                // location
+            null,                                               // docComment
+            UnitCompiler.accessModifiers(loc, "static"),        // modifiers
+            null,                                               // typeParameters
+            new SimpleType(loc, iMethod.getReturnType()),       // type
+            "access$" + accessors.size() + "01",                // name
+            new FormalParameters(loc, formalParameters, false), // formalParameters
+            thrownExceptionTypes,                               // thrownExceptions
+            null,                                               // defaultValue
+            Collections.singletonList(statement)                // statements
+        );
+        enclosingClass.addDeclaredMethod(result);
+
+        accessors.put(iMethod, result);
+        this.superclassMethodAccessors.add(result);
+
+        return result;
     }
 
     private IType
@@ -6043,7 +6705,8 @@ class UnitCompiler {
         IClass sc = this.resolve(acd).getSuperclass();
         assert sc != null;
 
-        if (sc.isEnum()) {
+        // An anonymous subclass of an enum is permitted only as the class body of an enum constant (JLS 8.9.1).
+        if (sc.isEnum() && UnitCompiler.enumConstantOrdinal(naci.getEnclosingScope()) < 0) {
             this.compileError("Cannot instantiate enum \"" + sc + "\"", naci.getLocation());
             this.pushPlaceholder(naci, sc);
             return sc;
@@ -6473,9 +7136,12 @@ class UnitCompiler {
             cv = this.getConstantValue(ce.rhs);
         }
 
-        // E.g. "true ? 'a' : (short) -1" has type "int" (binary numeric promotion), so its value is 97, not 'a'.
-        if (ceType == IClass.INT && (cv instanceof Byte || cv instanceof Short || cv instanceof Character)) {
-            return this.convertConstant(cv, IClass.INT);
+        // The value has the type of the conditional expression, not the type of the selected operand (JLS7 15.28):
+        // e.g. "true ? 1 : 2.0" has type "double", so its value is 1.0, not 1, and "true ? 97 : c" (with a "char c")
+        // has type "char", so its value is 'a', not 97 (issues #51 and #55).
+        if (ceType instanceof IClass && ((IClass) ceType).isPrimitiveNumeric()) {
+            Object converted = this.convertConstant(cv, ceType);
+            if (converted != UnitCompiler.NOT_CONVERTIBLE) return converted;
         }
 
         return cv;
@@ -7248,7 +7914,7 @@ class UnitCompiler {
             @Override @Nullable public Void visitFieldAccess(FieldAccess fa)                                            throws CompileException { UnitCompiler.this.compileSet2(fa);    return null; }
             @Override @Nullable public Void visitFieldAccessExpression(FieldAccessExpression fae)                       throws CompileException { UnitCompiler.this.compileSet2(fae);   return null; }
             @Override @Nullable public Void visitSuperclassFieldAccessExpression(SuperclassFieldAccessExpression scfae) throws CompileException { UnitCompiler.this.compileSet2(scfae); return null; }
-            @Override @Nullable public Void visitLocalVariableAccess(LocalVariableAccess lva)                                                   { UnitCompiler.this.compileSet2(lva);   return null; }
+            @Override @Nullable public Void visitLocalVariableAccess(LocalVariableAccess lva)                            throws CompileException { UnitCompiler.this.compileSet2(lva);   return null; }
             @Override @Nullable public Void visitParenthesizedExpression(ParenthesizedExpression pe)                    throws CompileException { UnitCompiler.this.compileSet2(pe);    return null; }
         });
     }
@@ -7258,11 +7924,24 @@ class UnitCompiler {
     }
 
     private void
-    compileSet2(LocalVariableAccess lva) { this.store(lva, lva.localVariable); }
+    compileSet2(LocalVariableAccess lva) throws CompileException {
+
+        // JLS7 14.20: A multi-catch parameter ("catch (A | B e)") is implicitly final.
+        CatchParameter multiCatchParameter = (CatchParameter) this.multiCatchParameters.get(lva.localVariable);
+        if (multiCatchParameter != null) {
+            this.compileError(
+                "Multi-catch parameter \"" + multiCatchParameter.name + "\" must not be assigned",
+                lva.getLocation()
+            );
+        }
+
+        this.store(lva, lva.localVariable);
+    }
 
     private void
     compileSet2(FieldAccess fa) throws CompileException {
         this.checkAccessible(fa.field, fa.getEnclosingScope(), fa.getLocation());
+        this.checkProtectedFieldAccessibleThroughReceiver(fa);
         this.putfield(fa, fa.field);
     }
     private void
@@ -7936,15 +8615,14 @@ class UnitCompiler {
                 && (mhsType == IClass.SHORT || mhsType == this.iClassLoader.TYPE_java_lang_Short)
             ) return IClass.SHORT;
 
-            // JLS7 15.25, list 1, bullet 4, bullet 2: "b ? (byte) 1 : byte => byte". If the constant is not
-            // representable in the type of the other operand (e.g. "b ? 'a' : (short) -1"), the rule does not apply,
-            // and the type is determined by binary numeric promotion (bullet 4).
+            // JLS7 15.25, list 1, bullet 4, bullet 2: "b ? (byte) 1 : byte => byte". If the rule does not apply,
+            // the type is determined by binary numeric promotion (bullet 4).
             Object rhscv = this.getConstantValue(ce.rhs);
             if (
                 (mhsType == IClass.BYTE || mhsType == IClass.SHORT || mhsType == IClass.CHAR)
                 && rhscv != null
             ) {
-                if (this.convertConstant(rhscv, mhsType) != UnitCompiler.NOT_CONVERTIBLE) return mhsType;
+                if (this.narrowConditionalType(ce, (IClass) mhsType, rhsType, rhscv)) return mhsType;
                 return this.binaryNumericPromotionType(ce, mhsType, this.getUnboxedType(rhsType));
             }
             Object mhscv = this.getConstantValue(ce.mhs);
@@ -7952,7 +8630,7 @@ class UnitCompiler {
                 (rhsType == IClass.BYTE || rhsType == IClass.SHORT || rhsType == IClass.CHAR)
                 && mhscv != null
             ) {
-                if (this.convertConstant(mhscv, rhsType) != UnitCompiler.NOT_CONVERTIBLE) return rhsType;
+                if (this.narrowConditionalType(ce, (IClass) rhsType, mhsType, mhscv)) return rhsType;
                 return this.binaryNumericPromotionType(ce, this.getUnboxedType(mhsType), rhsType);
             }
 
@@ -8451,6 +9129,84 @@ class UnitCompiler {
             + iClassDeclaringMember
             + "\"."
         );
+    }
+
+    /**
+     * Checks the restriction on the access to a {@code protected} instance member through a receiver expression
+     * (JLS7 6.6.2.1): If the member is declared in a class in another package, then the type of the receiver must be
+     * the class in whose body the access occurs, or an enclosing class, or a subclass of one of these. The JVM
+     * verifies the same (JVMS8 4.10.1.8) and rejects the class otherwise (issue #54).
+     */
+    private void
+    checkProtectedMemberAccessibleThroughReceiver(
+        IClass.IMember member,
+        IType          receiverType,
+        Scope          contextScope,
+        Location       location
+    ) throws CompileException {
+
+        if (member.getAccess() != Access.PROTECTED) return;
+        if (member instanceof IClass.IMethod && ((IClass.IMethod) member).isStatic()) return;
+        if (member instanceof IClass.IField && ((IClass.IField) member).isStatic()) return;
+
+        IClass declaringIClass = member.getDeclaringIClass();
+        IClass rawReceiverType = UnitCompiler.rawTypeOf(receiverType);
+
+        // The members of an array type are public (JLS7 10.7).
+        if (rawReceiverType.isArray()) return;
+
+        IClass iClassDeclaringContext = this.getIClassDeclaringContext(contextScope);
+        if (iClassDeclaringContext == null) return;
+
+        // Within the package of the declaring class, a protected member is accessible like a member with package
+        // access.
+        if (Descriptor.areInSamePackage(declaringIClass.getDescriptor(), iClassDeclaringContext.getDescriptor())) {
+            return;
+        }
+
+        for (IClass c = iClassDeclaringContext; c != null; c = c.getOuterIClass()) {
+            if (declaringIClass.isAssignableFrom(c) && c.isAssignableFrom(rawReceiverType)) return;
+        }
+
+        this.compileError((
+            member.toString()
+            + ": Protected member cannot be accessed through an expression of type \""
+            + receiverType
+            + "\", which is neither \""
+            + iClassDeclaringContext
+            + "\" nor a subclass of it."
+        ), location);
+    }
+
+    /**
+     * @see #checkProtectedMemberAccessibleThroughReceiver(IClass.IMember, IType, Scope, Location)
+     */
+    private void
+    checkProtectedFieldAccessibleThroughReceiver(FieldAccess fa) throws CompileException {
+
+        if (fa.field.getAccess() != Access.PROTECTED || fa.field.isStatic() || this.isType(fa.lhs)) return;
+
+        // "super.field" is compiled as a field access through "this", cast to the superclass (see
+        // "determineValue(SuperclassFieldAccessExpression)"); that access is permitted.
+        if (fa.lhs instanceof Cast && ((Cast) fa.lhs).value instanceof ThisReference) return;
+
+        this.checkProtectedMemberAccessibleThroughReceiver(
+            fa.field,
+            this.getType(this.toRvalueOrCompileException(fa.lhs)),
+            fa.getEnclosingScope(),
+            fa.getLocation()
+        );
+    }
+
+    /**
+     * @return The class that declares the given context, or {@code null} iff the context is not declared in a class
+     */
+    @Nullable private IClass
+    getIClassDeclaringContext(Scope contextScope) throws CompileException {
+        for (Scope s = contextScope; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (s instanceof TypeDeclaration) return this.resolve((TypeDeclaration) s);
+        }
+        return null;
     }
 
     /**
@@ -9018,6 +9774,29 @@ class UnitCompiler {
             scope          // contextScope
         );
 
+        // A protected constructor can be invoked by a class instance creation expression that does not declare an
+        // anonymous class only from within the package in which it is declared (JLS7 6.6.2.2); the JVM rejects the
+        // class otherwise (issue #54).
+        if (locatable instanceof NewClassInstance && iConstructor.getAccess() == Access.PROTECTED) {
+            IClass iClassDeclaringContext = this.getIClassDeclaringContext(scope);
+            if (
+                iClassDeclaringContext != null
+                && !Descriptor.areInSamePackage(
+                    iConstructor.getDeclaringIClass().getDescriptor(),
+                    iClassDeclaringContext.getDescriptor()
+                )
+            ) {
+                this.compileError((
+                    iConstructor.toString()
+                    + ": Protected constructor cannot be invoked from type \""
+                    + iClassDeclaringContext
+                    + "\", which is not declared in the same package as \""
+                    + iConstructor.getDeclaringIClass()
+                    + "\"."
+                ), locatable.getLocation());
+            }
+        }
+
         // Check exceptions that the constructor may throw.
         IClass[] thrownExceptions = iConstructor.getThrownExceptions();
         for (IClass te : thrownExceptions) {
@@ -9025,30 +9804,28 @@ class UnitCompiler {
         }
 
         // Enum constant: Pass constant name and ordinal as synthetic parameters.
-        ENUM_CONSTANT:
+        int ordinal = UnitCompiler.enumConstantOrdinal(scope);
+        if (ordinal >= 0) {
+            this.consT(locatable, ((FieldDeclaration) scope).variableDeclarators[0].name);
+            this.consT(locatable, ordinal);
+        } else
         if (
-            scope instanceof FieldDeclaration
-            && scope.getEnclosingScope() instanceof EnumDeclaration
+            locatable instanceof SuperConstructorInvocation
+            && scope instanceof ConstructorDeclarator
+            && this.isEnumConstantBody(((ConstructorDeclarator) scope).getDeclaringClass())
         ) {
 
-            FieldDeclaration fd = (FieldDeclaration) scope;
-            EnumDeclaration  ed = (EnumDeclaration) fd.getEnclosingScope();
+            // Constructor of the class body of an enum constant: Pass the synthetic "$name" and "$ordinal"
+            // parameters on to the constructor of the enum.
+            ConstructorDeclarator cd = (ConstructorDeclarator) scope;
 
-            if (fd.variableDeclarators.length != 1) break ENUM_CONSTANT;
+            LocalVariable nameLv = (LocalVariable) cd.syntheticParameters.get("$name");
+            assert nameLv != null;
+            this.load(locatable, nameLv);
 
-            String fieldName = fd.variableDeclarators[0].name;
-
-            int ordinal = 0;
-            for (EnumConstant ec : ed.getConstants()) {
-                if (fieldName.equals(ec.name)) {
-
-                    // Now we know that this field IS an enum constant.
-                    this.consT(locatable, fieldName);
-                    this.consT(locatable, ordinal);
-                    break ENUM_CONSTANT;
-                }
-                ordinal++;
-            }
+            LocalVariable ordinalLv = (LocalVariable) cd.syntheticParameters.get("$ordinal");
+            assert ordinalLv != null;
+            this.load(locatable, ordinalLv);
         }
 
         // Pass enclosing instance as a synthetic parameter.
@@ -9132,7 +9909,22 @@ class UnitCompiler {
                             Scope s;
 
                             // Does one of the enclosing blocks declare a local variable with that name?
-                            for (s = scope; s instanceof BlockStatement; s = s.getEnclosingScope()) {
+                            for (
+                                s = scope;
+                                s instanceof BlockStatement || s instanceof CatchClause;
+                                s = s.getEnclosingScope()
+                            ) {
+
+                                // Is it the parameter of an enclosing CATCH clause?
+                                if (s instanceof CatchClause) {
+                                    CatchParameter cp = ((CatchClause) s).catchParameter;
+                                    if (cp.name.equals(localVariableName)) {
+                                        lv = this.getLocalVariable(cp);
+                                        break DETERMINE_LV;
+                                    }
+                                    continue;
+                                }
+
                                 BlockStatement       bs = (BlockStatement) s;
                                 Scope                es = bs.getEnclosingScope();
 
@@ -10034,14 +10826,23 @@ class UnitCompiler {
 
         Rvalue lhs;
         {
-            ThisReference tr = new ThisReference(scfae.getLocation());
-            tr.setEnclosingScope(scfae.getEnclosingScope());
-            IType type;
+            Rvalue thisReference;
+            IType  type;
             if (scfae.qualification != null) {
-                type = this.getType(scfae.qualification);
+
+                // "ClassName.super.fld": The field of the superclass of the current class, or of a lexically
+                // enclosing class (JLS7 15.11.2); "ClassName.this" is the instance.
+                type          = this.getType(scfae.qualification);
+                thisReference = new QualifiedThisReference(
+                    scfae.getLocation(),
+                    new SimpleType(scfae.getLocation(), type)
+                );
+                thisReference.setEnclosingScope(scfae.getEnclosingScope());
             } else
             {
-                type = this.getType(tr);
+                thisReference = new ThisReference(scfae.getLocation());
+                thisReference.setEnclosingScope(scfae.getEnclosingScope());
+                type          = this.getType(thisReference);
             }
 
             IType superclass = UnitCompiler.getSuperclass(type);
@@ -10049,7 +10850,7 @@ class UnitCompiler {
                 throw new CompileException("Cannot use \"super\" on \"" + type + "\"", scfae.getLocation());
             }
 
-            lhs = new Cast(scfae.getLocation(), new SimpleType(scfae.getLocation(), superclass), tr);
+            lhs = new Cast(scfae.getLocation(), new SimpleType(scfae.getLocation(), superclass), thisReference);
         }
 
         Rvalue value;
@@ -10248,25 +11049,133 @@ class UnitCompiler {
     }
 
     /**
+     * @return The default method that the "{@code InterfaceName.super.m()}" invocation <var>smi</var> invokes
+     */
+    private IClass.IMethod
+    findSuperinterfaceIMethod(SuperclassMethodInvocation smi, IClass superinterface) throws CompileException {
+
+        // Determine the type declaration immediately enclosing the method invocation.
+        TypeDeclaration typeDeclaration;
+        for (Scope s = smi.getEnclosingScope();; s = s.getEnclosingScope()) {
+            if (s instanceof FunctionDeclarator) {
+                FunctionDeclarator fd = (FunctionDeclarator) s;
+                if (fd instanceof MethodDeclarator && ((MethodDeclarator) fd).isStatic()) {
+                    this.compileError("Superinterface method cannot be invoked in static context", smi.getLocation());
+                }
+            }
+            if (s instanceof TypeDeclaration) {
+                typeDeclaration = (TypeDeclaration) s;
+                break;
+            }
+        }
+        IClass type = this.resolve(typeDeclaration);
+
+        // JLS8 15.12.1: "It is a compile-time error if I is not a direct superinterface of T, or if there exists
+        // some other direct superclass or direct superinterface of T, J, such that J is a subtype of I."
+        IClass[] interfaces = type.getInterfaces();
+        boolean  isDirect   = false;
+        for (IClass i : interfaces) isDirect |= i == superinterface;
+        if (!isDirect) {
+            this.compileError(
+                "\"" + superinterface + "\" is not a direct superinterface of \"" + type + "\"",
+                smi.getLocation()
+            );
+        }
+        IClass superclass = type.getSuperclass();
+        for (int i = 0; i <= interfaces.length; i++) {
+            IClass j = i < interfaces.length ? interfaces[i] : superclass;
+            if (j == null || j == superinterface || !superinterface.isAssignableFrom(j)) continue;
+            this.compileError((
+                "Cannot invoke a method of \""
+                + superinterface
+                + "\" through \""
+                + superinterface
+                + ".super\": \""
+                + j
+                + "\", another direct supertype of \""
+                + type
+                + "\", is a subtype of \""
+                + superinterface
+                + "\""
+            ), smi.getLocation());
+        }
+
+        if (this.getTargetVersion() < 8) {
+            this.compileError(
+                "Superinterface method invocation only available for target version 8+",
+                smi.getLocation()
+            );
+        }
+
+        IMethod iMethod = this.findIMethod(superinterface, smi);
+        if (iMethod == null) {
+            this.compileError(
+                "Interface \"" + superinterface + "\" has no method named \"" + smi.methodName + "\"",
+                smi.getLocation()
+            );
+            return this.fakeIMethod(superinterface, smi.methodName, smi.arguments);
+        }
+
+        // JLS8 15.12.3: "It is a compile-time error if the compile-time declaration is abstract."
+        if (iMethod.isAbstract()) {
+            this.compileError((
+                "Abstract method \""
+                + iMethod
+                + "\" cannot be invoked through \""
+                + superinterface
+                + ".super\""
+            ), smi.getLocation());
+        }
+
+        this.checkThrownExceptions(smi, iMethod);
+
+        return iMethod;
+    }
+
+    /**
      * @return The {@link IClass.IMethod} that implements the <var>superclassMethodInvocation</var>
      */
     public IClass.IMethod
     findIMethod(SuperclassMethodInvocation superclassMethodInvocation) throws CompileException {
+
+        IClass qualification = this.superclassMethodInvocationQualification(superclassMethodInvocation);
+
+        // "InterfaceName.super.m()": A default method of a direct superinterface (JLS8 15.12.1, 15.12.3).
+        if (qualification != null && qualification.isInterface()) {
+            return this.findSuperinterfaceIMethod(superclassMethodInvocation, qualification);
+        }
+
+        TypeDeclaration          currentType = null;
         AbstractClassDeclaration declaringClass;
         for (Scope s = superclassMethodInvocation.getEnclosingScope();; s = s.getEnclosingScope()) {
             if (s instanceof FunctionDeclarator) {
                 FunctionDeclarator fd = (FunctionDeclarator) s;
-                if (fd instanceof MethodDeclarator && ((MethodDeclarator) fd).isStatic()) {
+                if (
+                    fd instanceof MethodDeclarator
+                    && ((MethodDeclarator) fd).isStatic()
+                    && !this.superclassMethodAccessors.contains(fd)
+                ) {
                     this.compileError(
                         "Superclass method cannot be invoked in static context",
                         superclassMethodInvocation.getLocation()
                     );
                 }
             }
+            if (currentType == null && s instanceof TypeDeclaration) currentType = (TypeDeclaration) s;
             if (s instanceof AbstractClassDeclaration) {
                 declaringClass = (AbstractClassDeclaration) s;
                 break;
             }
+        }
+
+        // "ClassName.super.m()": The superclass method of the current class, or of a lexically enclosing class
+        // (JLS7 15.12.1).
+        if (qualification != null) {
+            declaringClass = this.qualifiedSuperclassMethodInvocationClass(
+                currentType,
+                qualification,
+                superclassMethodInvocation
+            );
         }
 
         IClass superclass = this.resolve(declaringClass).getSuperclass();
@@ -11130,6 +12039,7 @@ class UnitCompiler {
             @Override public Access
             getAccess() {
 
+                if (UnitCompiler.isMemberTypeOfInterface(atd))        return Access.PUBLIC;
                 if (atd instanceof MemberClassDeclaration)            return ((MemberClassDeclaration)            atd).getAccess();
                 if (atd instanceof PackageMemberClassDeclaration)     return ((PackageMemberClassDeclaration)     atd).getAccess();
                 if (atd instanceof MemberInterfaceDeclaration)        return ((MemberInterfaceDeclaration)        atd).getAccess();
@@ -11161,6 +12071,7 @@ class UnitCompiler {
                                 + "\" is not an interface; classes can only implement interfaces"
                             ), td.getLocation());
                         }
+                        UnitCompiler.this.checkDuplicateInterface(res, i, ncd.implementedTypes[i]);
                     }
                     return res;
                 } else
@@ -11428,6 +12339,13 @@ class UnitCompiler {
 
                 List<String> parameterFds = new ArrayList<>();
 
+                // The class body of an enum constant has the synthetic "$name" and "$ordinal" parameters, like the
+                // enum itself (see "compile2(FunctionDeclarator)").
+                if (UnitCompiler.this.isEnumConstantBody(constructorDeclarator.getDeclaringClass())) {
+                    parameterFds.add(Descriptor.JAVA_LANG_STRING);
+                    parameterFds.add(Descriptor.INT);
+                }
+
                 // Convert enclosing instance reference into prepended constructor parameters.
                 IClass outerClass = UnitCompiler.this.resolve(
                     constructorDeclarator.getDeclaringClass()
@@ -11588,6 +12506,7 @@ class UnitCompiler {
                     (
                         methodDeclarator.getDeclaringType() instanceof InterfaceDeclaration
                         && !methodDeclarator.isDefault()
+                        && !methodDeclarator.isStatic()
                         && methodDeclarator.getAccess() != Access.PRIVATE
                     )
                     || methodDeclarator.isAbstract()
@@ -13252,10 +14171,12 @@ class UnitCompiler {
         assert opIdx == UnitCompiler.EQ || opIdx == UnitCompiler.NE : opIdx;
 
         this.addLineNumberOffset(locatable);
+
+        // Pop the operands BEFORE writing the branch, so that the stack map that is merged into the branch target's
+        // stack map is the one AFTER the branch instruction.
+        this.getCodeContext().popReferenceOperand();
+        this.getCodeContext().popReferenceOperand();
         this.getCodeContext().writeBranch(Opcode.IF_ACMPEQ + opIdx, dst);
-        this.getCodeContext().popReferenceOperand();
-        this.getCodeContext().popReferenceOperand();
-        dst.setStackMap(this.getCodeContext().currentInserter().getStackMap());
     }
 
     /**
@@ -13268,10 +14189,9 @@ class UnitCompiler {
         assert dst instanceof BasicBlock;
 
         this.addLineNumberOffset(locatable);
+        this.getCodeContext().popIntOperand();
+        this.getCodeContext().popIntOperand();
         this.getCodeContext().writeBranch(Opcode.IF_ICMPEQ + opIdx, dst);
-        this.getCodeContext().popIntOperand();
-        this.getCodeContext().popIntOperand();
-        dst.setStackMap(this.getCodeContext().currentInserter().getStackMap());
     }
 
     private static final int EQ = 0;
@@ -13288,16 +14208,14 @@ class UnitCompiler {
 
     private void
     ifnonnull(Locatable locatable, CodeContext.Offset dst) {
-        this.getCodeContext().writeBranch(Opcode.IFNONNULL, dst);
         this.getCodeContext().popReferenceOperand();
-        dst.setStackMap(this.getCodeContext().currentInserter().getStackMap());
+        this.getCodeContext().writeBranch(Opcode.IFNONNULL, dst);
     }
 
     private void
     ifnull(Locatable locatable, CodeContext.Offset dst) {
-        this.getCodeContext().writeBranch(Opcode.IFNULL, dst);
         this.getCodeContext().popReferenceOperand();
-        dst.setStackMap(this.getCodeContext().currentInserter().getStackMap());
+        this.getCodeContext().writeBranch(Opcode.IFNULL, dst);
     }
 
     /**
@@ -13308,9 +14226,8 @@ class UnitCompiler {
         assert opIdx >= UnitCompiler.EQ && opIdx <= UnitCompiler.LE;
 
         this.addLineNumberOffset(locatable);
-        this.getCodeContext().writeBranch(Opcode.IFEQ + opIdx, dst);
         this.getCodeContext().popIntOperand();
-        dst.setStackMap(this.getCodeContext().currentInserter().getStackMap());
+        this.getCodeContext().writeBranch(Opcode.IFEQ + opIdx, dst);
     }
 
     /**
@@ -14412,6 +15329,47 @@ class UnitCompiler {
         return sb.toString();
     }
 
+    /**
+     * Checks for the combinations of method modifiers that the JVM rejects (JVMS8 4.6), as far as the parser does not
+     * reject them ("abstract final") (issue #54).
+     */
+    private void
+    checkMethodModifiers(MethodDeclarator md) throws CompileException {
+
+        if (!md.isAbstract()) return;
+
+        String otherModifier = (
+            md.isStatic()                    ? "static"       :
+            md.getAccess() == Access.PRIVATE ? "private"      :
+            md.isNative()                    ? "native"       :
+            md.isSynchronized()              ? "synchronized" :
+            md.isStrictfp()                  ? "strictfp"     :
+            md.isDefault()                   ? "default"      :
+            null
+        );
+        if (otherModifier != null) {
+            this.compileError(
+                "Illegal combination of modifiers \"abstract\" and \"" + otherModifier + "\"",
+                md.getLocation()
+            );
+        }
+    }
+
+    /**
+     * Reports a compile error iff the <var>i</var>th of the <var>interfaces</var> is the same as one of the preceding
+     * ones; the JVM rejects a class or interface that names the same direct superinterface twice (JVMS8 4.1) (issue
+     * #54).
+     */
+    private void
+    checkDuplicateInterface(IClass[] interfaces, int i, Type type) throws CompileException {
+        for (int j = 0; j < i; ++j) {
+            if (interfaces[j].getDescriptor().equals(interfaces[i].getDescriptor())) {
+                this.compileError("Duplicate interface \"" + interfaces[i] + "\"", type.getLocation());
+                return;
+            }
+        }
+    }
+
     private short
     accessFlags(Modifier[] modifiers) throws CompileException {
         int result = 0;
@@ -14497,6 +15455,18 @@ class UnitCompiler {
         assert cism != null;
 
         return cism.findLocal(lvIndex);
+    }
+
+    /**
+     * @param lvIndex (two slots for LONG and DOUBLE local variables)
+     * @return        Whether the local variable is definitely assigned, i.e. has a type in the current stack map; a
+     *                local variable that is assigned on one path only has the type "top" after the merge of the paths
+     *                (issue #54)
+     */
+    private boolean
+    isDefinitelyAssigned(short lvIndex) {
+        VerificationTypeInfo vti = this.findLocalVariableTypeInfo(lvIndex);
+        return vti != null && vti != StackMapTableAttribute.TOP_VARIABLE_INFO;
     }
 
     private void

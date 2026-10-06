@@ -2,7 +2,8 @@
 #
 # The cases recorded as "ACCEPTED" stay as they are, deliberately: JANINO has always accepted this code, and
 # applications that generate code may depend on that. Do not turn them into compile errors by default (see
-# issue #33).
+# issue #33). The cases marked "generics" are accepted because type arguments are parsed, but otherwise
+# ignored.
 
 === unknown type
 janino: REJECTED Cannot determine simple type name "Foo"
@@ -234,4 +235,213 @@ public class P {
 janino: REJECTED No current instance available in static field initializer
 public class P {
     static Object o = this;
+}
+
+=== private member type of a JDK class
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    java.util.ArrayList.Itr x;
+}
+
+=== on-demand import of a package that does not exist
+janino: ACCEPTED
+recovery: ACCEPTED
+import foo.*;
+public class P {}
+
+=== static import of an instance method
+janino: ACCEPTED
+recovery: ACCEPTED
+import static java.lang.String.length;
+public class P {}
+
+=== protected method invoked on an instance of an unrelated type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
+public class P {
+    void f(Object o) throws Exception { o.clone(); }
+}
+
+=== generics: wrong number of type arguments
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    java.util.List<String, String> l;
+}
+
+=== generics: type arguments for a type that is not generic
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    String<Integer> s;
+}
+
+=== generics: incompatible parameterized types
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    java.util.List<String> l = new java.util.ArrayList<Integer>();
+}
+
+=== generics: unknown type as a type argument
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    java.util.List<Foo> l;
+}
+
+=== generics: generic array creation
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    Object f() { return new java.util.List<String>[1]; }
+}
+
+=== protected method invoked through a local variable of the superclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
+public class P implements Cloneable {
+    Object f() throws Exception { Object o = new P(); return o.clone(); }
+}
+
+=== protected method invoked through this, cast to the superclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
+public class P implements Cloneable {
+    Object f() throws Exception { return ((Object) this).clone(); }
+}
+
+=== protected method invoked through the result of a method of the superclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
+public class P implements Cloneable {
+    static Object g() { return new P(); }
+    Object f() throws Exception { return g().clone(); }
+}
+
+=== protected method of the superclass invoked in a default method
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
+interface I {
+    default Object f(Object o) throws Exception { return o.clone(); }
+}
+public class P implements I {
+}
+
+=== protected field of the superclass read through an expression of the superclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.FilterInputStream"
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    Object f(java.io.FilterInputStream s) { return s.in; }
+}
+
+=== protected field of the superclass assigned through an expression of the superclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.ByteArrayOutputStream"
+public class P extends java.io.ByteArrayOutputStream {
+    void f(java.io.ByteArrayOutputStream s) { s.count = 1; }
+}
+
+=== protected field of the superclass read through an expression of a sibling subclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.BufferedInputStream"
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    Object f(java.io.BufferedInputStream s) { return s.in; }
+}
+
+=== protected field of the superclass read through a local variable of the superclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.FilterInputStream"
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    Object f() { java.io.FilterInputStream s = new P(); return s.in; }
+}
+
+=== protected field of the superclass read through this, cast to the superclass type
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.FilterInputStream"
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    Object f() { return ((java.io.FilterInputStream) this).in; }
+}
+
+=== protected constructor invoked from a subclass in another package
+janino: REJECTED Protected constructor cannot be invoked from type "P"
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    Object f() { return new java.io.FilterInputStream(null); }
+}
+
+=== I.super.m() where I is not a direct superinterface
+janino: REJECTED "P$I" is not a direct superinterface of "P$C"
+public class P {
+    interface I { default String m() { return "i"; } }
+    interface J extends I { }
+    static class C implements J { public String m() { return I.super.m(); } }
+}
+
+=== I.super.m() where another direct superinterface extends I
+janino: REJECTED Cannot invoke a method of "P$I" through "P$I.super"
+public class P {
+    interface I { default String m() { return "i"; } }
+    interface J extends I { default String m() { return "j"; } }
+    static class C implements I, J { public String m() { return I.super.m(); } }
+}
+
+=== I.super.m() where m is abstract
+janino: REJECTED Abstract method "public abstract java.lang.String P$I.m()" cannot be invoked through "P$I.super"
+public class P {
+    interface I { String m(); }
+    static class C implements I { public String m() { return I.super.m(); } }
+}
+
+=== I.super.m() in a static method
+janino: REJECTED Superinterface method cannot be invoked in static context
+public class P {
+    interface I { default String m() { return "i"; } }
+    static class C implements I { static String s() { return I.super.m(); } }
+}
+
+=== I.super.m() in a class that does not implement I
+janino: REJECTED "P$I" is not a direct superinterface of "P$C"
+public class P {
+    interface I { default String m() { return "i"; } }
+    static class C { public String m() { return I.super.m(); } }
+}
+
+=== I.super.m() with an unknown method
+janino: REJECTED Interface "P$I" has no method named "nosuch"
+public class P {
+    interface I { default String m() { return "i"; } }
+    static class C implements I { public String m() { return I.super.nosuch(); } }
+}
+
+=== Outer.super.m() where the qualification is the superclass, not an enclosing class
+janino: REJECTED "P$Base" is neither the current class nor an enclosing class of "P$Sub"
+public class P {
+    static class Base { String m() { return "base"; } }
+    static class Sub extends Base { String m() { return Base.super.m(); } }
+}
+
+=== Outer.super.m() with an unknown method
+janino: REJECTED Class "P$Base" has no method named "m"
+public class P {
+    static class Base { }
+    static class Sub extends Base { class Inner { String call() { return Sub.super.m(); } } }
+}
+
+=== Outer.super.m() from a static nested class
+janino: REJECTED "Nested" is not enclosed by "P$Sub"
+public class P {
+    static class Base { String m() { return "base"; } }
+    static class Sub extends Base { static class Nested { String call() { return Sub.super.m(); } } }
+}
+
+=== Outer.super.m() from a local class in a static method
+janino: REJECTED "L" is not enclosed by "P$Sub"
+public class P {
+    static class Base { String m() { return "base"; } }
+    static class Sub extends Base {
+        static String s() { class L { String g() { return Sub.super.m(); } } return new L().g(); }
+    }
+}
+
+=== Outer.super.f from a static nested class
+janino: REJECTED "Nested" is not enclosed by "P$Sub"
+public class P {
+    static class Base { String f = "basef"; }
+    static class Sub extends Base { static class Nested { String call() { return Sub.super.f; } } }
 }

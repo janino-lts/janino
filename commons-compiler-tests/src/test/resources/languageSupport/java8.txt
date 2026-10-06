@@ -46,8 +46,8 @@ public class P {
 }
 
 === invocation of a superinterface default method (I.super.m())
+janino: OK
 jls: i
-janino: REJECTED Qualified superclass method invocation NYI
 public class P {
     interface I { default String m() { return "i"; } }
     static class C implements I { public String m() { return I.super.m(); } }
@@ -63,4 +63,105 @@ public class P {
         Object o = new Object() { public String toString() { return String.valueOf(x); } };
         return o.toString();
     }
+}
+
+=== static interface method: a class implements the interface, both declared in source code
+jls: ok
+janino: OK
+interface I { static void s() {} }
+public class P implements I {
+    public static Object run() { return "ok"; }
+}
+
+=== I.super.m(): with arguments
+jls: n2a!
+janino: OK
+public class P {
+    interface I { default String n(int x, String s) { return "n" + x + s; } }
+    static class C implements I { public String n(int x, String s) { return I.super.n(x + 1, s + "!"); } }
+    public static Object run() { return new C().n(1, "a"); }
+}
+
+=== I.super.m(): from the default method of a subinterface
+jls: ji
+janino: OK
+public class P {
+    interface I { default String m() { return "i"; } }
+    interface J extends I { default String m() { return "j" + I.super.m(); } }
+    static class C implements J { }
+    public static Object run() { return new C().m(); }
+}
+
+=== I.super.m(): the default method is inherited from a superinterface of I
+jls: ch
+janino: OK
+public class P {
+    interface H { default String m() { return "h"; } }
+    interface I extends H { }
+    static class C implements I { public String m() { return "c" + I.super.m(); } }
+    public static Object run() { return new C().m(); }
+}
+
+=== I.super.m(): two direct superinterfaces with the same default method
+jls: ij
+janino: OK
+public class P {
+    interface I { default String m() { return "i"; } }
+    interface J { default String m() { return "j"; } }
+    static class C implements I, J { public String m() { return I.super.m() + J.super.m(); } }
+    public static Object run() { return new C().m(); }
+}
+
+=== I.super.m(): in a constructor
+jls: i!
+janino: OK
+public class P {
+    interface I { default String m() { return "i"; } }
+    static class C implements I { String s; C() { s = I.super.m() + "!"; } public String m() { return "c"; } }
+    public static Object run() { return new C().s; }
+}
+
+=== I.super.m(): in an anonymous class
+jls: ai
+janino: OK
+public class P {
+    interface I { default String m() { return "i"; } }
+    public static Object run() {
+        I i = new I() { public String m() { return "a" + I.super.m(); } };
+        return i.m();
+    }
+}
+
+=== I.super.m(): a void method
+jls: ci
+janino: OK
+public class P {
+    interface I { default void m(StringBuilder sb) { sb.append("i"); } }
+    static class C implements I { public void m(StringBuilder sb) { sb.append("c"); I.super.m(sb); } }
+    public static Object run() { StringBuilder sb = new StringBuilder(); new C().m(sb); return sb.toString(); }
+}
+
+=== I.super.m(): the default method throws a checked exception
+jls: caught x
+janino: OK
+public class P {
+    interface I { default String m() throws java.io.IOException { throw new java.io.IOException("x"); } }
+    static class C implements I {
+        public String m() {
+            try { return I.super.m(); } catch (java.io.IOException e) { return "caught " + e.getMessage(); }
+        }
+    }
+    public static Object run() { return new C().m(); }
+}
+
+=== I.super.m(): a default method of a JDK interface
+jls: 1
+janino: OK
+import java.util.*;
+public class P {
+    static class C implements Comparator {
+        public int compare(Object a, Object b) { return ((String) a).compareTo((String) b); }
+        public Comparator reversed() { return Comparator.super.reversed(); }
+    }
+    public static Object run() { return new C().reversed().compare("a", "b"); }
 }

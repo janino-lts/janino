@@ -789,7 +789,12 @@ class AbstractTraverser<EX extends Throwable> implements Traverser<EX> {
     }
 
     @Override public void
-    traverseSuperclassMethodInvocation(SuperclassMethodInvocation smi) throws EX { this.traverseInvocation(smi); }
+    traverseSuperclassMethodInvocation(SuperclassMethodInvocation smi) throws EX {
+        if (smi.qualification != null) {
+            smi.qualification.accept(this.atomTraverser);
+        }
+        this.traverseInvocation(smi);
+    }
 
     @Override public void
     traverseLiteral(Literal l) throws EX { this.traverseRvalue(l); }

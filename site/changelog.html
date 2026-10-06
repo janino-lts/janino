@@ -49,7 +49,15 @@ h5 {
 
     <a href="index.html">Back to the JANINO home page</a>
 
-    <h4>Version 3.1.16 (unreleased)</h4>
+    <h4>Version 3.1.16 2026-10-06</h4>
+    <p>
+      Two language features that Janino parsed, but did not compile, are implemented now: multi-catch clauses and
+      qualified superclass method invocations. Most fixes concern conditional expressions, annotations, enums and
+      invalid code that compiled into class files that the JVM rejects; all of the defects exist in 3.1.12 already,
+      except #51 (a regression of 3.1.15) and #57 (since 3.1.13). The known deviations from JAVAC are documented in
+      <a href="https://github.com/janino-lts/janino/blob/HEAD/JAVAC_DIFFERENCES.md">Differences between Janino and
+      javac</a>.
+    </p>
     <ul>
       <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/51">issue #51</a>: Since 3.1.15, conditional
@@ -57,8 +65,166 @@ h5 {
         (e.g. <code>z ? c : (short) -1</code>) were rejected. They now have the type <code>int</code>, like with JAVAC;
         before 3.1.15, some of them compiled with the wrong type <code>char</code>, or into code that failed at run
         time. The same applies to an <code>int</code> constant that is not representable in the type of the other
-        operand (e.g. <code>z ? b : 500</code> with a <code>byte b</code>), which was rejected before. The class files
-        of code that compiled before are unchanged.
+        operand (e.g. <code>z ? b : 500</code> with a <code>byte b</code>), and to a <code>byte</code>,
+        <code>short</code> or <code>char</code> operand with a <code>long</code>, <code>float</code> or
+        <code>double</code> constant (e.g. <code>z ? c : 1L</code>), which were rejected before. The class files of
+        code that compiled before are unchanged.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/55">issue #55</a>: The constant value of a
+        conditional expression with a constant condition and operands of different types had the type of the
+        selected operand instead of the type of the expression: <code>"" + (true ? 1 : 2.0)</code> was
+        <code>"1"</code> instead of <code>"1.0"</code>, and <code>Object o = true ? 1 : 2L;</code> compiled into a
+        class file that the JVM rejects. As a consequence, such an expression is now rejected where its type does not
+        fit, like by JAVAC: <code>byte b = true ? 1 : 2L;</code> compiled before, with the value of the selected
+        operand.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/56">issue #56</a>: Conditional expressions in
+        which one operand has the type <code>byte</code>, <code>short</code> or <code>char</code> and the other
+        operand has a different numeric type were rejected, e.g. <code>z ? b : 5</code> (now of type
+        <code>byte</code>, like by JAVAC) and <code>z ? s : c</code> (now of type <code>int</code>). The types of
+        such expressions that compiled before are unchanged (see
+        <a href="https://github.com/janino-lts/janino/issues/38">issue #38</a>).
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/53">issue #53</a>: A class that implements an
+        interface with a static method was rejected ("must implement method") if the interface was declared in the
+        compiled code; with an interface from a class file, the class compiled. Janino does not check that static
+        interface methods are not inherited (JLS 8.4.8): <code>P.s()</code>, or an unqualified <code>s()</code>, in
+        a class <code>P</code> that implements <code>I</code> is accepted, as it was with interfaces from class
+        files.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/54">issue #54</a>: Invalid code that compiled
+        into class files that the JVM rejects is now rejected with a compile error: illegal combinations of modifiers
+        (<code>abstract static</code>, <code>private abstract</code>, <code>abstract native</code>,
+        <code>abstract synchronized</code>, <code>abstract strictfp</code>, <code>final volatile</code>), the same
+        interface twice in an <code>implements</code> or <code>extends</code> clause, the access to a
+        <code>protected</code> member of a class in another package through an expression whose type is neither the
+        accessing class nor a subclass of it (e.g. <code>o.clone()</code> with an <code>Object o</code>, JLS
+        6.6.2.1), the invocation of a <code>protected</code> constructor with <code>new</code> from another package
+        (JLS 6.6.2.2), and the use of a local variable that is not definitely assigned, e.g. one that is assigned only
+        in the body of a loop or in one branch of an <code>if</code> statement (some of these cases failed with an
+        <code>InternalCompilerException</code> before). The access through an expression that is cast to the
+        superclass (<code>((Object) this).clone()</code>), or through a local variable of the superclass type, is
+        rejected as well, like by JAVAC, although the JVM loaded such classes before.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/57">issue #57</a>: Since 3.1.13, valid code with
+        a local variable that is assigned in the body of a <code>do</code> statement, or in the right operand of
+        <code>&amp;&amp;</code> or <code>||</code>, compiled into class files that the JVM rejects ("Instruction type
+        does not match stack map", "Inconsistent stackmap frames"), e.g.
+        <code>int x; do { x = 1; } while (z); return x;</code>. The stack map frame of a branch target is now the
+        merge of all paths to it. In addition, a local variable that is assigned in the condition of a
+        <code>while</code> or <code>for</code> statement, or of a conditional expression, can now be read in the body
+        or in the operands (<code>for (int i = 0; (x = i) &lt; n; i++) { use(x); }</code>), which failed with an
+        <code>InternalCompilerException</code> in all versions. The class files of code that compiled correctly
+        before are unchanged, except that the constant pool entries of a class with <code>for</code> statements may
+        be ordered differently.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/43">issue #43</a>: Annotations of annotation
+        types that are declared as member types (<code>class P { @Retention(RUNTIME) @interface A {} }</code>) were
+        invisible at run time, because a member annotation type was compiled as an ordinary interface. It is now an
+        annotation type (<code>A.class.isAnnotation()</code>), and the <code>InnerClasses</code> attribute records
+        the implicit modifiers of member types (JLS 8.5.1, 9.5): <code>Class.getModifiers()</code> of a member
+        interface now includes <code>static</code>, <code>abstract</code> and <code>interface</code>, of a member
+        enum <code>static</code> and <code>final</code>, and of the member types of an interface <code>public</code>
+        and <code>static</code>; <code>Class.isMemberClass()</code>, <code>getDeclaringClass()</code> and
+        <code>getSimpleName()</code> work for member interfaces. A single-element annotation of a type without an
+        element <code>value</code> is rejected with a compile error instead of an <code>AssertionError</code>. Member
+        annotation types are now parsed like top-level ones: type parameters, an <code>extends</code> clause and
+        <code>default</code> or <code>static</code> methods are rejected, like by JAVAC, and a class that implements
+        a member annotation type must implement <code>annotationType()</code>. The class files of member interfaces,
+        member enums and member annotation types change accordingly; all other class files are unchanged.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/61">issue #61</a>: Annotations on method and
+        constructor parameters were not written to the class files, for all annotation types (declared, top-level
+        and JDK): <code>Method.getParameterAnnotations()</code> returned no annotations. The
+        <code>RuntimeVisibleParameterAnnotations</code> and <code>RuntimeInvisibleParameterAnnotations</code>
+        attributes are generated now; their <code>num_parameters</code> is the number of parameters of the method
+        descriptor, which includes the parameters that Janino prepends to the declared ones (see
+        <code>JAVAC_DIFFERENCES.md</code>). The class files of methods with parameter annotations change
+        accordingly.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/62">issue #62</a>: The member types of an
+        interface are implicitly <code>public</code> and <code>static</code> (JLS 9.5): <code>new I.C()</code> from a
+        static context was rejected ("No current instance available"), and the class files of such member types
+        lacked the <code>public</code> flag. An <code>enum</code> declared in an interface was rejected with a syntax
+        error.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/44">issue #44</a>: The class bodies of enum
+        constants (<code>enum E { A { String n() { return "a"; } }, ... }</code>) were ignored: the methods declared
+        there did not override the methods of the enum, and an enum with an abstract method was rejected. Like with
+        JAVAC, a constant with a class body is now an instance of an anonymous subclass of the enum
+        (<code>E$1</code>, <code>E.A.getClass() != E.class</code>), with its own methods, fields, initializers and
+        member classes; an enum with an abstract method is implicitly abstract, and each of its constants must have
+        a class body that implements the method. The class files of enums change: an enum without constant class
+        bodies now has the <code>final</code> flag, like with JAVAC (JLS 8.9); otherwise, the class files of code that
+        compiled correctly before are unchanged.
+      </li>
+      <li>
+        Implemented <a href="https://github.com/janino-lts/janino/issues/21">issue #21</a>: Multi-catch clauses
+        (<code>catch (IOException | SQLException e)</code>, JLS7 14.20) are compiled now; before, they were parsed,
+        but rejected ("Multi-type CATCH parameters NYI"). Each alternative gets an exception table entry with the
+        common handler; the type of the parameter is the nearest common superclass of the alternatives (not their
+        least upper bound with the interfaces that they implement, see <code>JAVAC_DIFFERENCES.md</code>); the
+        parameter is implicitly <code>final</code>, and <code>throw e;</code> rethrows the alternatives, not the
+        superclass. Like JAVAC, Janino rejects an assignment to the parameter, and alternatives that are related by
+        subclassing. In addition, a <code>catch</code> parameter whose type is not a <code>Throwable</code>, e.g.
+        <code>catch (Object e)</code> or <code>catch (java.io.Serializable e)</code>, is rejected with a compile
+        error; before, such code compiled into a class file that the JVM rejects. The class files of code that
+        compiled before are unchanged.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/63">issue #63</a>: An anonymous or local class
+        in a <code>catch</code> clause could access neither the <code>catch</code> parameter nor a local variable
+        that is declared before the <code>try</code> statement; the compiler failed
+        with an <code>InternalCompilerException</code> ("Synthetic field ... neither maps a synthetic field of an
+        enclosing instance nor a local variable").
+      </li>
+      <li>
+        Implemented <a href="https://github.com/janino-lts/janino/issues/22">issue #22</a>: Qualified superclass
+        method invocations are compiled now; before, they were rejected ("Qualified superclass method invocation
+        NYI"). <code>Interface.super.meth()</code> invokes a default method of a direct superinterface (JLS8 15.12.1;
+        <code>invokespecial</code> of the interface method, which requires target version 8 or later);
+        <code>Outer.super.meth()</code> invokes a superclass method of a lexically enclosing class from an inner
+        class; like JAVAC, Janino generates a synthetic static accessor method (<code>access$001</code>, ...) in the
+        enclosing class for that. Like JAVAC, Janino rejects an interface that is not a direct superinterface, or
+        that another direct supertype extends, an abstract method, and a class that is neither the current class nor
+        an enclosing class.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/66">issue #66</a>: The qualified superclass
+        field access <code>Outer.super.fld</code> from an inner class was rejected ("Cannot cast"); it compiled
+        only within the class <code>Outer</code> itself.
+      </li>
+      <li>
+        Compatibility: Code that compiled before behaves differently only where the old behavior was clearly wrong:
+        the class bodies of enum constants take effect (#44), the annotations of member annotation types are visible
+        at run time (#43), parameter annotations are written to the class files (#61), and the constant value of a
+        conditional expression with a constant condition has the type of the expression (#55). The generated class
+        files change only for these cases, for the member types of classes and interfaces (#43, #62) and for the
+        <code>final</code> flag of enums (#44); the constant pool entries of classes with <code>for</code> statements
+        may be ordered differently (#57). The compilation of Janino's own sources yields the same instructions as with
+        3.1.15. Measured interleaved against 3.1.15, the compile time is unchanged within the measurement error, and
+        the memory that a compilation allocates grows by 0.2 to 1 %. Some code that Janino accepted, but JAVAC
+        rejects, is now rejected as well: the code of #54, which the JVM rejected anyway, except for the access to a
+        <code>protected</code> member through an expression of a superclass type, e.g.
+        <code>((Object) this).clone()</code>, which the JVM loaded in some cases; a constant conditional expression of
+        type <code>long</code>, <code>float</code> or <code>double</code> where a narrower type is required, e.g.
+        <code>byte b = true ? 1 : 2L;</code> (#55); the forms of a member annotation type that only an ordinary
+        interface permits, e.g. type parameters or an <code>extends</code> clause (#43); and a <code>catch</code>
+        parameter whose type is not a <code>Throwable</code> (#21), which the JVM rejected anyway. Other invalid code
+        that Janino accepts is still accepted (<a href="https://github.com/janino-lts/janino/issues/33">issue #33</a>).
+      </li>
+      <li>
+        New tests: 131 more cases of invalid code in the negative tests (now 368), 176 more characterization tests
+        (now 377), and the differential test of control flow statements generates multi-catch clauses as well.
       </li>
     </ul>
 

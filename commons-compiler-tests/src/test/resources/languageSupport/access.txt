@@ -1,0 +1,116 @@
+# Access control: protected members of a superclass in another package, protected constructors, members of
+# arrays. See "LanguageSupportTest" for the format.
+
+=== protected method of the superclass invoked through a variable of the class
+jls: true
+janino: OK
+public class P implements Cloneable {
+    public static Object run() throws Exception { P p = new P(); return String.valueOf(p.clone() != null); }
+}
+
+=== protected method of the superclass invoked through super
+jls: true
+janino: OK
+public class P implements Cloneable {
+    Object f() throws Exception { return super.clone(); }
+    public static Object run() throws Exception { return String.valueOf(new P().f() != null); }
+}
+
+=== protected method of the superclass invoked through this
+jls: true
+janino: OK
+public class P implements Cloneable {
+    Object f() throws Exception { return this.clone(); }
+    public static Object run() throws Exception { return String.valueOf(new P().f() != null); }
+}
+
+=== protected method of the superclass invoked unqualified
+jls: true
+janino: OK
+public class P implements Cloneable {
+    Object f() throws Exception { return clone(); }
+    public static Object run() throws Exception { return String.valueOf(new P().f() != null); }
+}
+
+=== protected method of the superclass invoked through a variable of a subclass
+jls: true
+janino: OK
+public class P implements Cloneable {
+    static class Q extends P {}
+    public static Object run() throws Exception { Q q = new Q(); return String.valueOf(q.clone() != null); }
+}
+
+=== clone() of an int array
+jls: true
+janino: OK
+public class P {
+    public static Object run() {
+        int[] a = { 1 }; int[] b = (int[]) a.clone();
+        return String.valueOf(b != a && b[0] == 1);
+    }
+}
+
+=== clone() of an Object array
+jls: true
+janino: OK
+public class P {
+    public static Object run() {
+        Object[] a = { "x" }; Object[] b = (Object[]) a.clone();
+        return String.valueOf(b != a && b[0] == "x");
+    }
+}
+
+=== protected field of the superclass read through a variable of the class
+jls: true
+janino: OK
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    public static Object run() { P p = new P(); return String.valueOf(p.in == null); }
+}
+
+=== protected field of the superclass read through this, unqualified and through super
+jls: true
+janino: OK
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    Object f() { return this.in; }
+    Object g() { return in; }
+    Object h() { return super.in; }
+    public static Object run() {
+        P p = new P();
+        return String.valueOf(p.f() == null && p.g() == null && p.h() == null);
+    }
+}
+
+=== protected field of the superclass assigned through a variable of the class
+jls: 1
+janino: OK
+public class P extends java.io.ByteArrayOutputStream {
+    public static Object run() { P p = new P(); p.count = 1; return String.valueOf(p.count); }
+}
+
+=== protected static method of the superclass invoked unqualified and through the superclass
+jls: true
+janino: OK
+public class P extends ClassLoader {
+    public static Object run() {
+        boolean a = registerAsParallelCapable() || true;
+        boolean b = ClassLoader.registerAsParallelCapable() || true;
+        return String.valueOf(a && b);
+    }
+}
+
+=== anonymous subclass of a class with a protected constructor, in an unrelated class
+jls: true
+janino: OK
+public class P {
+    public static Object run() { return String.valueOf(new java.io.FilterInputStream(null) {} != null); }
+}
+
+=== subclass whose constructor invokes the protected constructor of the superclass
+jls: true
+janino: OK
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    public static Object run() { return String.valueOf(new P() != null); }
+}

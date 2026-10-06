@@ -581,6 +581,120 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    test_6_6_2_1__Access_to_a_protected_Member() throws Exception {
+
+        // A protected instance member of a class in another package is accessible through an expression only if the
+        // type of the expression is the class in which the access occurs, or a subclass of it (issue #54).
+        String u   = "Protected member cannot be accessed through an expression|compiler.err.report.access";
+        String fis = "import java.io.*; public class Foo extends FilterInputStream { Foo() { super(null); }\n";
+
+        this.assertCompilationUnitMainReturnsTrue(
+            fis
+            + "    static class Bar extends Foo {}\n"
+            + "    Object f() { return this.in; }\n"
+            + "    Object g() { return in; }\n"
+            + "    Object h() { return super.in; }\n"
+            + "    static Object i(Foo foo) { return foo.in; }\n"
+            + "    static Object j(Bar bar) { return bar.in; }\n"
+            + "    public static boolean main() {\n"
+            + "        Foo foo = new Foo();\n"
+            + "        return foo.f() == null && foo.g() == null && foo.h() == null && i(foo) == null\n"
+            + "            && j(new Bar()) == null;\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "public class Foo implements Cloneable {\n"
+            + "    static class Bar extends Foo {}\n"
+            + "    Object f() throws Exception { return super.clone(); }\n"
+            + "    Object g() throws Exception { return this.clone(); }\n"
+            + "    Object h() throws Exception { return clone(); }\n"
+            + "    public static boolean main() throws Exception {\n"
+            + "        Foo foo = new Foo(); Bar bar = new Bar(); int[] a = { 1 };\n"
+            + "        return foo.f() != null && foo.g() != null && foo.h() != null && foo.clone() != null\n"
+            + "            && bar.clone() != null && a.clone() != a;\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "public class Foo extends java.io.ByteArrayOutputStream {\n"
+            + "    public static boolean main() { Foo foo = new Foo(); foo.count = 1; return foo.count == 1; }\n"
+            + "}\n",
+            "Foo"
+        );
+
+        // A protected static member is accessible through any expression.
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "public class Foo extends ClassLoader {\n"
+            + "    public static boolean main() {\n"
+            + "        return (registerAsParallelCapable() || true)\n"
+            + "            && (ClassLoader.registerAsParallelCapable() || true);\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+
+        // The type of the expression is the superclass, a sibling subclass, or "this" cast to the superclass.
+        this.assertCompilationUnitUncookable(fis + "static Object f(FilterInputStream s) { return s.in; } }", u);
+        this.assertCompilationUnitUncookable(fis + "static Object f(BufferedInputStream s) { return s.in; } }", u);
+        this.assertCompilationUnitUncookable(fis + "Object f() { return ((FilterInputStream) this).in; } }", u);
+        this.assertCompilationUnitUncookable(
+            fis + "static Object f() { FilterInputStream s = new Foo(); return s.in; } }",
+            u
+        );
+        this.assertCompilationUnitUncookable(
+            "class Foo { static Object f(Object o) throws Exception { return o.clone(); } }",
+            u
+        );
+        this.assertCompilationUnitUncookable(
+            "class Foo implements Cloneable { Object f() throws Exception { return ((Object) this).clone(); } }",
+            u
+        );
+        this.assertCompilationUnitUncookable(
+            "class Foo implements Cloneable { Object f() throws Exception { Object o = new Foo(); return o.clone(); } }"
+            ,
+            u
+        );
+        this.assertCompilationUnitUncookable(
+            "import java.io.*; class Foo extends ByteArrayOutputStream {"
+            + " void f(ByteArrayOutputStream s) { s.count = 1; } }",
+            u
+        );
+    }
+
+    @Test public void
+    test_6_6_2_2__Qualified_Access_to_a_protected_Constructor() throws Exception {
+
+        // A protected constructor can be invoked by a class instance creation expression only from within the package
+        // of the class, but by an anonymous class instance creation expression or "super(...)" from anywhere (issue
+        // #54).
+        String u = "Protected constructor cannot be invoked|has protected access|compiler.err.report.access";
+        this.assertCompilationUnitUncookable(
+            ""
+            + "class Foo extends java.io.FilterInputStream {\n"
+            + "    Foo() { super(null); }\n"
+            + "    static Object f() { return new java.io.FilterInputStream(null); }\n"
+            + "}\n",
+            u
+        );
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "public class Foo extends java.io.FilterInputStream {\n"
+            + "    Foo() { super(null); }\n"
+            + "    public static boolean main() {\n"
+            + "        return new Foo() != null && new java.io.FilterInputStream(null) {} != null;\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+    }
+
+    @Test public void
     test_7_5__Import_declarations() throws Exception {
 
         // Default imports
@@ -670,6 +784,88 @@ class JlsTest extends CommonsCompilerTestSuite {
         this.assertCompilationUnitUncookable("protected private          class Foo {}", "allowed");
         this.assertCompilationUnitUncookable("private public             class Foo {}", "allowed");
         this.assertCompilationUnitUncookable("abstract final             class Foo {}", "Only one of abstract final is allowed|illegal combination");
+    }
+
+    @Test public void
+    test_8_1_5__Superinterfaces() throws Exception {
+
+        // The same interface twice (issue #54).
+        String u = "Duplicate interface|repeated interface|compiler.err.repeated.interface";
+        this.assertCompilationUnitUncookable("class Foo implements Runnable, Runnable { public void run() {} }", u);
+        this.assertCompilationUnitUncookable("class Foo implements java.lang.Cloneable, Cloneable {}", u);
+        this.assertCompilationUnitUncookable("interface I {} interface Foo extends I, I {}", u);
+
+        // A superinterface of another superinterface, or of the superclass, may be repeated.
+        this.assertCompilationUnitCookable("interface I {} interface J extends I {} class Foo implements I, J {}");
+        this.assertCompilationUnitCookable(
+            "abstract class A implements Cloneable {} class Foo extends A implements Cloneable {}"
+        );
+    }
+
+    @Test public void
+    test_8_3_1__Field_Modifiers() throws Exception {
+
+        // "final" and "volatile" (issue #54).
+        String u = "(?i)illegal combination of modifiers|compiler.err.illegal.combination.of.modifiers";
+        this.assertClassBodyUncookable("final volatile int x = 1;", u);
+        this.assertClassBodyUncookable("static final volatile int x = 1;", u);
+        this.assertClassBodyCookable("transient final int x = 1;");
+        this.assertClassBodyCookable("static transient volatile int x;");
+    }
+
+    @Test public void
+    test_8_4_3__Method_Modifiers() throws Exception {
+
+        // "abstract" with another modifier (issue #54).
+        String u = "(?i)illegal combination of modifiers|compiler.err.illegal.combination.of.modifiers";
+        this.assertCompilationUnitUncookable("abstract class Foo { abstract static void f(); }", u);
+        this.assertCompilationUnitUncookable("abstract class Foo { private abstract void f(); }", u);
+        this.assertCompilationUnitUncookable("abstract class Foo { abstract native void f(); }", u);
+        this.assertCompilationUnitUncookable("abstract class Foo { abstract synchronized void f(); }", u);
+        this.assertCompilationUnitUncookable("abstract class Foo { abstract strictfp void f(); }", u);
+        this.assertCompilationUnitUncookable("interface Foo { abstract static void f(); }", u);
+        this.assertCompilationUnitUncookable("interface Foo { abstract default void f() {} }", u + "|must not have a body");
+        this.assertCompilationUnitCookable(
+            "abstract class Foo { abstract void f(); native void g(); synchronized native void h(); }"
+        );
+    }
+
+    @Test public void
+    test_8_5__Member_Type_Declarations() throws Exception {
+
+        // The implicit modifiers of member types (JLS 8.5.1, 8.9, 9.1.1), as the "InnerClasses" attribute records
+        // them, are visible through "Class.getModifiers()"; the attribute also provides the declaring class and the
+        // simple name (issue #43).
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.reflect.Modifier;\n"
+            + "public class Foo {\n"
+            + "    static class Sc {}\n"
+            + "    class Ic {}\n"
+            + "    public abstract static class Asc {}\n"
+            + "    interface I {}\n"
+            + "    strictfp interface J {}\n"
+            + "    enum E { X }\n"
+            + "    @interface A {}\n"
+            + "    public static boolean main() {\n"
+            + "        return (\n"
+            + "            Sc.class.getModifiers() == Modifier.STATIC\n"
+            + "            && Ic.class.getModifiers() == 0\n"
+            + "            && Asc.class.getModifiers() == (Modifier.PUBLIC | Modifier.ABSTRACT | Modifier.STATIC)\n"
+            + "            && I.class.getModifiers() == (Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE)\n"
+            + "            && J.class.getModifiers() == (Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE)\n"
+            + "            && E.class.getModifiers() == (Modifier.STATIC | Modifier.FINAL | 0x4000)\n"
+            + "            && A.class.getModifiers() == (\n"
+            + "                Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE | 0x2000\n"
+            + "            )\n"
+            + "            && E.class.isEnum() && A.class.isAnnotation()\n"
+            + "            && I.class.isMemberClass() && I.class.getDeclaringClass() == Foo.class\n"
+            + "            && I.class.getEnclosingClass() == Foo.class && \"I\".equals(I.class.getSimpleName())\n"
+            + "            && Foo.class.getDeclaredClasses().length == 7\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n"
+        ), "Foo");
     }
 
     @Test public void
@@ -936,6 +1132,82 @@ class JlsTest extends CommonsCompilerTestSuite {
         ), "Main");
     }
 
+    /**
+     * Class bodies of enum constants; see <a href="https://github.com/janino-lts/janino/issues/44">issue #44</a>.
+     */
+    @Test public void
+    test_8_9_1__Enum_Constants__Class_Bodies() throws Exception {
+
+        // A constant with a class body is an instance of an anonymous subclass of the enum, which overrides and
+        // implements methods, and has fields, initializers, member classes and constructor arguments.
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.reflect.Modifier;\n"
+            + "import java.util.EnumSet;\n"
+            + "public class Main {\n"
+            + "    interface I { String i(); }\n"
+            + "    static int X = 7;\n"
+            + "    enum E implements I {\n"
+            + "        A(1) {\n"
+            + "            int x = 10;\n"
+            + "            { x++; }\n"
+            + "            class Q { int q() { return 4; } }\n"
+            + "            String n() { return \"a\" + x + new Q().q() + v + X; }\n"
+            + "            public String toString() { return \"ta\"; }\n"
+            + "            public String i() { return \"ia\"; }\n"
+            + "        },\n"
+            + "        B(2) {\n"
+            + "            String n() { return super.n() + \"b\"; }\n"
+            + "            public String i() { return \"ib\"; }\n"
+            + "        },\n"
+            + "        C(3);\n"
+            + "        final int v;\n"
+            + "        E(int v) { this.v = v; }\n"
+            + "        String n() { return \"n\" + v; }\n"
+            + "        public String i() { return \"ic\"; }\n"
+            + "    }\n"
+            + "    enum F { A { void f() {} }; abstract void f(); }\n"
+            + "    enum G { A, B }\n"
+            + "    static int sw(E e) { switch (e) { case A: return 1; case B: return 2; default: return 3; } }\n"
+            + "    public static boolean main() {\n"
+            + "        return (\n"
+            + "            \"a11417\".equals(E.A.n()) && \"n2b\".equals(E.B.n()) && \"n3\".equals(E.C.n())\n"
+            + "            && \"ta\".equals(E.A.toString()) && \"B\".equals(E.B.toString())\n"
+            + "            && \"A\".equals(E.A.name())\n"
+            + "            && \"ia\".equals(((I) E.A).i()) && \"ib\".equals(E.B.i()) && \"ic\".equals(E.C.i())\n"
+            + "            && E.A.getClass() != E.class && E.A.getClass().getSuperclass() == E.class\n"
+            + "            && E.A.getDeclaringClass() == E.class && E.C.getClass() == E.class\n"
+            + "            && E.values().length == 3 && E.valueOf(\"B\") == E.B && E.B.ordinal() == 1\n"
+            + "            && sw(E.A) == 1 && sw(E.B) == 2 && sw(E.C) == 3\n"
+            + "            && EnumSet.allOf(E.class).size() == 3 && EnumSet.of(E.B).contains(E.B)\n"
+            + "            && !Modifier.isFinal(E.class.getModifiers())\n"
+            + "            && !Modifier.isAbstract(E.class.getModifiers())\n"
+            + "            && Modifier.isAbstract(F.class.getModifiers()) && Modifier.isFinal(G.class.getModifiers())\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n"
+        ), "Main");
+
+        // An enum with an abstract method is implicitly abstract: each constant must have a class body that
+        // implements the method; an enum must not be declared abstract.
+        this.assertCompilationUnitUncookable(
+            "class Foo { enum E { A, B { String n() { return \"b\"; } }; abstract String n(); } }",
+            "must have a class body|is abstract; cannot be instantiated|compiler.err.abstract.cant.be.instantiated"
+        );
+        this.assertCompilationUnitUncookable(
+            "class Foo { enum E { A { void f() {} }; abstract void f(); abstract void g(); } }",
+            "must implement method|does not override abstract method|compiler.err.does.not.override.abstract"
+        );
+        this.assertCompilationUnitUncookable(
+            "class Foo { enum E { ; abstract void f(); } }",
+            "must implement method|does not override abstract method|compiler.err.does.not.override.abstract"
+        );
+        this.assertCompilationUnitUncookable(
+            "class Foo { abstract enum E { A } }",
+            "not allowed|compiler.err.mod.not.allowed.here"
+        );
+    }
+
     @Test public void
     test_9_3_1__Initialization_of_Fields_in_Interfaces__1() throws Exception {
         this.assertClassBodyCookable("public final static double x = 0;");
@@ -1144,6 +1416,60 @@ class JlsTest extends CommonsCompilerTestSuite {
                 sct.assertResultTrue();
             }
         }
+
+        // A class that implements an interface with a static method, both declared in source code (issue #53):
+        // directly, through an abstract superclass, through a subinterface, together with abstract and default
+        // methods, as nested types, and with a static or an instance method of the same name in the class.
+        String[] cus = {
+            ""
+            + "interface I { static String s() { return \"s\"; } }\n"
+            + "public class Foo implements I { public static boolean main() { return I.s().equals(\"s\"); } }\n",
+            ""
+            + "interface I { static String s() { return \"s\"; } }\n"
+            + "abstract class A implements I {}\n"
+            + "public class Foo extends A { public static boolean main() { return I.s().equals(\"s\"); } }\n",
+            ""
+            + "interface I { static String s() { return \"s\"; } }\n"
+            + "interface J extends I {}\n"
+            + "public class Foo implements J { public static boolean main() { return I.s().equals(\"s\"); } }\n",
+            ""
+            + "interface I { static String s(int x) { return \"s\" + x; } String t(); "
+            + "default String d() { return \"d\"; } }\n"
+            + "public class Foo implements I {\n"
+            + "    public String t() { return \"t\"; }\n"
+            + "    public static boolean main() {\n"
+            + "        Foo f = new Foo(); return (f.t() + f.d() + I.s(1)).equals(\"tds1\");\n"
+            + "    }\n"
+            + "}\n",
+            ""
+            + "public class Foo {\n"
+            + "    interface I { static String s() { return \"s\"; } }\n"
+            + "    static class X implements I {}\n"
+            + "    public static boolean main() { new X(); return I.s().equals(\"s\"); }\n"
+            + "}\n",
+            ""
+            + "interface I { static String s() { return \"s\"; } }\n"
+            + "public class Foo implements I {\n"
+            + "    public static String s() { return \"p\"; }\n"
+            + "    public static boolean main() { return (s() + I.s()).equals(\"ps\"); }\n"
+            + "}\n",
+            ""
+            + "interface I { static String s() { return \"s\"; } }\n"
+            + "public class Foo implements I {\n"
+            + "    public String s() { return \"p\"; }\n"
+            + "    public static boolean main() { return (new Foo().s() + I.s()).equals(\"ps\"); }\n"
+            + "}\n",
+        };
+        for (String cu2 : cus) {
+            SimpleCompilerTest sct = new SimpleCompilerTest(cu2, "Foo");
+            sct.setSourceVersion(8);
+            sct.setTargetVersion(8);
+            if (CommonsCompilerTestSuite.JVM_VERSION < 8) {
+                sct.assertCookable();
+            } else {
+                sct.assertResultTrue();
+            }
+        }
     }
 
     @Test public void
@@ -1182,6 +1508,40 @@ class JlsTest extends CommonsCompilerTestSuite {
                 sct.assertResultTrue();
             }
         }
+    }
+
+    @Test public void
+    test_9_5__Member_Type_Declarations() throws Exception {
+
+        // A member type declaration in an interface is implicitly public and static (issue #43).
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.reflect.Modifier;\n"
+            + "interface I {\n"
+            + "    class C { int f() { return 1; } }\n"
+            + "    interface J {}\n"
+            + "    enum E { X, Y }\n"
+            + "    @interface A {}\n"
+            + "}\n"
+            + "public class Foo {\n"
+            + "    static int f(I.E e) { switch (e) { case X: return 1; default: return 2; } }\n"
+            + "    public static boolean main() {\n"
+            + "        return (\n"
+            + "            I.C.class.getModifiers() == (Modifier.PUBLIC | Modifier.STATIC)\n"
+            + "            && I.J.class.getModifiers() == (\n"
+            + "                Modifier.PUBLIC | Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE\n"
+            + "            )\n"
+            + "            && I.E.class.getModifiers() == (\n"
+            + "                Modifier.PUBLIC | Modifier.STATIC | Modifier.FINAL | 0x4000\n"
+            + "            )\n"
+            + "            && I.A.class.getModifiers() == (\n"
+            + "                Modifier.PUBLIC | Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE | 0x2000\n"
+            + "            )\n"
+            + "            && new I.C().f() == 1 && I.E.values().length == 2 && f(I.E.Y) == 2\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n"
+        ), "Foo");
     }
 
     @Test public void
@@ -1267,6 +1627,101 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "    }\n"
             + "}"
         ), "Main");
+    }
+
+    /**
+     * Annotation types declared as member types; see <a
+     * href="https://github.com/janino-lts/janino/issues/43">issue #43</a>.
+     */
+    @Test public void
+    test_9_6__Annotation_Types__Member_Annotation_Types() throws Exception {
+
+        // The member annotation type is an annotation type, and its annotations are visible at run time.
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.annotation.*;\n"
+            + "import java.lang.reflect.Modifier;\n"
+            + "@Main.A(7) public class Main {\n"
+            + "    @Retention(RetentionPolicy.RUNTIME) @interface A { int value() default 5; }\n"
+            + "    @Retention(RetentionPolicy.RUNTIME) @interface B { A a(); RetentionPolicy p(); Class<?> c(); }\n"
+            + "    private @interface C {}\n"
+            + "    @A public static int field;\n"
+            + "    @A public Main() {}\n"
+            + "    @A(1) @B(a = @A(2), p = RetentionPolicy.CLASS, c = String.class)\n"
+            + "    public static void m(@A(3) int x) {}\n"
+            + "    @A static class Q {}\n"
+            + "    @A enum E { X }\n"
+            + "    @A interface I {}\n"
+            + "    @A @interface D {}\n"
+            + "    public static boolean main() throws Exception {\n"
+            + "        A ma = (A) Main.class.getMethod(\"m\", int.class).getAnnotation(A.class);\n"
+            + "        B mb = (B) Main.class.getMethod(\"m\", int.class).getAnnotation(B.class);\n"
+            + "        Annotation[][] pas = Main.class.getMethod(\"m\", int.class).getParameterAnnotations();\n"
+            + "        return (\n"
+            + "            A.class.isAnnotation() && A.class.isInterface()\n"
+            + "            && A.class.getInterfaces()[0] == Annotation.class\n"
+            + "            && A.class.getModifiers() == (\n"
+            + "                Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE | 0x2000\n"
+            + "            )\n"
+            + "            && C.class.getModifiers() == (\n"
+            + "                Modifier.PRIVATE | Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE | 0x2000\n"
+            + "            )\n"
+            + "            && A.class.getDeclaringClass() == Main.class && \"A\".equals(A.class.getSimpleName())\n"
+            + "            && ((A) Main.class.getAnnotation(A.class)).value() == 7\n"
+            + "            && ((A) Main.class.getField(\"field\").getAnnotation(A.class)).value() == 5\n"
+            + "            && Main.class.getConstructor().isAnnotationPresent(A.class)\n"
+            + "            && ma.value() == 1 && mb.a().value() == 2 && mb.p() == RetentionPolicy.CLASS\n"
+            + "            && mb.c() == String.class\n"
+            + "            && pas[0].length == 1 && ((A) pas[0][0]).value() == 3\n"
+            + "            && Q.class.isAnnotationPresent(A.class) && E.class.isAnnotationPresent(A.class)\n"
+            + "            && I.class.isAnnotationPresent(A.class) && D.class.isAnnotationPresent(A.class)\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n"
+        ), "Main");
+
+        // Declared in an interface (implicitly public), used before its declaration, with a fully qualified
+        // meta-annotation; the retention CLASS and SOURCE make it invisible at run time.
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.annotation.*;\n"
+            + "import java.lang.reflect.Modifier;\n"
+            + "interface I {\n"
+            + "    @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.RUNTIME) @interface A {}\n"
+            + "}\n"
+            + "@I.A public class Main {\n"
+            + "    @A @B @C public static void m() {}\n"
+            + "    @Retention(RetentionPolicy.RUNTIME) @interface A {}\n"
+            + "    @interface B {}\n"
+            + "    @Retention(RetentionPolicy.SOURCE) @interface C {}\n"
+            + "    public static boolean main() throws Exception {\n"
+            + "        return (\n"
+            + "            I.A.class.getModifiers() == (\n"
+            + "                Modifier.PUBLIC | Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE | 0x2000\n"
+            + "            )\n"
+            + "            && Main.class.isAnnotationPresent(I.A.class)\n"
+            + "            && Main.class.getMethod(\"m\").isAnnotationPresent(A.class)\n"
+            + "            && !Main.class.getMethod(\"m\").isAnnotationPresent(B.class)\n"
+            + "            && !Main.class.getMethod(\"m\").isAnnotationPresent(C.class)\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n"
+        ), "Main");
+
+        // A member annotation type is declared like a top-level annotation type: no type parameters, no "extends",
+        // no default or static methods; a class that implements it must implement "annotationType()".
+        String u = "'\\{' expected|not allowed|must implement method|compiler.err";
+        this.assertCompilationUnitUncookable("class Foo { @interface A<T> {} }", u);
+        this.assertCompilationUnitUncookable("class Foo { @interface A extends Runnable {} }", u);
+        this.assertCompilationUnitUncookable("class Foo { @interface A { default int f() { return 1; } } }", u);
+        this.assertCompilationUnitUncookable("class Foo { @interface A { static int f() { return 1; } } }", u);
+        this.assertCompilationUnitUncookable("class Foo { @interface A {} static class Impl implements A {} }", u);
+
+        // A single-element annotation requires an element "value".
+        this.assertCompilationUnitUncookable(
+            "class Foo { @interface A {} @A(8) void m() {} }",
+            "has no element \"value\"|compiler.err.cant.resolve"
+        );
     }
 
     /**
@@ -1525,6 +1980,78 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "    }\n"
             + "}"
         ), "Main");
+    }
+
+    /**
+     * Annotations on formal parameters; see <a href="https://github.com/janino-lts/janino/issues/43">issue #43</a>.
+     */
+    @Test public void
+    test_9_7_4__Where_Annotations_May_Appear_parameter() throws Exception {
+
+        // The number of annotations per parameter is compared, because the position of the annotated parameter in
+        // the array differs between the compilers for the constructors of inner classes (JVMS 4.7.18 leaves the
+        // treatment of implicit parameters to the compiler).
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.annotation.Annotation;\n"
+            + "import org.codehaus.commons.compiler.tests.annotation.RuntimeRetainedAnnotation2;\n"
+            + "\n"
+            + "public\n"
+            + "class Main {\n"
+            + "\n"
+            + "    @interface Invisible {}\n"
+            + "\n"
+            + "    public Main(@RuntimeRetainedAnnotation2(\"Ctor\") int x) {}\n"
+            + "    public static void method(\n"
+            + "        @RuntimeRetainedAnnotation2(\"Foo\") int x,\n"
+            + "        @Invisible @SuppressWarnings(\"unused\") int y,\n"
+            + "        @Deprecated @RuntimeRetainedAnnotation2(\"Bar\") final String... z\n"
+            + "    ) {}\n"
+            + "    interface I { void m(@RuntimeRetainedAnnotation2(\"I\") int x); }\n"
+            + "    class Inner { Inner(@RuntimeRetainedAnnotation2(\"Inner\") int x) {} }\n"
+            + "    enum E { X(1); E(@RuntimeRetainedAnnotation2(\"E\") int v) {} }\n"
+            + "\n"
+            + "    static int count(Annotation[][] pas) {\n"
+            + "        int n = 0;\n"
+            + "        for (Annotation[] pa : pas) n += pa.length;\n"
+            + "        return n;\n"
+            + "    }\n"
+            + "\n"
+            + "    public static boolean\n"
+            + "    main() throws Exception {\n"
+            + "        Annotation[][] pas = Main.class.getMethod(\n"
+            + "            \"method\", int.class, int.class, String[].class\n"
+            + "        ).getParameterAnnotations();\n"
+            + "        if (pas.length != 3) throw new AssertionError(1);\n"
+            + "        if (pas[0].length != 1 || pas[1].length != 0 || pas[2].length != 2) {\n"
+            + "            throw new AssertionError(2);\n"
+            + "        }\n"
+            + "        if (!((RuntimeRetainedAnnotation2) pas[0][0]).value().equals(\"Foo\")) {\n"
+            + "            throw new AssertionError(3);\n"
+            + "        }\n"
+            + "        pas = Main.class.getConstructor(int.class).getParameterAnnotations();\n"
+            + "        if (pas.length != 1 || pas[0].length != 1) throw new AssertionError(4);\n"
+            + "        if (!((RuntimeRetainedAnnotation2) pas[0][0]).value().equals(\"Ctor\")) {\n"
+            + "            throw new AssertionError(5);\n"
+            + "        }\n"
+            + "        pas = I.class.getMethod(\"m\", int.class).getParameterAnnotations();\n"
+            + "        if (pas.length != 1 || pas[0].length != 1) throw new AssertionError(6);\n"
+            + "        if (count(Inner.class.getDeclaredConstructors()[0].getParameterAnnotations()) != 1) {\n"
+            + "            throw new AssertionError(7);\n"
+            + "        }\n"
+            + "        if (count(E.class.getDeclaredConstructors()[0].getParameterAnnotations()) != 1) {\n"
+            + "            throw new AssertionError(8);\n"
+            + "        }\n"
+            + "        return true;\n"
+            + "    }\n"
+            + "}"
+        ), "Main");
+
+        // A duplicate annotation on a parameter.
+        this.assertCompilationUnitUncookable(
+            "class Foo { void m(@Deprecated @Deprecated int x) {} }",
+            "(?i)duplicate annotation|is not .* repeatable"
+        );
     }
 
     @Test public void
@@ -1886,6 +2413,125 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "}\n"
             + "return result == 4;\n"
         );
+    }
+
+    @Test public void
+    test_14_20__The_try_Statement__Multi_catch() throws Exception {
+
+        // A multi-catch clause ("catch (A | B e)") catches each of its alternatives; the type of the parameter is
+        // the nearest common superclass of the alternatives; the parameter is implicitly final, so an anonymous
+        // class may access it; "throw e;" rethrows the alternatives (precise rethrow).
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.io.IOException;\n"
+            + "import java.sql.SQLException;\n"
+            + "public class Main {\n"
+            + "    static class ExA extends Exception { }\n"
+            + "    static class ExB extends Exception { }\n"
+            + "    static StringBuilder t = new StringBuilder();\n"
+            + "    static class R implements AutoCloseable { public void close() { t.append('c'); } }\n"
+            + "    static void thrower(int i) throws IOException, SQLException, ExA, ExB {\n"
+            + "        switch (i) {\n"
+            + "        case 1: throw new IllegalStateException(\"ise\");\n"
+            + "        case 2: throw new IllegalArgumentException(\"iae\");\n"
+            + "        case 3: throw new IOException(\"io\");\n"
+            + "        case 4: throw new SQLException(\"sql\");\n"
+            + "        case 5: throw new ExA();\n"
+            + "        case 6: throw new ExB();\n"
+            + "        case 7: throw new ArithmeticException(\"ae\");\n"
+            + "        default: break;\n"
+            + "        }\n"
+            + "    }\n"
+            + "    static String f(int i) {\n"
+            + "        try {\n"
+            + "            thrower(i);\n"
+            + "            return \"-\";\n"
+            + "        } catch (IllegalStateException | IllegalArgumentException e) {\n"
+            + "            RuntimeException re = e;\n"
+            + "            return \"R\" + re.getMessage();\n"
+            + "        } catch (final IOException | SQLException e) {\n"
+            + "            Exception x = e;\n"
+            + "            return \"E\" + x.getMessage();\n"
+            + "        } catch (ExA | ExB e) {\n"
+            + "            return e.getClass().getSimpleName();\n"
+            + "        } catch (ArithmeticException | StackOverflowError e) {\n"
+            + "            Throwable th = e;\n"
+            + "            return \"T\" + th.getMessage();\n"
+            + "        }\n"
+            + "    }\n"
+            + "    static String rethrow(int i) throws IOException, SQLException {\n"
+            + "        try {\n"
+            + "            thrower(i);\n"
+            + "            return \"-\";\n"
+            + "        } catch (IOException | SQLException e) {\n"
+            + "            throw e;\n"
+            + "        } catch (ExA | ExB e) {\n"
+            + "            return \"ab\";\n"
+            + "        }\n"
+            + "    }\n"
+            + "    static String g(int i) {\n"
+            + "        try {\n"
+            + "            return rethrow(i);\n"
+            + "        } catch (IOException e) {\n"
+            + "            return \"I\";\n"
+            + "        } catch (SQLException e) {\n"
+            + "            return \"S\";\n"
+            + "        }\n"
+            + "    }\n"
+            + "    static String h() {\n"
+            + "        for (int i = 0; i < 4; i++) {\n"
+            + "            try (R r = new R()) {\n"
+            + "                if (i == 1) throw new IllegalStateException();\n"
+            + "                if (i == 2) throw new IllegalArgumentException(\"x\");\n"
+            + "                t.append(i);\n"
+            + "            } catch (IllegalStateException | IllegalArgumentException e) {\n"
+            + "                Runnable rn = new Runnable() {\n"
+            + "                    public void run() { t.append(e.getMessage() == null ? 'C' : 'D'); }\n"
+            + "                };\n"
+            + "                rn.run();\n"
+            + "                if (i == 1) continue;\n"
+            + "                break;\n"
+            + "            } finally {\n"
+            + "                t.append('F');\n"
+            + "            }\n"
+            + "            t.append('.');\n"
+            + "        }\n"
+            + "        return t.toString();\n"
+            + "    }\n"
+            + "    public static boolean main() {\n"
+            + "        return (\n"
+            + "            \"-\".equals(f(0)) && \"Rise\".equals(f(1)) && \"Riae\".equals(f(2))\n"
+            + "            && \"Eio\".equals(f(3)) && \"Esql\".equals(f(4))\n"
+            + "            && \"ExA\".equals(f(5)) && \"ExB\".equals(f(6)) && \"Tae\".equals(f(7))\n"
+            + "            && \"-\".equals(g(0)) && \"I\".equals(g(3)) && \"S\".equals(g(4)) && \"ab\".equals(g(5))\n"
+            + "            && \"0cF.cCFcDF\".equals(h())\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n"
+        ), "Main");
+
+        // A multi-catch parameter must not be assigned; the alternatives must not be related by subclassing, and
+        // must be throwable.
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { void f() { try { throw new IllegalStateException(); }"
+            + " catch (IllegalStateException | IllegalArgumentException e) { e = null; } } }"
+        ), "must not be assigned|may not be assigned|compiler.err.multicatch.parameter.may.not.be.assigned");
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { void f() { try { throw new IllegalStateException(); }"
+            + " catch (RuntimeException | IllegalArgumentException e) { } } }"
+        ), "is a subtype of|related by subclassing|compiler.err.multicatch.types.must.be.disjoint");
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { void f() { try { throw new IllegalStateException(); }"
+            + " catch (IllegalStateException | IllegalStateException e) { } } }"
+        ), "is a subtype of|related by subclassing|compiler.err.multicatch.types.must.be.disjoint");
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { void f() { try { throw new IllegalStateException(); }"
+            + " catch (String | IllegalStateException e) { } } }"
+        ), "is not assignable to \"Throwable\"|incompatible types|compiler.err.prob.found.req");
     }
 
     @Test public void
@@ -2491,6 +3137,107 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "    }\n"
             + "}\n"
         ), "T3");
+    }
+
+    @Test public void
+    test_15_12_1__Qualified_superclass_and_superinterface_method_invocations() throws Exception {
+
+        // "ClassName.super.m()" invokes the superclass method of the current class, or of a lexically enclosing
+        // class (through a synthetic static accessor method of that class, like JAVAC); "InterfaceName.super.m()"
+        // invokes a default method of a direct superinterface.
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.reflect.Method;\n"
+            + "import java.lang.reflect.Modifier;\n"
+            + "public class Main {\n"
+            + "    static StringBuilder t = new StringBuilder();\n"
+            + "    interface H { default String h() { return \"h\"; } }\n"
+            + "    interface I extends H {\n"
+            + "        default String m() { return \"i\"; }\n"
+            + "        default String n(int x) { return \"n\" + x; }\n"
+            + "    }\n"
+            + "    interface J { default String m() { return \"j\"; } }\n"
+            + "    interface K extends I { default String m() { return \"k\" + I.super.m(); } }\n"
+            + "    static class C implements I, J {\n"
+            + "        final String c;\n"
+            + "        C() { c = I.super.n(0); }\n"
+            + "        public String m() { return I.super.m() + J.super.m() + I.super.n(1) + I.super.h(); }\n"
+            + "    }\n"
+            + "    static class Base {\n"
+            + "        String f = \"basef\";\n"
+            + "        String m() { return \"base\"; }\n"
+            + "        String p(int a, String b) { return \"p\" + a + b; }\n"
+            + "        void v() { t.append(\"basev\"); }\n"
+            + "        String e() throws Exception { throw new Exception(\"e\"); }\n"
+            + "    }\n"
+            + "    static class Sub extends Base {\n"
+            + "        String f = \"subf\";\n"
+            + "        String m() { return \"sub\"; }\n"
+            + "        String p(int a, String b) { return \"subp\"; }\n"
+            + "        void v() { t.append(\"subv\"); }\n"
+            + "        String e() { return \"sube\"; }\n"
+            + "        String own() { return Sub.super.m() + Sub.super.f; }\n"
+            + "        class Inner {\n"
+            + "            String call() {\n"
+            + "                Sub.super.v();\n"
+            + "                String r = Sub.super.m() + Sub.super.p(1, \"x\") + Sub.super.f + Sub.this.m();\n"
+            + "                try { r += Sub.super.e(); } catch (Exception ex) { r += ex.getMessage(); }\n"
+            + "                return r;\n"
+            + "            }\n"
+            + "            class Inner2 { String call2() { return Sub.super.m() + Sub.super.f; } }\n"
+            + "        }\n"
+            + "        String anon() {\n"
+            + "            return new Object() { public String toString() { return Sub.super.m(); } }.toString();\n"
+            + "        }\n"
+            + "        String local() { class L { String g() { return Sub.super.m(); } } return new L().g(); }\n"
+            + "    }\n"
+            + "    static class Sub2 extends Sub {\n"
+            + "        String m() { return \"sub2\"; }\n"
+            + "        class Inner3 { String call3() { return Sub2.super.m(); } }\n"
+            + "    }\n"
+            + "    public static boolean main() throws Exception {\n"
+            + "        C c = new C();\n"
+            + "        Sub s = new Sub();\n"
+            + "        Sub2 s2 = new Sub2();\n"
+            + "        Method a = Sub.class.getDeclaredMethod(\"access$001\", Sub.class);\n"
+            + "        return (\n"
+            + "            \"ijn1h\".equals(c.m()) && \"n0\".equals(c.c) && \"ki\".equals(new K() {}.m())\n"
+            + "            && \"basebasef\".equals(s.own())\n"
+            + "            && \"basep1xbasefsube\".equals(s.new Inner().call())\n"
+            + "            && \"basebasef\".equals(s.new Inner().new Inner2().call2())\n"
+            + "            && \"base\".equals(s.anon()) && \"base\".equals(s.local())\n"
+            + "            && \"basep1xbasefsub2e\".equals(s2.new Inner().call())\n"
+            + "            && \"sub\".equals(s2.new Inner3().call3())\n"
+            + "            && a.isSynthetic() && Modifier.isStatic(a.getModifiers())\n"
+            + "            && \"basevbasev\".equals(t.toString())\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n"
+        ), "Main");
+
+        // The qualifying interface must be a direct superinterface that no other direct supertype extends, and the
+        // method must not be abstract; the qualifying class must be the current class or an enclosing class.
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { interface I { default String m() { return \"i\"; } } interface J extends I { }"
+            + " static class C implements J { public String m() { return I.super.m(); } } }"
+        ), "not a direct superinterface|not an enclosing class|compiler.err.not.encl.class");
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { interface I { default String m() { return \"i\"; } }"
+            + " interface J extends I { default String m() { return \"j\"; } }"
+            + " static class C implements I, J { public String m() { return I.super.m(); } } }"
+        ), "another direct supertype|bad type qualifier|compiler.err.illegal.default.super.call");
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { interface I { String m(); }"
+            + " static class C implements I { public String m() { return I.super.m(); } } }"
+        ), "cannot be invoked through|cannot be accessed directly|compiler.err.abstract.cant.be.accessed.directly");
+        this.assertCompilationUnitUncookable((
+            ""
+            + "class Foo { static class Base { String m() { return \"b\"; } }"
+            + " static class Sub extends Base { String m() { return Base.super.m(); } } }"
+        ), "neither the current class nor an enclosing class|not an enclosing class|compiler.err.not.encl.class");
     }
 
     @Test public void
@@ -3470,6 +4217,61 @@ class JlsTest extends CommonsCompilerTestSuite {
         this.assertScriptReturnsTrue("Object x = true ? 'a' : (short) -1; return x.equals(97);");
         this.assertScriptReturnsTrue("char c = true ? 'a' : (short) -1; return c == 'a';");
         this.assertScriptReturnsTrue("byte b = true ? 'a' : (short) -1; return b == 97;");
+
+        // The same with a "long", "float" or "double" operand.
+        this.assertScriptReturnsTrue("Object x = true ? 'a' : 1L; return x.equals(97L);");
+        this.assertScriptReturnsTrue("Object x = true ? 'a' : 1.5f; return x.equals(97.0f);");
+        this.assertScriptReturnsTrue("Object x = true ? (short) -1 : 2.5; return x.equals(-1.0);");
+        this.assertScriptReturnsTrue(cz + "Object x = !z ? c : 1L; return x.equals(97L);");
+        this.assertExpressionEvaluatesTrue("(\"\" + (true ? 'a' : 1.5)).equals(\"97.0\")");
+        this.assertExpressionEvaluatesTrue("(\"\" + (true ? (byte) 1 : 2L)).equals(\"1\")");
+    }
+
+    @Test public void
+    test_15_25__Conditional_operator__4() throws Exception {
+
+        // An "int" constant that is representable in the type of the other operand (issue #56).
+        String decl = "boolean z = false; byte b = 1; short s = 1; char c = 'a'; Short S = 1; Long J = 1L; ";
+        this.assertScriptReturnsTrue(decl + "Object x = z ? b : 5; return x.equals((byte) 5);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? 5 : b; return x.equals((byte) 1);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? s : 5; return x.equals((short) 5);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? c : 66; return x.equals('B');");
+        this.assertScriptReturnsTrue(decl + "byte x = z ? b : 5; return x == 5;");
+        this.assertScriptReturnsTrue(decl + "char x = !z ? c : 66; return x == 'a';");
+
+        // Two operands of different types, neither of which is such a constant: binary numeric promotion.
+        this.assertScriptReturnsTrue(decl + "Object x = z ? s : c; return x.equals(97);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? b : c; return x.equals(97);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? c : s; return x.equals(1);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? (short) -1 : c; return x.equals(97);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? c : (byte) 1; return x.equals(1);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? c : (short) 66; return x.equals(66);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? S : c; return x.equals(97);");
+        this.assertScriptReturnsTrue(decl + "Object x = z ? J : s; return x.equals(1L);");
+        this.assertScriptReturnsTrue(decl + "int x = z ? s : c; return x == 97;");
+
+        // The constant value of a conditional expression has the type of the expression (issue #55).
+        this.assertExpressionEvaluatesTrue("(\"\" + (true ? 1 : 2.0)).equals(\"1.0\")");
+        this.assertExpressionEvaluatesTrue("(\"\" + (false ? 1L : 2.5f)).equals(\"2.5\")");
+        this.assertExpressionEvaluatesTrue("(\"\" + (true ? (byte) 1 : 2L)).equals(\"1\")");
+        this.assertExpressionEvaluatesTrue("String.valueOf(true ? 1 : 2.0).equals(\"1.0\")");
+        this.assertExpressionEvaluatesTrue("(true ? 1 : 2L) == 1L");
+        this.assertScriptReturnsTrue("char c = 'a'; return (\"\" + (true ? 97 : c)).equals(\"a\");");
+        this.assertScriptReturnsTrue("Object x = true ? 1 : 2L; return x.equals(1L);");
+        this.assertScriptReturnsTrue("Object x = true ? 1 : 'a'; return x.equals((char) 1);");
+        this.assertScriptReturnsTrue("Long x = true ? 1 : 2L; return x == 1L;");
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "static String d(double x) { return \"d\" + x; }\n"
+            + "public static boolean main() { return d(true ? 1 : 2.0).equals(\"d1.0\"); }\n"
+        );
+
+        // Invalid neighbors: the constant is not representable, or the type of the expression is wider than the
+        // type of the variable.
+        this.assertScriptUncookable("boolean z = false; byte b = 1; byte x = z ? b : 500;");
+        this.assertScriptUncookable("boolean z = false; char c = 'a'; char x = z ? c : -1;");
+        this.assertScriptUncookable("boolean z = false; short s = 1; char c = 'a'; short x = z ? s : c;");
+        this.assertScriptUncookable("byte x = true ? 1 : 2L;");
     }
 
     /**
@@ -3561,5 +4363,48 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "    return s.equals(\"not eight\");\n"
             + "}\n"
         );
+    }
+
+    @Test public void
+    test_16__Definite_Assignment() throws Exception {
+
+        // A local variable that is assigned in the body of a loop, in a condition or in a branch; the local variable
+        // "y" is declared after "x", which matters for the stack maps that Janino generates (issue #54).
+        String u = "is not initialized|might not have been initialized|compiler.err.var.might.not";
+        String d = "boolean z = false; int x; int y = 0; ";
+
+        // Definitely assigned.
+        this.assertScriptReturnsTrue(d + "do { x = 1; } while (z); return x == 1;");
+        this.assertScriptReturnsTrue(d + "do { x = 1; } while (!z && x < 0); return x == 1;");
+        this.assertScriptReturnsTrue(d + "do { if (z) { x = 1; } else { x = 2; } } while (x < 0); return x == 2;");
+        this.assertScriptReturnsTrue(d + "if (!z && (x = 1) > 0) return x == 1; return false;");
+        this.assertScriptReturnsTrue(d + "if (z || (x = 0) > 0) { y = 1; } else { y = x + 5; } return y == 5;");
+        this.assertScriptReturnsTrue(d + "boolean b = z || (x = 1) > 0; return b;");
+        this.assertScriptReturnsTrue(d + "boolean b = (x = 1) > 0 && (y = x) > 0; return b && y == 1;");
+        this.assertScriptReturnsTrue(d + "int v = (x = 1) > 5 ? 5 : x; return v == 1;");
+        this.assertScriptReturnsTrue(d + "int v = (x = 1) > 0 ? x : x; return v == 1;");
+        this.assertScriptReturnsTrue(d + "while (!z && (x = 1) > 0) { y = x; z = true; } return y == 1;");
+        this.assertScriptReturnsTrue(d + "for (int i = 0; (x = i) < 3; i++) { y += x; } return y == 3;");
+        this.assertScriptReturnsTrue(d + "if (z) x = 1; else x = 2; return x == 2;");
+        this.assertScriptReturnsTrue(d + "switch (y) { case 0: x = 1; break; default: x = 2; } return x == 1;");
+        this.assertScriptReturnsTrue(d + "try { x = 1; } finally { y = 2; } return x + y == 3;");
+        this.assertScriptReturnsTrue(d + "L: { x = 1; if (z) break L; x = 2; } return x == 2;");
+        this.assertScriptReturnsTrue(d + "while (true) { x = 1; if (y == 0) break; } return x == 1;");
+        this.assertScriptReturnsTrue("long x; int y = 0; do { x = 1L; } while (x < 0); return x == 1L;");
+
+        // Not definitely assigned.
+        this.assertScriptUncookable(d + "for (int i = 0; i < 1; i++) x = 1; y = x;", u);
+        this.assertScriptUncookable(d + "while (z) { x = 1; } y = x;", u);
+        this.assertScriptUncookable(d + "if (z) x = 1; y = x;", u);
+        this.assertScriptUncookable(d + "if (z) { x = 1; } else { y = x; }", u);
+        this.assertScriptUncookable(d + "switch (y) { case 0: x = 1; break; } y = x;", u);
+        this.assertScriptUncookable(d + "try { x = 1; } catch (RuntimeException e) { } y = x;", u);
+        this.assertScriptUncookable(d + "L: { if (z) break L; x = 1; } y = x;", u);
+        this.assertScriptUncookable(d + "for (int i = 0; i < 1; x = ++i) {} y = x;", u);
+        this.assertScriptUncookable(d + "do { if (z) break; x = 1; } while (z); y = x;", u);
+        this.assertScriptUncookable(d + "boolean b = z && (x = 1) > 0; y = x;", u);
+        this.assertScriptUncookable(d + "x++;", u);
+        this.assertScriptUncookable(d + "x += 1;", u);
+        this.assertScriptUncookable("long x; int y = 0; if (y == 0) x = 1; y = (int) x;", u);
     }
 }

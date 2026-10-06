@@ -734,10 +734,15 @@ class CodeContext {
 
         assert dst instanceof CodeContext.BasicBlock;
 
-        if (dst.offset == -1) {
-            if (dst.stackMap == null) {
-                dst.stackMap = this.currentInserter.getStackMap();
-            }
+        // The stack map of the branch target is the merge of the stack maps of all branches to it and of the
+        // fall-through (see "Offset.set()"), so that a local variable that is assigned on one path only has no type
+        // ("top") at the target.
+        // A backward branch, i.e. a branch to an offset that is already set, does not change the stack map of its
+        // target: Its stack map frame is determined, and the stack map at the branch is assignable to it. Unless the
+        // target has no stack map yet, because it is reachable only through branches, like the body of a WHILE
+        // statement.
+        if (dst.offset == -1 || dst.stackMap == null) {
+            dst.stackMap = CodeContext.mergeStackMaps(dst.stackMap, this.currentInserter.getStackMap(), this.relaxed);
         }
 
         @SuppressWarnings("deprecation") int opcodeJsr = Opcode.JSR;
@@ -802,26 +807,10 @@ class CodeContext {
                         // Remove the original IF* instruction.
                         CodeContext.this.makeSpace(-3);
 
-                        // Insert "IF-NEGATE-* skip; GOTO_W offset; skip:"
+                        // Insert "IF-NEGATE-* skip; GOTO_W offset; skip:". The stack map of the source inserter is the
+                        // one AFTER the original IF* instruction, i.e. its operands are already popped.
                         BasicBlock skip = CodeContext.this.new BasicBlock();
                         CodeContext.this.writeBranch((this.opcode = CodeContext.invertBranchOpcode(this.opcode)), skip);
-                        if (this.opcode >= Opcode.IFEQ && this.opcode <= Opcode.IFLE) {
-                            CodeContext.this.popIntOperand();
-                        } else
-                        if (this.opcode >= Opcode.IF_ICMPEQ && this.opcode <= Opcode.IF_ICMPLE) {
-                            CodeContext.this.popIntOperand();
-                            CodeContext.this.popIntOperand();
-                        } else
-                        if (this.opcode == Opcode.IF_ACMPEQ || this.opcode == Opcode.IF_ACMPNE) {
-                            CodeContext.this.popReferenceOperand();
-                            CodeContext.this.popReferenceOperand();
-                        } else
-                        if (this.opcode == Opcode.IFNULL || this.opcode == Opcode.IFNONNULL) {
-                            CodeContext.this.popReferenceOperand();
-                        } else
-                        {
-                            throw new AssertionError(this.opcode);
-                        }
                         CodeContext.this.writeBranch(Opcode.GOTO_W, this.destination);
                         skip.setStackMap(CodeContext.this.currentInserter.getStackMap());
                         skip.set();
