@@ -885,15 +885,22 @@ class Parser {
     public EnumConstant
     parseEnumConstant() throws CompileException, IOException {
 
+        Location   location   = this.location();
+        String     docComment = this.doc();
+        Modifier[] modifiers  = this.enumConstantModifiers(this.parseModifiers());
+        String     name       = this.read(TokenType.IDENTIFIER);
+        Rvalue[]   arguments  = this.peek("(") ? this.parseArguments() : null;
+
         EnumConstant result = new EnumConstant(
-            this.location(),                                   // location
-            this.doc(),                                        // docComment
-            this.enumConstantModifiers(this.parseModifiers()), // modifiers
-            this.read(TokenType.IDENTIFIER),                   // name
-            this.peek("(") ? this.parseArguments() : null      // arguments
+            location,       // location
+            docComment,     // docComment
+            modifiers,      // modifiers
+            name,           // name
+            arguments,      // arguments
+            this.peek("{")  // hasClassBody
         );
 
-        if (this.peek("{")) {
+        if (result.hasClassBody) {
             this.parseClassBody(result);
         }
 

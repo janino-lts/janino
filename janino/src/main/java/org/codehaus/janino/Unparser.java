@@ -386,7 +386,7 @@ class Unparser implements AutoCloseable {
                 Unparser.this.unparseFunctionInvocationArguments(ec.arguments);
             }
 
-            if (!Unparser.classDeclarationBodyIsEmpty(ec)) {
+            if (ec.hasClassBody || !Unparser.classDeclarationBodyIsEmpty(ec)) {
                 Unparser.this.pw.println(" {");
                 Unparser.this.pw.print(AutoIndentWriter.INDENT);
                 Unparser.this.unparseClassDeclarationBody(ec);

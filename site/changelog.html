@@ -124,17 +124,40 @@ h5 {
         interface now includes <code>static</code>, <code>abstract</code> and <code>interface</code>, of a member
         enum <code>static</code> and <code>final</code>, and of the member types of an interface <code>public</code>
         and <code>static</code>; <code>Class.isMemberClass()</code>, <code>getDeclaringClass()</code> and
-        <code>getSimpleName()</code> work for member interfaces. In addition: annotations on method and constructor
-        parameters are written to the class files (<code>Method.getParameterAnnotations()</code> returned no
-        annotations before, also for top-level and JDK annotation types); a member class of an interface is
-        implicitly static (<code>new I.C()</code> from a static context was rejected); an enum declared in an
-        interface compiles (it was rejected with a syntax error); a single-element annotation of a type without an
+        <code>getSimpleName()</code> work for member interfaces. A single-element annotation of a type without an
         element <code>value</code> is rejected with a compile error instead of an <code>AssertionError</code>. Member
         annotation types are now parsed like top-level ones: type parameters, an <code>extends</code> clause and
         <code>default</code> or <code>static</code> methods are rejected, like by JAVAC, and a class that implements
         a member annotation type must implement <code>annotationType()</code>. The class files of member interfaces,
-        member enums, member types of interfaces and methods with parameter annotations change accordingly; all
-        other class files are unchanged.
+        member enums and member annotation types change accordingly; all other class files are unchanged.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/61">issue #61</a>: Annotations on method and
+        constructor parameters were not written to the class files, for all annotation types (declared, top-level
+        and JDK): <code>Method.getParameterAnnotations()</code> returned no annotations. The
+        <code>RuntimeVisibleParameterAnnotations</code> and <code>RuntimeInvisibleParameterAnnotations</code>
+        attributes are generated now; their <code>num_parameters</code> is the number of parameters of the method
+        descriptor, which includes the parameters that Janino prepends to the declared ones (see
+        <code>JAVAC_DIFFERENCES.md</code>). The class files of methods with parameter annotations change
+        accordingly.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/62">issue #62</a>: The member types of an
+        interface are implicitly <code>public</code> and <code>static</code> (JLS 9.5): <code>new I.C()</code> from a
+        static context was rejected ("No current instance available"), and the class files of such member types
+        lacked the <code>public</code> flag. An <code>enum</code> declared in an interface was rejected with a syntax
+        error.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/44">issue #44</a>: The class bodies of enum
+        constants (<code>enum E { A { String n() { return "a"; } }, ... }</code>) were ignored: the methods declared
+        there did not override the methods of the enum, and an enum with an abstract method was rejected. Like with
+        JAVAC, a constant with a class body is now an instance of an anonymous subclass of the enum
+        (<code>E$1</code>, <code>E.A.getClass() != E.class</code>), with its own methods, fields, initializers and
+        member classes; an enum with an abstract method is implicitly abstract, and each of its constants must have
+        a class body that implements the method. The class files of enums change: an enum without constant class
+        bodies now has the <code>final</code> flag, like with JAVAC (JLS 8.9); otherwise, the class files of code that
+        compiled correctly before are unchanged.
       </li>
     </ul>
 

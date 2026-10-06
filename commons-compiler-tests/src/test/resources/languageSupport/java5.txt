@@ -276,16 +276,16 @@ public class P {
 }
 
 === enum: constants with class bodies implementing an abstract method
+janino: OK
 jls: b
-janino: REJECTED Non-abstract class "P$E" must implement method "default abstract java.lang.String P$E.n()"
 public class P {
     enum E { A { String n() { return "a"; } }, B { String n() { return "b"; } }; abstract String n(); }
     public static Object run() { return E.B.n(); }
 }
 
 === enum: constant with class body overriding a concrete method
+janino: OK
 jls: b
-janino: WRONG a
 public class P {
     enum E { A, B { String n() { return "b"; } }; String n() { return "a"; } }
     public static Object run() { return E.B.n(); }
@@ -340,4 +340,207 @@ janino: OK
 public class P {
     enum E { A, B }
     public static Object run() { E e = E.B; String r = ""; switch (e) { case A: r = "a"; break; default: r = "x"; } return r; }
+}
+
+=== enum: constant class body with a field and an instance initializer
+jls: 2
+janino: OK
+public class P {
+    enum E { A { int x = 1; { x++; } int get() { return x; } }; int get() { return 0; } }
+    public static Object run() { return String.valueOf(E.A.get()); }
+}
+
+=== enum: constant class body with constructor arguments
+jls: 10
+janino: OK
+public class P {
+    enum E { A(5) { int g() { return v * 2; } }; final int v; E(int v) { this.v = v; } int g() { return v; } }
+    public static Object run() { return String.valueOf(E.A.g()); }
+}
+
+=== enum: constant with class body is an instance of an anonymous subclass
+jls: true true true P$E$1
+janino: OK
+public class P {
+    enum E { A, B { } }
+    public static Object run() {
+        return (E.B.getClass() != E.class) + " " + (E.B.getDeclaringClass() == E.class) + " "
+            + (E.A.getClass() == E.class) + " " + E.B.getClass().getName();
+    }
+}
+
+=== enum: values() and valueOf() with constant class bodies
+jls: 2 b
+janino: OK
+public class P {
+    enum E { A { String n() { return "a"; } }, B { String n() { return "b"; } }; abstract String n(); }
+    public static Object run() { return E.values().length + " " + E.valueOf("B").n(); }
+}
+
+=== enum: switch over a constant with a class body
+jls: BA
+janino: OK
+public class P {
+    enum E { A, B { } }
+    static String f(E e) { switch (e) { case A: return "A"; case B: return "B"; default: return "?"; } }
+    public static Object run() { return f(E.B) + f(E.A); }
+}
+
+=== enum: EnumSet and EnumMap with constant class bodies
+jls: 2 1 true
+janino: OK
+import java.util.*;
+public class P {
+    enum E { A, B { } }
+    public static Object run() {
+        EnumMap<E, Integer> m = new EnumMap<E, Integer>(E.class);
+        m.put(E.B, 1);
+        return EnumSet.allOf(E.class).size() + " " + m.get(E.B) + " " + EnumSet.of(E.B).contains(E.B);
+    }
+}
+
+=== enum: interface method implemented only in the constant class bodies
+jls: a
+janino: OK
+public class P {
+    interface I { String f(); }
+    enum E implements I { A { public String f() { return "a"; } } }
+    public static Object run() { I i = E.A; return i.f(); }
+}
+
+=== enum: implicitly final unless a constant has a class body, abstract with abstract methods
+jls: true false false true
+janino: OK
+import java.lang.reflect.*;
+public class P {
+    enum E { A }
+    enum F { A { } }
+    enum G { A { void f() {} }; abstract void f(); }
+    public static Object run() {
+        return Modifier.isFinal(E.class.getModifiers()) + " " + Modifier.isFinal(F.class.getModifiers()) + " "
+            + Modifier.isAbstract(F.class.getModifiers()) + " " + Modifier.isAbstract(G.class.getModifiers());
+    }
+}
+
+=== enum: modifiers of the enum and of the constant class body
+jls: 4008 4408 4010
+janino: OK
+minJava: 9
+public class P {
+    enum E { A { } }
+    enum F { A { void f() {} }; abstract void f(); }
+    public static Object run() {
+        return Integer.toHexString(E.class.getModifiers()) + " " + Integer.toHexString(F.class.getModifiers())
+            + " " + Integer.toHexString(E.A.getClass().getModifiers());
+    }
+}
+
+=== enum: constant class body reads a static field of the enclosing class
+jls: 7
+janino: OK
+public class P {
+    static int X = 7;
+    enum E { A { int g() { return X; } }; int g() { return 0; } }
+    public static Object run() { return String.valueOf(E.A.g()); }
+}
+
+=== enum: constant class body overrides toString()
+jls: xBA
+janino: OK
+public class P {
+    enum E { A { public String toString() { return "x"; } }, B }
+    public static Object run() { return E.A.toString() + E.B.toString() + E.A.name(); }
+}
+
+=== enum: two constants with class bodies
+jls: P$E$1 P$E$2 01
+janino: OK
+public class P {
+    enum E { A { }, B { } }
+    public static Object run() {
+        return E.A.getClass().getName() + " " + E.B.getClass().getName() + " " + E.A.ordinal() + E.B.ordinal();
+    }
+}
+
+=== enum: constant class body reads a field of the enum
+jls: 4
+janino: OK
+public class P {
+    enum E { A(3) { int d() { return v + 1; } }; final int v; E(int v) { this.v = v; } int d() { return v; } }
+    public static Object run() { return String.valueOf(E.A.d()); }
+}
+
+=== enum: declared in an interface, with constant class bodies
+jls: a
+janino: OK
+interface I { enum E { A { String n() { return "a"; } }; abstract String n(); } }
+public class P {
+    public static Object run() { return I.E.A.n(); }
+}
+
+=== enum: constant class body invokes the overridden method with super
+jls: ab
+janino: OK
+public class P {
+    enum E { A { String n() { return super.n() + "b"; } }; String n() { return "a"; } }
+    public static Object run() { return E.A.n(); }
+}
+
+=== enum: switch in a constant class body
+jls: x
+janino: OK
+public class P {
+    enum E { A { String n() { switch ((E) this) { case A: return "x"; default: return "y"; } } }; abstract String n(); }
+    public static Object run() { return E.A.n(); }
+}
+
+=== enum: constant class body invokes a method of the enum
+jls: 9
+janino: OK
+public class P {
+    enum E { A { int f() { return g(); } }; int f() { return 0; } int g() { return 9; } }
+    public static Object run() { return String.valueOf(E.A.f()); }
+}
+
+=== enum: member class in a constant class body
+jls: 4
+janino: OK
+public class P {
+    enum E { A { class Q { int q() { return 4; } } int f() { return new Q().q(); } }; int f() { return 0; } }
+    public static Object run() { return String.valueOf(E.A.f()); }
+}
+
+=== enum: anonymous class in a constant class body
+jls: P$E$1$1
+janino: OK
+public class P {
+    enum E { A { Runnable r() { return new Runnable() { public void run() {} }; } }; Runnable r() { return null; } }
+    public static Object run() { return E.A.r().getClass().getName(); }
+}
+
+=== enum: constant class body accesses another constant
+jls: 5
+janino: OK
+public class P {
+    enum E { A { int f() { return E.B.g(); } }, B; int f() { return 0; } int g() { return 5; } }
+    public static Object run() { return String.valueOf(E.A.f()); }
+}
+
+=== enum: method of a constant class body invoked through reflection
+jls: 1
+janino: OK
+public class P {
+    public enum E { A { public int f() { return 1; } }; public int f() { return 0; } }
+    public static Object run() throws Exception { return E.A.getClass().getMethod("f").invoke(E.A); }
+}
+
+=== enum: modifiers of an enum without constant class bodies (final)
+jls: 4018 4010
+janino: OK
+enum F { A, B }
+public class P {
+    enum E { A, B }
+    public static Object run() {
+        return Integer.toHexString(E.class.getModifiers()) + " " + Integer.toHexString(F.class.getModifiers());
+    }
 }

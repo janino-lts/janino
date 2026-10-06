@@ -1132,6 +1132,82 @@ class JlsTest extends CommonsCompilerTestSuite {
         ), "Main");
     }
 
+    /**
+     * Class bodies of enum constants; see <a href="https://github.com/janino-lts/janino/issues/44">issue #44</a>.
+     */
+    @Test public void
+    test_8_9_1__Enum_Constants__Class_Bodies() throws Exception {
+
+        // A constant with a class body is an instance of an anonymous subclass of the enum, which overrides and
+        // implements methods, and has fields, initializers, member classes and constructor arguments.
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.reflect.Modifier;\n"
+            + "import java.util.EnumSet;\n"
+            + "public class Main {\n"
+            + "    interface I { String i(); }\n"
+            + "    static int X = 7;\n"
+            + "    enum E implements I {\n"
+            + "        A(1) {\n"
+            + "            int x = 10;\n"
+            + "            { x++; }\n"
+            + "            class Q { int q() { return 4; } }\n"
+            + "            String n() { return \"a\" + x + new Q().q() + v + X; }\n"
+            + "            public String toString() { return \"ta\"; }\n"
+            + "            public String i() { return \"ia\"; }\n"
+            + "        },\n"
+            + "        B(2) {\n"
+            + "            String n() { return super.n() + \"b\"; }\n"
+            + "            public String i() { return \"ib\"; }\n"
+            + "        },\n"
+            + "        C(3);\n"
+            + "        final int v;\n"
+            + "        E(int v) { this.v = v; }\n"
+            + "        String n() { return \"n\" + v; }\n"
+            + "        public String i() { return \"ic\"; }\n"
+            + "    }\n"
+            + "    enum F { A { void f() {} }; abstract void f(); }\n"
+            + "    enum G { A, B }\n"
+            + "    static int sw(E e) { switch (e) { case A: return 1; case B: return 2; default: return 3; } }\n"
+            + "    public static boolean main() {\n"
+            + "        return (\n"
+            + "            \"a11417\".equals(E.A.n()) && \"n2b\".equals(E.B.n()) && \"n3\".equals(E.C.n())\n"
+            + "            && \"ta\".equals(E.A.toString()) && \"B\".equals(E.B.toString())\n"
+            + "            && \"A\".equals(E.A.name())\n"
+            + "            && \"ia\".equals(((I) E.A).i()) && \"ib\".equals(E.B.i()) && \"ic\".equals(E.C.i())\n"
+            + "            && E.A.getClass() != E.class && E.A.getClass().getSuperclass() == E.class\n"
+            + "            && E.A.getDeclaringClass() == E.class && E.C.getClass() == E.class\n"
+            + "            && E.values().length == 3 && E.valueOf(\"B\") == E.B && E.B.ordinal() == 1\n"
+            + "            && sw(E.A) == 1 && sw(E.B) == 2 && sw(E.C) == 3\n"
+            + "            && EnumSet.allOf(E.class).size() == 3 && EnumSet.of(E.B).contains(E.B)\n"
+            + "            && !Modifier.isFinal(E.class.getModifiers())\n"
+            + "            && !Modifier.isAbstract(E.class.getModifiers())\n"
+            + "            && Modifier.isAbstract(F.class.getModifiers()) && Modifier.isFinal(G.class.getModifiers())\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n"
+        ), "Main");
+
+        // An enum with an abstract method is implicitly abstract: each constant must have a class body that
+        // implements the method; an enum must not be declared abstract.
+        this.assertCompilationUnitUncookable(
+            "class Foo { enum E { A, B { String n() { return \"b\"; } }; abstract String n(); } }",
+            "must have a class body|is abstract; cannot be instantiated|compiler.err.abstract.cant.be.instantiated"
+        );
+        this.assertCompilationUnitUncookable(
+            "class Foo { enum E { A { void f() {} }; abstract void f(); abstract void g(); } }",
+            "must implement method|does not override abstract method|compiler.err.does.not.override.abstract"
+        );
+        this.assertCompilationUnitUncookable(
+            "class Foo { enum E { ; abstract void f(); } }",
+            "must implement method|does not override abstract method|compiler.err.does.not.override.abstract"
+        );
+        this.assertCompilationUnitUncookable(
+            "class Foo { abstract enum E { A } }",
+            "not allowed|compiler.err.mod.not.allowed.here"
+        );
+    }
+
     @Test public void
     test_9_3_1__Initialization_of_Fields_in_Interfaces__1() throws Exception {
         this.assertClassBodyCookable("public final static double x = 0;");

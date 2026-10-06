@@ -30,7 +30,7 @@ below remain for that reason, or because they have not been fixed yet.
 | `Byte B = 1; Object x = z ? B : 5;` | `x` is a `Byte` | `x` is an `Integer` | [#38](https://github.com/janino-lts/janino/issues/38) |
 | `char c = 'a'; Object x = false ? c : (short) 66;` | `x` is an `Integer` | `x` is a `Character` | [#38](https://github.com/janino-lts/janino/issues/38) |
 | `"" + (true ? 1 : 2.0)` | `"1.0"` | `"1"` (the constant value has the type of the selected operand; fixed in the main line) | [#55](https://github.com/janino-lts/janino/issues/55) |
-| `enum E { A, B { String n() { return "b"; } }; String n() { return "a"; } }`; `E.B.n()` | `"b"` | `"a"` (class bodies of enum constants are ignored) | [#44](https://github.com/janino-lts/janino/issues/44) |
+| `enum E { A, B { String n() { return "b"; } }; String n() { return "a"; } }`; `E.B.n()` | `"b"` | `"a"` (class bodies of enum constants are ignored; fixed in the main line) | [#44](https://github.com/janino-lts/janino/issues/44) |
 | `class P { @Retention(RUNTIME) @interface A {} @A static class Q {} }`; `Q.class.isAnnotationPresent(A.class)` | `true` | `false` (annotation types declared as member types; top-level annotation types work; fixed in the main line) | [#43](https://github.com/janino-lts/janino/issues/43) |
 | `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`) | |
 
@@ -56,7 +56,7 @@ time (see section 2). Their values are correct, but a `static final` field with 
 instance as the first parameter. Reflection shows these modifiers and names, and code in the same package that is
 compiled against the class file can access these members.
 
-**Parameter annotations** (in the main line, [#43](https://github.com/janino-lts/janino/issues/43); 3.1.15 does not
+**Parameter annotations** (in the main line, [#61](https://github.com/janino-lts/janino/issues/61); 3.1.15 does not
 write them at all): Janino records the annotations of the parameters against the parameters of the method
 descriptor, which include the parameters that the compiler prepends to the declared ones: the captured local
 variables of a local class constructor, and the instance of a `private` instance method (see above). `javac` records
@@ -97,8 +97,9 @@ class inherits from a class in another package, accessed from an inner class (`i
 `class P extends FilterInputStream { class Q { ... } }`, or `P.this.clone()`): the code compiles, but the generated
 class throws an `IllegalAccessError` or fails to verify. `javac` generates an accessor method.
 
-**Local classes:** a local class declaration with a modifier or an annotation (`final class L {}`,
-`abstract class L {}`, `@A class L {}`) is rejected (`IDENTIFIER expected instead of 'class'`).
+**Local classes** ([#60](https://github.com/janino-lts/janino/issues/60)): a local class declaration with a modifier
+or an annotation (`final class L {}`, `abstract class L {}`, `@A class L {}`) is rejected (`IDENTIFIER expected
+instead of 'class'`).
 
 ## 3. Invalid code that Janino accepts
 
@@ -136,7 +137,10 @@ method result of type `Object`.
 - `static default` interface method; interface field without initializer: `interface I { int X; }`;
 - default method that overrides a method of `Object`: `default boolean equals(Object o) { ... }`;
 - a class that inherits two default methods with the same signature from two interfaces;
-- `public` enum constructor;
+- `public` enum constructor; `final` modifier on an enum declaration (ignored);
+- an unqualified invocation of a `private` instance method of the enum from the class body of an enum constant
+  (`enum E { A { String n() { return p(); } }; private String p() { ... } abstract String n(); }`, which `javac`
+  rejects as a reference from a static context; Janino invokes the method on the constant);
 - annotation type element with parameters (`int value(int i);`), or of a type that is not allowed (`Object value();`).
 
 **Annotations:**

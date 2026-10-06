@@ -541,3 +541,47 @@ import java.lang.annotation.*;
 public class P {
     void f(@X int x) {}
 }
+
+=== enum constant without a class body, enum with an abstract method
+janino: REJECTED Enum constant "A" must have a class body that implements method
+public class P {
+    enum E { A, B { String n() { return "b"; } }; abstract String n(); }
+}
+
+=== enum with an abstract method and no constants
+janino: REJECTED Non-abstract class "P$E" must implement method "default abstract void P$E.f()"
+public class P {
+    enum E { ; abstract void f(); }
+}
+
+=== enum constant class body does not implement an abstract method
+janino: REJECTED Non-abstract class "P$E$1" must implement method "default abstract void P$E.g()"
+public class P {
+    enum E { A { void f() {} }; abstract void f(); abstract void g(); }
+}
+
+=== constructor in an enum constant class body
+janino: REJECTED IDENTIFIER expected instead of '('
+public class P {
+    enum E { A { E() {} } }
+}
+
+=== abstract enum
+janino: REJECTED Modifier "abstract" not allowed on enum declaration
+public class P {
+    abstract enum E { A }
+}
+
+=== final enum
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    final enum E { A }
+}
+
+=== enum constant class body invokes a private instance method of the enum unqualified
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    enum E { A { String n() { return p(); } }; private String p() { return "p"; } abstract String n(); }
+}

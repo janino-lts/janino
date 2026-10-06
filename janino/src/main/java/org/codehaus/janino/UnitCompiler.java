@@ -231,6 +231,7 @@ import org.codehaus.janino.util.ClassFile.MethodInfo;
 import org.codehaus.janino.util.ClassFile.StackMapTableAttribute;
 import org.codehaus.janino.util.ClassFile.StackMapTableAttribute.ObjectVariableInfo;
 import org.codehaus.janino.util.ClassFile.StackMapTableAttribute.VerificationTypeInfo;
+import org.codehaus.janino.util.DeepCopier;
 
 /**
  * This class actually implements the Java compiler. It is associated with exactly one compilation unit which it
@@ -504,29 +505,52 @@ class UnitCompiler {
 
         // Check that all methods of the non-abstract class are implemented.
         if (!(cd instanceof NamedClassDeclaration && ((NamedClassDeclaration) cd).isAbstract())) {
-            IMethod[] ms = iClass.getIMethods();
-            for (IMethod base : ms) {
-                if (base.isAbstract()) {
-                    if ("<clinit>".equals(base.getName())) continue;
-                    IMethod override = iClass.findIMethod(base.getName(), base.getParameterTypes());
-                    if (
-                        override == null           // It wasn't overridden
-                        || override.isAbstract()   // It was overridden with an abstract method
-                                                   // The override does not provide a covariant return type
-                        || !base.getReturnType().isAssignableFrom(override.getReturnType())
-                    ) {
-                        this.compileError(
-                            "Non-abstract class \"" + iClass + "\" must implement method \"" + base + "\"",
-                            cd.getLocation()
-                        );
+            List<IMethod> unimplemented = this.unimplementedAbstractMethods(iClass);
+            if (
+                cd instanceof EnumDeclaration
+                && !unimplemented.isEmpty()
+                && !((EnumDeclaration) cd).getConstants().isEmpty()
+            ) {
+
+                // An enum that has an abstract method is implicitly abstract; each of its constants must have a
+                // class body (JLS 8.9.2), and that class body must implement the method (which is checked when the
+                // class body is compiled).
+                for (EnumConstant ec : ((EnumDeclaration) cd).getConstants()) {
+                    if (!ec.hasClassBody) {
+                        this.compileError((
+                            "Enum constant \""
+                            + ec.name
+                            + "\" must have a class body that implements method \""
+                            + unimplemented.get(0)
+                            + "\""
+                        ), ec.getLocation());
                     }
+                }
+            } else {
+                for (IMethod base : unimplemented) {
+                    this.compileError(
+                        "Non-abstract class \"" + iClass + "\" must implement method \"" + base + "\"",
+                        cd.getLocation()
+                    );
                 }
             }
         }
 
         short accessFlags = this.accessFlags(cd.getModifiers());
         if (cd instanceof PackageMemberTypeDeclaration) accessFlags |= Mod.SUPER;
-        if (cd instanceof EnumDeclaration) accessFlags |= Mod.ENUM;
+        if (cd instanceof EnumDeclaration) {
+
+            // An enum must not be declared abstract (JLS 8.9); a declared "final" is ignored, as before, and
+            // replaced with the implicit modifiers.
+            if (Mod.isAbstract(accessFlags)) {
+                this.compileError("Modifier \"abstract\" not allowed on enum declaration", cd.getLocation());
+            }
+            accessFlags = (short) (
+                (accessFlags & ~(Mod.ABSTRACT | Mod.FINAL))
+                | this.enumAccessFlags((EnumDeclaration) cd)
+            );
+        }
+        if (this.isEnumConstantBody(cd)) accessFlags |= Mod.ENUM; // Like "javac".
         if (UnitCompiler.isMemberTypeOfInterface(cd)) accessFlags |= Mod.PUBLIC;
 
         // Create "ClassFile" object.
@@ -599,17 +623,31 @@ class UnitCompiler {
             // Create field and static initializer for each enum constant.
             for (EnumConstant ec : ed.getConstants()) {
 
-                // E <constant> = new E(<ordinal>, <name> [ optional-constructor-args ]);
+                // E <constant> = new E(<name>, <ordinal> [ optional-constructor-args ]);
+                // or, if the enum constant has a class body (JLS 8.9.1):
+                // E <constant> = new E(<name>, <ordinal> [ optional-constructor-args ]) { <class-body> };
+                Rvalue[] arguments = ec.arguments != null ? ec.arguments : new Rvalue[0];
+                Rvalue   initializer;
+                if (ec.hasClassBody) {
+                    initializer = new NewAnonymousClassInstance(
+                        ec.getLocation(),                         // location
+                        null,                                     // qualification
+                        this.enumConstantBodyClass(ec, iClass),   // anonymousClassDeclaration
+                        arguments                                 // arguments
+                    );
+                } else {
+                    initializer = new NewClassInstance(
+                        ec.getLocation(), // location
+                        null,             // qualification
+                        iClass,           // iClass
+                        arguments         // arguments
+                    );
+                }
                 VariableDeclarator variableDeclarator = new VariableDeclarator(
-                    ec.getLocation(),     // location
-                    ec.name,              // name
-                    0,                    // brackets
-                    new NewClassInstance( // initializer
-                        ec.getLocation(),                                                   // location
-                        null,                                                               // qualification
-                        iClass,                                                             // iClass
-                        ec.arguments != null ? ec.arguments : new Rvalue[0] // arguments
-                    )
+                    ec.getLocation(), // location
+                    ec.name,          // name
+                    0,                // brackets
+                    initializer       // initializer
                 );
 
                 FieldDeclaration fd = new FieldDeclaration(
@@ -1634,10 +1672,135 @@ class UnitCompiler {
             if (mtd instanceof AnnotationTypeDeclaration) result |= Mod.ANNOTATION;
         } else
         if (mtd instanceof EnumDeclaration) {
-            result |= Mod.STATIC | Mod.FINAL | Mod.ENUM;
+            result = (short) ((result & ~Mod.FINAL) | Mod.STATIC | this.enumAccessFlags((EnumDeclaration) mtd));
         }
 
         return result;
+    }
+
+    /**
+     * @return The implicit access flags of the enum <var>ed</var> (JLS8 8.9): {@code ACC_ENUM}, plus {@code
+     *         ACC_ABSTRACT} iff the enum has an abstract method that it does not implement (then each constant has a
+     *         class body that implements it), plus {@code ACC_FINAL} iff no constant has a class body
+     */
+    private short
+    enumAccessFlags(EnumDeclaration ed) throws CompileException {
+
+        short result = Mod.ENUM;
+
+        if (
+            !ed.getConstants().isEmpty()
+            && !this.unimplementedAbstractMethods(this.resolve(ed)).isEmpty()
+        ) {
+            result |= Mod.ABSTRACT;
+        } else
+        if (!UnitCompiler.hasConstantsWithClassBodies(ed)) {
+            result |= Mod.FINAL;
+        }
+
+        return result;
+    }
+
+    /**
+     * @return Whether at least one constant of the enum <var>ed</var> has a class body (JLS8 8.9.1)
+     */
+    private static boolean
+    hasConstantsWithClassBodies(EnumDeclaration ed) {
+        for (EnumConstant ec : ed.getConstants()) {
+            if (ec.hasClassBody) return true;
+        }
+        return false;
+    }
+
+    /**
+     * @return The abstract methods of the <var>iClass</var>, declared or inherited, that it does not implement
+     */
+    private List<IMethod>
+    unimplementedAbstractMethods(IClass iClass) throws CompileException {
+
+        List<IMethod> result = new ArrayList<>();
+        for (IMethod base : iClass.getIMethods()) {
+            if (!base.isAbstract()) continue;
+            if ("<clinit>".equals(base.getName())) continue;
+
+            IMethod override = iClass.findIMethod(base.getName(), base.getParameterTypes());
+            if (
+                override == null           // It wasn't overridden
+                || override.isAbstract()   // It was overridden with an abstract method
+                                           // The override does not provide a covariant return type
+                || !base.getReturnType().isAssignableFrom(override.getReturnType())
+            ) result.add(base);
+        }
+
+        return result;
+    }
+
+    /**
+     * Creates the anonymous subclass of the enum that implements the class body of the enum constant <var>ec</var>
+     * (JLS8 8.9.1), from a copy of the members of the class body. The constant is initialized with an instance of
+     * that class.
+     */
+    private AnonymousClassDeclaration
+    enumConstantBodyClass(EnumConstant ec, IClass enumIClass) throws CompileException {
+
+        Location loc = ec.getLocation();
+
+        AnonymousClassDeclaration acd = new AnonymousClassDeclaration(loc, new SimpleType(loc, enumIClass));
+
+        if (!ec.constructors.isEmpty()) {
+            this.compileError("Class body of enum constant must not declare a constructor", loc);
+        }
+
+        DeepCopier dc = new DeepCopier();
+        for (MethodDeclarator md : ec.getMethodDeclarations()) {
+            acd.addDeclaredMethod(dc.copyMethodDeclarator(md));
+        }
+        for (MemberTypeDeclaration mtd : ec.getMemberTypeDeclarations()) {
+            acd.addMemberTypeDeclaration(dc.copyMemberTypeDeclaration(mtd));
+        }
+        for (FieldDeclarationOrInitializer fdoi : ec.fieldDeclarationsAndInitializers) {
+            acd.addFieldDeclarationOrInitializer(dc.copyFieldDeclarationOrInitializer(fdoi));
+        }
+
+        this.enumConstantBodyClasses.add(acd);
+
+        return acd;
+    }
+
+    /**
+     * The anonymous classes that implement the class bodies of enum constants; see {@link
+     * #enumConstantBodyClass(EnumConstant, IClass)}.
+     */
+    private final Set<TypeDeclaration> enumConstantBodyClasses = new HashSet<>();
+
+    /**
+     * @return Whether the <var>td</var> is the anonymous class that implements the class body of an enum constant
+     */
+    private boolean
+    isEnumConstantBody(TypeDeclaration td) { return this.enumConstantBodyClasses.contains(td); }
+
+    /**
+     * @return The ordinal of the enum constant iff the <var>scope</var> is the field declaration of an enum constant
+     *         (see {@code compile2(AbstractClassDeclaration)}), otherwise -1
+     */
+    private static int
+    enumConstantOrdinal(Scope scope) {
+
+        if (!(scope instanceof FieldDeclaration)) return -1;
+        FieldDeclaration fd = (FieldDeclaration) scope;
+
+        if (!(fd.getEnclosingScope() instanceof EnumDeclaration)) return -1;
+        EnumDeclaration ed = (EnumDeclaration) fd.getEnclosingScope();
+
+        if (fd.variableDeclarators.length != 1) return -1;
+        String fieldName = fd.variableDeclarators[0].name;
+
+        int ordinal = 0;
+        for (EnumConstant ec : ed.getConstants()) {
+            if (fieldName.equals(ec.name)) return ordinal;
+            ordinal++;
+        }
+        return -1;
     }
 
     /**
@@ -4045,9 +4208,13 @@ class UnitCompiler {
 
                 ConstructorDeclarator constructorDeclarator = (ConstructorDeclarator) fd;
 
-                if (fd.getDeclaringType() instanceof EnumDeclaration) {
+                if (
+                    fd.getDeclaringType() instanceof EnumDeclaration
+                    || this.isEnumConstantBody(fd.getDeclaringType())
+                ) {
 
-                    // Define special constructor parameters "String $name" and "int $ordinal" for enums.
+                    // Define special constructor parameters "String $name" and "int $ordinal" for enums, and for
+                    // the class bodies of enum constants, which pass them on to the enum's constructor.
                     LocalVariable lv1 = this.allocateLocalVariableAndMarkAsInitialized(true /*finaL*/, this.iClassLoader.TYPE_java_lang_String);
                     constructorDeclarator.syntheticParameters.put("$name", lv1);
 
@@ -6267,7 +6434,8 @@ class UnitCompiler {
         IClass sc = this.resolve(acd).getSuperclass();
         assert sc != null;
 
-        if (sc.isEnum()) {
+        // An anonymous subclass of an enum is permitted only as the class body of an enum constant (JLS 8.9.1).
+        if (sc.isEnum() && UnitCompiler.enumConstantOrdinal(naci.getEnclosingScope()) < 0) {
             this.compileError("Cannot instantiate enum \"" + sc + "\"", naci.getLocation());
             this.pushPlaceholder(naci, sc);
             return sc;
@@ -9353,30 +9521,28 @@ class UnitCompiler {
         }
 
         // Enum constant: Pass constant name and ordinal as synthetic parameters.
-        ENUM_CONSTANT:
+        int ordinal = UnitCompiler.enumConstantOrdinal(scope);
+        if (ordinal >= 0) {
+            this.consT(locatable, ((FieldDeclaration) scope).variableDeclarators[0].name);
+            this.consT(locatable, ordinal);
+        } else
         if (
-            scope instanceof FieldDeclaration
-            && scope.getEnclosingScope() instanceof EnumDeclaration
+            locatable instanceof SuperConstructorInvocation
+            && scope instanceof ConstructorDeclarator
+            && this.isEnumConstantBody(((ConstructorDeclarator) scope).getDeclaringClass())
         ) {
 
-            FieldDeclaration fd = (FieldDeclaration) scope;
-            EnumDeclaration  ed = (EnumDeclaration) fd.getEnclosingScope();
+            // Constructor of the class body of an enum constant: Pass the synthetic "$name" and "$ordinal"
+            // parameters on to the constructor of the enum.
+            ConstructorDeclarator cd = (ConstructorDeclarator) scope;
 
-            if (fd.variableDeclarators.length != 1) break ENUM_CONSTANT;
+            LocalVariable nameLv = (LocalVariable) cd.syntheticParameters.get("$name");
+            assert nameLv != null;
+            this.load(locatable, nameLv);
 
-            String fieldName = fd.variableDeclarators[0].name;
-
-            int ordinal = 0;
-            for (EnumConstant ec : ed.getConstants()) {
-                if (fieldName.equals(ec.name)) {
-
-                    // Now we know that this field IS an enum constant.
-                    this.consT(locatable, fieldName);
-                    this.consT(locatable, ordinal);
-                    break ENUM_CONSTANT;
-                }
-                ordinal++;
-            }
+            LocalVariable ordinalLv = (LocalVariable) cd.syntheticParameters.get("$ordinal");
+            assert ordinalLv != null;
+            this.load(locatable, ordinalLv);
         }
 
         // Pass enclosing instance as a synthetic parameter.
@@ -11757,6 +11923,13 @@ class UnitCompiler {
                 }
 
                 List<String> parameterFds = new ArrayList<>();
+
+                // The class body of an enum constant has the synthetic "$name" and "$ordinal" parameters, like the
+                // enum itself (see "compile2(FunctionDeclarator)").
+                if (UnitCompiler.this.isEnumConstantBody(constructorDeclarator.getDeclaringClass())) {
+                    parameterFds.add(Descriptor.JAVA_LANG_STRING);
+                    parameterFds.add(Descriptor.INT);
+                }
 
                 // Convert enclosing instance reference into prepended constructor parameters.
                 IClass outerClass = UnitCompiler.this.resolve(

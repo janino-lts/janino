@@ -1753,6 +1753,13 @@ class Java {
          */
         @Nullable public final Rvalue[] arguments;
 
+        /**
+         * Whether the enum constant has a class body (JLS 8.9.1), which may be empty. The members of the class body
+         * are those of this {@link AbstractClassDeclaration}; the compiler compiles them into an anonymous subclass
+         * of the enum.
+         */
+        public final boolean hasClassBody;
+
         public
         EnumConstant(
             Location           location,
@@ -1761,10 +1768,26 @@ class Java {
             String             name,
             @Nullable Rvalue[] arguments
         ) {
+            this(location, docComment, modifiers, name, arguments, false);
+        }
+
+        /**
+         * @param hasClassBody See {@link #hasClassBody}
+         */
+        public
+        EnumConstant(
+            Location           location,
+            @Nullable String   docComment,
+            Modifier[]         modifiers,
+            String             name,
+            @Nullable Rvalue[] arguments,
+            boolean            hasClassBody
+        ) {
             super(location, modifiers, null);
-            this.docComment = docComment;
-            this.name       = name;
-            this.arguments  = arguments;
+            this.docComment   = docComment;
+            this.name         = name;
+            this.arguments    = arguments;
+            this.hasClassBody = hasClassBody;
         }
 
         @Override public String
