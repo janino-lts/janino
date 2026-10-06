@@ -107,11 +107,13 @@ interfaces that all alternatives implement: `e.n()` with a method `n()` of an in
 but not their common superclass, is rejected (`A method named "n" is not declared in any enclosing class nor any
 supertype`); with a cast, `((I) e).n()`, it compiles.
 
-**Try-with-resources:** an anonymous or local class in the block cannot access the resource variable
+**Try-with-resources** ([#64](https://github.com/janino-lts/janino/issues/64)): an anonymous or local class in
+the block cannot access the resource variable
 (`try (R r = ...) { new Runnable() { public void run() { r.use(); } }; }`: `Unknown variable or type "r"`).
 
-**Exception classes with all-uppercase names:** a type in the `throws` clause of a method or constructor declared
-in the compiled code is ignored if its simple name consists of uppercase letters only (`throws X`, `throws IOEXC`),
+**Exception classes with all-uppercase names** ([#65](https://github.com/janino-lts/janino/issues/65)): a type in
+the `throws` clause of a method or constructor declared in the compiled code is ignored if its simple name consists
+of uppercase letters only (`throws X`, `throws IOEXC`),
 because Janino takes it for a type parameter. The `catch` of such an exception that the method throws is rejected
 (`Catch clause is unreachable`); and the exception need neither be caught nor declared (section 3).
 

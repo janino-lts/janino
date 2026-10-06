@@ -15,6 +15,10 @@ Janino compiles Java source code like `javac`, but not in every respect: it acce
 valid code, and some valid code behaves differently. All known deviations are listed in
 [Differences between Janino and javac](JAVAC_DIFFERENCES.md).
 
+[Janino and javac: the compatibility mode and the compliance mode](JAVAC_COMPLIANCE.md) sketches how these
+deviations could be handled in the long run. It is no more than a non-binding idea of a possible roadmap, not a
+plan and not a commitment.
+
 Please visit the [project homepage](https://janino-lts.github.io/janino/).
 
 ## Maven coordinates

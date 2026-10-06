@@ -173,8 +173,9 @@ h5 {
         compiled before are unchanged.
       </li>
       <li>
-        Fixed: An anonymous or local class in a <code>catch</code> clause could access neither the <code>catch</code>
-        parameter nor a local variable that is declared before the <code>try</code> statement; the compiler failed
+        Fixed <a href="https://github.com/janino-lts/janino/issues/63">issue #63</a>: An anonymous or local class
+        in a <code>catch</code> clause could access neither the <code>catch</code> parameter nor a local variable
+        that is declared before the <code>try</code> statement; the compiler failed
         with an <code>InternalCompilerException</code> ("Synthetic field ... neither maps a synthetic field of an
         enclosing instance nor a local variable").
       </li>
