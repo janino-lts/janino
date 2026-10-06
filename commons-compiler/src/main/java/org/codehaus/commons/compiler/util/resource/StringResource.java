@@ -27,6 +27,7 @@ package org.codehaus.commons.compiler.util.resource;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 
 /**
  * A resource who's content is a {@link String}.
@@ -36,10 +37,22 @@ class StringResource implements Resource {
 
     private final String fileName;
 
+    /**
+     * Encodes the <var>text</var> with the platform default charset.
+     *
+     * @see #StringResource(String, String, Charset)
+     */
     public
-    StringResource(String fileName, String text) {
+    StringResource(String fileName, String text) { this(fileName, text, Charset.defaultCharset()); }
+
+    /**
+     * Encodes the <var>text</var> with the given <var>charset</var>, which should be the source charset of the compiler
+     * that reads the resource; see {@link org.codehaus.commons.compiler.ICompiler#setSourceCharset(Charset)}.
+     */
+    public
+    StringResource(String fileName, String text, Charset charset) {
         this.fileName = fileName;
-        this.data     = text.getBytes();
+        this.data     = text.getBytes(charset);
     }
 
     // Implement "Resource".

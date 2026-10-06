@@ -385,6 +385,104 @@ class JlsTest extends CommonsCompilerTestSuite {
         );
     }
 
+    /**
+     * 4.12.4 {@code final} Variables: only a variable of a primitive type or of type {@link String} can be a constant
+     * variable; see <a href="https://github.com/janino-lts/janino/issues/45">issue #45</a>.
+     */
+    @Test public void
+    test_4_12_4__Constant_variables() throws Exception {
+
+        // Fields of type "char".
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "static final char C1 = 'a';\n"
+            + "static final char C2 = Character.MAX_VALUE;\n"
+            + "static final char C3 = (short) 97;\n"
+            + "static final char C4 = 97;\n"
+            + "static class H { final char c = 'b'; }\n"
+            + "public static boolean main() {\n"
+            + "    int x = 0;\n"
+            + "    switch ('a') { case C1: x = 1; }\n"
+            + "    return (\"\" + C1 + C3 + C4 + new H().c).equals(\"aaab\") && C2 == 65535 && x == 1;\n"
+            + "}\n"
+        );
+
+        // Fields of reference types with constant initializers are not constant variables.
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "static final Integer      I = 5;\n"
+            + "static final Long         L = 5L;\n"
+            + "static final Boolean      Z = true;\n"
+            + "static final Byte         B = 5;\n"
+            + "static final Short        S = 7;\n"
+            + "static final Character    C = 'a';\n"
+            + "static final Object       O1 = 5;\n"
+            + "static final Object       O2 = \"x\";\n"
+            + "static final CharSequence CS = \"x\";\n"
+            + "static class H { final Integer i = 5; final Object o = \"y\"; }\n"
+            + "public static boolean main() {\n"
+            + "    H h = new H();\n"
+            + "    return (\n"
+            + "        I == Integer.valueOf(5) && L == 5L && Z && B == 5 && S == 7 && C == 'a'\n"
+            + "        && O1.equals(Integer.valueOf(5)) && O2.equals(\"x\") && CS.equals(\"x\")\n"
+            + "        && h.i == Integer.valueOf(5) && h.o.equals(\"y\")\n"
+            + "        && (\"\" + I + C + O2).equals(\"5ax\")\n"
+            + "    );\n"
+            + "}\n"
+        );
+
+        // Fields of interfaces are implicitly "static final".
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "interface I { Integer X = 5; char C = 'a'; Object O = \"x\"; }\n"
+            + "public static boolean main() { return I.X == 5 && I.C == 'a' && I.O.equals(\"x\"); }\n"
+        );
+
+        // Unchanged: "null" initializers, and constant variables of type "String".
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "static final Object O = null;\n"
+            + "static final String N = null;\n"
+            + "static final String S = \"x\";\n"
+            + "public static boolean main() {\n"
+            + "    int x = 0;\n"
+            + "    switch (\"x\") { case S: x = 1; }\n"
+            + "    return (\n"
+            + "        O == null && N == null && (\"\" + O).equals(\"null\") && (\"\" + N).equals(\"null\") && x == 1\n"
+            + "    );\n"
+            + "}\n"
+        );
+    }
+
+    /**
+     * 5.1.3 Narrowing Primitive Conversion, and 5.1.4 Widening and Narrowing Primitive Conversion ({@code byte} to
+     * {@code char}); see <a href="https://github.com/janino-lts/janino/issues/37">issue #37</a>.
+     */
+    @Test public void
+    test_5_1_3__Narrowing_primitive_conversion() throws Exception {
+
+        // To "char".
+        this.assertScriptReturnsTrue("byte   b = -1;    return (int) (char) b == 65535;");
+        this.assertScriptReturnsTrue("short  s = -1;    return (int) (char) s == 65535;");
+        this.assertScriptReturnsTrue("int    i = -1;    return (int) (char) i == 65535;");
+        this.assertScriptReturnsTrue("long   l = -1L;   return (int) (char) l == 65535;");
+        this.assertScriptReturnsTrue("float  f = -1F;   return (int) (char) f == 65535;");
+        this.assertScriptReturnsTrue("double d = -1D;   return (int) (char) d == 65535;");
+        this.assertScriptReturnsTrue("long   l = 65537; return (char) l == 1;");
+        this.assertScriptReturnsTrue("byte   b = -128;  Object o = (char) b; return o.equals((char) 0xFF80);");
+
+        // From "char".
+        this.assertScriptReturnsTrue("char c = 65535;  return (int) (short) c == -1;");
+        this.assertScriptReturnsTrue("char c = 0x8000; return (short) c == Short.MIN_VALUE;");
+        this.assertScriptReturnsTrue("char c = 0xFF80; return (byte) c == -128;");
+
+        // Other narrowing conversions.
+        this.assertScriptReturnsTrue("int    i = 0x18000;      return (short) i == Short.MIN_VALUE;");
+        this.assertScriptReturnsTrue("long   l = 0x100000080L; return (short) l == 128 && (byte) l == -128;");
+        this.assertScriptReturnsTrue("float  f = 200.5F;       return (byte) f == -56 && (short) f == 200;");
+        this.assertScriptReturnsTrue("double d = -129.5D;      return (byte) d == 127 && (int) d == -129;");
+    }
+
     @Test public void
     test_5_1_7__Boxing_conversion() throws Exception {
         this.assertScriptReturnsTrue("Boolean   b = true;        return b.booleanValue();");
@@ -1130,6 +1228,101 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "        Object a = mc.getAnnotation(ac);\n"
             + "//        System.out.printf(\"a=%s%n\", a);\n"
             + "        return ((MyAnno) a).value();\n"
+            + "    }\n"
+            + "}"
+        ), "Main");
+
+        // The default value is converted to the type of the element (JLS 9.6.2); see
+        // https://github.com/janino-lts/janino/issues/48.
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.annotation.Retention;\n"
+            + "import java.lang.annotation.RetentionPolicy;\n"
+            + "\n"
+            + "@Retention(RetentionPolicy.RUNTIME) @interface Defaults {\n"
+            + "    long     l()   default 0;\n"
+            + "    float    f()   default 1;\n"
+            + "    double   d()   default 2;\n"
+            + "    byte     b()   default 3;\n"
+            + "    short    s()   default 4;\n"
+            + "    char     c()   default 97;\n"
+            + "    int      i()   default 'a';\n"
+            + "    long[]   ls()  default { 1, 2 };\n"
+            + "    double[] ds()  default 5;\n"
+            + "    String   str() default \"x\";\n"
+            + "    boolean  z()   default true;\n"
+            + "}\n"
+            + "\n"
+            + "@Defaults public\n"
+            + "class Main {\n"
+            + "\n"
+            + "    public static boolean\n"
+            + "    main() {\n"
+            + "        Defaults a = (Defaults) Main.class.getAnnotation(Defaults.class);\n"
+            + "        return (\n"
+            + "            a.l() == 0L && a.f() == 1F && a.d() == 2D && a.b() == 3 && a.s() == 4 && a.c() == 'a'\n"
+            + "            && a.i() == 97 && a.ls().length == 2 && a.ls()[1] == 2L && a.ds().length == 1\n"
+            + "            && a.ds()[0] == 5D && a.str().equals(\"x\") && a.z()\n"
+            + "        );\n"
+            + "    }\n"
+            + "}"
+        ), "Main");
+    }
+
+    /**
+     * The element values are converted to the types of the elements (JLS 9.7.1); see <a
+     * href="https://github.com/janino-lts/janino/issues/48">issue #48</a>.
+     */
+    @Test public void
+    test_9_7_1__Normal_Annotations() throws Exception {
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.annotation.Retention;\n"
+            + "import java.lang.annotation.RetentionPolicy;\n"
+            + "\n"
+            + "@Retention(RetentionPolicy.RUNTIME) @interface Ann {\n"
+            + "    long l(); float f(); double d(); byte b(); short s(); char c(); int i();\n"
+            + "    long[] ls(); double[] ds(); String str(); boolean z();\n"
+            + "}\n"
+            + "@Retention(RetentionPolicy.RUNTIME) @interface V     { long value(); }\n"
+            + "@Retention(RetentionPolicy.RUNTIME) @interface Outer { V inner(); }\n"
+            + "\n"
+            + "@Ann(\n"
+            + "    l = 5, f = 6, d = 7, b = 8, s = 'a', c = 98, i = 'b', ls = 3, ds = { 1, 2 },\n"
+            + "    str = \"y\", z = false\n"
+            + ")\n"
+            + "@V(7)\n"
+            + "@Outer(inner = @V(9))\n"
+            + "class Converted {}\n"
+            + "\n"
+            + "@Ann(\n"
+            + "    l = 5L, f = 6F, d = 7D, b = (byte) 8, s = (short) 97, c = 'b', i = 98, ls = { 3L },\n"
+            + "    ds = { 1D, 2D }, str = \"y\", z = false\n"
+            + ")\n"
+            + "class Exact {}\n"
+            + "\n"
+            + "public\n"
+            + "class Main {\n"
+            + "\n"
+            + "    public static boolean\n"
+            + "    main() {\n"
+            + "        V     v = (V)     Converted.class.getAnnotation(V.class);\n"
+            + "        Outer o = (Outer) Converted.class.getAnnotation(Outer.class);\n"
+            + "        return (\n"
+            + "            Main.check((Ann) Converted.class.getAnnotation(Ann.class))\n"
+            + "            && Main.check((Ann) Exact.class.getAnnotation(Ann.class))\n"
+            + "            && v.value() == 7L\n"
+            + "            && o.inner().value() == 9L\n"
+            + "        );\n"
+            + "    }\n"
+            + "\n"
+            + "    static boolean\n"
+            + "    check(Ann a) {\n"
+            + "        return (\n"
+            + "            a.l() == 5L && a.f() == 6F && a.d() == 7D && a.b() == 8 && a.s() == 97 && a.c() == 'b'\n"
+            + "            && a.i() == 98 && a.ls().length == 1 && a.ls()[0] == 3L && a.ds().length == 2\n"
+            + "            && a.ds()[1] == 2D && a.str().equals(\"y\") && !a.z()\n"
+            + "        );\n"
             + "    }\n"
             + "}"
         ), "Main");
@@ -2861,11 +3054,38 @@ class JlsTest extends CommonsCompilerTestSuite {
     @Test public void
     test_15_15_3__Unary_Plus_Operator() throws Exception {
         this.assertExpressionEvaluatesTrue("new Integer(+new Integer(7)).intValue() == 7");
+
+        // The operand is promoted to "int", also in constant expressions (issue #39).
+        this.assertExpressionEvaluatesTrue("(\"\" + (+'a')).equals(\"97\")");
+        this.assertExpressionEvaluatesTrue("(\"\" + (+(byte) 5)).equals(\"5\")");
+        this.assertScriptReturnsTrue("Object o = +'a'; return o.equals(97);");
+        this.assertScriptReturnsTrue("Object o = +(short) 7; return o.equals(7);");
+        this.assertScriptReturnsTrue("char c = +'a'; return c == 'a';");
+        this.assertScriptReturnsTrue("Character c = +'a'; return c == 'a';");
+        this.assertScriptReturnsTrue("byte b = +(byte) 5; return b == 5;");
     }
 
     @Test public void
     test_15_15_4__Unary_Minus_Operator() throws Exception {
         this.assertExpressionEvaluatesTrue("new Integer(-new Integer(7)).intValue() == -7");
+
+        // The operand is promoted to "int", also in constant expressions (issue #39).
+        this.assertExpressionEvaluatesTrue("-Byte.MIN_VALUE == 128");
+        this.assertExpressionEvaluatesTrue("-((byte) -128) == 128");
+        this.assertExpressionEvaluatesTrue("-Short.MIN_VALUE == 32768");
+        this.assertExpressionEvaluatesTrue("(\"\" + (-Byte.MIN_VALUE)).equals(\"128\")");
+        this.assertExpressionEvaluatesTrue("(\"\" + (-'a')).equals(\"-97\")");
+        this.assertScriptReturnsTrue("Object o = -Byte.MIN_VALUE; return o.equals(128);");
+        this.assertScriptReturnsTrue("byte b = -(byte) 5; return b == -5;");
+        this.assertScriptReturnsTrue("int i = -2147483648; long l = -9223372036854775808L; return i < 0 && l < 0;");
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "static final int  X = -Byte.MIN_VALUE;\n"
+            + "static final long Y = -Short.MIN_VALUE;\n"
+            + "public static boolean main() { return X == 128 && Y == 32768L; }\n"
+        );
+        this.assertScriptUncookable("byte b = -Byte.MIN_VALUE;");
+        this.assertScriptUncookable("short s = -Short.MIN_VALUE;");
     }
 
     @Test public void
@@ -2953,6 +3173,32 @@ class JlsTest extends CommonsCompilerTestSuite {
 //            + "                for (Object classFile : new Object[1]) System.out.printf(\"%s%s\", classFile, sourceFile);\n"
             + "            }\n"
         );
+
+        // String conversion of "null" (JLS 5.1.11), in every operand position (issue #49).
+        this.assertExpressionEvaluatesTrue("(null + \"a\").equals(\"nulla\")");
+        this.assertExpressionEvaluatesTrue("(\"a\" + null + null).equals(\"anullnull\")");
+        this.assertExpressionEvaluatesTrue("(\"a\" + \"b\" + null).equals(\"abnull\")");
+        this.assertExpressionEvaluatesTrue("(null + \"a\" + null).equals(\"nullanull\")");
+        this.assertExpressionEvaluatesTrue("(\"a\" + null).equals(\"anull\")");
+        this.assertExpressionEvaluatesTrue("(\"a\" + null + \"b\").equals(\"anullb\")");
+        this.assertClassBodyMainReturnsTrue(
+            ""
+            + "static final String N = null;\n"
+            + "static final Object O = null;\n"
+            + "static final String S = \"a\" + null + null;\n"
+            + "public static boolean main() {\n"
+            + "    return (\n"
+            + "        (N + \"a\" + N).equals(\"nullanull\")\n"
+            + "        && (\"\" + O + N).equals(\"nullnull\")\n"
+            + "        && S.equals(\"anullnull\")\n"
+            + "    );\n"
+            + "}\n"
+        );
+
+        // Other operand types.
+        this.assertExpressionEvaluatesTrue("(1 + 2 + \"a\").equals(\"3a\")");
+        this.assertExpressionEvaluatesTrue("(\"a\" + 1 + 2).equals(\"a12\")");
+        this.assertExpressionEvaluatesTrue("(\"\" + 'a' + true + 1.5f).equals(\"atrue1.5\")");
     }
 
     @Test public void
@@ -3252,6 +3498,15 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "}\n"
         );
         this.assertScriptUncookable("Byte b = 1; Object x = (b += 1);");
+
+        // The result is narrowed to the type of the variable, also to and from "char" (issue #37).
+        this.assertScriptReturnsTrue("char c = 0; long j = 0xFFFFL; c |= j; return (int) c == 65535;");
+        this.assertScriptReturnsTrue("char c = 0; double d = 65535.0; c += d; return (int) c == 65535;");
+        this.assertScriptReturnsTrue("char c = 1; float f = 2F; c -= f; return (int) c == 65535;");
+        this.assertScriptReturnsTrue("char c = 0; byte b = -1; c ^= b; return (int) c == 65535;");
+        this.assertScriptReturnsTrue("short s = 0; char c = 65535; s += c; return s == -1;");
+        this.assertScriptReturnsTrue("char c = 0; long j = 0xFFFFL; int x = (c |= j); return x == 65535 && c == x;");
+        this.assertScriptReturnsTrue("char[] a = { 0 }; long j = -1L; int x = (a[0] += j); return x == 65535;");
     }
 
     @Test public void

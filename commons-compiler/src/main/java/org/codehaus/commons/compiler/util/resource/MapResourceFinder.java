@@ -27,6 +27,7 @@ package org.codehaus.commons.compiler.util.resource;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -78,7 +79,19 @@ class MapResourceFinder extends ListableResourceFinder {
      * @return The resource that was previously associated with the <var>fileName</var>, or {@code null}
      */
     @Nullable public Resource
-    addResource(String fileName, String data) { return this.addResource(fileName, data.getBytes()); }
+    addResource(String fileName, String data) { return this.addResource(fileName, data, Charset.defaultCharset()); }
+
+    /**
+     * @param data    The text to store
+     * @param charset The charset to encode the <var>data</var> with, which should be the source charset of the
+     *                compiler that reads the resource; see {@link
+     *                org.codehaus.commons.compiler.ICompiler#setSourceCharset(Charset)}
+     * @return        The resource that was previously associated with the <var>fileName</var>, or {@code null}
+     */
+    @Nullable public Resource
+    addResource(String fileName, String data, Charset charset) {
+        return this.addResource(fileName, data.getBytes(charset));
+    }
 
     /**
      * Adds another {@link Resource}, so that it can later be found with {@link #findResource(String)}, {@link

@@ -5,9 +5,9 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>org.codehaus.janino</groupId>
+    <groupId>io.github.janino-lts</groupId>
     <artifactId>janino-parent</artifactId>
-    <version>3.1.14</version>
+    <version>3.1.15</version>
     <relativePath>../janino-parent</relativePath>
   </parent>
 
@@ -26,7 +26,7 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.codehaus.janino</groupId>
+      <groupId>io.github.janino-lts</groupId>
       <artifactId>commons-compiler</artifactId>
       <version>${project.parent.version}</version>
       <scope>test</scope>
@@ -45,7 +45,8 @@
       See profile "quality" in "janino-parent/pom.xml". The tests in this module exercise all modules, so the coverage
       report of all modules is created here. "report-aggregate" only covers the dependencies of this module, so the
       compiler implementations (which are otherwise only added to the test classpath, see below) are declared as
-      dependencies.
+      dependencies. Code that is not part of the product (samples, command line tools, stand-ins for Java 8 / 9 APIs)
+      is still built, but not counted.
     -->
     <profile>
       <id>quality</id>
@@ -53,17 +54,17 @@
 
         <!-- "report-aggregate" ignores dependencies with scope "test"; this module has no main code anyway. -->
         <dependency>
-          <groupId>org.codehaus.janino</groupId>
+          <groupId>io.github.janino-lts</groupId>
           <artifactId>commons-compiler</artifactId>
           <version>${project.parent.version}</version>
         </dependency>
         <dependency>
-          <groupId>org.codehaus.janino</groupId>
+          <groupId>io.github.janino-lts</groupId>
           <artifactId>janino</artifactId>
           <version>${project.parent.version}</version>
         </dependency>
         <dependency>
-          <groupId>org.codehaus.janino</groupId>
+          <groupId>io.github.janino-lts</groupId>
           <artifactId>commons-compiler-jdk</artifactId>
           <version>${project.parent.version}</version>
         </dependency>
@@ -82,6 +83,16 @@
                 </goals>
                 <configuration>
                   <includeCurrentProject>true</includeCurrentProject>
+
+                  <!-- Not part of the product: samples, command line tools, stand-ins for Java 8 / 9 APIs. -->
+                  <excludes>
+                    <exclude>org/codehaus/commons/compiler/samples/**</exclude>
+                    <exclude>org/codehaus/janino/samples/**</exclude>
+                    <exclude>org/codehaus/janino/tools/**</exclude>
+                    <exclude>org/codehaus/commons/compiler/java8/**</exclude>
+                    <exclude>org/codehaus/commons/compiler/java9/**</exclude>
+                    <exclude>org/codehaus/commons/nullanalysis/**</exclude>
+                  </excludes>
                 </configuration>
               </execution>
             </executions>
@@ -112,6 +123,24 @@
             <additionalClasspathElement>${project.basedir}/../commons-compiler-jdk/target/classes</additionalClasspathElement>
           </additionalClasspathElements>
         </configuration>
+        <executions>
+
+          <!--
+            Runs the source charset tests once more with a platform default charset that can not represent all
+            characters, because the default charset is UTF-8 on most build machines.
+          -->
+          <execution>
+            <id>non-utf8-default-charset</id>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <test>SourceCharsetTest</test>
+              <reportsDirectory>${project.build.directory}/surefire-reports-non-utf8</reportsDirectory>
+              <argLine>@{argLine} -Xss2m ${test.locale.argLine} -Dfile.encoding=ISO-8859-1</argLine>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
@@ -119,5 +148,5 @@
   <description>Tests that use only the &quot;commons-compiler&quot; API and are thus applicable to ALL implementations.
 
 NOTICE: This module is not a test for &quot;commons-compiler&quot;, but for a set of IMPLEMENTATIONS of &quot;commons-compiler&quot;!</description>
-  <url>http://janino-compiler.github.io/janino/</url>
+  <url>https://janino-lts.github.io/janino/</url>
 </project>

@@ -4,6 +4,7 @@
   xmlns="http://maven.apache.org/POM/4.0.0"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+  child.project.url.inherit.append.path="false"
 >
   <modelVersion>4.0.0</modelVersion>
 
@@ -32,9 +33,9 @@
 
   <name>janino-parent</name>
 
-  <groupId>org.codehaus.janino</groupId>
+  <groupId>io.github.janino-lts</groupId>
   <packaging>pom</packaging>
-  <version>3.1.14</version>
+  <version>3.1.15</version>
   <dependencyManagement>
     <dependencies>
       <dependency>
@@ -62,6 +63,17 @@
         <role>Developer</role>
       </roles>
     </developer>
+    <developer>
+      <id>stefan-zobel</id>
+      <name>Stefan Zobel</name>
+      <url>https://github.com/stefan-zobel</url>
+      <organization>janino-lts</organization>
+      <organizationUrl>https://github.com/janino-lts</organizationUrl>
+      <roles>
+        <role>Maintainer</role>
+        <role>Developer</role>
+      </roles>
+    </developer>
   </developers>
 
   <modules>
@@ -70,13 +82,6 @@
     <module>../janino</module>
     <module>../commons-compiler-tests</module>
   </modules>
-
-  <distributionManagement>
-    <snapshotRepository>
-      <id>ossrh</id>
-      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-    </snapshotRepository>
-  </distributionManagement>
 
   <build>
     <plugins>
@@ -118,7 +123,11 @@
         </executions>
         <configuration>
           <instructions>
-            <Bundle-SymbolicName>${project.groupId}.${project.artifactId};singleton:=true</Bundle-SymbolicName>
+            <!--
+              Fixed rather than derived from the group ID, so that the symbolic names stay the same when the group ID
+              changes (OSGi bundles refer to them, e.g. "Require-Bundle" in "janino/pom.xml").
+            -->
+            <Bundle-SymbolicName>org.codehaus.janino.${project.artifactId};singleton:=true</Bundle-SymbolicName>
             <Bundle-Name>${project.artifactId}</Bundle-Name>
             <Bundle-Version>${project.version}</Bundle-Version>
             <Bundle-License>https://spdx.org/licenses/BSD-3-Clause.html</Bundle-License>
@@ -215,18 +224,6 @@
           </compilerArgs>
         </configuration>
       </plugin>
-
-      <plugin>
-        <groupId>org.sonatype.plugins</groupId>
-        <artifactId>nexus-staging-maven-plugin</artifactId>
-        <version>1.6.13</version>
-        <extensions>true</extensions>
-        <configuration>
-           <serverId>ossrh</serverId>
-           <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-           <autoReleaseAfterClose>false</autoReleaseAfterClose>
-        </configuration>
-      </plugin>
     </plugins>
 
     <pluginManagement>
@@ -234,7 +231,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-gpg-plugin</artifactId>
-          <version>1.5</version>
+          <version>3.2.8</version>
           <executions>
             <execution>
               <id>sign-artifacts</id>
@@ -317,9 +314,10 @@
     <!--
       Measures the test coverage (JaCoCo) and runs a static analysis (SpotBugs); reports only, never fails the build:
         mvn -f janino-parent/pom.xml -P quality verify
-      The coverage report of all modules is in "commons-compiler-tests/target/site/jacoco-aggregate", the SpotBugs
-      reports are in "*/target/spotbugsXml.xml" and "*/target/reports/spotbugs.html"; the patterns that are
-      intentional in JANINO are excluded through "spotbugs-exclude.xml".
+      The coverage report of all modules (without samples, command line tools and stand-ins for Java 8 / 9 APIs) is
+      in "commons-compiler-tests/target/site/jacoco-aggregate", the SpotBugs reports are in "*/target/spotbugsXml.xml"
+      and "*/target/reports/spotbugs.html"; the patterns that are intentional in JANINO are excluded through
+      "spotbugs-exclude.xml".
     -->
     <profile>
       <id>quality</id>
@@ -377,7 +375,12 @@
       </modules>
     </profile>
 
-    <!-- Signs all artifacts with GPG (oss.sonatype.org requires that). -->
+    <!--
+      Signs all artifacts with GPG (Maven Central requires that):
+        mvn -f janino-parent/pom.xml -P have_gpg clean install -Dgpg.keyname=<fingerprint>
+      Add "-Dgpg.executable=<path>/gpg.exe" if "gpg" is not on the path. The signatures ("*.asc") are in the "target"
+      directories of the modules.
+    -->
     <profile>
       <id>have_gpg</id>
       <build>
@@ -392,7 +395,7 @@
   </profiles>
 
   <description>Janino is a super-small, super-fast Java compiler.</description>
-  <url>http://janino-compiler.github.io/janino/</url>
+  <url>https://janino-lts.github.io/janino/</url>
   <licenses>
     <license>
       <name>BSD-3-Clause</name>
@@ -400,8 +403,19 @@
       <distribution>repo</distribution>
     </license>
   </licenses>
-  <scm>
-    <developerConnection>scm:git:https://github.com/janino-compiler/janino</developerConnection>
-    <url>https://github.com/janino-compiler/janino</url>
+
+  <!-- The modules inherit the URLs unchanged (by default, MAVEN would append their artifact IDs). -->
+  <scm
+    child.scm.connection.inherit.append.path="false"
+    child.scm.developerConnection.inherit.append.path="false"
+    child.scm.url.inherit.append.path="false"
+  >
+    <connection>scm:git:https://github.com/janino-lts/janino.git</connection>
+    <developerConnection>scm:git:https://github.com/janino-lts/janino.git</developerConnection>
+    <url>https://github.com/janino-lts/janino</url>
   </scm>
+  <issueManagement>
+    <system>GitHub</system>
+    <url>https://github.com/janino-lts/janino/issues</url>
+  </issueManagement>
 </project>

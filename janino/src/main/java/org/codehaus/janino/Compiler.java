@@ -175,8 +175,8 @@ class Compiler extends AbstractCompiler {
         this.benchmark.report("Character encoding",      characterEncoding);
         this.benchmark.report("Verbose",                 Boolean.valueOf(verbose));
         this.benchmark.report("Debug source",            Boolean.valueOf(debugSource));
-        this.benchmark.report("Debug lines",             Boolean.valueOf(debugSource));
-        this.benchmark.report("Debug vars",              Boolean.valueOf(debugSource));
+        this.benchmark.report("Debug lines",             Boolean.valueOf(debugLines));
+        this.benchmark.report("Debug vars",              Boolean.valueOf(debugVars));
         this.benchmark.report("Warning handle patterns", warningHandlePatterns);
         this.benchmark.report("Rebuild",                 Boolean.valueOf(rebuild));
     }

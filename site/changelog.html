@@ -49,6 +49,113 @@ h5 {
 
     <a href="index.html">Back to the JANINO home page</a>
 
+    <h4>Version 3.1.15 2026-10-06</h4>
+    <p>
+      The first release of this fork on MAVEN Central, under the new group ID <code>io.github.janino-lts</code> (see
+      <a href="index.html#packages">Packages</a>); the Java packages, the OSGi bundle symbolic names and the automatic
+      module names are unchanged. Most fixes concern constant expressions, conversions and annotations; all of the
+      defects exist in 3.1.12 already.
+    </p>
+    <ul>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/35">issue #35</a>: The value of a compound
+        assignment (e.g. <code>a[i] += x</code> or <code>I += 2</code> with an <code>Integer I</code>, used as an
+        expression) was wrong, failed the verification, or crashed the compiler.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/36">issue #36</a>: The bitwise and shift operators
+        did not unbox their operands when determining the type of the result (e.g. for overload resolution).
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/37">issue #37</a>: Narrowing conversions to
+        <code>char</code> and from <code>char</code> to <code>short</code> generated wrong opcodes, e.g.
+        <code>(int) (char) b</code> was -1 instead of 65535 for <code>b == -1</code>.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/39">issue #39</a>: The constant folding of the
+        unary <code>+</code> and <code>-</code> did not promote <code>byte</code>, <code>short</code> and
+        <code>char</code> to <code>int</code>, e.g. <code>"" + (+'a')</code> was <code>"a"</code> and
+        <code>-Byte.MIN_VALUE</code> was -128.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/45">issue #45</a>: <code>final</code> fields of type
+        <code>char</code> with a constant initializer were rejected, and <code>final</code> fields of a wrapper or
+        other reference type with a constant initializer (e.g. <code>static final Integer I = 5;</code>) were rejected
+        or caused a <code>ClassFormatError</code>.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/46">issue #46</a>: <code>boolean</code>,
+        <code>byte</code>, <code>char</code> and <code>short</code> constants of fields from class files were treated
+        as <code>int</code> constants, e.g. <code>"" + A.F + A.C</code> was <code>"197"</code> instead of
+        <code>"truea"</code>.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/48">issue #48</a>: Annotation element values and
+        default values whose type differs from the element type (e.g. <code>long l() default 0;</code> or
+        <code>@Ann(l = 5)</code>) could not be read through reflection.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/49">issue #49</a>: The constant folding of string
+        concatenations with <code>null</code> (e.g. <code>null + "a"</code>) crashed the compiler.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/30">issue #30</a>: Janino generated class files
+        that the JVM rejects (e.g. for overriding a final method, extending a final class, duplicate fields or member
+        types, or <code>int x; x++;</code>); these are compile errors now.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/32">issue #32</a> and
+        <a href="https://github.com/janino-lts/janino/issues/34">issue #34</a>: Invalid code caused internal compiler
+        errors instead of compile errors, also after a first compile error when the error handler does not throw.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/19">issue #19</a>: The
+        <code>cookFiles(...)</code> methods of <code>IMultiCookable</code> did not name the files in compile errors,
+        and <code>cookFiles(String[])</code> always failed with a <code>NullPointerException</code>.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/20">issue #20</a>: A
+        <code>NullPointerException</code> when a directory could not be listed (e.g. an extension directory that is a
+        file or does not exist), in <code>JarDirectoriesResourceFinder</code> and
+        <code>ClassLoaders.getFileResources()</code>.
+      </li>
+      <li>
+        <a href="https://github.com/janino-lts/janino/issues/6">Issue #6</a>: New overloads
+        <code>StringResource(String, String, Charset)</code> and
+        <code>MapResourceFinder.addResource(String, String, Charset)</code>. The "jdk" <code>SimpleCompiler</code> (and
+        the "jdk" evaluators) no longer replace characters that the platform default charset cannot represent with
+        <code>?</code>.
+      </li>
+      <li>
+        The command line compiler (<code>org.codehaus.janino.Compiler</code>) now reports the correct values of the
+        options <code>-g:lines</code> and <code>-g:vars</code> with <code>-verbose</code>.
+      </li>
+      <li>
+        <a href="https://github.com/janino-lts/janino/issues/26">Issue #26</a>: Smaller overheads of the compiler.
+        Measured with the new module <code>janino-benchmarks</code>
+        (<a href="https://github.com/janino-lts/janino/issues/25">issue #25</a>), the compilation of Janino's own
+        sources is about 6 % faster than with 3.1.12 and allocates about 16 % less memory. Code with many nested
+        <code>try</code> / <code>finally</code> statements compiles somewhat slower than with 3.1.12, because the code
+        that Janino generates for them since 3.1.14 is correct, but larger.
+      </li>
+      <li>
+        Compatibility: The generated class files change only where a conversion, a constant value or an annotation
+        was wrong (#37, #39, #45, #46, #48); the compilation of Janino's own sources yields one different opcode
+        (#37). Some code that Janino accepted, but JAVAC rejects, is now rejected as well:
+        <code>byte b = -Byte.MIN_VALUE;</code> (#39), a statement after <code>while (A.F) {}</code> with a
+        <code>boolean</code> constant <code>true</code> from a class file (#46), <code>z ? c : (short) -1</code>
+        with a <code>char c</code> (#45), and the code of #30, which the JVM rejected. Other invalid code that Janino
+        accepts is still accepted (<a href="https://github.com/janino-lts/janino/issues/33">issue #33</a>).
+      </li>
+      <li>
+        New tests: a differential test that compiles generated expressions with Janino and with JAVAC and compares
+        the results (<a href="https://github.com/janino-lts/janino/issues/28">issue #28</a>), negative tests with
+        221 cases of invalid code (<a href="https://github.com/janino-lts/janino/issues/29">issue #29</a>), and a
+        coverage report without samples and tools
+        (<a href="https://github.com/janino-lts/janino/issues/27">issue #27</a>).
+      </li>
+    </ul>
+
     <h4>Version 3.1.14 2026-10-04</h4>
     <p>
       A bug fix release for the code generation of <code>try</code> statements. Some of the defects are regressions

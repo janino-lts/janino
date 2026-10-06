@@ -28,6 +28,7 @@ package org.codehaus.commons.compiler.jdk;
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -165,9 +166,15 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
         this.offsets.clear();
         r = Readers.trackLineAndColumn(r, this.tracker);
 
-        // Create one Java source file in memory, which will be compiled later.
+        // Create one Java source file in memory, which will be compiled later. The text is already decoded, so encode
+        // it with a charset that can represent every character (the platform default charset may not).
         String   text            = Readers.readAll(r);
-        Resource compilationUnit = new StringResource(fileName == null ? "simplecompiler" : fileName, text);
+        Resource compilationUnit = new StringResource(
+            fileName == null ? "simplecompiler" : fileName,
+            text,
+            StandardCharsets.UTF_8
+        );
+        this.compiler.setSourceCharset(StandardCharsets.UTF_8);
 
         // The default classpath of JAVAC is "." - we don't want that.
         this.compiler.setClassPath(new File[0]);
