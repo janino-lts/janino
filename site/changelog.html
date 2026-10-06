@@ -50,6 +50,14 @@ h5 {
     <a href="index.html">Back to the JANINO home page</a>
 
     <h4>Version 3.1.16 (unreleased)</h4>
+    <p>
+      Two language features that Janino parsed, but did not compile, are implemented now: multi-catch clauses and
+      qualified superclass method invocations. Most fixes concern conditional expressions, annotations, enums and
+      invalid code that compiled into class files that the JVM rejects; all of the defects exist in 3.1.12 already,
+      except #51 (a regression of 3.1.15) and #57 (since 3.1.13). The known deviations from JAVAC are documented in
+      <a href="https://github.com/janino-lts/janino/blob/HEAD/JAVAC_DIFFERENCES.md">Differences between Janino and
+      javac</a>.
+    </p>
     <ul>
       <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/51">issue #51</a>: Since 3.1.15, conditional
@@ -194,6 +202,28 @@ h5 {
         Fixed <a href="https://github.com/janino-lts/janino/issues/66">issue #66</a>: The qualified superclass
         field access <code>Outer.super.fld</code> from an inner class was rejected ("Cannot cast"); it compiled
         only within the class <code>Outer</code> itself.
+      </li>
+      <li>
+        Compatibility: Code that compiled before behaves differently only where the old behavior was clearly wrong:
+        the class bodies of enum constants take effect (#44), the annotations of member annotation types are visible
+        at run time (#43), parameter annotations are written to the class files (#61), and the constant value of a
+        conditional expression with a constant condition has the type of the expression (#55). The generated class
+        files change only for these cases, for the member types of classes and interfaces (#43, #62) and for the
+        <code>final</code> flag of enums (#44); the constant pool entries of classes with <code>for</code> statements
+        may be ordered differently (#57). The compilation of Janino's own sources yields the same instructions as with
+        3.1.15. Some code that Janino accepted, but JAVAC rejects, is now rejected as well: the code of #54, which the
+        JVM rejected anyway, except for the access to a <code>protected</code> member through an expression of a
+        superclass type, e.g. <code>((Object) this).clone()</code>, which the JVM loaded in some cases; a constant
+        conditional expression of type <code>long</code>, <code>float</code> or <code>double</code> where a narrower
+        type is required, e.g. <code>byte b = true ? 1 : 2L;</code> (#55); the forms of a member annotation type that
+        only an ordinary interface permits, e.g. type parameters or an <code>extends</code> clause (#43); and a
+        <code>catch</code> parameter whose type is not a <code>Throwable</code> (#21), which the JVM rejected anyway.
+        Other invalid code that Janino accepts is still accepted
+        (<a href="https://github.com/janino-lts/janino/issues/33">issue #33</a>).
+      </li>
+      <li>
+        New tests: 131 more cases of invalid code in the negative tests (now 368), 176 more characterization tests
+        (now 377), and the differential test of control flow statements generates multi-catch clauses as well.
       </li>
     </ul>
 

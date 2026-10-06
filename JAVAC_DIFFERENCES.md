@@ -2,13 +2,13 @@
 
 Janino compiles Java source code like `javac`, but not in every respect: it accepts some invalid code, it rejects some
 valid code, and some valid code behaves differently. This page lists all deviations that are known as of version
-3.1.15, so that you can decide whether they matter for your code.
+3.1.16, so that you can decide whether they matter for your code.
 
 Language features that Janino does not implement at all (e.g. lambda expressions, `switch` expressions, records) are
 listed under [Limitations](https://janino-lts.github.io/janino/#limitations) on the project homepage, and are not
 repeated here.
 
-Each deviation was verified against `javac` (JDK 25, with and without `--release 8`) and Janino 3.1.15. Unless stated
+Each deviation was verified against `javac` (JDK 25, with and without `--release 8`) and Janino 3.1.16. Unless stated
 otherwise, Janino 3.1.12 behaves the same way (with target version 8 where the code requires it, e.g. for static
 interface methods).
 
@@ -29,9 +29,6 @@ below remain for that reason, or because they have not been fixed yet.
 | `Boolean Z = null; boolean x = Z \|\| true;` (also `Z && false`) | `NullPointerException` | `x == true`, no exception | [#40](https://github.com/janino-lts/janino/issues/40) |
 | `Byte B = 1; Object x = z ? B : 5;` | `x` is a `Byte` | `x` is an `Integer` | [#38](https://github.com/janino-lts/janino/issues/38) |
 | `char c = 'a'; Object x = false ? c : (short) 66;` | `x` is an `Integer` | `x` is a `Character` | [#38](https://github.com/janino-lts/janino/issues/38) |
-| `"" + (true ? 1 : 2.0)` | `"1.0"` | `"1"` (the constant value has the type of the selected operand; fixed in the main line) | [#55](https://github.com/janino-lts/janino/issues/55) |
-| `enum E { A, B { String n() { return "b"; } }; String n() { return "a"; } }`; `E.B.n()` | `"b"` | `"a"` (class bodies of enum constants are ignored; fixed in the main line) | [#44](https://github.com/janino-lts/janino/issues/44) |
-| `class P { @Retention(RUNTIME) @interface A {} @A static class Q {} }`; `Q.class.isAnnotationPresent(A.class)` | `true` | `false` (annotation types declared as member types; top-level annotation types work; fixed in the main line) | [#43](https://github.com/janino-lts/janino/issues/43) |
 | `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`) | |
 
 **Constant expressions that are not folded** ([#47](https://github.com/janino-lts/janino/issues/47)): Janino does not
@@ -56,8 +53,8 @@ time (see section 2). Their values are correct, but a `static final` field with 
 instance as the first parameter. Reflection shows these modifiers and names, and code in the same package that is
 compiled against the class file can access these members.
 
-**Parameter annotations** (in the main line, [#61](https://github.com/janino-lts/janino/issues/61); 3.1.15 does not
-write them at all): Janino records the annotations of the parameters against the parameters of the method
+**Parameter annotations** (since 3.1.16, [#61](https://github.com/janino-lts/janino/issues/61); before, they were
+not written at all): Janino records the annotations of the parameters against the parameters of the method
 descriptor, which include the parameters that the compiler prepends to the declared ones: the captured local
 variables of a local class constructor, and the instance of a `private` instance method (see above). `javac` records
 them against the declared parameters. `Constructor.getParameterAnnotations()` of a local class that captures local
@@ -74,20 +71,6 @@ constant expression, the expressions that Janino does not fold (see section 1) a
 - `byte b = MAX > 5 ? 1 : 2;` with `static final int MAX = 10;`;
 - `int f() { while (MAX > 0) { } }` ("Method must return a value", because the condition is not constant).
 
-**Conditional expressions with operands of different narrow numeric types** (in 3.1.15; fixed in the main line,
-[#51](https://github.com/janino-lts/janino/issues/51) and [#56](https://github.com/janino-lts/janino/issues/56)):
-
-- an `int` constant with an operand of type `byte`, `short` or `char`: `byte b = 1; byte x = z ? b : 5;`,
-  `char c = 'a'; Object x = z ? c : 66;`;
-- two operands of different types, one of them of type `byte`, `short` or `char`: `z ? s : c`,
-  `z ? (short) -1 : c`, `z ? c : (short) 66`, `Long J = 5L; short s = 1; Object x = z ? J : s;`;
-- an `int` constant that is not representable in the type of the other operand: `byte b = 1; Object x = z ? b : 500;`;
-- `z ? c : (short) -1`, also with a constant condition (3.1.12 compiled `true ? c : (short) -1` with the wrong type
-  `char`, and `false ? c : (short) -1` into code that throws an `ArrayIndexOutOfBoundsException`).
-
-In the main line, these expressions have the types of `javac`. The types of such expressions that compile in 3.1.15
-are unchanged (section 1, #38).
-
 **Arrays** ([#58](https://github.com/janino-lts/janino/issues/58)): `a.clone()` of an array `a` has the type
 `Object` instead of the array type (JLS 10.7): `int[] b = a.clone();` is rejected; with a cast, `(int[]) a.clone()`,
 it compiles.
@@ -101,7 +84,7 @@ class throws an `IllegalAccessError` or fails to verify. `javac` generates an ac
 or an annotation (`final class L {}`, `abstract class L {}`, `@A class L {}`) is rejected (`IDENTIFIER expected
 instead of 'class'`).
 
-**Multi-catch** ([#21](https://github.com/janino-lts/janino/issues/21), in the main line): the type of the parameter
+**Multi-catch** ([#21](https://github.com/janino-lts/janino/issues/21), since 3.1.16): the type of the parameter
 of `catch (A | B e)` is the nearest common superclass of the alternatives, not their least upper bound with the
 interfaces that all alternatives implement: `e.n()` with a method `n()` of an interface that `A` and `B` implement,
 but not their common superclass, is rejected (`A method named "n" is not declared in any enclosing class nor any
@@ -123,8 +106,8 @@ because Janino takes it for a type parameter. The `catch` of such an exception t
 as the source suggests (e.g. an assignment to a `final` local variable assigns it). See
 [issue #33](https://github.com/janino-lts/janino/issues/33) for the compatibility considerations. One exception: the
 access to a `protected` member of a class in another package through an expression whose type is neither the
-accessing class nor a subclass of it (`((Object) this).clone()`, `Object o = new P(); o.clone()`) is rejected in the
-main line, like by `javac`, although the JVM loaded such classes when the verifier could infer the type `P` from the
+accessing class nor a subclass of it (`((Object) this).clone()`, `Object o = new P(); o.clone()`) is rejected since
+3.1.16, like by `javac`, although the JVM loaded such classes when the verifier could infer the type `P` from the
 bytecode ([#54](https://github.com/janino-lts/janino/issues/54)); it rejected them for a parameter, a field or a
 method result of type `Object`.
 
@@ -194,8 +177,6 @@ method result of type `Object`.
 **Expressions, names and imports:**
 
 - illegal forward reference in a field initializer: `int a = b; int b = 1;`;
-- a constant conditional expression of type `long`, `float` or `double` assigned to a variable of a narrower type:
-  `byte b = true ? 1 : 2L;` (rejected in the main line, [#55](https://github.com/janino-lts/janino/issues/55));
 - `instanceof` with a `final` class and an interface that it does not implement: `"x" instanceof Runnable`;
 - invocation of a static interface method as if it were inherited (JLS 8.4.8): through an instance
   (`comparator.naturalOrder()`), through an implementing class or a subinterface (`P.s()`, `J.s()`), or unqualified

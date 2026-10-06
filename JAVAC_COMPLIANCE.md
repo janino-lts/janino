@@ -128,8 +128,8 @@ Every deviation from `javac` belongs to exactly one class. The class determines 
 the 3.1.12 behavior, also when the code fails at run time (e.g. an assignment to a `static final` field of another
 class, which throws an `IllegalAccessError`). The compliance mode rejects it.
 
-Today: the 23 cases recorded as `ACCEPTED` in `InvalidCodeTest` (#33), and the 28 further cases without generics
-from the comment on #33.
+Today: the cases recorded as `ACCEPTED` in `InvalidCodeTest` (#33, the comment on #33, and the findings of the
+3.1.16 work), except for the generics cases among them (class G).
 
 ### 4.2 Class S: valid legacy code with a consistent, non-`javac` rule
 
@@ -370,8 +370,8 @@ present in 3.1.12, in the order of benefit and risk:
    be caught nor declared) is legacy under invariant 1, so the complete fix needs an exception A-07, or waits for
    the compliance mode.
 
-If step 7 of the 3.1.16 plan leaves `Outer.super.m()` open (#22), it comes first. Not in 3.1.17: #38, #40 and #47
-(class S), #31 (messages), #33 (class L): they belong to the compliance mode of 3.2.0. The gates are those of 3.1.16.
+Not in 3.1.17: #38, #40 and #47 (class S), #31 (messages), #33 (class L): they belong to the compliance mode of
+3.2.0. The gates are those of 3.1.16.
 
 **3.2.0: the foundation.**
 
