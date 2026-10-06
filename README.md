@@ -19,7 +19,10 @@ valid code, and some valid code behaves differently. All known deviations are li
 deviations could be handled in the long run. It is no more than a non-binding idea of a possible roadmap, not a
 plan and not a commitment.
 
-Please visit the [project homepage](https://janino-lts.github.io/janino/).
+To restrict what untrusted code that is compiled at runtime may do, see
+[Restricting Untrusted Code with a Sandbox Policy](SANDBOX.md).
+
+Please visit the [project homepage](https://janino-lts.github.io/janino/) for more documentation.
 
 ## Maven coordinates
 
@@ -56,6 +59,3 @@ Maven does not recognize the two as versions of the same artifact: if another de
 (If the library uses `commons-compiler-jdk`, add `io.github.janino-lts:commons-compiler-jdk` as well.) The releases
 up to 3.1.14 of this continuation are not on Maven Central; they are available as
 [GitHub releases](https://github.com/janino-lts/janino/releases) with the group ID `org.codehaus.janino`.
-
-To restrict what untrusted code that is compiled at runtime may do, see
-[Restricting Untrusted Code with a Sandbox Policy](SANDBOX.md).
