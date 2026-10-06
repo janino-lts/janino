@@ -115,6 +115,27 @@ h5 {
         before are unchanged, except that the constant pool entries of a class with <code>for</code> statements may
         be ordered differently.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/43">issue #43</a>: Annotations of annotation
+        types that are declared as member types (<code>class P { @Retention(RUNTIME) @interface A {} }</code>) were
+        invisible at run time, because a member annotation type was compiled as an ordinary interface. It is now an
+        annotation type (<code>A.class.isAnnotation()</code>), and the <code>InnerClasses</code> attribute records
+        the implicit modifiers of member types (JLS 8.5.1, 9.5): <code>Class.getModifiers()</code> of a member
+        interface now includes <code>static</code>, <code>abstract</code> and <code>interface</code>, of a member
+        enum <code>static</code> and <code>final</code>, and of the member types of an interface <code>public</code>
+        and <code>static</code>; <code>Class.isMemberClass()</code>, <code>getDeclaringClass()</code> and
+        <code>getSimpleName()</code> work for member interfaces. In addition: annotations on method and constructor
+        parameters are written to the class files (<code>Method.getParameterAnnotations()</code> returned no
+        annotations before, also for top-level and JDK annotation types); a member class of an interface is
+        implicitly static (<code>new I.C()</code> from a static context was rejected); an enum declared in an
+        interface compiles (it was rejected with a syntax error); a single-element annotation of a type without an
+        element <code>value</code> is rejected with a compile error instead of an <code>AssertionError</code>. Member
+        annotation types are now parsed like top-level ones: type parameters, an <code>extends</code> clause and
+        <code>default</code> or <code>static</code> methods are rejected, like by JAVAC, and a class that implements
+        a member annotation type must implement <code>annotationType()</code>. The class files of member interfaces,
+        member enums, member types of interfaces and methods with parameter annotations change accordingly; all
+        other class files are unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.15 2026-10-06</h4>

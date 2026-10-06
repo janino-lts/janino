@@ -1537,8 +1537,17 @@ class Java {
             return visitor.visitMemberClassDeclaration(this);
         }
 
+        /**
+         * @return Whether this member class is declared {@code static}, or is a member of an interface, which makes it
+         *         implicitly static (JLS8 9.5)
+         */
         public boolean
-        isStatic() { return Java.hasAccessModifier(this.getModifiers(), "static"); }
+        isStatic() {
+            return (
+                Java.hasAccessModifier(this.getModifiers(), "static")
+                || this.getEnclosingScope() instanceof InterfaceDeclaration
+            );
+        }
     }
 
     /**
@@ -2348,7 +2357,10 @@ class Java {
             this.statements         = statements;
 
             this.type.setEnclosingScope(this);
-            for (FormalParameter fp : formalParameters.parameters) fp.type.setEnclosingScope(this);
+            for (FormalParameter fp : formalParameters.parameters) {
+                fp.type.setEnclosingScope(this);
+                for (Annotation a : fp.getAnnotations()) a.setEnclosingScope(this);
+            }
             for (Type te : thrownExceptions) te.setEnclosingScope(this);
             if (statements != null) {
                 for (Java.BlockStatement bs : statements) {
@@ -2480,6 +2492,12 @@ class Java {
 
             public boolean
             isFinal() { return Java.hasAccessModifier(this.modifiers, "final"); }
+
+            /**
+             * @return The annotations of this parameter declaration
+             */
+            public Annotation[]
+            getAnnotations() { return Java.getAnnotations(this.modifiers); }
 
             /**
              * @param hasEllipsis Whether this is the last function parameter and has an ellipsis ("...") after the

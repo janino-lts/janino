@@ -461,3 +461,83 @@ interface I {}
 interface J extends I, I {}
 public class P implements J {
 }
+
+=== member annotation type with type parameters
+janino: REJECTED '{' expected instead of '<'
+public class P {
+    @interface A<T> {}
+}
+
+=== member annotation type with an extends clause
+janino: REJECTED '{' expected instead of 'extends'
+public class P {
+    @interface A extends Runnable {}
+}
+
+=== class implements a member annotation type without annotationType()
+janino: REJECTED Non-abstract class "P$Impl" must implement method
+public class P {
+    @interface A {}
+    static class Impl implements A {}
+}
+
+=== default method in a member annotation type
+janino: REJECTED Access modifier(s) default not allowed in this context
+public class P {
+    @interface A { default int f() { return 1; } }
+}
+
+=== static method in a member annotation type
+janino: REJECTED Access modifier(s) static not allowed in this context
+public class P {
+    @interface A { static int f() { return 1; } }
+}
+
+=== member annotation element with a parameter
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    @interface A { int f(int i); }
+}
+
+=== member annotation element of type void
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    @interface A { void f(); }
+}
+
+=== member annotation element of its own type
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    @interface A { A[] value(); }
+}
+
+=== single-element annotation on a type without a "value" element
+janino: REJECTED Annotation type "X" has no element "value"
+@interface X {}
+@X(8) public class P {}
+
+=== annotation element value of the wrong type
+janino: ACCEPTED
+recovery: ACCEPTED
+@interface X { int value(); }
+@X("x") public class P {}
+
+=== duplicate annotation on a parameter
+janino: REJECTED Duplicate annotation "X"
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @interface X {}
+public class P {
+    void f(@X @X int x) {}
+}
+
+=== annotation with @Target(METHOD) on a parameter
+janino: ACCEPTED
+recovery: ACCEPTED
+import java.lang.annotation.*;
+@Target(ElementType.METHOD) @interface X {}
+public class P {
+    void f(@X int x) {}
+}

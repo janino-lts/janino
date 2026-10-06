@@ -1,0 +1,169 @@
+# Member types: the implicit modifiers of member interfaces, enums and annotation types and of the member types
+# of interfaces (JLS 8.5.1, 9.5), as the "InnerClasses" attribute records them. See "LanguageSupportTest" for the
+# format.
+
+=== member interface: modifiers (static, interface, abstract)
+jls: 608
+janino: OK
+public class P {
+    interface I {}
+    public static Object run() { return Integer.toHexString(I.class.getModifiers()); }
+}
+
+=== member interface: declaring class, simple name, isMemberClass()
+jls: J Q true
+janino: OK
+public class P {
+    static class Q { interface J {} }
+    public static Object run() {
+        return (
+            Q.J.class.getSimpleName() + " " + Q.J.class.getDeclaringClass().getSimpleName()
+            + " " + Q.J.class.isMemberClass()
+        );
+    }
+}
+
+=== strictfp member interface: modifiers
+jls: 608
+janino: OK
+public class P {
+    strictfp interface J {}
+    public static Object run() { return Integer.toHexString(J.class.getModifiers()); }
+}
+
+=== member enum: modifiers (static, final, enum)
+jls: 4018
+janino: OK
+public class P {
+    enum E { X }
+    public static Object run() { return Integer.toHexString(E.class.getModifiers()); }
+}
+
+=== member enum: isStatic()
+jls: true
+janino: OK
+public class P {
+    enum E { X }
+    public static Object run() { return String.valueOf(java.lang.reflect.Modifier.isStatic(E.class.getModifiers())); }
+}
+
+=== member enum nested in a static member class: modifiers
+jls: 4018 8
+janino: OK
+public class P {
+    static class Q { enum E { X } }
+    public static Object run() {
+        return Integer.toHexString(Q.E.class.getModifiers()) + " " + Integer.toHexString(Q.class.getModifiers());
+    }
+}
+
+=== static member class: modifiers
+jls: 8
+janino: OK
+public class P {
+    static class Q {}
+    public static Object run() { return Integer.toHexString(Q.class.getModifiers()); }
+}
+
+=== inner class: modifiers
+jls: 0
+janino: OK
+public class P {
+    class Q {}
+    public static Object run() { return Integer.toHexString(Q.class.getModifiers()); }
+}
+
+=== public static final member class: modifiers
+jls: 19
+janino: OK
+public class P {
+    public static final class Q {}
+    public static Object run() { return Integer.toHexString(Q.class.getModifiers()); }
+}
+
+=== abstract static member class: modifiers
+jls: 408
+janino: OK
+public class P {
+    abstract static class Q {}
+    public static Object run() { return Integer.toHexString(Q.class.getModifiers()); }
+}
+
+=== protected static member class: modifiers
+jls: c
+janino: OK
+public class P {
+    protected static class Q {}
+    public static Object run() { return Integer.toHexString(Q.class.getModifiers()); }
+}
+
+=== member class of an interface: modifiers (public, static)
+jls: 9
+janino: OK
+interface I { class Q {} }
+public class P {
+    public static Object run() { return Integer.toHexString(I.Q.class.getModifiers()); }
+}
+
+=== member class of an interface: instantiation
+jls: true
+janino: OK
+interface I { class Q {} }
+public class P {
+    public static Object run() { return String.valueOf(new I.Q() != null); }
+}
+
+=== member interface of an interface: modifiers
+jls: 609
+janino: OK
+interface I { interface J {} }
+public class P {
+    public static Object run() { return Integer.toHexString(I.J.class.getModifiers()); }
+}
+
+=== member enum of an interface: modifiers
+jls: 4019
+janino: OK
+interface I { enum E { X } }
+public class P {
+    public static Object run() { return Integer.toHexString(I.E.class.getModifiers()); }
+}
+
+=== member enum of an interface: constants
+jls: X 1
+janino: OK
+interface I { enum E { X } }
+public class P {
+    public static Object run() { return I.E.X.name() + " " + I.E.values().length; }
+}
+
+=== member enum of an interface: switch
+jls: 1
+janino: OK
+interface I { enum E { X, Y } }
+public class P {
+    static int f(I.E e) { switch (e) { case X: return 1; default: return 2; } }
+    public static Object run() { return String.valueOf(f(I.E.X)); }
+}
+
+=== local class: modifiers
+jls: 0
+janino: OK
+public class P {
+    public static Object run() { class L {} return Integer.toHexString(L.class.getModifiers()); }
+}
+
+=== final local class: modifiers
+jls: 10
+janino: REJECTED IDENTIFIER expected instead of 'class'
+public class P {
+    public static Object run() { final class L {} return Integer.toHexString(L.class.getModifiers()); }
+}
+
+=== anonymous class: modifiers
+jls: 0
+janino: WRONG 10
+minJava: 9
+public class P {
+    public static Object run() { return Integer.toHexString(new Object() {}.getClass().getModifiers()); }
+}

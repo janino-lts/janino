@@ -11,8 +11,8 @@ public class P {
 }
 
 === declared annotation type, element read through reflection
+janino: OK
 jls: 7
-janino: WRONG throws java.lang.NullPointerException
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A { int value(); }
@@ -24,8 +24,8 @@ public class P {
 }
 
 === declared annotation type with default value, read through reflection
+janino: OK
 jls: 5
-janino: WRONG throws java.lang.NullPointerException
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A { int value() default 5; }
@@ -37,8 +37,8 @@ public class P {
 }
 
 === declared RUNTIME annotation on a method
+janino: OK
 jls: true
-janino: WRONG false
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -47,8 +47,8 @@ public class P {
 }
 
 === declared RUNTIME annotation on a field
+janino: OK
 jls: true
-janino: WRONG false
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -57,8 +57,8 @@ public class P {
 }
 
 === declared RUNTIME annotation on the declaring class
+janino: OK
 jls: true
-janino: WRONG false
 import java.lang.annotation.*;
 @P.A public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -66,8 +66,8 @@ import java.lang.annotation.*;
 }
 
 === declared RUNTIME annotation on another nested class
+janino: OK
 jls: 1
-janino: WRONG 0
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -76,8 +76,8 @@ public class P {
 }
 
 === declared RUNTIME annotation (fully qualified meta-annotation) on another nested class
+janino: OK
 jls: true
-janino: WRONG false
 public class P {
     @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.RUNTIME) @interface A {}
     @A static class Q {}
@@ -85,8 +85,8 @@ public class P {
 }
 
 === declared RUNTIME annotation on a parameter
+janino: OK
 jls: 1
-janino: WRONG 0
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -193,4 +193,426 @@ import java.util.*;
 public class P {
     @Target(ElementType.TYPE_USE) @interface A {}
     public static Object run() { List<@A String> l = new ArrayList<String>(); return "ok"; }
+}
+
+=== declared annotation type is an annotation type
+jls: true
+janino: OK
+public class P {
+    @interface A {}
+    public static Object run() { return String.valueOf(A.class.isAnnotation()); }
+}
+
+=== declared annotation type: modifiers (static, interface, abstract, annotation)
+jls: 2608
+janino: OK
+public class P {
+    @interface A {}
+    public static Object run() { return Integer.toHexString(A.class.getModifiers()); }
+}
+
+=== declared annotation type: superinterface Annotation
+jls: [interface java.lang.annotation.Annotation]
+janino: OK
+public class P {
+    @interface A {}
+    public static Object run() { return java.util.Arrays.toString(A.class.getInterfaces()); }
+}
+
+=== declared annotation type: declaring class, simple name, isMemberClass()
+jls: true A true
+janino: OK
+public class P {
+    @interface A {}
+    public static Object run() {
+        return (A.class.getDeclaringClass() == P.class) + " " + A.class.getSimpleName() + " " + A.class.isMemberClass();
+    }
+}
+
+=== declared annotation type: getDeclaredClasses() and getEnclosingClass()
+jls: 1 P
+janino: OK
+public class P {
+    @interface A {}
+    public static Object run() {
+        return P.class.getDeclaredClasses().length + " " + A.class.getEnclosingClass().getName();
+    }
+}
+
+=== declared annotation type in an interface: modifiers (public)
+jls: 2609
+janino: OK
+interface I { @interface A {} }
+public class P {
+    public static Object run() { return Integer.toHexString(I.A.class.getModifiers()); }
+}
+
+=== private declared annotation type: modifiers
+jls: 260a
+janino: OK
+public class P {
+    private @interface A {}
+    public static Object run() { return Integer.toHexString(A.class.getModifiers()); }
+}
+
+=== declared annotation type, element read with a cast
+jls: 7
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A { int value(); }
+    @A(7) public static void m() {}
+    public static Object run() throws Exception {
+        A a = (A) P.class.getMethod("m").getAnnotation(A.class);
+        return String.valueOf(a.value());
+    }
+}
+
+=== declared annotation type with a nested annotation element
+jls: 3
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface B { int v(); }
+    @Retention(RetentionPolicy.RUNTIME) @interface A { B b(); }
+    @A(b = @B(v = 3)) public static void m() {}
+    public static Object run() throws Exception {
+        A a = (A) P.class.getMethod("m").getAnnotation(A.class);
+        return String.valueOf(a.b().v());
+    }
+}
+
+=== declared annotation type with enum, class and array elements
+jls: CLASS class java.lang.String 2
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A { RetentionPolicy p(); Class<?> c(); String[] s(); }
+    @A(p = RetentionPolicy.CLASS, c = String.class, s = { "a", "b" }) public static void m() {}
+    public static Object run() throws Exception {
+        A a = (A) P.class.getMethod("m").getAnnotation(A.class);
+        return a.p() + " " + a.c() + " " + a.s().length;
+    }
+}
+
+=== declared RUNTIME annotation used before its declaration
+jls: true
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @A public static void m() {}
+    @Retention(RetentionPolicy.RUNTIME) @interface A {}
+    public static Object run() throws Exception {
+        return String.valueOf(P.class.getMethod("m").isAnnotationPresent(A.class));
+    }
+}
+
+=== declared RUNTIME annotation on a constructor
+jls: true
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A {}
+    @A public P() {}
+    public static Object run() throws Exception {
+        return String.valueOf(P.class.getConstructor().isAnnotationPresent(A.class));
+    }
+}
+
+=== declared RUNTIME annotation on a member enum
+jls: true
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A {}
+    @A enum E { X }
+    public static Object run() { return String.valueOf(E.class.isAnnotationPresent(A.class)); }
+}
+
+=== declared RUNTIME annotation on a member interface
+jls: true
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A {}
+    @A interface I {}
+    public static Object run() { return String.valueOf(I.class.isAnnotationPresent(A.class)); }
+}
+
+=== declared RUNTIME annotation on another declared annotation type
+jls: true
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A {}
+    @A @interface B {}
+    public static Object run() { return String.valueOf(B.class.isAnnotationPresent(A.class)); }
+}
+
+=== declared RUNTIME annotation on a method of a nested class
+jls: true
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A {}
+    static class Q { @A void m() {} }
+    public static Object run() throws Exception {
+        return String.valueOf(Q.class.getDeclaredMethod("m").isAnnotationPresent(A.class));
+    }
+}
+
+=== declared annotation type nested two levels deep
+jls: true
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    static class Q { @Retention(RetentionPolicy.RUNTIME) @interface A {} }
+    @Q.A public static void m() {}
+    public static Object run() throws Exception {
+        return String.valueOf(P.class.getMethod("m").isAnnotationPresent(Q.A.class));
+    }
+}
+
+=== declared annotation type in an interface, used on the class
+jls: true
+janino: OK
+import java.lang.annotation.*;
+interface I { @Retention(RetentionPolicy.RUNTIME) @interface A {} }
+@I.A public class P {
+    public static Object run() { return String.valueOf(P.class.isAnnotationPresent(I.A.class)); }
+}
+
+=== declared annotation with CLASS retention is invisible at run time
+jls: false
+janino: OK
+public class P {
+    @interface A {}
+    @A public static void m() {}
+    public static Object run() throws Exception {
+        return String.valueOf(P.class.getMethod("m").isAnnotationPresent(A.class));
+    }
+}
+
+=== declared annotation with SOURCE retention is invisible at run time
+jls: false
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.SOURCE) @interface A {}
+    @A public static void m() {}
+    public static Object run() throws Exception {
+        return String.valueOf(P.class.getMethod("m").isAnnotationPresent(A.class));
+    }
+}
+
+=== declared RUNTIME annotation on a local class
+jls: true
+janino: REJECTED IDENTIFIER expected instead of 'class'
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A {}
+    public static Object run() { @A class L {} return String.valueOf(L.class.isAnnotationPresent(A.class)); }
+}
+
+=== JDK annotation @Deprecated on a parameter
+jls: 1
+janino: OK
+public class P {
+    public static void m(@Deprecated int x) {}
+    public static Object run() throws Exception {
+        return String.valueOf(P.class.getMethod("m", int.class).getParameterAnnotations()[0].length);
+    }
+}
+
+=== top-level RUNTIME annotation on some of the parameters
+jls: 1 0 1
+janino: OK
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @interface A {}
+public class P {
+    public static void m(@A int x, int y, @A int z) {}
+    public static Object run() throws Exception {
+        Annotation[][] as = P.class.getMethod("m", int.class, int.class, int.class).getParameterAnnotations();
+        return as[0].length + " " + as[1].length + " " + as[2].length;
+    }
+}
+
+=== RUNTIME annotation on a constructor parameter
+jls: 1
+janino: OK
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @interface A {}
+public class P {
+    public P(@A int x) {}
+    public static Object run() throws Exception {
+        return String.valueOf(P.class.getConstructor(int.class).getParameterAnnotations()[0].length);
+    }
+}
+
+=== RUNTIME annotation on the constructor parameter of a static nested class
+jls: 1
+janino: OK
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @interface A {}
+public class P {
+    static class Q { Q(@A int x) {} }
+    public static Object run() throws Exception {
+        Annotation[][] as = Q.class.getDeclaredConstructors()[0].getParameterAnnotations();
+        return as.length == 1 ? String.valueOf(as[0].length) : java.util.Arrays.deepToString(as);
+    }
+}
+
+=== RUNTIME annotation on the constructor parameter of an inner class
+jls: 1
+janino: OK
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @interface A {}
+public class P {
+    class Q { Q(@A int x) {} }
+    public static Object run() throws Exception {
+        int n = 0;
+        for (Annotation[] as : Q.class.getDeclaredConstructors()[0].getParameterAnnotations()) n += as.length;
+        return String.valueOf(n);
+    }
+}
+
+=== RUNTIME annotation on the constructor parameter of a member enum
+jls: 1
+janino: OK
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @interface A {}
+public class P {
+    enum E { X(1); E(@A int v) {} }
+    public static Object run() throws Exception {
+        int n = 0;
+        for (Annotation[] as : E.class.getDeclaredConstructors()[0].getParameterAnnotations()) n += as.length;
+        return String.valueOf(n);
+    }
+}
+
+=== RUNTIME annotation on the constructor parameter of a local class that captures a local variable
+jls: 1
+janino: WRONG 0 1
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @interface A {}
+public class P {
+    public static Object run() throws Exception {
+        final int c = 1;
+        class L { L(@A int x) { int y = c; } }
+        Annotation[][] as = L.class.getDeclaredConstructors()[0].getParameterAnnotations();
+        StringBuilder sb = new StringBuilder();
+        for (Annotation[] a : as) sb.append(sb.length() == 0 ? "" : " ").append(a.length);
+        return sb.toString();
+    }
+}
+
+=== RUNTIME annotation on the parameter of a private instance method
+jls: 1
+janino: WRONG 0 1
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @interface A {}
+public class P {
+    private void m(@A int x) {}
+    public static Object run() throws Exception {
+        for (java.lang.reflect.Method m : P.class.getDeclaredMethods()) {
+            if (!m.getName().startsWith("m")) continue;
+            StringBuilder sb = new StringBuilder();
+            for (Annotation[] a : m.getParameterAnnotations()) sb.append(sb.length() == 0 ? "" : " ").append(a.length);
+            return sb.toString();
+        }
+        return "none";
+    }
+}
+
+=== RUNTIME annotation on a variable arity parameter
+jls: 1
+janino: OK
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @interface A {}
+public class P {
+    public static void m(@A String... s) {}
+    public static Object run() throws Exception {
+        return String.valueOf(P.class.getMethod("m", String[].class).getParameterAnnotations()[0].length);
+    }
+}
+
+=== RUNTIME annotation on a final parameter
+jls: 1
+janino: OK
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @interface A {}
+public class P {
+    public static void m(@A final int x) {}
+    public static Object run() throws Exception {
+        return String.valueOf(P.class.getMethod("m", int.class).getParameterAnnotations()[0].length);
+    }
+}
+
+=== two RUNTIME annotations on one parameter
+jls: 2
+janino: OK
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @interface A {}
+public class P {
+    public static void m(@A @Deprecated int x) {}
+    public static Object run() throws Exception {
+        return String.valueOf(P.class.getMethod("m", int.class).getParameterAnnotations()[0].length);
+    }
+}
+
+=== RUNTIME annotation on the parameter of an interface method
+jls: 1
+janino: OK
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @interface A {}
+interface I { void m(@A int x); }
+public class P {
+    public static Object run() throws Exception {
+        return String.valueOf(I.class.getMethod("m", int.class).getParameterAnnotations()[0].length);
+    }
+}
+
+=== parameter annotation with an element value
+jls: 3
+janino: OK
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @interface A { int value(); }
+public class P {
+    public static void m(@A(3) int x) {}
+    public static Object run() throws Exception {
+        return String.valueOf(((A) P.class.getMethod("m", int.class).getParameterAnnotations()[0][0]).value());
+    }
+}
+
+=== parameter annotation of a declared annotation type: annotationType()
+jls: P$A
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A {}
+    public static void m(@A int x) {}
+    public static Object run() throws Exception {
+        return P.class.getMethod("m", int.class).getParameterAnnotations()[0][0].annotationType().getName();
+    }
+}
+
+=== CLASS retention annotation on a parameter is invisible at run time
+jls: 0
+janino: OK
+@interface B {}
+public class P {
+    public static void m(@B int x) {}
+    public static Object run() throws Exception {
+        return String.valueOf(P.class.getMethod("m", int.class).getParameterAnnotations()[0].length);
+    }
+}
+
+=== SOURCE retention annotation on a parameter
+jls: 0
+janino: OK
+public class P {
+    public static void m(@SuppressWarnings("x") int x) {}
+    public static Object run() throws Exception {
+        return String.valueOf(P.class.getMethod("m", int.class).getParameterAnnotations()[0].length);
+    }
 }

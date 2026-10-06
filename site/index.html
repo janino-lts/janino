@@ -463,12 +463,6 @@
                 methods of the <code>enum</code> type
               </li>
               <li>
-                Annotations: Annotations of annotation types that are declared as member types in the compiled code
-                (e.g. <code>class P { @interface A {} }</code>) are not visible at runtime, even with
-                <code>@Retention(RetentionPolicy.RUNTIME)</code> (top-level annotation types and those of the JDK,
-                e.g. <code>@Deprecated</code>, work)
-              </li>
-              <li>
                 Overload resolution: A variable arity method is preferred over a method that requires boxing, e.g.
                 <code>f(1)</code> invokes <code>f(int...)</code> instead of <code>f(Object)</code>
               </li>

@@ -431,9 +431,9 @@ class UnitCompiler {
             @Override @Nullable public Void visitMemberEnumDeclaration(MemberEnumDeclaration med)                                     throws CompileException { UnitCompiler.this.compile2((InnerClassDeclaration) med);   return null; }
             @Override @Nullable public Void visitPackageMemberEnumDeclaration(PackageMemberEnumDeclaration pmed)                      throws CompileException { UnitCompiler.this.compile2(pmed);                          return null; }
             @Override @Nullable public Void visitPackageMemberAnnotationTypeDeclaration(PackageMemberAnnotationTypeDeclaration pmatd) throws CompileException { UnitCompiler.this.compile2(pmatd);                         return null; }
+            @Override @Nullable public Void visitMemberAnnotationTypeDeclaration(MemberAnnotationTypeDeclaration matd)                throws CompileException { UnitCompiler.this.compile2((InterfaceDeclaration) matd);  return null; }
 
             @Override @Nullable public Void visitEnumConstant(EnumConstant ec)                                         throws CompileException { UnitCompiler.this.compileError("Compilation of enum constant NYI",                      ec.getLocation());   return null; }
-            @Override @Nullable public Void visitMemberAnnotationTypeDeclaration(MemberAnnotationTypeDeclaration matd) throws CompileException { UnitCompiler.this.compileError("Compilation of member annotation type declaration NYI", matd.getLocation()); return null; }
         });
     }
 
@@ -527,6 +527,7 @@ class UnitCompiler {
         short accessFlags = this.accessFlags(cd.getModifiers());
         if (cd instanceof PackageMemberTypeDeclaration) accessFlags |= Mod.SUPER;
         if (cd instanceof EnumDeclaration) accessFlags |= Mod.ENUM;
+        if (UnitCompiler.isMemberTypeOfInterface(cd)) accessFlags |= Mod.PUBLIC;
 
         // Create "ClassFile" object.
         ClassFile cf = this.newClassFile(accessFlags, iClass, iClass.getSuperclass(), iClass.getInterfaces());
@@ -562,10 +563,10 @@ class UnitCompiler {
             );
             short innerNameIndex = cf.addConstantUtf8Info(((MemberTypeDeclaration) cd).getName());
             cf.addInnerClassesAttributeEntry(new ClassFile.InnerClassesAttribute.Entry(
-                innerClassInfoIndex,  // innerClassInfoIndex
-                outerClassInfoIndex,  // outerClassInfoIndex
-                innerNameIndex,       // innerNameIndex
-                accessFlags           // innerClassAccessFlags
+                innerClassInfoIndex,                                        // innerClassInfoIndex
+                outerClassInfoIndex,                                        // outerClassInfoIndex
+                innerNameIndex,                                             // innerNameIndex
+                this.innerClassAccessFlags((MemberTypeDeclaration) cd)      // innerClassAccessFlags
             ));
         }
 
@@ -1152,6 +1153,7 @@ class UnitCompiler {
         accessFlags |= Mod.ABSTRACT;
         if (id instanceof AnnotationTypeDeclaration)  accessFlags |= Mod.ANNOTATION;
         if (id instanceof MemberInterfaceDeclaration) accessFlags |= Mod.STATIC;
+        if (UnitCompiler.isMemberTypeOfInterface(id)) accessFlags |= Mod.PUBLIC;
 
         ClassFile cf = this.newClassFile(
             accessFlags,
@@ -1162,6 +1164,25 @@ class UnitCompiler {
 
         // Add interface annotations with retention != SOURCE.
         this.compileAnnotations(id.getAnnotations(), cf, cf);
+
+        if (id instanceof MemberInterfaceDeclaration) {
+
+            // Add an "InnerClasses" attribute entry for this member interface declaration on its own class file
+            // (JVMS8, section 4.7.6, "The InnerClasses Attribute"), like for a member class declaration. The JVM
+            // takes the modifiers of a member type ("Class.getModifiers()", and thus "Class.isAnnotation()"), its
+            // declaring class and its simple name from that entry.
+            MemberInterfaceDeclaration mid = (MemberInterfaceDeclaration) id;
+
+            short innerClassInfoIndex = cf.addConstantClassInfo(iClass.getDescriptor());
+            short outerClassInfoIndex = cf.addConstantClassInfo(this.resolve(mid.getDeclaringType()).getDescriptor());
+            short innerNameIndex      = cf.addConstantUtf8Info(mid.getName());
+            cf.addInnerClassesAttributeEntry(new ClassFile.InnerClassesAttribute.Entry(
+                innerClassInfoIndex,             // innerClassInfoIndex
+                outerClassInfoIndex,             // outerClassInfoIndex
+                innerNameIndex,                  // innerNameIndex
+                this.innerClassAccessFlags(mid)  // innerClassAccessFlags
+            ));
+        }
 
         // Set "SourceFile" attribute.
         if (this.debugSource) {
@@ -1232,7 +1253,38 @@ class UnitCompiler {
      * Converts and adds the <var>annotations</var> to the <var>target</var>.
      */
     private void
-    compileAnnotations(Annotation[] annotations, Annotatable target, final ClassFile cf) throws CompileException {
+    compileAnnotations(Annotation[] annotations, final Annotatable target, ClassFile cf) throws CompileException {
+        this.compileAnnotations(annotations, cf, new AnnotationSink() {
+
+            @Override public void
+            add(boolean runtimeVisible, String fieldDescriptor, Map<Short, ClassFile.ElementValue> elementValuePairs) {
+                target.addAnnotationsAttributeEntry(runtimeVisible, fieldDescriptor, elementValuePairs);
+            }
+        });
+    }
+
+    /**
+     * Receives the converted annotations of one annotated element; see {@code compileAnnotations(Annotation[],
+     * ClassFile, AnnotationSink)}.
+     */
+    private
+    interface AnnotationSink {
+
+        /**
+         * @param runtimeVisible    Whether the annotation's retention is {@code RUNTIME} (vs. {@code CLASS})
+         * @param fieldDescriptor   The field descriptor of the annotation type
+         * @param elementValuePairs Maps "element_name_index" ({@link ClassFile.ConstantUtf8Info}) to "element_value",
+         *                          see JVMS8 4.7.16
+         */
+        void add(boolean runtimeVisible, String fieldDescriptor, Map<Short, ClassFile.ElementValue> elementValuePairs);
+    }
+
+    /**
+     * Converts the <var>annotations</var> and passes those with retention {@code CLASS} or {@code RUNTIME} to the
+     * <var>sink</var>.
+     */
+    private void
+    compileAnnotations(Annotation[] annotations, final ClassFile cf, AnnotationSink sink) throws CompileException {
 
         final Set<IClass> seenAnnotations = new HashSet<>();
         ANNOTATIONS: for (final Annotation a : annotations) {
@@ -1278,6 +1330,13 @@ class UnitCompiler {
                 @Override @Nullable public Void
                 visitSingleElementAnnotation(SingleElementAnnotation sea) throws CompileException {
                     IMethod[] definitions = annotationIClass.getDeclaredIMethods("value");
+                    if (definitions.length == 0) {
+                        UnitCompiler.this.compileError(
+                            "Annotation type \"" + annotationIClass + "\" has no element \"value\"",
+                            sea.getLocation()
+                        );
+                        return null;
+                    }
                     assert definitions.length == 1;
                     evps.put(
                         cf.addConstantUtf8Info("value"),
@@ -1319,8 +1378,8 @@ class UnitCompiler {
                 }
             });
 
-            // Add the annotation to the target (class/interface, method or field).
-            target.addAnnotationsAttributeEntry(runtimeVisible, annotationIClass.getDescriptor(), evps);
+            // Add the annotation to the target (class/interface, method, field or parameter).
+            sink.add(runtimeVisible, annotationIClass.getDescriptor(), evps);
         }
     }
 
@@ -1548,12 +1607,49 @@ class UnitCompiler {
             short outerClassInfoIndex = cf.addConstantClassInfo(this.resolve(decl).getDescriptor());
             short innerNameIndex      = cf.addConstantUtf8Info(mtd.getName());
             cf.addInnerClassesAttributeEntry(new ClassFile.InnerClassesAttribute.Entry(
-                innerClassInfoIndex,                 // innerClassInfoIndex
-                outerClassInfoIndex,                 // outerClassInfoIndex
-                innerNameIndex,                      // innerNameIndex
-                this.accessFlags(mtd.getModifiers()) // innerClassAccessFlags
+                innerClassInfoIndex,             // innerClassInfoIndex
+                outerClassInfoIndex,             // outerClassInfoIndex
+                innerNameIndex,                  // innerNameIndex
+                this.innerClassAccessFlags(mtd)  // innerClassAccessFlags
             ));
         }
+    }
+
+    /**
+     * @return The "inner_class_access_flags" of the "InnerClasses" attribute entry for the <var>mtd</var> (JVMS8,
+     *         section 4.7.6): The declared modifiers, plus the implicit ones (JLS8 8.5.1, 8.9, 9.1.1, 9.5): A member
+     *         interface is implicitly static and abstract, an annotation type is an interface, and a member enum is
+     *         implicitly static and final
+     */
+    private short
+    innerClassAccessFlags(MemberTypeDeclaration mtd) throws CompileException {
+
+        // "ACC_STRICT" is a method flag; "javac" clears it, too.
+        short result = (short) (this.accessFlags(mtd.getModifiers()) & ~Mod.STRICTFP);
+
+        if (UnitCompiler.isMemberTypeOfInterface(mtd)) result |= Mod.PUBLIC | Mod.STATIC;
+
+        if (mtd instanceof InterfaceDeclaration) {
+            result |= Mod.STATIC | Mod.INTERFACE | Mod.ABSTRACT;
+            if (mtd instanceof AnnotationTypeDeclaration) result |= Mod.ANNOTATION;
+        } else
+        if (mtd instanceof EnumDeclaration) {
+            result |= Mod.STATIC | Mod.FINAL | Mod.ENUM;
+        }
+
+        return result;
+    }
+
+    /**
+     * @return Whether the <var>td</var> is a member type of an interface, which is implicitly public and static
+     *         (JLS8 9.5)
+     */
+    private static boolean
+    isMemberTypeOfInterface(TypeDeclaration td) {
+        return (
+            td instanceof MemberTypeDeclaration
+            && ((MemberTypeDeclaration) td).getDeclaringType() instanceof InterfaceDeclaration
+        );
     }
 
     /**
@@ -3792,6 +3888,35 @@ class UnitCompiler {
 
         // Add method annotations with retention != SOURCE.
         this.compileAnnotations(fd.getAnnotations(), mi, classFile);
+
+        // Add parameter annotations with retention != SOURCE (JVMS8 4.7.18 and 4.7.19). The "num_parameters" is the
+        // number of parameters of the method descriptor, so that it includes the parameters that are prepended to
+        // the declared ones: The enclosing instance and the captured local variables of inner class constructors,
+        // the name and the ordinal of enum constructors, and the "this" of a private instance method (see above).
+        // ("javac" writes the number of declared parameters, and relies on the "EnclosingMethod" attribute, which
+        // this compiler does not generate, when the reflection API matches the annotations to the parameters.)
+        {
+            final ClassFile.MethodInfo mi2             = mi;
+            final FormalParameter[]    fps             = fd.formalParameters.parameters;
+            final int                  numParameters   = new MethodDescriptor(mi.getDescriptor()).parameterFds.length;
+            final int                  parameterOffset = numParameters - fps.length;
+            for (int i = 0; i < fps.length; i++) {
+                final int parameterIndex = i + parameterOffset;
+                this.compileAnnotations(fps[i].getAnnotations(), classFile, new AnnotationSink() {
+
+                    @Override public void
+                    add(boolean runtimeVisible, String fieldDescriptor, Map<Short, ClassFile.ElementValue> evps) {
+                        mi2.addParameterAnnotationsAttributeEntry(
+                            runtimeVisible,
+                            parameterIndex,
+                            numParameters,
+                            fieldDescriptor,
+                            evps
+                        );
+                    }
+                });
+            }
+        }
 
         // Add "Exceptions" attribute (JVMS 4.7.4).
         {
@@ -11333,6 +11458,7 @@ class UnitCompiler {
             @Override public Access
             getAccess() {
 
+                if (UnitCompiler.isMemberTypeOfInterface(atd))        return Access.PUBLIC;
                 if (atd instanceof MemberClassDeclaration)            return ((MemberClassDeclaration)            atd).getAccess();
                 if (atd instanceof PackageMemberClassDeclaration)     return ((PackageMemberClassDeclaration)     atd).getAccess();
                 if (atd instanceof MemberInterfaceDeclaration)        return ((MemberInterfaceDeclaration)        atd).getAccess();

@@ -831,6 +831,44 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    test_8_5__Member_Type_Declarations() throws Exception {
+
+        // The implicit modifiers of member types (JLS 8.5.1, 8.9, 9.1.1), as the "InnerClasses" attribute records
+        // them, are visible through "Class.getModifiers()"; the attribute also provides the declaring class and the
+        // simple name (issue #43).
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.reflect.Modifier;\n"
+            + "public class Foo {\n"
+            + "    static class Sc {}\n"
+            + "    class Ic {}\n"
+            + "    public abstract static class Asc {}\n"
+            + "    interface I {}\n"
+            + "    strictfp interface J {}\n"
+            + "    enum E { X }\n"
+            + "    @interface A {}\n"
+            + "    public static boolean main() {\n"
+            + "        return (\n"
+            + "            Sc.class.getModifiers() == Modifier.STATIC\n"
+            + "            && Ic.class.getModifiers() == 0\n"
+            + "            && Asc.class.getModifiers() == (Modifier.PUBLIC | Modifier.ABSTRACT | Modifier.STATIC)\n"
+            + "            && I.class.getModifiers() == (Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE)\n"
+            + "            && J.class.getModifiers() == (Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE)\n"
+            + "            && E.class.getModifiers() == (Modifier.STATIC | Modifier.FINAL | 0x4000)\n"
+            + "            && A.class.getModifiers() == (\n"
+            + "                Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE | 0x2000\n"
+            + "            )\n"
+            + "            && E.class.isEnum() && A.class.isAnnotation()\n"
+            + "            && I.class.isMemberClass() && I.class.getDeclaringClass() == Foo.class\n"
+            + "            && I.class.getEnclosingClass() == Foo.class && \"I\".equals(I.class.getSimpleName())\n"
+            + "            && Foo.class.getDeclaredClasses().length == 7\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n"
+        ), "Foo");
+    }
+
+    @Test public void
     test_8_1_2__Generic_Classes_and_Type_Parameters() throws Exception {
         this.assertCompilationUnitMainReturnsTrue((
             ""
@@ -1397,6 +1435,40 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    test_9_5__Member_Type_Declarations() throws Exception {
+
+        // A member type declaration in an interface is implicitly public and static (issue #43).
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.reflect.Modifier;\n"
+            + "interface I {\n"
+            + "    class C { int f() { return 1; } }\n"
+            + "    interface J {}\n"
+            + "    enum E { X, Y }\n"
+            + "    @interface A {}\n"
+            + "}\n"
+            + "public class Foo {\n"
+            + "    static int f(I.E e) { switch (e) { case X: return 1; default: return 2; } }\n"
+            + "    public static boolean main() {\n"
+            + "        return (\n"
+            + "            I.C.class.getModifiers() == (Modifier.PUBLIC | Modifier.STATIC)\n"
+            + "            && I.J.class.getModifiers() == (\n"
+            + "                Modifier.PUBLIC | Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE\n"
+            + "            )\n"
+            + "            && I.E.class.getModifiers() == (\n"
+            + "                Modifier.PUBLIC | Modifier.STATIC | Modifier.FINAL | 0x4000\n"
+            + "            )\n"
+            + "            && I.A.class.getModifiers() == (\n"
+            + "                Modifier.PUBLIC | Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE | 0x2000\n"
+            + "            )\n"
+            + "            && new I.C().f() == 1 && I.E.values().length == 2 && f(I.E.Y) == 2\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n"
+        ), "Foo");
+    }
+
+    @Test public void
     test_9_6__Annotation_Types() throws Exception {
 
         this.assertCompilationUnitMainReturnsTrue((
@@ -1479,6 +1551,101 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "    }\n"
             + "}"
         ), "Main");
+    }
+
+    /**
+     * Annotation types declared as member types; see <a
+     * href="https://github.com/janino-lts/janino/issues/43">issue #43</a>.
+     */
+    @Test public void
+    test_9_6__Annotation_Types__Member_Annotation_Types() throws Exception {
+
+        // The member annotation type is an annotation type, and its annotations are visible at run time.
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.annotation.*;\n"
+            + "import java.lang.reflect.Modifier;\n"
+            + "@Main.A(7) public class Main {\n"
+            + "    @Retention(RetentionPolicy.RUNTIME) @interface A { int value() default 5; }\n"
+            + "    @Retention(RetentionPolicy.RUNTIME) @interface B { A a(); RetentionPolicy p(); Class<?> c(); }\n"
+            + "    private @interface C {}\n"
+            + "    @A public static int field;\n"
+            + "    @A public Main() {}\n"
+            + "    @A(1) @B(a = @A(2), p = RetentionPolicy.CLASS, c = String.class)\n"
+            + "    public static void m(@A(3) int x) {}\n"
+            + "    @A static class Q {}\n"
+            + "    @A enum E { X }\n"
+            + "    @A interface I {}\n"
+            + "    @A @interface D {}\n"
+            + "    public static boolean main() throws Exception {\n"
+            + "        A ma = (A) Main.class.getMethod(\"m\", int.class).getAnnotation(A.class);\n"
+            + "        B mb = (B) Main.class.getMethod(\"m\", int.class).getAnnotation(B.class);\n"
+            + "        Annotation[][] pas = Main.class.getMethod(\"m\", int.class).getParameterAnnotations();\n"
+            + "        return (\n"
+            + "            A.class.isAnnotation() && A.class.isInterface()\n"
+            + "            && A.class.getInterfaces()[0] == Annotation.class\n"
+            + "            && A.class.getModifiers() == (\n"
+            + "                Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE | 0x2000\n"
+            + "            )\n"
+            + "            && C.class.getModifiers() == (\n"
+            + "                Modifier.PRIVATE | Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE | 0x2000\n"
+            + "            )\n"
+            + "            && A.class.getDeclaringClass() == Main.class && \"A\".equals(A.class.getSimpleName())\n"
+            + "            && ((A) Main.class.getAnnotation(A.class)).value() == 7\n"
+            + "            && ((A) Main.class.getField(\"field\").getAnnotation(A.class)).value() == 5\n"
+            + "            && Main.class.getConstructor().isAnnotationPresent(A.class)\n"
+            + "            && ma.value() == 1 && mb.a().value() == 2 && mb.p() == RetentionPolicy.CLASS\n"
+            + "            && mb.c() == String.class\n"
+            + "            && pas[0].length == 1 && ((A) pas[0][0]).value() == 3\n"
+            + "            && Q.class.isAnnotationPresent(A.class) && E.class.isAnnotationPresent(A.class)\n"
+            + "            && I.class.isAnnotationPresent(A.class) && D.class.isAnnotationPresent(A.class)\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n"
+        ), "Main");
+
+        // Declared in an interface (implicitly public), used before its declaration, with a fully qualified
+        // meta-annotation; the retention CLASS and SOURCE make it invisible at run time.
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.annotation.*;\n"
+            + "import java.lang.reflect.Modifier;\n"
+            + "interface I {\n"
+            + "    @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.RUNTIME) @interface A {}\n"
+            + "}\n"
+            + "@I.A public class Main {\n"
+            + "    @A @B @C public static void m() {}\n"
+            + "    @Retention(RetentionPolicy.RUNTIME) @interface A {}\n"
+            + "    @interface B {}\n"
+            + "    @Retention(RetentionPolicy.SOURCE) @interface C {}\n"
+            + "    public static boolean main() throws Exception {\n"
+            + "        return (\n"
+            + "            I.A.class.getModifiers() == (\n"
+            + "                Modifier.PUBLIC | Modifier.STATIC | Modifier.ABSTRACT | Modifier.INTERFACE | 0x2000\n"
+            + "            )\n"
+            + "            && Main.class.isAnnotationPresent(I.A.class)\n"
+            + "            && Main.class.getMethod(\"m\").isAnnotationPresent(A.class)\n"
+            + "            && !Main.class.getMethod(\"m\").isAnnotationPresent(B.class)\n"
+            + "            && !Main.class.getMethod(\"m\").isAnnotationPresent(C.class)\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n"
+        ), "Main");
+
+        // A member annotation type is declared like a top-level annotation type: no type parameters, no "extends",
+        // no default or static methods; a class that implements it must implement "annotationType()".
+        String u = "'\\{' expected|not allowed|must implement method|compiler.err";
+        this.assertCompilationUnitUncookable("class Foo { @interface A<T> {} }", u);
+        this.assertCompilationUnitUncookable("class Foo { @interface A extends Runnable {} }", u);
+        this.assertCompilationUnitUncookable("class Foo { @interface A { default int f() { return 1; } } }", u);
+        this.assertCompilationUnitUncookable("class Foo { @interface A { static int f() { return 1; } } }", u);
+        this.assertCompilationUnitUncookable("class Foo { @interface A {} static class Impl implements A {} }", u);
+
+        // A single-element annotation requires an element "value".
+        this.assertCompilationUnitUncookable(
+            "class Foo { @interface A {} @A(8) void m() {} }",
+            "has no element \"value\"|compiler.err.cant.resolve"
+        );
     }
 
     /**
@@ -1737,6 +1904,78 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "    }\n"
             + "}"
         ), "Main");
+    }
+
+    /**
+     * Annotations on formal parameters; see <a href="https://github.com/janino-lts/janino/issues/43">issue #43</a>.
+     */
+    @Test public void
+    test_9_7_4__Where_Annotations_May_Appear_parameter() throws Exception {
+
+        // The number of annotations per parameter is compared, because the position of the annotated parameter in
+        // the array differs between the compilers for the constructors of inner classes (JVMS 4.7.18 leaves the
+        // treatment of implicit parameters to the compiler).
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.lang.annotation.Annotation;\n"
+            + "import org.codehaus.commons.compiler.tests.annotation.RuntimeRetainedAnnotation2;\n"
+            + "\n"
+            + "public\n"
+            + "class Main {\n"
+            + "\n"
+            + "    @interface Invisible {}\n"
+            + "\n"
+            + "    public Main(@RuntimeRetainedAnnotation2(\"Ctor\") int x) {}\n"
+            + "    public static void method(\n"
+            + "        @RuntimeRetainedAnnotation2(\"Foo\") int x,\n"
+            + "        @Invisible @SuppressWarnings(\"unused\") int y,\n"
+            + "        @Deprecated @RuntimeRetainedAnnotation2(\"Bar\") final String... z\n"
+            + "    ) {}\n"
+            + "    interface I { void m(@RuntimeRetainedAnnotation2(\"I\") int x); }\n"
+            + "    class Inner { Inner(@RuntimeRetainedAnnotation2(\"Inner\") int x) {} }\n"
+            + "    enum E { X(1); E(@RuntimeRetainedAnnotation2(\"E\") int v) {} }\n"
+            + "\n"
+            + "    static int count(Annotation[][] pas) {\n"
+            + "        int n = 0;\n"
+            + "        for (Annotation[] pa : pas) n += pa.length;\n"
+            + "        return n;\n"
+            + "    }\n"
+            + "\n"
+            + "    public static boolean\n"
+            + "    main() throws Exception {\n"
+            + "        Annotation[][] pas = Main.class.getMethod(\n"
+            + "            \"method\", int.class, int.class, String[].class\n"
+            + "        ).getParameterAnnotations();\n"
+            + "        if (pas.length != 3) throw new AssertionError(1);\n"
+            + "        if (pas[0].length != 1 || pas[1].length != 0 || pas[2].length != 2) {\n"
+            + "            throw new AssertionError(2);\n"
+            + "        }\n"
+            + "        if (!((RuntimeRetainedAnnotation2) pas[0][0]).value().equals(\"Foo\")) {\n"
+            + "            throw new AssertionError(3);\n"
+            + "        }\n"
+            + "        pas = Main.class.getConstructor(int.class).getParameterAnnotations();\n"
+            + "        if (pas.length != 1 || pas[0].length != 1) throw new AssertionError(4);\n"
+            + "        if (!((RuntimeRetainedAnnotation2) pas[0][0]).value().equals(\"Ctor\")) {\n"
+            + "            throw new AssertionError(5);\n"
+            + "        }\n"
+            + "        pas = I.class.getMethod(\"m\", int.class).getParameterAnnotations();\n"
+            + "        if (pas.length != 1 || pas[0].length != 1) throw new AssertionError(6);\n"
+            + "        if (count(Inner.class.getDeclaredConstructors()[0].getParameterAnnotations()) != 1) {\n"
+            + "            throw new AssertionError(7);\n"
+            + "        }\n"
+            + "        if (count(E.class.getDeclaredConstructors()[0].getParameterAnnotations()) != 1) {\n"
+            + "            throw new AssertionError(8);\n"
+            + "        }\n"
+            + "        return true;\n"
+            + "    }\n"
+            + "}"
+        ), "Main");
+
+        // A duplicate annotation on a parameter.
+        this.assertCompilationUnitUncookable(
+            "class Foo { void m(@Deprecated @Deprecated int x) {} }",
+            "(?i)duplicate annotation|is not .* repeatable"
+        );
     }
 
     @Test public void

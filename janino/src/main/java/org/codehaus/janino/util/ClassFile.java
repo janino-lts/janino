@@ -214,6 +214,20 @@ class ClassFile implements Annotatable {
         return (AnnotationsAttribute) this.findAttribute(attributes, attributeName);
     }
 
+    /**
+     * @return The {@code Runtime[In]visibleParameterAnnotations} attribute among the <var>attributes</var>, or
+     *         {@code null}
+     */
+    @Nullable private ParameterAnnotationsAttribute
+    getParameterAnnotationsAttribute(boolean runtimeVisible, List<AttributeInfo> attributes) {
+        String attributeName = (
+            runtimeVisible
+            ? "RuntimeVisibleParameterAnnotations"
+            : "RuntimeInvisibleParameterAnnotations"
+        );
+        return (ParameterAnnotationsAttribute) this.findAttribute(attributes, attributeName);
+    }
+
     @Override public Annotation[]
     getAnnotations(boolean runtimeVisible) {
 
@@ -1845,6 +1859,65 @@ class ClassFile implements Annotatable {
         }
 
         /**
+         * @return The annotations of this method's parameters (the first index is the parameter index), see JVMS8
+         *         4.7.18 and 4.7.19; an empty array iff this method has no {@code
+         *         Runtime[In]visibleParameterAnnotations} attribute
+         */
+        public Annotation[][]
+        getParameterAnnotations(boolean runtimeVisible) {
+
+            ParameterAnnotationsAttribute paa = ClassFile.this.getParameterAnnotationsAttribute(
+                runtimeVisible,
+                this.attributes
+            );
+            if (paa == null) return new Annotation[0][];
+
+            return paa.getParameterAnnotations();
+        }
+
+        /**
+         * Adds a {@code Runtime[In]visibleParameterAnnotations} attribute to this method (if it does not yet exist)
+         * and adds an annotation of the parameter with the given index to it.
+         *
+         * @param numParameters     The "num_parameters" of the attribute (JVMS8 4.7.18); must be the same for all
+         *                          invocations on this method
+         * @param elementValuePairs Maps "element_name_index" ({@link ConstantUtf8Info}) to "element_value", see
+         *                          JVMS8 4.7.16
+         */
+        public void
+        addParameterAnnotationsAttributeEntry(
+            boolean                            runtimeVisible,
+            int                                parameterIndex,
+            int                                numParameters,
+            String                             fieldDescriptor,
+            Map<Short, ClassFile.ElementValue> elementValuePairs
+        ) {
+
+            // Find or create the "Runtime[In]visibleParameterAnnotations" attribute.
+            ParameterAnnotationsAttribute paa = ClassFile.this.getParameterAnnotationsAttribute(
+                runtimeVisible,
+                this.attributes
+            );
+            if (paa == null) {
+                String attributeName = (
+                    runtimeVisible
+                    ? "RuntimeVisibleParameterAnnotations"
+                    : "RuntimeInvisibleParameterAnnotations"
+                );
+                paa = new ParameterAnnotationsAttribute(
+                    ClassFile.this.addConstantUtf8Info(attributeName),
+                    numParameters
+                );
+                this.attributes.add(paa);
+            }
+
+            // Add the new annotation.
+            paa.getParameterAnnotations(parameterIndex).add(
+                new Annotation(ClassFile.this.addConstantUtf8Info(fieldDescriptor), elementValuePairs)
+            );
+        }
+
+        /**
          * Writes this object to a {@link DataOutputStream}, in the format described inJVMS7 4.6.
          */
         public void
@@ -2060,6 +2133,12 @@ class ClassFile implements Annotatable {
         } else
         if ("RuntimeInvisibleAnnotations".equals(attributeName)) {
             result = AnnotationsAttribute.loadBody(attributeNameIndex, bdis);
+        } else
+        if ("RuntimeVisibleParameterAnnotations".equals(attributeName)) {
+            result = ParameterAnnotationsAttribute.loadBody(attributeNameIndex, bdis);
+        } else
+        if ("RuntimeInvisibleParameterAnnotations".equals(attributeName)) {
+            result = ParameterAnnotationsAttribute.loadBody(attributeNameIndex, bdis);
         } else
         {
             return new AttributeInfo(attributeNameIndex) {
@@ -2294,6 +2373,76 @@ class ClassFile implements Annotatable {
 
             dos.writeShort(this.annotations.size()); // num_annotations
             for (Annotation a : this.annotations) a.store(dos);
+        }
+    }
+
+    /**
+     * Representation of a {@code RuntimeVisibleParameterAnnotations} or {@code RuntimeInvisibleParameterAnnotations}
+     * attribute (see JVMS8 4.7.18 and 4.7.19).
+     */
+    public static
+    class ParameterAnnotationsAttribute extends AttributeInfo {
+
+        /**
+         * The annotations of each parameter; the index is the parameter index.
+         */
+        private final List<Annotation>[] parameterAnnotations;
+
+        ParameterAnnotationsAttribute(short attributeNameIndex, int numParameters) {
+            super(attributeNameIndex);
+
+            @SuppressWarnings("unchecked") List<Annotation>[] pas = new List[numParameters];
+            for (int i = 0; i < numParameters; i++) pas[i] = new ArrayList<>();
+            this.parameterAnnotations = pas;
+        }
+
+        /**
+         * @return The (modifiable) {@link Annotation}s of the parameter with the given index
+         */
+        public List<Annotation>
+        getParameterAnnotations(int parameterIndex) { return this.parameterAnnotations[parameterIndex]; }
+
+        /**
+         * @return The {@link Annotation}s of all parameters; the first index is the parameter index
+         */
+        public Annotation[][]
+        getParameterAnnotations() {
+
+            Annotation[][] result = new Annotation[this.parameterAnnotations.length][];
+            for (int i = 0; i < result.length; i++) {
+                List<Annotation> as = this.parameterAnnotations[i];
+                result[i] = (Annotation[]) as.toArray(new Annotation[as.size()]);
+            }
+
+            return result;
+        }
+
+        private static AttributeInfo
+        loadBody(short attributeNameIndex, DataInputStream dis) throws IOException {
+
+            ParameterAnnotationsAttribute result = new ParameterAnnotationsAttribute(
+                attributeNameIndex,
+                dis.readUnsignedByte() // num_parameters
+            );
+            for (List<Annotation> as : result.parameterAnnotations) { // parameter_annotations[num_parameters]
+                int numAnnotations = dis.readUnsignedShort();          // num_annotations
+                for (int i = 0; i < numAnnotations; i++) {             // annotations[num_annotations]
+                    as.add(AnnotationsAttribute.loadAnnotation(dis));
+                }
+            }
+
+            return result;
+        }
+
+        // Implement "AttributeInfo".
+        @Override protected void
+        storeBody(DataOutputStream dos) throws IOException {
+
+            dos.writeByte(this.parameterAnnotations.length);       // num_parameters
+            for (List<Annotation> as : this.parameterAnnotations) { // parameter_annotations[num_parameters]
+                dos.writeShort(as.size());                          // num_annotations
+                for (Annotation a : as) a.store(dos);               // annotations[num_annotations]
+            }
         }
     }
 

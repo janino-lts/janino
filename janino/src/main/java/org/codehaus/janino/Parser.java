@@ -908,7 +908,9 @@ class Parser {
      *       Block |                                    // Instance (JLS7 8.6) or static initializer (JLS7 8.7)
      *       'void' Identifier MethodDeclarationRest |
      *       'class' ClassDeclarationRest |
+     *       'enum' EnumDeclarationRest |
      *       'interface' InterfaceDeclarationRest |
+     *       '@' 'interface' AnnotationTypeDeclarationRest |
      *       ConstructorDeclarator |
      *       [ TypeArguments ] Type Identifier MethodDeclarationRest |
      *       Type Identifier FieldDeclarationRest ';'
@@ -994,7 +996,7 @@ class Parser {
             if (docComment == null) {
                 this.warning("MATDCM", "Member annotation type doc comment missing", this.location());
             }
-            classDeclaration.addMemberTypeDeclaration((MemberTypeDeclaration) this.parseInterfaceDeclarationRest(
+            classDeclaration.addMemberTypeDeclaration((MemberTypeDeclaration) this.parseAnnotationTypeDeclarationRest(
                 docComment,                                        // docComment
                 this.interfaceModifiers(modifiers),                // modifiers
                 InterfaceDeclarationContext.NAMED_TYPE_DECLARATION // context
@@ -1192,7 +1194,9 @@ class Parser {
      *     ModifiersOpt (
      *       'void' Identifier MethodDeclarationRest |
      *       'class' ClassDeclarationRest |
+     *       'enum' EnumDeclarationRest |
      *       'interface' InterfaceDeclarationRest |
+     *       '@' 'interface' AnnotationTypeDeclarationRest |
      *       Type Identifier (
      *         MethodDeclarationRest |
      *         FieldDeclarationRest
@@ -1258,7 +1262,7 @@ class Parser {
                     throw this.compileException("Modifier \"default\" not allowed on member enum declaration");
                 }
                 interfaceDeclaration.addMemberTypeDeclaration(
-                    (MemberTypeDeclaration) this.parseClassDeclarationRest(
+                    (MemberTypeDeclaration) this.parseEnumDeclarationRest(
                         docComment,                              // docComment
                         this.classModifiers(modifiers),          // modifiers
                         ClassDeclarationContext.TYPE_DECLARATION // context
@@ -1298,7 +1302,7 @@ class Parser {
                     );
                 }
                 interfaceDeclaration.addMemberTypeDeclaration(
-                    (MemberTypeDeclaration) this.parseInterfaceDeclarationRest(
+                    (MemberTypeDeclaration) this.parseAnnotationTypeDeclarationRest(
                         docComment,                                        // docComment
                         this.interfaceModifiers(modifiers),                // modifiers
                         InterfaceDeclarationContext.NAMED_TYPE_DECLARATION // context
