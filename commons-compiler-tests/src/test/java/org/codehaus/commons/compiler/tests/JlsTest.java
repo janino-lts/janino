@@ -3449,6 +3449,29 @@ class JlsTest extends CommonsCompilerTestSuite {
         }, result);
     }
 
+    @Test public void
+    test_15_25__Conditional_operator__3() throws Exception {
+
+        // A constant of type "byte" or "short" that is not representable in the type "char" of the other operand:
+        // the type is "int" (binary numeric promotion), not "char" (issue #51).
+        String cz = "char c = 'a'; boolean z = false; ";
+        this.assertScriptReturnsTrue("char c = 'a'; Object x = true ? c : (short) -1; return x.equals(97);");
+        this.assertScriptReturnsTrue("char c = 'a'; Object x = false ? c : (short) -1; return x.equals(-1);");
+        this.assertScriptReturnsTrue(cz + "Object x = z ? c : (short) -1; return x.equals(-1);");
+        this.assertScriptReturnsTrue(cz + "Object x = z ? c : (byte) -1; return x.equals(-1);");
+        this.assertScriptReturnsTrue(cz + "int i = !z ? c : (short) -1; return i == 97;");
+
+        // An "int" constant that is not representable in the type "byte" of the other operand.
+        this.assertScriptReturnsTrue("byte b = 1; boolean z = false; Object x = z ? b : 500; return x.equals(500);");
+
+        // Constant expressions: the value has the type "int".
+        this.assertExpressionEvaluatesTrue("(\"\" + (true ? 'a' : (short) -1)).equals(\"97\")");
+        this.assertScriptReturnsTrue("final char C = 'a'; return (\"\" + (true ? C : (byte) -1)).equals(\"97\");");
+        this.assertScriptReturnsTrue("Object x = true ? 'a' : (short) -1; return x.equals(97);");
+        this.assertScriptReturnsTrue("char c = true ? 'a' : (short) -1; return c == 'a';");
+        this.assertScriptReturnsTrue("byte b = true ? 'a' : (short) -1; return b == 97;");
+    }
+
     /**
      * 15.26 Assignment Operators
      */

@@ -463,9 +463,10 @@
                 methods of the <code>enum</code> type
               </li>
               <li>
-                Annotations: Annotations of annotation types that are declared in the compiled code are not visible at
-                runtime, even with <code>@Retention(RetentionPolicy.RUNTIME)</code> (annotations of annotation types
-                of the JDK, e.g. <code>@Deprecated</code>, work)
+                Annotations: Annotations of annotation types that are declared as member types in the compiled code
+                (e.g. <code>class P { @interface A {} }</code>) are not visible at runtime, even with
+                <code>@Retention(RetentionPolicy.RUNTIME)</code> (top-level annotation types and those of the JDK,
+                e.g. <code>@Deprecated</code>, work)
               </li>
               <li>
                 Overload resolution: A variable arity method is preferred over a method that requires boxing, e.g.
@@ -545,6 +546,12 @@
           href="https://github.com/janino-lts/janino/tree/HEAD/commons-compiler-tests/src/test/resources/languageSupport">characterization
           tests</a> record, for about 200 language constructs, the result that the Java language requires and the
           current behavior of Janino.
+        </p>
+        <p>
+          Where Janino deviates from JAVAC beyond these limitations (invalid code that it accepts, valid code that
+          it rejects or that behaves differently), see
+          <a href="https://github.com/janino-lts/janino/blob/HEAD/JAVAC_DIFFERENCES.md">Differences between Janino
+          and javac</a>.
         </p>
 
         <h2>

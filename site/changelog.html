@@ -49,6 +49,19 @@ h5 {
 
     <a href="index.html">Back to the JANINO home page</a>
 
+    <h4>Version 3.1.16 (unreleased)</h4>
+    <ul>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/51">issue #51</a>: Since 3.1.15, conditional
+        expressions with a <code>char</code> operand and a negative <code>byte</code> or <code>short</code> constant
+        (e.g. <code>z ? c : (short) -1</code>) were rejected. They now have the type <code>int</code>, like with JAVAC;
+        before 3.1.15, some of them compiled with the wrong type <code>char</code>, or into code that failed at run
+        time. The same applies to an <code>int</code> constant that is not representable in the type of the other
+        operand (e.g. <code>z ? b : 500</code> with a <code>byte b</code>), which was rejected before. The class files
+        of code that compiled before are unchanged.
+      </li>
+    </ul>
+
     <h4>Version 3.1.15 2026-10-06</h4>
     <p>
       The first release of this fork on MAVEN Central, under the new group ID <code>io.github.janino-lts</code> (see
@@ -143,9 +156,14 @@ h5 {
         was wrong (#37, #39, #45, #46, #48); the compilation of Janino's own sources yields one different opcode
         (#37). Some code that Janino accepted, but JAVAC rejects, is now rejected as well:
         <code>byte b = -Byte.MIN_VALUE;</code> (#39), a statement after <code>while (A.F) {}</code> with a
-        <code>boolean</code> constant <code>true</code> from a class file (#46), <code>z ? c : (short) -1</code>
-        with a <code>char c</code> (#45), and the code of #30, which the JVM rejected. Other invalid code that Janino
-        accepts is still accepted (<a href="https://github.com/janino-lts/janino/issues/33">issue #33</a>).
+        <code>boolean</code> constant <code>true</code> from a class file (#46), and the code of #30, which the JVM
+        rejected. Other invalid code that Janino accepts is still accepted
+        (<a href="https://github.com/janino-lts/janino/issues/33">issue #33</a>). As a side effect of #45, the valid
+        conditional expressions <code>true ? c : (short) -1</code> and <code>false ? c : (short) -1</code> (with a
+        <code>char c</code>, also with other negative <code>byte</code> or <code>short</code> constants) are now
+        rejected; JAVAC accepts them with the type <code>int</code>. Before, they compiled with the wrong type
+        <code>char</code>, or into code that failed at run time. Fixed in 3.1.16
+        (<a href="https://github.com/janino-lts/janino/issues/51">issue #51</a>).
       </li>
       <li>
         New tests: a differential test that compiles generated expressions with Janino and with JAVAC and compares
