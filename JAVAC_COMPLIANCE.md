@@ -341,7 +341,7 @@ top-level annotation types rejected them in all versions.
 
 ## 9. The plan
 
-**3.1.16: fixes of classes D and V only**, each classified per section 5: #43 (V3, with the exception A-06; the
+**3.1.16 (released): fixes of classes D and V only**, each classified per section 5: #43 (V3, with the exception A-06; the
 parameter annotations, the implicit modifiers of member types in the `InnerClasses` attribute and the member types of
 interfaces are V3 and D as well), #44 (V3); #51 (V4, D); #53, #54 (D, with the exception A-05); #55, the constant
 value of conditional expressions (V1, V4); #56, the rejected forms of #38 (D); #57, the stack map frames of loops and
