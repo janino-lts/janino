@@ -79,10 +79,10 @@ line ([#51](https://github.com/janino-lts/janino/issues/51)): these expressions 
 `javac`. (3.1.12 compiled `true ? c : (short) -1` with the wrong type `char`, and `false ? c : (short) -1` into code
 that throws an `ArrayIndexOutOfBoundsException`.)
 
-**Static interface methods:** a class that implements an interface with a static method is rejected if both are
-declared in the compiled code, e.g. `interface I { static void s() {} } class X implements I {}` ("Non-abstract class
-"X" must implement method "public static abstract void I.s()""). If the interface is loaded from a class file, this
-works.
+**Static interface methods** ([#53](https://github.com/janino-lts/janino/issues/53)): a class that implements an
+interface with a static method is rejected if both are declared in the compiled code, e.g.
+`interface I { static void s() {} } class X implements I {}` ("Non-abstract class "X" must implement method
+"public static abstract void I.s()""). If the interface is loaded from a class file, this works.
 
 ## 3. Invalid code that Janino accepts
 
@@ -157,7 +157,7 @@ as the source suggests (e.g. an assignment to a `final` local variable assigns i
 ## 4. Invalid code for which Janino generates class files that the JVM rejects
 
 `javac` rejects the following code. Janino compiles it, but the JVM rejects the generated class when it is loaded
-(`VerifyError` or `ClassFormatError`):
+(`VerifyError` or `ClassFormatError`, [#54](https://github.com/janino-lts/janino/issues/54)):
 
 - a local variable that is assigned only in the body of a `for` statement, and read after it:
   `int x; for (int i = 0; i < 1; i++) x = 1; return x;` (the equivalent `while` statement is rejected correctly);
