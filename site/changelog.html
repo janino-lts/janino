@@ -79,6 +79,14 @@ h5 {
         such expressions that compiled before are unchanged (see
         <a href="https://github.com/janino-lts/janino/issues/38">issue #38</a>).
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/53">issue #53</a>: A class that implements an
+        interface with a static method was rejected ("must implement method") if the interface was declared in the
+        compiled code; with an interface from a class file, the class compiled. Janino does not check that static
+        interface methods are not inherited (JLS 8.4.8): <code>P.s()</code>, or an unqualified <code>s()</code>, in
+        a class <code>P</code> that implements <code>I</code> is accepted, as it was with interfaces from class
+        files.
+      </li>
     </ul>
 
     <h4>Version 3.1.15 2026-10-06</h4>

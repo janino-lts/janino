@@ -11638,6 +11638,7 @@ class UnitCompiler {
                     (
                         methodDeclarator.getDeclaringType() instanceof InterfaceDeclaration
                         && !methodDeclarator.isDefault()
+                        && !methodDeclarator.isStatic()
                         && methodDeclarator.getAccess() != Access.PRIVATE
                     )
                     || methodDeclarator.isAbstract()

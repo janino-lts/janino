@@ -399,3 +399,36 @@ recovery: ACCEPTED
 public class P {
     void f(int i) { switch (i) { case true ? 1 : 2L: } }
 }
+
+=== static interface method invoked unqualified from an implementing class
+janino: ACCEPTED
+recovery: ACCEPTED
+interface I { static String s() { return "s"; } }
+public class P implements I {
+    String f() { return s(); }
+}
+
+=== static interface method invoked through an implementing class
+janino: ACCEPTED
+recovery: ACCEPTED
+interface I { static String s() { return "s"; } }
+public class P implements I {
+    String f() { return P.s(); }
+}
+
+=== static interface method invoked through an instance of an implementing class
+janino: ACCEPTED
+recovery: ACCEPTED
+interface I { static String s() { return "s"; } }
+public class P implements I {
+    String f() { return new P().s(); }
+}
+
+=== static interface method invoked through a subinterface
+janino: ACCEPTED
+recovery: ACCEPTED
+interface I { static String s() { return "s"; } }
+interface J extends I {}
+public class P {
+    String f() { return J.s(); }
+}

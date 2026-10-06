@@ -79,11 +79,6 @@ constant expression, the expressions that Janino does not fold (see section 1) a
 In the main line, these expressions have the types of `javac`. The types of such expressions that compile in 3.1.15
 are unchanged (section 1, #38).
 
-**Static interface methods** ([#53](https://github.com/janino-lts/janino/issues/53)): a class that implements an
-interface with a static method is rejected if both are declared in the compiled code, e.g.
-`interface I { static void s() {} } class X implements I {}` ("Non-abstract class "X" must implement method
-"public static abstract void I.s()""). If the interface is loaded from a class file, this works.
-
 ## 3. Invalid code that Janino accepts
 
 `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it behaves
@@ -144,7 +139,9 @@ as the source suggests (e.g. an assignment to a `final` local variable assigns i
 - a constant conditional expression of type `long`, `float` or `double` assigned to a variable of a narrower type:
   `byte b = true ? 1 : 2L;` (rejected in the main line, [#55](https://github.com/janino-lts/janino/issues/55));
 - `instanceof` with a `final` class and an interface that it does not implement: `"x" instanceof Runnable`;
-- invocation of a static interface method through an instance: `comparator.naturalOrder()`;
+- invocation of a static interface method as if it were inherited (JLS 8.4.8): through an instance
+  (`comparator.naturalOrder()`), through an implementing class or a subinterface (`P.s()`, `J.s()`), or unqualified
+  from an implementing class (`s()`);
 - `private` member type of another top-level class, also of a JDK class: `java.util.ArrayList.Itr x;`;
 - on-demand import of a package that does not exist: `import foo.*;`;
 - static import of a member that does not exist, or is not static: `import static java.lang.Math.foo;`,

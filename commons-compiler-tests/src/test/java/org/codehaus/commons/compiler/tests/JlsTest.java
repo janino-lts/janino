@@ -1144,6 +1144,60 @@ class JlsTest extends CommonsCompilerTestSuite {
                 sct.assertResultTrue();
             }
         }
+
+        // A class that implements an interface with a static method, both declared in source code (issue #53):
+        // directly, through an abstract superclass, through a subinterface, together with abstract and default
+        // methods, as nested types, and with a static or an instance method of the same name in the class.
+        String[] cus = {
+            ""
+            + "interface I { static String s() { return \"s\"; } }\n"
+            + "public class Foo implements I { public static boolean main() { return I.s().equals(\"s\"); } }\n",
+            ""
+            + "interface I { static String s() { return \"s\"; } }\n"
+            + "abstract class A implements I {}\n"
+            + "public class Foo extends A { public static boolean main() { return I.s().equals(\"s\"); } }\n",
+            ""
+            + "interface I { static String s() { return \"s\"; } }\n"
+            + "interface J extends I {}\n"
+            + "public class Foo implements J { public static boolean main() { return I.s().equals(\"s\"); } }\n",
+            ""
+            + "interface I { static String s(int x) { return \"s\" + x; } String t(); "
+            + "default String d() { return \"d\"; } }\n"
+            + "public class Foo implements I {\n"
+            + "    public String t() { return \"t\"; }\n"
+            + "    public static boolean main() {\n"
+            + "        Foo f = new Foo(); return (f.t() + f.d() + I.s(1)).equals(\"tds1\");\n"
+            + "    }\n"
+            + "}\n",
+            ""
+            + "public class Foo {\n"
+            + "    interface I { static String s() { return \"s\"; } }\n"
+            + "    static class X implements I {}\n"
+            + "    public static boolean main() { new X(); return I.s().equals(\"s\"); }\n"
+            + "}\n",
+            ""
+            + "interface I { static String s() { return \"s\"; } }\n"
+            + "public class Foo implements I {\n"
+            + "    public static String s() { return \"p\"; }\n"
+            + "    public static boolean main() { return (s() + I.s()).equals(\"ps\"); }\n"
+            + "}\n",
+            ""
+            + "interface I { static String s() { return \"s\"; } }\n"
+            + "public class Foo implements I {\n"
+            + "    public String s() { return \"p\"; }\n"
+            + "    public static boolean main() { return (new Foo().s() + I.s()).equals(\"ps\"); }\n"
+            + "}\n",
+        };
+        for (String cu2 : cus) {
+            SimpleCompilerTest sct = new SimpleCompilerTest(cu2, "Foo");
+            sct.setSourceVersion(8);
+            sct.setTargetVersion(8);
+            if (CommonsCompilerTestSuite.JVM_VERSION < 8) {
+                sct.assertCookable();
+            } else {
+                sct.assertResultTrue();
+            }
+        }
     }
 
     @Test public void
