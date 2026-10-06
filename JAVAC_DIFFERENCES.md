@@ -69,13 +69,15 @@ constant expression, the expressions that Janino does not fold (see section 1) a
 
 - `byte b = 1; byte x = z ? b : 5;`
 - `char c = 'a'; Object x = z ? c : 66;`
-- `byte b = 1; Object x = z ? b : 500;`
 - `Long J = 5L; short s = 1; Object x = z ? J : s;`
 - `Short S = 5; char c = 1; int x = z ? S : c;`
-- `char c = 'a'; Object x = z ? c : (short) -1;` (also with `(byte) -1`). Since 3.1.15, this is also rejected when the
-  condition is the constant `true` or `false`; 3.1.12 compiled these two cases, with the wrong type `char`
-  (`true ? c : (short) -1` yielded the `Character` `'a'` instead of the `Integer` 97), or into code that fails at run
-  time (`false ? c : (short) -1` threw an `ArrayIndexOutOfBoundsException`).
+- `char c = 'a'; Object x = z ? (short) -1 : c;`
+
+In 3.1.15, also `char c = 'a'; Object x = z ? c : (short) -1;` (also with `(byte) -1`, and also when the condition is
+the constant `true` or `false`) and `byte b = 1; Object x = z ? b : 500;` are rejected. This is fixed in the main
+line ([#51](https://github.com/janino-lts/janino/issues/51)): these expressions have the type `int`, like with
+`javac`. (3.1.12 compiled `true ? c : (short) -1` with the wrong type `char`, and `false ? c : (short) -1` into code
+that throws an `ArrayIndexOutOfBoundsException`.)
 
 **Static interface methods:** a class that implements an interface with a static method is rejected if both are
 declared in the compiled code, e.g. `interface I { static void s() {} } class X implements I {}` ("Non-abstract class

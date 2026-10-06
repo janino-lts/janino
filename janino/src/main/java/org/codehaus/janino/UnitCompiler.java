@@ -6464,13 +6464,21 @@ class UnitCompiler {
 
         if (!UnitCompiler.isPrimitive(ceType) && ceType != this.iClassLoader.TYPE_java_lang_String) return UnitCompiler.NOT_CONSTANT;
 
+        Object cv;
         if (((Boolean) lhsCv).booleanValue()) {
             this.fakeCompile(ce.rhs);
-            return this.getConstantValue(ce.mhs);
+            cv = this.getConstantValue(ce.mhs);
         } else {
             this.fakeCompile(ce.mhs);
-            return this.getConstantValue(ce.rhs);
+            cv = this.getConstantValue(ce.rhs);
         }
+
+        // E.g. "true ? 'a' : (short) -1" has type "int" (binary numeric promotion), so its value is 97, not 'a'.
+        if (ceType == IClass.INT && (cv instanceof Byte || cv instanceof Short || cv instanceof Character)) {
+            return this.convertConstant(cv, IClass.INT);
+        }
+
+        return cv;
     }
 
     @Nullable private Object
@@ -7928,19 +7936,25 @@ class UnitCompiler {
                 && (mhsType == IClass.SHORT || mhsType == this.iClassLoader.TYPE_java_lang_Short)
             ) return IClass.SHORT;
 
-            // JLS7 15.25, list 1, bullet 4, bullet 2: "b ? (byte) 1 : byte => byte"
+            // JLS7 15.25, list 1, bullet 4, bullet 2: "b ? (byte) 1 : byte => byte". If the constant is not
+            // representable in the type of the other operand (e.g. "b ? 'a' : (short) -1"), the rule does not apply,
+            // and the type is determined by binary numeric promotion (bullet 4).
             Object rhscv = this.getConstantValue(ce.rhs);
             if (
                 (mhsType == IClass.BYTE || mhsType == IClass.SHORT || mhsType == IClass.CHAR)
                 && rhscv != null
-                && this.constantAssignmentConversion(ce.rhs, rhscv, mhsType) != null
-            ) return mhsType;
+            ) {
+                if (this.convertConstant(rhscv, mhsType) != UnitCompiler.NOT_CONVERTIBLE) return mhsType;
+                return this.binaryNumericPromotionType(ce, mhsType, this.getUnboxedType(rhsType));
+            }
             Object mhscv = this.getConstantValue(ce.mhs);
             if (
                 (rhsType == IClass.BYTE || rhsType == IClass.SHORT || rhsType == IClass.CHAR)
                 && mhscv != null
-                && this.constantAssignmentConversion(ce.mhs, mhscv, rhsType) != null
-            ) return rhsType;
+            ) {
+                if (this.convertConstant(mhscv, rhsType) != UnitCompiler.NOT_CONVERTIBLE) return rhsType;
+                return this.binaryNumericPromotionType(ce, this.getUnboxedType(mhsType), rhsType);
+            }
 
             // JLS7 15.25, list 1, bullet 4, bullet 3: "b ? 127 : byte => byte"
             if (
