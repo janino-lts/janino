@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>org.codehaus.janino</groupId>
+    <groupId>io.github.janino-lts</groupId>
     <artifactId>janino-parent</artifactId>
     <version>3.1.15-SNAPSHOT</version>
     <relativePath>../janino-parent</relativePath>
@@ -26,7 +26,7 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.codehaus.janino</groupId>
+      <groupId>io.github.janino-lts</groupId>
       <artifactId>commons-compiler</artifactId>
       <version>${project.parent.version}</version>
       <scope>test</scope>
@@ -54,17 +54,17 @@
 
         <!-- "report-aggregate" ignores dependencies with scope "test"; this module has no main code anyway. -->
         <dependency>
-          <groupId>org.codehaus.janino</groupId>
+          <groupId>io.github.janino-lts</groupId>
           <artifactId>commons-compiler</artifactId>
           <version>${project.parent.version}</version>
         </dependency>
         <dependency>
-          <groupId>org.codehaus.janino</groupId>
+          <groupId>io.github.janino-lts</groupId>
           <artifactId>janino</artifactId>
           <version>${project.parent.version}</version>
         </dependency>
         <dependency>
-          <groupId>org.codehaus.janino</groupId>
+          <groupId>io.github.janino-lts</groupId>
           <artifactId>commons-compiler-jdk</artifactId>
           <version>${project.parent.version}</version>
         </dependency>
@@ -148,5 +148,5 @@
   <description>Tests that use only the &quot;commons-compiler&quot; API and are thus applicable to ALL implementations.
 
 NOTICE: This module is not a test for &quot;commons-compiler&quot;, but for a set of IMPLEMENTATIONS of &quot;commons-compiler&quot;!</description>
-  <url>http://janino-compiler.github.io/janino/</url>
+  <url>https://janino-lts.github.io/janino/</url>
 </project>

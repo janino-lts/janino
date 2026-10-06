@@ -4,6 +4,7 @@
   xmlns="http://maven.apache.org/POM/4.0.0"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+  child.project.url.inherit.append.path="false"
 >
   <modelVersion>4.0.0</modelVersion>
 
@@ -32,7 +33,7 @@
 
   <name>janino-parent</name>
 
-  <groupId>org.codehaus.janino</groupId>
+  <groupId>io.github.janino-lts</groupId>
   <packaging>pom</packaging>
   <version>3.1.15-SNAPSHOT</version>
   <dependencyManagement>
@@ -59,6 +60,17 @@
       <name>Vy Nguyen</name>
       <roles>
         <role>Despot</role>
+        <role>Developer</role>
+      </roles>
+    </developer>
+    <developer>
+      <id>stefan-zobel</id>
+      <name>Stefan Zobel</name>
+      <url>https://github.com/stefan-zobel</url>
+      <organization>janino-lts</organization>
+      <organizationUrl>https://github.com/janino-lts</organizationUrl>
+      <roles>
+        <role>Maintainer</role>
         <role>Developer</role>
       </roles>
     </developer>
@@ -219,7 +231,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-gpg-plugin</artifactId>
-          <version>1.5</version>
+          <version>3.2.8</version>
           <executions>
             <execution>
               <id>sign-artifacts</id>
@@ -363,7 +375,12 @@
       </modules>
     </profile>
 
-    <!-- Signs all artifacts with GPG (Maven Central requires that). -->
+    <!--
+      Signs all artifacts with GPG (Maven Central requires that):
+        mvn -f janino-parent/pom.xml -P have_gpg clean install -Dgpg.keyname=<fingerprint>
+      Add "-Dgpg.executable=<path>/gpg.exe" if "gpg" is not on the path. The signatures ("*.asc") are in the "target"
+      directories of the modules.
+    -->
     <profile>
       <id>have_gpg</id>
       <build>
@@ -378,7 +395,7 @@
   </profiles>
 
   <description>Janino is a super-small, super-fast Java compiler.</description>
-  <url>http://janino-compiler.github.io/janino/</url>
+  <url>https://janino-lts.github.io/janino/</url>
   <licenses>
     <license>
       <name>BSD-3-Clause</name>
@@ -386,8 +403,19 @@
       <distribution>repo</distribution>
     </license>
   </licenses>
-  <scm>
-    <developerConnection>scm:git:https://github.com/janino-compiler/janino</developerConnection>
-    <url>https://github.com/janino-compiler/janino</url>
+
+  <!-- The modules inherit the URLs unchanged (by default, MAVEN would append their artifact IDs). -->
+  <scm
+    child.scm.connection.inherit.append.path="false"
+    child.scm.developerConnection.inherit.append.path="false"
+    child.scm.url.inherit.append.path="false"
+  >
+    <connection>scm:git:https://github.com/janino-lts/janino.git</connection>
+    <developerConnection>scm:git:https://github.com/janino-lts/janino.git</developerConnection>
+    <url>https://github.com/janino-lts/janino</url>
   </scm>
+  <issueManagement>
+    <system>GitHub</system>
+    <url>https://github.com/janino-lts/janino/issues</url>
+  </issueManagement>
 </project>

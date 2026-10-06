@@ -40,7 +40,8 @@
  *   This creates "janino-benchmarks/target/benchmarks.jar", and copies the JAR files of the current build to
  *   "janino-benchmarks/target/janino-current" and those of the baseline version (3.1.12 by default; from Maven Central)
  *   to "janino-benchmarks/target/janino-baseline". To compare with another version, add
- *   {@code -Djanino.baseline.version=}<var>version</var>.
+ *   {@code -Djanino.baseline.version=}<var>version</var>; for versions after 3.1.14, also add
+ *   {@code -Djanino.baseline.groupId=io.github.janino-lts}.
  * </p>
  *
  * <h2>Running</h2>

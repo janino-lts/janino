@@ -19,7 +19,7 @@
 >
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>org.codehaus.janino</groupId>
+  <groupId>io.github.janino-lts</groupId>
   <artifactId>janino-benchmarks</artifactId>
   <version>3.1.15-SNAPSHOT</version>
   <packaging>jar</packaging>
@@ -33,7 +33,12 @@
     <maven.install.skip>true</maven.install.skip>
     <maven.deploy.skip>true</maven.deploy.skip>
 
-    <!-- The JANINO version to compare with; override with "-Djanino.baseline.version=..." when building. -->
+    <!--
+      The JANINO version to compare with; override with "-Djanino.baseline.version=..." when building. Versions up
+      to 3.1.14 have the group ID "org.codehaus.janino", later versions "io.github.janino-lts" (override with
+      "-Djanino.baseline.groupId=...").
+    -->
+    <janino.baseline.groupId>org.codehaus.janino</janino.baseline.groupId>
     <janino.baseline.version>3.1.12</janino.baseline.version>
   </properties>
 
@@ -43,13 +48,13 @@
   -->
   <dependencies>
     <dependency>
-      <groupId>org.codehaus.janino</groupId>
+      <groupId>io.github.janino-lts</groupId>
       <artifactId>janino</artifactId>
       <version>${project.version}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
-      <groupId>org.codehaus.janino</groupId>
+      <groupId>io.github.janino-lts</groupId>
       <artifactId>commons-compiler</artifactId>
       <version>${project.version}</version>
       <scope>provided</scope>
@@ -101,7 +106,7 @@
               <goal>copy-dependencies</goal>
             </goals>
             <configuration>
-              <includeGroupIds>org.codehaus.janino</includeGroupIds>
+              <includeGroupIds>io.github.janino-lts</includeGroupIds>
               <includeArtifactIds>janino,commons-compiler</includeArtifactIds>
               <outputDirectory>${project.build.directory}/janino-current</outputDirectory>
             </configuration>
@@ -115,12 +120,12 @@
             <configuration>
               <artifactItems>
                 <artifactItem>
-                  <groupId>org.codehaus.janino</groupId>
+                  <groupId>${janino.baseline.groupId}</groupId>
                   <artifactId>janino</artifactId>
                   <version>${janino.baseline.version}</version>
                 </artifactItem>
                 <artifactItem>
-                  <groupId>org.codehaus.janino</groupId>
+                  <groupId>${janino.baseline.groupId}</groupId>
                   <artifactId>commons-compiler</artifactId>
                   <version>${janino.baseline.version}</version>
                 </artifactItem>

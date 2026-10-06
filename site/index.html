@@ -568,27 +568,18 @@
         </h3>
 
         <p>
-          The releases of this fork are available as
-          <a href="https://github.com/janino-lts/janino/releases">GitHub releases</a>. They use the same MAVEN
-          coordinates as the original Janino (<code>org.codehaus.janino</code>), but they are <b>not</b> published on
-          MAVEN Central, which only has the original versions up to 3.1.12.
+          From version 3.1.15 on, the releases of this fork are available on <a
+          href="https://central.sonatype.com/artifact/io.github.janino-lts/janino">MAVEN Central</a> under the group
+          ID <code>io.github.janino-lts</code> (the original versions up to 3.1.12 have the group ID
+          <code>org.codehaus.janino</code>), and as <a href="https://github.com/janino-lts/janino/releases">GitHub
+          releases</a>. The Java packages are unchanged.
         </p>
 
-        <p>
-          If you are using MAVEN, download the POM and JAR files of the release, and install them into your local
-          repository (the parent POM first):
-        </p>
-
-        <div class="highlight highlight-text-xml"><pre>
-mvn install:install-file -Dfile=janino-parent-<var>version</var>.pom -DpomFile=janino-parent-<var>version</var>.pom
-mvn install:install-file -Dfile=commons-compiler-<var>version</var>.jar -DpomFile=commons-compiler-<var>version</var>.pom
-mvn install:install-file -Dfile=janino-<var>version</var>.jar -DpomFile=janino-<var>version</var>.pom</pre></div>
-
-        <p>Then add this entry to your POM file:</p>
+        <p>If you are using MAVEN, add this entry to your POM file:</p>
 
         <div class="highlight highlight-text-xml"><pre class="brush: xml">
 &lt;dependency&gt;
-    &lt;groupId&gt;org.codehaus.janino&lt;/groupId&gt;
+    &lt;groupId&gt;io.github.janino-lts&lt;/groupId&gt;
     &lt;artifactId&gt;janino&lt;/artifactId&gt;
     &lt;version&gt;***&lt;/version&gt;
 &lt;/dependency&gt;</pre></div>
@@ -596,13 +587,13 @@ mvn install:install-file -Dfile=janino-<var>version</var>.jar -DpomFile=janino-<
         <div style="background-color:#000" class="syntaxHighlighter xml lineNumbers">
 <!--
 <dependency>
-    <groupId>org.codehaus.janino</groupId> <!&#45;- BLA -&#45;>
+    <groupId>io.github.janino-lts</groupId> <!&#45;- BLA -&#45;>
     <artifactId>janino</artifactId>
     <version>***</version>
 </dependency>
 -->
           <div><code class="plain">&lt;</code><code class="keyword">dependency</code><code class="plain">&gt;</code></div>
-          <div><code class="spaces">&nbsp;&nbsp;&nbsp;&nbsp;</code><code class="plain">&lt;</code><code class="keyword">groupId</code><code class="plain">&gt;org.codehaus.janino&lt;/</code><code class="xml keyword">groupId</code><code class="plain">&gt;</code></div>
+          <div><code class="spaces">&nbsp;&nbsp;&nbsp;&nbsp;</code><code class="plain">&lt;</code><code class="keyword">groupId</code><code class="plain">&gt;io.github.janino-lts&lt;/</code><code class="xml keyword">groupId</code><code class="plain">&gt;</code></div>
           <div><code class="spaces">&nbsp;&nbsp;&nbsp;&nbsp;</code><code class="plain">&lt;</code><code class="keyword">artifactId</code><code class="plain">&gt;janino&lt;/</code><code class="keyword">artifactId</code><code class="plain">&gt;</code></div>
           <div><code class="spaces">&nbsp;&nbsp;&nbsp;&nbsp;</code><code class="plain">&lt;</code><code class="keyword">version</code><code class="plain">&gt;&lt;</code><code class="keyword">var</code><code class="plain">&gt;***&lt;/</code><code class="keyword">var</code><code class="plain">&gt;&lt;/</code><code class="keyword">version</code><code class="plain">&gt;</code></div>
           <div><code class="plain">&lt;/</code><code class="keyword">dependency</code><code class="plain">&gt;</code></div>
@@ -631,7 +622,7 @@ mvn install:install-file -Dfile=janino-<var>version</var>.jar -DpomFile=janino-<
             <td class="code">
               <div class="container">
                 <div class="line number1 index0 alt2"><code class="xml plain">&lt;</code><code class="xml keyword">dependency</code><code class="xml plain">&gt;</code></div>
-                <div class="line number2 index1 alt1"><code class="xml spaces">&nbsp;&nbsp;&nbsp;&nbsp;</code><code class="xml plain">&lt;</code><code class="xml keyword">groupId</code><code class="xml plain">&gt;org.codehaus.janino&lt;/</code><code class="xml keyword">groupId</code><code class="xml plain">&gt;</code></div>
+                <div class="line number2 index1 alt1"><code class="xml spaces">&nbsp;&nbsp;&nbsp;&nbsp;</code><code class="xml plain">&lt;</code><code class="xml keyword">groupId</code><code class="xml plain">&gt;io.github.janino-lts&lt;/</code><code class="xml keyword">groupId</code><code class="xml plain">&gt;</code></div>
                 <div class="line number3 index2 alt2"><code class="xml spaces">&nbsp;&nbsp;&nbsp;&nbsp;</code><code class="xml plain">&lt;</code><code class="xml keyword">artifactId</code><code class="xml plain">&gt;janino&lt;/</code><code class="xml keyword">artifactId</code><code class="xml plain">&gt;</code></div>
                 <div class="line number4 index3 alt1"><code class="xml spaces">&nbsp;&nbsp;&nbsp;&nbsp;</code><code class="xml plain">&lt;</code><code class="xml keyword">version</code><code class="xml plain">&gt;&lt;</code><code class="xml keyword">var</code><code class="xml plain">&gt;***&lt;/</code><code class="xml keyword">var</code><code class="xml plain">&gt;&lt;/</code><code class="xml keyword">version</code><code class="xml plain">&gt;</code></div>
                 <div class="line number5 index4 alt2"><code class="xml plain">&lt;/</code><code class="xml keyword">dependency</code><code class="xml plain">&gt;</code></div>
@@ -649,14 +640,47 @@ mvn install:install-file -Dfile=janino-<var>version</var>.jar -DpomFile=janino-<
           dependency.)
         </p>
 
+        <p>
+          Because the group ID is different, MAVEN does not recognize the original artifacts and the ones of this fork
+          as versions of the same artifact. If another dependency brings in <code>org.codehaus.janino</code>
+          artifacts, exclude them, otherwise the same classes are on the class path twice (and if the library uses
+          <code>commons-compiler-jdk</code>, add <code>io.github.janino-lts:commons-compiler-jdk</code> as well):
+        </p>
+
+        <div class="highlight highlight-text-xml"><pre>
+&lt;dependency&gt;
+    &lt;groupId&gt;...&lt;/groupId&gt;
+    &lt;artifactId&gt;library-that-uses-janino&lt;/artifactId&gt;
+    &lt;version&gt;...&lt;/version&gt;
+    &lt;exclusions&gt;
+        &lt;exclusion&gt;
+            &lt;groupId&gt;org.codehaus.janino&lt;/groupId&gt;
+            &lt;artifactId&gt;*&lt;/artifactId&gt;
+        &lt;/exclusion&gt;
+    &lt;/exclusions&gt;
+&lt;/dependency&gt;</pre></div>
+
+        <p>
+          The releases up to 3.1.14 of this fork are <b>not</b> on MAVEN Central; they are only available as GitHub
+          releases, and use the group ID of the original (<code>org.codehaus.janino</code>). To use one of them with
+          MAVEN, download the POM and JAR files of the release, and install them into your local repository (the
+          parent POM first):
+        </p>
+
+        <div class="highlight highlight-text-xml"><pre>
+mvn install:install-file -Dfile=janino-parent-<var>version</var>.pom -DpomFile=janino-parent-<var>version</var>.pom
+mvn install:install-file -Dfile=commons-compiler-<var>version</var>.jar -DpomFile=commons-compiler-<var>version</var>.pom
+mvn install:install-file -Dfile=janino-<var>version</var>.jar -DpomFile=janino-<var>version</var>.pom</pre></div>
+
         <p>If you are not using MAVEN, do the following instead:</p>
 
         <ul>
           <li>
             Download "janino-<var>version</var>.jar" from <a
+            href="https://repo1.maven.org/maven2/io/github/janino-lts/janino/">MAVEN Central</a> or from <a
             href="https://github.com/janino-lts/janino/releases">the latest release</a>.
           </li>
-          <li>Download "commons-compiler-<var>version</var>.jar" from the same release.</li>
+          <li>Download "commons-compiler-<var>version</var>.jar" from the same place.</li>
           <li>Put the two JAR files on your classpath.</li>
         </ul>
 
@@ -666,12 +690,19 @@ mvn install:install-file -Dfile=janino-<var>version</var>.jar -DpomFile=janino-<
         </h3>
 
         <p>
-          Each release of this fork contains a file <code>SHA256SUMS</code> with the checksums of all its files. Make
-          sure to check them to prevent supply chain attacks:
+          Each GitHub release of this fork contains a file <code>SHA256SUMS</code> with the checksums of all its
+          files. Make sure to check them to prevent supply chain attacks:
         </p>
 
         <div class="highlight highlight-text-xml"><pre>
 sha256sum -c SHA256SUMS</pre></div>
+
+        <p>
+          The packages of this fork on MAVEN Central (<code>io.github.janino-lts</code>) are signed with this PGP key
+          (fingerprint <code>D7FA DB51 D921 93FC A6BA 204D C0D2 FF51 226A 8B8B</code>):
+          <br>
+          <a href="pgp_key4.txt">Key #4</a>
+        </p>
 
         <p>
           The original Janino packages on MAVEN Central are signed with one of these PGP keys:
@@ -761,8 +792,10 @@ System.out.println(ee.evaluate()); // Prints "7".</pre></div>
         <p>
           The full JAVADOC documentation for JANINO is available <a href="apidocs/">online</a> for the latest version,
           and for download (as "-javadoc.jar" files) with each <a
-          href="https://github.com/janino-lts/janino/releases">release</a>. The JAVADOC of the original versions is
-          available on <a href="https://repo1.maven.org/maven2/org/codehaus/janino/">MAVEN Central</a>.
+          href="https://github.com/janino-lts/janino/releases">release</a> and, from version 3.1.15 on, on <a
+          href="https://repo1.maven.org/maven2/io/github/janino-lts/">MAVEN Central</a>. The JAVADOC of the original
+          versions is available on <a href="https://repo1.maven.org/maven2/org/codehaus/janino/">MAVEN Central</a> as
+          well.
         </p>
 
         <h3>
