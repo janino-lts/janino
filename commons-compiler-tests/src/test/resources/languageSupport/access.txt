@@ -114,3 +114,96 @@ public class P extends java.io.FilterInputStream {
     P() { super(null); }
     public static Object run() { return String.valueOf(new P() != null); }
 }
+
+=== clone() of an int array without a cast
+jls: true
+janino: REJECTED Assignment conversion not possible from type "java.lang.Object" to type "int[]"
+public class P {
+    public static Object run() {
+        int[] a = { 1 }; int[] b = a.clone();
+        return String.valueOf(b != a && b[0] == 1);
+    }
+}
+
+=== clone() of an int array: length
+jls: 2
+janino: REJECTED "java.lang.Object" has no field "length"
+public class P {
+    public static Object run() { int[] a = { 1, 2 }; return String.valueOf(a.clone().length); }
+}
+
+=== clone() of an int array: element access
+jls: 7
+janino: INVALID InternalCompilerException
+public class P {
+    public static Object run() { int[] a = { 7 }; return String.valueOf(a.clone()[0]); }
+}
+
+=== clone() of a two-dimensional String array
+jls: x
+janino: REJECTED Assignment conversion not possible from type "java.lang.Object" to type "java.lang.String[][]"
+public class P {
+    public static Object run() {
+        String[][] a = { { "x" } }; String[][] b = a.clone();
+        return b != a && b[0] == a[0] ? b[0][0] : "no";
+    }
+}
+
+=== array assigned to a variable of type Cloneable
+jls: true
+janino: OK
+public class P {
+    public static Object run() { int[] a = { 1 }; Cloneable c = a; return String.valueOf(c == a); }
+}
+
+=== array as an instance of Serializable
+jls: true
+janino: OK
+public class P {
+    public static Object run() { int[] a = { 1 }; return String.valueOf(a instanceof java.io.Serializable); }
+}
+
+=== protected field of the superclass read from an inner class
+jls: true
+janino: WRONG throws java.lang.IllegalAccessError
+public class P extends java.io.FilterInputStream {
+    P() { super(new java.io.ByteArrayInputStream(new byte[0])); }
+    class Q { boolean f() { return in != null; } }
+    public static Object run() { return String.valueOf(new P().new Q().f()); }
+}
+
+=== protected field of the superclass assigned from an inner class
+jls: true
+janino: WRONG throws java.lang.IllegalAccessError
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    class Q { void f() { in = new java.io.ByteArrayInputStream(new byte[0]); } }
+    public static Object run() { P p = new P(); p.new Q().f(); return String.valueOf(p.in != null); }
+}
+
+=== protected field of the superclass read through P.this from an inner class
+jls: true
+janino: WRONG throws java.lang.IllegalAccessError
+public class P extends java.io.FilterInputStream {
+    P() { super(new java.io.ByteArrayInputStream(new byte[0])); }
+    class Q { boolean f() { return P.this.in != null; } }
+    public static Object run() { return String.valueOf(new P().new Q().f()); }
+}
+
+=== protected method of the superclass invoked through P.this from an inner class
+jls: true
+janino: INVALID VerifyError
+public class P implements Cloneable {
+    class Q { Object f() throws Exception { return P.this.clone(); } }
+    public static Object run() throws Exception {
+        P p = new P(); Object c = p.new Q().f(); return String.valueOf(c instanceof P && c != p);
+    }
+}
+
+=== protected static method of the superclass invoked from an inner class
+jls: true
+janino: WRONG throws java.lang.IllegalAccessError
+public class P extends ClassLoader {
+    class Q { boolean f() { return registerAsParallelCapable(); } }
+    public static Object run() { return String.valueOf(new P().new Q().f()); }
+}

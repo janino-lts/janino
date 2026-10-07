@@ -590,3 +590,38 @@ public class P {
         }
     }
 }
+
+=== try-with-resources: the block accesses the resource variable
+jls: r
+janino: REJECTED Unknown variable or type "r"
+public class P {
+    static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
+    public static Object run() { try (R r = new R()) { return r.n(); } }
+}
+
+=== try-with-resources: the second resource is initialized with the first
+jls: aab
+janino: REJECTED Unknown variable or type "a.n"
+public class P {
+    static String s = "";
+    static class R implements AutoCloseable {
+        final String n;
+        R(String n) { this.n = n; s += n; }
+        public void close() { }
+    }
+    public static Object run() { try (R a = new R("a"); R b = new R(a.n + "b")) { } return s; }
+}
+
+=== try-with-resources: a local class accesses the resource variable
+jls: ok
+janino: REJECTED Unknown variable or type "r"
+public class P {
+    static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
+    public static Object run() {
+        try (final R r = new R()) {
+            class L { String g() { return r.n(); } }
+            String v = new L().g();
+            return v.equals("r") ? "ok" : v;
+        }
+    }
+}

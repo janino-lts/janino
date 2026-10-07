@@ -72,8 +72,8 @@ constant expression, the expressions that Janino does not fold (see section 1) a
 - `int f() { while (MAX > 0) { } }` ("Method must return a value", because the condition is not constant).
 
 **Arrays** ([#58](https://github.com/janino-lts/janino/issues/58)): `a.clone()` of an array `a` has the type
-`Object` instead of the array type (JLS 10.7): `int[] b = a.clone();` is rejected; with a cast, `(int[]) a.clone()`,
-it compiles.
+`Object` instead of the array type (JLS 10.7): `int[] b = a.clone();` and `a.clone().length` are rejected, and
+`a.clone()[0]` is an internal compiler error; with a cast, `(int[]) a.clone()`, it compiles.
 
 **Inner classes** ([#59](https://github.com/janino-lts/janino/issues/59)): a `protected` member that an enclosing
 class inherits from a class in another package, accessed from an inner class (`in` or `P.this.in` in
@@ -90,9 +90,10 @@ interfaces that all alternatives implement: `e.n()` with a method `n()` of an in
 but not their common superclass, is rejected (`A method named "n" is not declared in any enclosing class nor any
 supertype`); with a cast, `((I) e).n()`, it compiles.
 
-**Try-with-resources** ([#64](https://github.com/janino-lts/janino/issues/64)): an anonymous or local class in
-the block cannot access the resource variable
-(`try (R r = ...) { new Runnable() { public void run() { r.use(); } }; }`: `Unknown variable or type "r"`).
+**Try-with-resources** ([#64](https://github.com/janino-lts/janino/issues/64)): the resource variable is not
+accessible: neither from the block (`try (R r = ...) { r.use(); }`: `Unknown variable or type "r"`), nor from the
+initializer of a later resource (`try (A a = ...; B b = new B(a))`), nor from an anonymous or local class in the
+block. Only the Java 9 form with an existing variable, `try (r) { ... }`, works.
 
 **Exception classes with all-uppercase names** ([#65](https://github.com/janino-lts/janino/issues/65)): a type in
 the `throws` clause of a method or constructor declared in the compiled code is ignored if its simple name consists
