@@ -1,0 +1,195 @@
+# Tests JANINO against the test suites of Spark Catalyst, the part of Apache Spark that generates Java code for
+# query evaluation and compiles it with JANINO.
+#
+# No Spark build is needed: Spark publishes its test classes on Maven Central ("spark-catalyst_2.13-<v>-tests.jar"),
+# and ".github/spark/run_suites.sh" runs them with the ScalaTest Runner on a class path (".github/spark/pom.xml") in
+# which the JANINO is selectable. The suites are executed with the JANINO that Spark declares (the baseline; all
+# Spark 4.x releases declare 3.1.9) and with the JANINO of this repository (the candidate: built from the checked
+# out commit, or a released version from Maven Central), on Java 17 and 21 (Spark 4 needs Java 17 or later). The
+# "compare" jobs fail if a test that passed with the baseline fails with the candidate, or if a test that ran with
+# the baseline did not run with the candidate. Without a baseline (input "baseline" set to "none"), the candidate
+# run itself must be green.
+#
+# Two suites are excluded by default ("excludes"): "BufferHolderSparkSubmitSuite" needs a Spark installation, and
+# "SubExprEvaluationRuntimeSuite" fails with a NoSuchMethodError, because the published Catalyst jar shades Guava
+# and the tests jar does not. A LinkageError like that aborts the whole ScalaTest run (the test job then fails and
+# names the suite): add such a suite to "excludes".
+#
+# The workflow runs when started manually ("Actions" > "Spark" > "Run workflow") and once a week with the default
+# values. It does NOT run for pull requests. Before a release, start it manually for the release branch.
+
+name: Spark
+
+on:
+  workflow_dispatch:
+    inputs:
+      spark-version:
+        description: Spark version on Maven Central whose Catalyst test suites run
+        type: string
+        default: '4.2.0'
+      baseline:
+        description: Baseline, a version of org.codehaus.janino:janino, or none (the candidate must then be green)
+        type: string
+        default: '3.1.9'
+      candidate:
+        description: Candidate, a released version of io.github.janino-lts:janino; empty = build this commit
+        type: string
+        default: ''
+      suites:
+        description: Package whose suites run, e.g. org.apache.spark (all) or org.apache.spark.sql.catalyst.expressions
+        type: string
+        default: org.apache.spark
+      excludes:
+        description: Regular expression of excluded suite names
+        type: string
+        default: SparkSubmit|SubExprEvaluationRuntimeSuite
+  schedule:
+    - cron: '47 3 * * 1'   # Mondays, 03:47 UTC
+
+permissions:
+  contents: read
+
+env:
+  SPARK_VERSION: ${{ inputs.spark-version || '4.2.0' }}
+  BASELINE: ${{ inputs.baseline || '3.1.9' }}   # "none" = no baseline run
+  CANDIDATE: ${{ inputs.candidate || '' }}
+  SUITES: ${{ inputs.suites || 'org.apache.spark' }}
+  EXCLUDES: ${{ inputs.excludes || 'SparkSubmit|SubExprEvaluationRuntimeSuite' }}
+
+jobs:
+
+  # Builds the candidate from the checked out commit, unless a released version was given.
+  build:
+    name: Build the candidate
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      matrix: ${{ steps.version.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+        if: env.CANDIDATE == ''
+
+      - name: Set up JDK 25
+        if: env.CANDIDATE == ''
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Build and install into the local Maven repository
+        if: env.CANDIDATE == ''
+        run: mvn -B -f janino-parent/pom.xml install -DskipTests
+
+      - name: Determine the version of the candidate and the runs
+        id: version
+        run: |
+          if [ -n "$CANDIDATE" ]; then
+            version=$CANDIDATE
+          else
+            version=$(mvn -q -f janino-parent/pom.xml help:evaluate -Dexpression=project.version -DforceStdout)
+          fi
+          if [ "$BASELINE" != none ]; then matrix='["baseline", "candidate"]'; else matrix='["candidate"]'; fi
+          echo "Candidate: $version, runs: $matrix"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the installed artifacts
+        if: env.CANDIDATE == ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: janino-m2
+          path: ~/.m2/repository/io/github/janino-lts
+          if-no-files-found: error
+
+  # Runs the Catalyst suites with the baseline and with the candidate.
+  test:
+    name: Spark Catalyst with the ${{ matrix.janino }} on Java ${{ matrix.java }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        janino: ${{ fromJSON(needs.build.outputs.matrix) }}
+        java: [ 17, 21 ]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+          cache-dependency-path: .github/spark/pom.xml
+
+      - name: Install the candidate into the local Maven repository
+        if: matrix.janino == 'candidate' && env.CANDIDATE == ''
+        uses: actions/download-artifact@v8
+        with:
+          name: janino-m2
+          path: ~/.m2/repository/io/github/janino-lts
+
+      - name: Select the JANINO version
+        run: |
+          if [ "${{ matrix.janino }}" = candidate ]; then
+            echo "JANINO_GROUP=io.github.janino-lts" >> "$GITHUB_ENV"
+            echo "JANINO_VERSION=${{ needs.build.outputs.version }}" >> "$GITHUB_ENV"
+          else
+            echo "JANINO_GROUP=org.codehaus.janino" >> "$GITHUB_ENV"
+            echo "JANINO_VERSION=$BASELINE" >> "$GITHUB_ENV"
+          fi
+
+      # Exit status 3 (tests failed) does not fail the job: the verdict comes from the "compare" job. Status 2
+      # (the run aborted) and 1 (wrong class path) do.
+      - name: Run the suites with ${{ env.JANINO_GROUP }}:janino:${{ env.JANINO_VERSION }}
+        run: |
+          bash .github/spark/run_suites.sh "${{ matrix.janino }}" "$JANINO_GROUP" "$JANINO_VERSION" \
+            "$SUITES" "$EXCLUDES" || {
+              rc=$?
+              [ $rc = 3 ] || exit $rc
+              echo "::warning::Some tests failed with the ${{ matrix.janino }}; see the compare job"
+            }
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: results-${{ matrix.janino }}-java${{ matrix.java }}
+          path: .github/spark/reports/${{ matrix.janino }}/*.xml
+          if-no-files-found: error
+
+  # Compares the results of the candidate with those of the baseline, or checks the candidate alone.
+  compare:
+    name: Compare on Java ${{ matrix.java }}
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ 17, 21 ]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/calcite
+
+      - uses: actions/download-artifact@v8
+        if: env.BASELINE != 'none'
+        with:
+          name: results-baseline-java${{ matrix.java }}
+          path: baseline
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: results-candidate-java${{ matrix.java }}
+          path: candidate
+
+      - name: Compare the results
+        run: |
+          if [ "$BASELINE" != none ]; then
+            python3 .github/calcite/compare_junit.py baseline candidate
+          else
+            python3 .github/calcite/compare_junit.py candidate
+          fi

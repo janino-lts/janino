@@ -1,0 +1,6 @@
+reports/
+logs/
+home/
+cp-*
+catalyst-tests.jar
+spark-warehouse/
