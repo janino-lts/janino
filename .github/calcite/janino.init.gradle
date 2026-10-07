@@ -1,0 +1,43 @@
+// Gradle init script for the downstream test of JANINO against Apache Calcite (".github/workflows/calcite.yml").
+//
+// Calcite depends on "org.codehaus.janino:janino" and "org.codehaus.janino:commons-compiler", in the version of the
+// Gradle property "janino.version". This script
+//  * substitutes these two modules with the artifacts of this repository ("io.github.janino-lts"), in the version of
+//    the Gradle property "janino.candidate", if that property is set (the artifacts come from the local Maven
+//    repository, see Calcite's property "enableMavenLocal", or from Maven Central), and
+//  * adds the task ":core:janinoClasspath", which prints the JANINO artifacts on the test runtime class path of
+//    Calcite's "core" module, so that the workflow can verify which JANINO the tests actually used.
+//
+// Usage: gradlew -I janino.init.gradle [-Pjanino.candidate=<version>] [-PenableMavenLocal=] :core:janinoClasspath
+
+def candidate = gradle.startParameter.projectProperties["janino.candidate"]
+
+if (candidate) {
+    allprojects {
+        configurations.all {
+            resolutionStrategy.dependencySubstitution {
+                substitute(module("org.codehaus.janino:janino"))
+                    .using(module("io.github.janino-lts:janino:$candidate"))
+                    .because("downstream test of janino-lts")
+                substitute(module("org.codehaus.janino:commons-compiler"))
+                    .using(module("io.github.janino-lts:commons-compiler:$candidate"))
+                    .because("downstream test of janino-lts")
+            }
+        }
+    }
+}
+
+// "allprojects" instead of "project(':core')", because this script also applies to Calcite's "buildSrc" build.
+allprojects {
+    if (path == ":core") {
+        tasks.register("janinoClasspath") {
+            description = "Prints the JANINO artifacts on the test runtime class path."
+            doLast {
+                def files = configurations.testRuntimeClasspath.files.findAll {
+                    it.name.startsWith("janino-") || it.name.startsWith("commons-compiler-")
+                }
+                files.each { println("JANINO_CLASSPATH " + it.absolutePath.replace(File.separator, "/")) }
+            }
+        }
+    }
+}

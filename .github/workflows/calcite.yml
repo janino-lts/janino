@@ -1,0 +1,210 @@
+# Tests JANINO against the test suite of Apache Calcite, whose "core" module compiles the code that it generates for
+# query plans with JANINO. By default, the tests of all modules of Calcite run (the modules that need an external
+# service, e.g. Druid or MongoDB, skip their tests by themselves); the input "tasks" selects fewer, e.g. ":core:test".
+#
+# Calcite's tests are executed twice on each Java version: with the JANINO that Calcite declares (the baseline,
+# "org.codehaus.janino:janino:3.1.12" from Maven Central), and with the JANINO of this repository (the candidate:
+# either built from the checked out commit and installed into the local Maven repository, or a released version from
+# Maven Central). The "compare" jobs fail if a test that passed with the baseline fails with the candidate, or if a
+# test that ran with the baseline did not run with the candidate. Tests that fail with both are listed, but do not
+# fail the job; the baseline run thus absorbs failures that have nothing to do with JANINO.
+#
+# Calcite declares the group ID "org.codehaus.janino", while the artifacts of this repository have the group ID
+# "io.github.janino-lts". The Gradle init script ".github/calcite/janino.init.gradle" substitutes the modules, so
+# Calcite's sources and build stay untouched, and its task ":core:janinoClasspath" shows which JANINO the tests use;
+# the test jobs verify that output before they run the tests.
+#
+# The workflow runs
+#  * when started manually ("Actions" > "Calcite" > "Run workflow"): the Calcite ref, the baseline and the candidate
+#    can be chosen; and
+#  * once a week with the default values: the Calcite release tag below, the baseline 3.1.12, and the candidate built
+#    from the branch "master".
+# It does NOT run for pull requests. Before a release, start it manually for the release branch.
+
+name: Calcite
+
+on:
+  workflow_dispatch:
+    inputs:
+      calcite-ref:
+        description: Calcite tag, branch or commit (e.g. calcite-1.42.0 or main)
+        type: string
+        default: calcite-1.42.0
+      baseline:
+        description: Baseline, a version of org.codehaus.janino:janino on Maven Central
+        type: string
+        default: '3.1.12'
+      candidate:
+        description: Candidate, a released version of io.github.janino-lts:janino; empty = build this commit
+        type: string
+        default: ''
+      tasks:
+        description: Gradle tasks that run the tests, e.g. test (all modules) or :core:test
+        type: string
+        default: test
+  schedule:
+    - cron: '17 3 * * 1'   # Mondays, 03:17 UTC
+
+permissions:
+  contents: read
+
+env:
+  CALCITE_REF: ${{ inputs.calcite-ref || 'calcite-1.42.0' }}
+  BASELINE: ${{ inputs.baseline || '3.1.12' }}
+  CANDIDATE: ${{ inputs.candidate || '' }}
+  TASKS: ${{ inputs.tasks || 'test' }}
+
+jobs:
+
+  # Builds the candidate from the checked out commit, unless a released version was given.
+  build:
+    name: Build the candidate
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        if: env.CANDIDATE == ''
+
+      - name: Set up JDK 25
+        if: env.CANDIDATE == ''
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Build and install into the local Maven repository
+        if: env.CANDIDATE == ''
+        run: mvn -B -f janino-parent/pom.xml install -DskipTests
+
+      - name: Determine the version of the candidate
+        id: version
+        run: |
+          if [ -n "$CANDIDATE" ]; then
+            version=$CANDIDATE
+          else
+            version=$(mvn -q -f janino-parent/pom.xml help:evaluate -Dexpression=project.version -DforceStdout)
+          fi
+          echo "Candidate: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the installed artifacts
+        if: env.CANDIDATE == ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: janino-m2
+          path: ~/.m2/repository/io/github/janino-lts
+          if-no-files-found: error
+
+  # Runs Calcite's tests with the baseline and with the candidate.
+  test:
+    name: Calcite with the ${{ matrix.janino }} on Java ${{ matrix.java }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        janino: [ baseline, candidate ]
+        java: [ 8, 21 ]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: janino
+
+      - name: Check out Calcite ${{ env.CALCITE_REF }}
+        uses: actions/checkout@v7
+        with:
+          repository: apache/calcite
+          ref: ${{ env.CALCITE_REF }}
+          path: calcite
+
+      # Calcite's own CI builds and tests with Zulu.
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: ${{ matrix.java }}
+
+      - name: Install the candidate into the local Maven repository
+        if: matrix.janino == 'candidate' && env.CANDIDATE == ''
+        uses: actions/download-artifact@v8
+        with:
+          name: janino-m2
+          path: ~/.m2/repository/io/github/janino-lts
+
+      # The version that the tests must use, and the Gradle arguments that select it (see the init script).
+      - name: Select the JANINO version
+        run: |
+          if [ "${{ matrix.janino }}" = candidate ]; then
+            version='${{ needs.build.outputs.version }}'
+            group='io[./]github[./]janino-lts'
+            args="-Pjanino.candidate=$version"
+            [ -n "$CANDIDATE" ] || args="$args -PenableMavenLocal="
+          else
+            version=$BASELINE
+            group='org[./]codehaus[./]janino'
+            args="-Pjanino.version=$version"
+          fi
+          echo "JANINO_VERSION=$version" >> "$GITHUB_ENV"
+          echo "JANINO_GROUP=$group" >> "$GITHUB_ENV"
+          echo "GRADLE_ARGS=--no-daemon --no-parallel -I ../janino/.github/calcite/janino.init.gradle $args" \
+            >> "$GITHUB_ENV"
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Verify which JANINO is on the test class path
+        working-directory: calcite
+        run: |
+          ./gradlew -q $GRADLE_ARGS :core:janinoClasspath | tee classpath.txt
+          grep JANINO_CLASSPATH classpath.txt > jars.txt || true
+          [ "$(wc -l < jars.txt)" = 2 ] || { echo "::error::expected exactly two JANINO artifacts"; exit 1; }
+          for artifact in janino commons-compiler; do
+            grep -E -q "$JANINO_GROUP/.*/$artifact-$JANINO_VERSION[.]jar$" jars.txt \
+              || { echo "::error::$artifact-$JANINO_VERSION.jar of $JANINO_GROUP is not on the class path"; exit 1; }
+          done
+
+      # The verdict comes from the "compare" job; failing tests do not fail this job.
+      - name: Run Calcite's tests (${{ env.TASKS }}) with ${{ env.JANINO_VERSION }}
+        working-directory: calcite
+        run: |
+          ./gradlew --continue $GRADLE_ARGS $TASKS \
+            || echo "::warning::Some tests failed with the ${{ matrix.janino }}; see the compare job"
+
+      # One directory per module, e.g. "core/build/test-results/test"; the common root "calcite" is dropped.
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: results-${{ matrix.janino }}-java${{ matrix.java }}
+          path: calcite/**/build/test-results/test/*.xml
+          if-no-files-found: error
+
+  # Compares the test results of the candidate with those of the baseline.
+  compare:
+    name: Compare on Java ${{ matrix.java }}
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ 8, 21 ]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/calcite
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: results-baseline-java${{ matrix.java }}
+          path: baseline
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: results-candidate-java${{ matrix.java }}
+          path: candidate
+
+      - name: Compare the results
+        run: python3 .github/calcite/compare_junit.py baseline candidate
