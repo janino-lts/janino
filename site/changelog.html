@@ -50,6 +50,17 @@ h5 {
     <a href="index.html">Back to the JANINO home page</a>
 
     <h4>Version 3.1.17 (unreleased)</h4>
+    <p>
+      Local and anonymous classes can now access effectively final local variables (Java 8), and seven defects are
+      fixed that exist in 3.1.12 already: the type of <code>array.clone()</code>, local classes with modifiers, the
+      scope of the resource variables of try-with-resources statements, the access to <code>protected</code> members
+      of the superclass of an enclosing class, two internal compiler errors, and a <code>throws</code> clause whose
+      exception type has an all-uppercase name. No code that compiled before is rejected now, and the class files of
+      such code are unchanged, with two small exceptions (see the compatibility entry below). The known deviations
+      from JAVAC are documented in
+      <a href="https://github.com/janino-lts/janino/blob/HEAD/JAVAC_DIFFERENCES.md">Differences between Janino and
+      javac</a>.
+    </p>
     <ul>
       <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/58">issue #58</a>: <code>clone()</code> of an
@@ -135,11 +146,25 @@ h5 {
         that the compile time of such code can be compared between JANINO versions.
       </li>
       <li>
-        New tests: five more cases of invalid code that the code generator of Apache Spark emits
-        (<a href="https://issues.apache.org/jira/browse/SPARK-58437">SPARK-58437</a>) in the negative tests (now
-        426; see JAVAC_DIFFERENCES.md, section 3), and <code>DownstreamApiTest</code>, which uses the API of JANINO
-        the way Spark does. New pages: CHANGES_SINCE_3.1.12.md, a summary of the changes since 3.1.12 for projects
-        that consider an upgrade, and COMPATIBILITY.md, what stays the same.
+        Compatibility: No code that compiled with 3.1.16 is rejected now, and code that compiled before behaves the
+        same. The generated class files are unchanged, except for one more <code>checkcast</code> instruction where
+        the clone of an array was used as an <code>Object</code> (#58) and for the <code>Exceptions</code> attribute
+        of a method or constructor whose <code>throws</code> clause names an exception type with an all-uppercase
+        name (#65); the compilation of JANINO's own sources and of the code that Apache Spark generates yields the
+        same class files as with 3.1.16, byte for byte. Measured interleaved against 3.1.16 on JDK 25
+        (<code>janino-benchmarks</code>, with and without JIT), the compile time is unchanged within the measurement
+        error on all workloads, including the code that Spark generates; the memory that a compilation allocates
+        changes by less than 1 % (0.1 to 0.9 % more on the synthetic workloads, 0.8 % less on the Spark code).
+        Invalid code that JANINO accepts is still accepted
+        (<a href="https://github.com/janino-lts/janino/issues/33">issue #33</a>).
+      </li>
+      <li>
+        New tests: 58 more cases of invalid code in the negative tests (now 426), among them five constructs that
+        the code generator of Apache Spark emits
+        (<a href="https://issues.apache.org/jira/browse/SPARK-58437">SPARK-58437</a>; see JAVAC_DIFFERENCES.md,
+        section 3), 81 more characterization tests (now 458), and <code>DownstreamApiTest</code>, which uses the API
+        of JANINO the way Spark does. New pages: CHANGES_SINCE_3.1.12.md, a summary of the changes since 3.1.12 for
+        projects that consider an upgrade, and COMPATIBILITY.md, what stays the same.
       </li>
     </ul>
 

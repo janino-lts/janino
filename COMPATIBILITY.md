@@ -30,7 +30,12 @@ Janino, not against `javac`; this page is written for them.
   are unchanged, byte for byte; where a fix changes them, the change log says so, and the release notes report the
   result of the class file comparison of the [benchmarks](janino-benchmarks/README.md) (`CodeSizeReport`). For the
   code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.17-SNAPSHOT differ from
-  those of 3.1.12 only in the class file version.
+  those of 3.1.12 only in the class file version, and are identical to those of 3.1.16.
+- **Class resolution.** The compiler resolves the classes that the compiled code references through the parent
+  class loader that the application sets (`setParentClassLoader()`), by reflection: also classes that exist only
+  in that class loader and nowhere as a file, e.g. the classes of a REPL session, and also by their binary names
+  (`foo.package$Bar`). Spark relies on both (the REPL and Connect sessions, and classes nested in Scala package
+  objects, are the cases that Spark's alternative compiler cannot handle and routes to Janino); this stays.
 - **Compile time.** Every release is measured against its predecessor, interleaved in one JVM, on synthetic
   workloads and on the code that Spark generates; the result is part of the release notes.
 

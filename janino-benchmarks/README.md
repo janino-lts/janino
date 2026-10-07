@@ -82,6 +82,27 @@ are per operation, i.e. per compilation of the whole corpus.
   (Java 6 with 3.1.12, Java 8 since 3.1.13, which raised the default target version); every instruction and
   attribute is identical.
 
+## Results: Janino 3.1.16 and 3.1.17-SNAPSHOT on all workloads
+
+Measured on 2026-10-07 on the same laptop with JDK 25.0.2; A is Janino 3.1.16, B is 3.1.17-SNAPSHOT. B/A is the
+median ratio of the compile times (p10 and p90 in brackets, rounded), "A/A" the same for the control run of B against
+itself, "alloc" the ratio of the memory that one operation allocates.
+
+| Workload | JIT B/A | JIT A/A | JIT alloc | `-Xint` B/A | `-Xint` A/A | `-Xint` alloc |
+|---|---|---|---:|---|---|---:|
+| TINY | 0.976 (0.92..1.07) | 1.031 (0.90..1.09) | 1.001 | 1.008 (0.99..1.01) | 1.003 (1.00..1.02) | 1.002 |
+| GENERATED | 1.092 (1.04..1.12) | 0.969 (0.93..0.99) | 1.014 | 1.008 (0.99..1.03) | 1.018 (0.70..1.35) | 1.001 |
+| CONTROL_FLOW | 1.036 (0.97..1.06) | 1.052 (1.04..1.08) | 1.007 | 1.010 (0.90..1.04) | 0.998 (0.96..1.03) | 1.009 |
+| SELF_COMPILE | 1.001 (0.96..1.03) | 0.966 (0.91..1.02) | 1.006 | 0.996 (0.94..1.01) | 0.999 (0.99..1.01) | 1.003 |
+| SPARK_TPCDS | 1.014 (0.96..1.07) | 1.013 (0.95..1.04) | 0.995 | 0.992 (0.97..1.01) | 1.003 (0.95..1.02) | 0.992 |
+
+- The compile time is unchanged within the measurement error on all workloads: the A/A control deviates by up to
+  5 % in the median with the JIT compiler, and every B/A lies within that band, except GENERATED with the JIT,
+  whose `-Xint` run shows the same work (1.008, allocation 1.001).
+- The allocation, which is deterministic with `-Xint`, changes by less than 1 %: 0.1 to 0.9 % more on the
+  synthetic workloads, 0.3 % more on Janino's own sources, 0.8 % less on the code that Spark generates.
+- The class files are byte-identical for all workloads (`CodeSizeReport`).
+
 The release notes of each version report its comparison with the previous version, on all workloads.
 
 ## The corpus
