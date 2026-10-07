@@ -1,0 +1,86 @@
+public Object generate(Object[] references) {
+  return new GeneratedIteratorForCodegenStage25(references);
+}
+
+// codegenStageId=25
+final class GeneratedIteratorForCodegenStage25 extends org.apache.spark.sql.execution.BufferedRowIterator {
+  private Object[] references;
+  private scala.collection.Iterator[] inputs;
+  private scala.collection.Iterator inputadapter_input_0;
+  private org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[] project_mutableStateArray_0 = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[1];
+
+  public GeneratedIteratorForCodegenStage25(Object[] references) {
+    this.references = references;
+  }
+
+  public void init(int index, scala.collection.Iterator[] inputs) {
+    partitionIndex = index;
+    this.inputs = inputs;
+    inputadapter_input_0 = inputs[0];
+    project_mutableStateArray_0[0] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(6, 128);
+
+  }
+
+  protected void processNext() throws java.io.IOException {
+    while ( inputadapter_input_0.hasNext()) {
+      InternalRow inputadapter_row_0 = (InternalRow) inputadapter_input_0.next();
+
+      // common sub-expressions
+
+      boolean inputadapter_isNull_0 = inputadapter_row_0.isNullAt(0);
+      UTF8String inputadapter_value_0 = inputadapter_isNull_0 ?
+      null : (inputadapter_row_0.getUTF8String(0));
+      boolean inputadapter_isNull_1 = inputadapter_row_0.isNullAt(1);
+      UTF8String inputadapter_value_1 = inputadapter_isNull_1 ?
+      null : (inputadapter_row_0.getUTF8String(1));
+      boolean inputadapter_isNull_2 = inputadapter_row_0.isNullAt(2);
+      UTF8String inputadapter_value_2 = inputadapter_isNull_2 ?
+      null : (inputadapter_row_0.getUTF8String(2));
+      boolean inputadapter_isNull_3 = inputadapter_row_0.isNullAt(3);
+      UTF8String inputadapter_value_3 = inputadapter_isNull_3 ?
+      null : (inputadapter_row_0.getUTF8String(3));
+      boolean inputadapter_isNull_6 = inputadapter_row_0.isNullAt(6);
+      Decimal inputadapter_value_6 = inputadapter_isNull_6 ?
+      null : (inputadapter_row_0.getDecimal(6, 17, 2));
+      int inputadapter_value_7 = inputadapter_row_0.getInt(7);
+      project_mutableStateArray_0[0].reset();
+
+      project_mutableStateArray_0[0].zeroOutNullBytes();
+
+      if (inputadapter_isNull_0) {
+        project_mutableStateArray_0[0].setNullAt(0);
+      } else {
+        project_mutableStateArray_0[0].write(0, inputadapter_value_0);
+      }
+
+      if (inputadapter_isNull_1) {
+        project_mutableStateArray_0[0].setNullAt(1);
+      } else {
+        project_mutableStateArray_0[0].write(1, inputadapter_value_1);
+      }
+
+      if (inputadapter_isNull_2) {
+        project_mutableStateArray_0[0].setNullAt(2);
+      } else {
+        project_mutableStateArray_0[0].write(2, inputadapter_value_2);
+      }
+
+      if (inputadapter_isNull_3) {
+        project_mutableStateArray_0[0].setNullAt(3);
+      } else {
+        project_mutableStateArray_0[0].write(3, inputadapter_value_3);
+      }
+
+      if (inputadapter_isNull_6) {
+        project_mutableStateArray_0[0].setNullAt(4);
+      } else {
+        project_mutableStateArray_0[0].write(4, inputadapter_value_6, 17, 2);
+      }
+
+      project_mutableStateArray_0[0].write(5, inputadapter_value_7);
+      append((project_mutableStateArray_0[0].getRow()));
+      if (shouldStop()) return;
+    }
+  }
+
+}

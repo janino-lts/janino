@@ -337,31 +337,31 @@ public class P {
     final int x;
     P() { x = 1; }
     void f() { x = 2; }
-}
-
+}
+
 === assignment to an interface field
 janino: ACCEPTED
 recovery: ACCEPTED
 interface I { int X = 1; }
 public class P {
     void f() { I.X = 2; }
-}
-
+}
+
 === assignment to an enum constant
 janino: ACCEPTED
 recovery: ACCEPTED
 enum E { A }
 public class P {
     void f() { E.A = null; }
-}
-
+}
+
 === instanceof with a final class and an interface that it does not implement
 janino: ACCEPTED
 recovery: ACCEPTED
 public class P {
     boolean f() { return "x" instanceof Runnable; }
-}
-
+}
+
 === static interface method invoked through an instance
 janino: ACCEPTED
 recovery: ACCEPTED
@@ -431,4 +431,55 @@ interface I { static String s() { return "s"; } }
 interface J extends I {}
 public class P {
     String f() { return J.s(); }
+}
+
+=== clone() of an int array assigned to a long array
+janino: REJECTED Assignment conversion not possible from type "int[]" to type "long[]"
+public class P { long[] f(int[] a) { return a.clone(); } }
+
+=== clone() of an int array cast to a String array
+janino: REJECTED Cannot cast "int[]" to "java.lang.String[]"
+public class P { String[] f(int[] a) { return (String[]) a.clone(); } }
+
+=== clone() of an int array: element assigned to a String
+janino: REJECTED Assignment conversion not possible from type "int" to type "java.lang.String"
+public class P { String f(int[] a) { return a.clone()[0]; } }
+
+=== subscript of non-array as a method argument
+janino: REJECTED Subscript not allowed on non-array type "java.lang.Object"
+public class P {
+    String f(Object o) { return String.valueOf(o[0]); }
+}
+
+=== subscript of a String as a method argument
+janino: REJECTED Subscript not allowed on non-array type "java.lang.String"
+public class P {
+    String f(String s) { return String.valueOf(s[0]); }
+}
+
+=== subscript of non-array as a constructor argument
+janino: REJECTED Subscript not allowed on non-array type "java.lang.Object"
+public class P {
+    P(Object x) {}
+    P f(Object o) { return new P(o[0]); }
+}
+
+=== subscript of non-array as an array index
+janino: REJECTED Subscript not allowed on non-array type "java.lang.Object"
+public class P {
+    int f(int[] a, Object o) { return a[o[0]]; }
+}
+
+=== subscript of non-array as the argument of an overloaded method
+janino: REJECTED Subscript not allowed on non-array type "java.lang.Object"
+public class P {
+    void g(int i) {}
+    void g(String s) {}
+    void f(Object o) { g(o[0]); }
+}
+
+=== subscript of non-array as an argument of a static method of another class
+janino: REJECTED Subscript not allowed on non-array type "java.lang.Object"
+public class P {
+    int f(Object o) { return Integer.parseInt(o[0]); }
 }

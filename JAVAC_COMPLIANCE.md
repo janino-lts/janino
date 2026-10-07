@@ -351,24 +351,25 @@ The new language features #21 and #22 are class D (section 4.4), like #61 and #6
 and #63 (D), which was found with #21.
 #47 stays out: its rejected forms are entangled with S-05.
 
-**3.1.17: fixes of classes D and V only, like 3.1.16.** Candidates, all found during the 3.1.16 work, and all
-present in 3.1.12, in the order of benefit and risk:
+**3.1.17 (released): fixes of classes D and V only, like 3.1.16.** All were found during the 3.1.16 work and are
+present in 3.1.12: #58, the type of `a.clone()` (D); #60, local classes with modifiers and annotations (D, parser);
+#71, a subscript on a non-array as a method argument, found during the work (D: an internal compiler error);
+#64, the resource variable of a try-with-resources statement (D); #59, a `protected` member of the superclass of
+an enclosing class, accessed from an inner class (V4 and D: a synthetic accessor method, like `javac`); #65, the D
+part only: a `throws` clause with an all-uppercase type name no longer declares a type parameter, so the `catch`
+of such an exception is reachable and the `Exceptions` attribute is complete; the L part, that an invocation
+need neither catch nor declare such an exception, stays under invariant 1 (section 3 of `JAVAC_DIFFERENCES.md`);
+#24, effectively final local variables in the conservative variant (D); #75, the loop variable of a basic `for`
+statement captured by an inner class, found with #24 (D: an internal compiler error). #23, `O<String>.I`, was
+taken out: low benefit, and a parser change with the highest risk for existing code; it stays open without a
+target version. The class files of code that compiled before are unchanged, except for one more `checkcast`
+instruction where the clone of an array was used as an `Object` (#58) and for the `Exceptions` attribute of a
+method with an all-uppercase exception type (#65).
 
-1. #58: `a.clone()` of an array has the type `Object` (D, small).
-2. #60: a local class declaration with a modifier or an annotation is rejected (D, small: a parser change, limited
-   to the branch that expects a local variable declaration after `final` or `@`).
-3. #64: the resource variable of a try-with-resources statement is not accessible from an anonymous or local class
-   in the block (D, small).
-4. #59: a `protected` member of the superclass of an enclosing class, accessed from an inner class (V4, the class
-   throws an `IllegalAccessError`, or D, it fails to verify; medium: a synthetic accessor method, like `javac`).
-5. #24: effectively final local variables in anonymous and local classes, in the conservative variant (D; medium:
-   the change touches the check that programs with `final` variables pass today).
-6. #23: `O<String>.I` (D; the parser change with the highest risk for existing code, hence last, and only with
-   parser tests for the `a < b . c` forms).
-7. #65: a type in a `throws` clause whose name is all uppercase is taken for a type parameter and ignored: the D
-   part (the `catch` of such an exception is "unreachable") is a candidate; the L part (the exception need neither
-   be caught nor declared) is legacy under invariant 1, so the complete fix needs an exception A-07, or waits for
-   the compliance mode.
+**Backlog without a target version:** #23 (above); #74, the `ACC_STRICT` bit of `strictfp` classes, a one-line
+fix that waits for the next release that changes the class files of existing code anyway (#73); #76, the
+`AbstractTraverser` does not descend into the initializers of array initializers and variable declarators, which
+affects `guessParameterNames()` (D, small; probably in 3.1.18).
 
 Not in 3.1.17: #38, #40 and #47 (class S), #31 (messages), #33 (class L): they belong to the compliance mode of
 3.2.0. The gates are those of 3.1.16.

@@ -1,0 +1,73 @@
+public java.lang.Object generate(Object[] references) {
+  return new SpecificMutableProjection(references);
+}
+
+class SpecificMutableProjection extends org.apache.spark.sql.catalyst.expressions.codegen.BaseMutableProjection {
+
+  private Object[] references;
+  private InternalRow mutableRow;
+  private int value_4;
+  private int value_5;
+  private int value_6;
+  private boolean isNull_4;
+  private int value_7;
+  private boolean isNull_5;
+
+  public SpecificMutableProjection(Object[] references) {
+    this.references = references;
+    mutableRow = new org.apache.spark.sql.catalyst.expressions.GenericInternalRow(4);
+
+
+  }
+
+  public void initialize(int partitionIndex) {
+
+  }
+
+  public org.apache.spark.sql.catalyst.expressions.codegen.BaseMutableProjection target(InternalRow row) {
+    mutableRow = row;
+    return this;
+  }
+
+  /* Provide immutable access to the last projected row. */
+  public InternalRow currentValue() {
+    return (InternalRow) mutableRow;
+  }
+
+  public java.lang.Object apply(java.lang.Object _i) {
+    InternalRow i = (InternalRow) _i;
+
+
+
+    value_4 = 0;
+
+
+    value_5 = 1;
+
+
+    isNull_4 = true;
+    value_6 = -1;
+
+
+    isNull_5 = true;
+    value_7 = -1;
+
+    // copy all the results into MutableRow
+    mutableRow.setInt(0, value_4);mutableRow.setInt(1, value_5);
+    if (!isNull_4) {
+      mutableRow.setInt(2, value_6);
+    } else {
+      mutableRow.setNullAt(2);
+    }
+
+    if (!isNull_5) {
+      mutableRow.setInt(3, value_7);
+    } else {
+      mutableRow.setNullAt(3);
+    }
+
+    return mutableRow;
+  }
+
+
+}

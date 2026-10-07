@@ -1,0 +1,574 @@
+public Object generate(Object[] references) {
+  return new GeneratedIteratorForCodegenStage1(references);
+}
+
+// codegenStageId=1
+final class GeneratedIteratorForCodegenStage1 extends org.apache.spark.sql.execution.BufferedRowIterator {
+  private Object[] references;
+  private scala.collection.Iterator[] inputs;
+  private boolean range_initRange_0;
+  private long range_nextIndex_0;
+  private TaskContext range_taskContext_0;
+  private InputMetrics range_inputMetrics_0;
+  private long range_batchEnd_0;
+  private long range_numElementsTodo_0;
+  private org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[] range_mutableStateArray_0 = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[4];
+
+  public GeneratedIteratorForCodegenStage1(Object[] references) {
+    this.references = references;
+  }
+
+  public void init(int index, scala.collection.Iterator[] inputs) {
+    partitionIndex = index;
+    this.inputs = inputs;
+
+    range_taskContext_0 = TaskContext.get();
+    range_inputMetrics_0 = range_taskContext_0.taskMetrics().inputMetrics();
+    range_mutableStateArray_0[0] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(1, 0);
+    range_mutableStateArray_0[1] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(1, 0);
+    range_mutableStateArray_0[2] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(1, 0);
+    range_mutableStateArray_0[3] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(8, 0);
+
+  }
+
+  private void range_initRange_1(int idx) {
+    java.math.BigInteger index = java.math.BigInteger.valueOf(idx);
+    java.math.BigInteger numSlice = java.math.BigInteger.valueOf(2L);
+    java.math.BigInteger numElement = java.math.BigInteger.valueOf(20L);
+    java.math.BigInteger step = java.math.BigInteger.valueOf(1L);
+    java.math.BigInteger start = java.math.BigInteger.valueOf(0L);
+    long partitionEnd;
+
+    java.math.BigInteger st = index.multiply(numElement).divide(numSlice).multiply(step).add(start);
+    if (st.compareTo(java.math.BigInteger.valueOf(Long.MAX_VALUE)) > 0) {
+      range_nextIndex_0 = Long.MAX_VALUE;
+    } else if (st.compareTo(java.math.BigInteger.valueOf(Long.MIN_VALUE)) < 0) {
+      range_nextIndex_0 = Long.MIN_VALUE;
+    } else {
+      range_nextIndex_0 = st.longValue();
+    }
+    range_batchEnd_0 = range_nextIndex_0;
+
+    java.math.BigInteger end = index.add(java.math.BigInteger.ONE).multiply(numElement).divide(numSlice)
+    .multiply(step).add(start);
+    if (end.compareTo(java.math.BigInteger.valueOf(Long.MAX_VALUE)) > 0) {
+      partitionEnd = Long.MAX_VALUE;
+    } else if (end.compareTo(java.math.BigInteger.valueOf(Long.MIN_VALUE)) < 0) {
+      partitionEnd = Long.MIN_VALUE;
+    } else {
+      partitionEnd = end.longValue();
+    }
+
+    java.math.BigInteger startToEnd = java.math.BigInteger.valueOf(partitionEnd).subtract(
+      java.math.BigInteger.valueOf(range_nextIndex_0));
+    range_numElementsTodo_0  = startToEnd.divide(step).longValue();
+    if (range_numElementsTodo_0 < 0) {
+      range_numElementsTodo_0 = 0;
+    } else if (startToEnd.remainder(step).compareTo(java.math.BigInteger.valueOf(0L)) != 0) {
+      range_numElementsTodo_0++;
+    }
+  }
+
+  private void project_doConsume_0(long project_expr_0_0) throws java.io.IOException {
+    // common sub-expressions
+
+    boolean project_isNull_2 = true;
+    long project_value_2 = -1L;
+    boolean project_isNull_3 = false;
+    long project_value_3 = -1L;
+    if (23L == 0) {
+      throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[38] /* errCtx */));
+    } else {
+      project_value_3 = (long)(project_expr_0_0 % 23L);
+    }
+    if (!project_isNull_3) {
+      project_isNull_2 = false; // resultCode could change nullability.
+
+      project_value_2 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_value_3, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[39] /* errCtx */));
+
+    }
+    boolean project_isNull_1 = project_isNull_2;
+    int project_value_1 = -1;
+    if (!project_isNull_2) {
+      if (project_value_2 == (int) project_value_2) {
+        project_value_1 = (int) project_value_2;
+      } else {
+        throw QueryExecutionErrors.castingCauseOverflowError(project_value_2, ((org.apache.spark.sql.types.LongType$) references[40] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[41] /* to */));
+      }
+    }
+    boolean project_isNull_8 = true;
+    long project_value_8 = -1L;
+    boolean project_isNull_9 = false;
+    long project_value_9 = -1L;
+    if (23L == 0) {
+      throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[44] /* errCtx */));
+    } else {
+      long project_value_10 = -1L;
+
+      project_value_10 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_expr_0_0, 2L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[42] /* errCtx */));
+
+      project_value_9 = (long)(project_value_10 % 23L);
+    }
+    if (!project_isNull_9) {
+      project_isNull_8 = false; // resultCode could change nullability.
+
+      project_value_8 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_value_9, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[45] /* errCtx */));
+
+    }
+    boolean project_isNull_7 = project_isNull_8;
+    int project_value_7 = -1;
+    if (!project_isNull_8) {
+      if (project_value_8 == (int) project_value_8) {
+        project_value_7 = (int) project_value_8;
+      } else {
+        throw QueryExecutionErrors.castingCauseOverflowError(project_value_8, ((org.apache.spark.sql.types.LongType$) references[46] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[47] /* to */));
+      }
+    }
+    boolean project_isNull_16 = true;
+    long project_value_16 = -1L;
+    boolean project_isNull_17 = false;
+    long project_value_17 = -1L;
+    if (23L == 0) {
+      throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[50] /* errCtx */));
+    } else {
+      long project_value_18 = -1L;
+
+      project_value_18 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_expr_0_0, 4L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[48] /* errCtx */));
+
+      project_value_17 = (long)(project_value_18 % 23L);
+    }
+    if (!project_isNull_17) {
+      project_isNull_16 = false; // resultCode could change nullability.
+
+      project_value_16 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_value_17, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[51] /* errCtx */));
+
+    }
+    boolean project_isNull_15 = project_isNull_16;
+    int project_value_15 = -1;
+    if (!project_isNull_16) {
+      if (project_value_16 == (int) project_value_16) {
+        project_value_15 = (int) project_value_16;
+      } else {
+        throw QueryExecutionErrors.castingCauseOverflowError(project_value_16, ((org.apache.spark.sql.types.LongType$) references[52] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[53] /* to */));
+      }
+    }
+    boolean project_isNull_24 = true;
+    long project_value_24 = -1L;
+    boolean project_isNull_25 = false;
+    long project_value_25 = -1L;
+    if (23L == 0) {
+      throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[56] /* errCtx */));
+    } else {
+      long project_value_26 = -1L;
+
+      project_value_26 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_expr_0_0, 5L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[54] /* errCtx */));
+
+      project_value_25 = (long)(project_value_26 % 23L);
+    }
+    if (!project_isNull_25) {
+      project_isNull_24 = false; // resultCode could change nullability.
+
+      project_value_24 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_value_25, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[57] /* errCtx */));
+
+    }
+    boolean project_isNull_23 = project_isNull_24;
+    int project_value_23 = -1;
+    if (!project_isNull_24) {
+      if (project_value_24 == (int) project_value_24) {
+        project_value_23 = (int) project_value_24;
+      } else {
+        throw QueryExecutionErrors.castingCauseOverflowError(project_value_24, ((org.apache.spark.sql.types.LongType$) references[58] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[59] /* to */));
+      }
+    }
+    boolean project_isNull_32 = true;
+    long project_value_32 = -1L;
+    boolean project_isNull_33 = false;
+    long project_value_33 = -1L;
+    if (23L == 0) {
+      throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[62] /* errCtx */));
+    } else {
+      long project_value_34 = -1L;
+
+      project_value_34 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_expr_0_0, 15L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[60] /* errCtx */));
+
+      project_value_33 = (long)(project_value_34 % 23L);
+    }
+    if (!project_isNull_33) {
+      project_isNull_32 = false; // resultCode could change nullability.
+
+      project_value_32 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_value_33, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[63] /* errCtx */));
+
+    }
+    boolean project_isNull_31 = project_isNull_32;
+    int project_value_31 = -1;
+    if (!project_isNull_32) {
+      if (project_value_32 == (int) project_value_32) {
+        project_value_31 = (int) project_value_32;
+      } else {
+        throw QueryExecutionErrors.castingCauseOverflowError(project_value_32, ((org.apache.spark.sql.types.LongType$) references[64] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[65] /* to */));
+      }
+    }
+    boolean project_isNull_40 = true;
+    long project_value_40 = -1L;
+    boolean project_isNull_41 = false;
+    long project_value_41 = -1L;
+    if (23L == 0) {
+      throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[68] /* errCtx */));
+    } else {
+      long project_value_42 = -1L;
+
+      project_value_42 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_expr_0_0, 16L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[66] /* errCtx */));
+
+      project_value_41 = (long)(project_value_42 % 23L);
+    }
+    if (!project_isNull_41) {
+      project_isNull_40 = false; // resultCode could change nullability.
+
+      project_value_40 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_value_41, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[69] /* errCtx */));
+
+    }
+    boolean project_isNull_39 = project_isNull_40;
+    int project_value_39 = -1;
+    if (!project_isNull_40) {
+      if (project_value_40 == (int) project_value_40) {
+        project_value_39 = (int) project_value_40;
+      } else {
+        throw QueryExecutionErrors.castingCauseOverflowError(project_value_40, ((org.apache.spark.sql.types.LongType$) references[70] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[71] /* to */));
+      }
+    }
+    boolean project_isNull_48 = true;
+    long project_value_48 = -1L;
+    boolean project_isNull_49 = false;
+    long project_value_49 = -1L;
+    if (23L == 0) {
+      throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[74] /* errCtx */));
+    } else {
+      long project_value_50 = -1L;
+
+      project_value_50 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_expr_0_0, 17L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[72] /* errCtx */));
+
+      project_value_49 = (long)(project_value_50 % 23L);
+    }
+    if (!project_isNull_49) {
+      project_isNull_48 = false; // resultCode could change nullability.
+
+      project_value_48 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_value_49, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[75] /* errCtx */));
+
+    }
+    boolean project_isNull_47 = project_isNull_48;
+    int project_value_47 = -1;
+    if (!project_isNull_48) {
+      if (project_value_48 == (int) project_value_48) {
+        project_value_47 = (int) project_value_48;
+      } else {
+        throw QueryExecutionErrors.castingCauseOverflowError(project_value_48, ((org.apache.spark.sql.types.LongType$) references[76] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[77] /* to */));
+      }
+    }
+    boolean project_isNull_56 = true;
+    long project_value_56 = -1L;
+    boolean project_isNull_57 = false;
+    long project_value_57 = -1L;
+    if (23L == 0) {
+      throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[80] /* errCtx */));
+    } else {
+      long project_value_58 = -1L;
+
+      project_value_58 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_expr_0_0, 18L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[78] /* errCtx */));
+
+      project_value_57 = (long)(project_value_58 % 23L);
+    }
+    if (!project_isNull_57) {
+      project_isNull_56 = false; // resultCode could change nullability.
+
+      project_value_56 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_value_57, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[81] /* errCtx */));
+
+    }
+    boolean project_isNull_55 = project_isNull_56;
+    int project_value_55 = -1;
+    if (!project_isNull_56) {
+      if (project_value_56 == (int) project_value_56) {
+        project_value_55 = (int) project_value_56;
+      } else {
+        throw QueryExecutionErrors.castingCauseOverflowError(project_value_56, ((org.apache.spark.sql.types.LongType$) references[82] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[83] /* to */));
+      }
+    }
+    range_mutableStateArray_0[3].reset();
+
+    range_mutableStateArray_0[3].zeroOutNullBytes();
+
+    if (project_isNull_1) {
+      range_mutableStateArray_0[3].setNullAt(0);
+    } else {
+      range_mutableStateArray_0[3].write(0, project_value_1);
+    }
+
+    if (project_isNull_7) {
+      range_mutableStateArray_0[3].setNullAt(1);
+    } else {
+      range_mutableStateArray_0[3].write(1, project_value_7);
+    }
+
+    if (project_isNull_15) {
+      range_mutableStateArray_0[3].setNullAt(2);
+    } else {
+      range_mutableStateArray_0[3].write(2, project_value_15);
+    }
+
+    if (project_isNull_23) {
+      range_mutableStateArray_0[3].setNullAt(3);
+    } else {
+      range_mutableStateArray_0[3].write(3, project_value_23);
+    }
+
+    if (project_isNull_31) {
+      range_mutableStateArray_0[3].setNullAt(4);
+    } else {
+      range_mutableStateArray_0[3].write(4, project_value_31);
+    }
+
+    if (project_isNull_39) {
+      range_mutableStateArray_0[3].setNullAt(5);
+    } else {
+      range_mutableStateArray_0[3].write(5, project_value_39);
+    }
+
+    if (project_isNull_47) {
+      range_mutableStateArray_0[3].setNullAt(6);
+    } else {
+      range_mutableStateArray_0[3].write(6, project_value_47);
+    }
+
+    if (project_isNull_55) {
+      range_mutableStateArray_0[3].setNullAt(7);
+    } else {
+      range_mutableStateArray_0[3].write(7, project_value_55);
+    }
+    append((range_mutableStateArray_0[3].getRow()));
+
+  }
+
+  protected void processNext() throws java.io.IOException {
+    // initialize Range
+    if (!range_initRange_0) {
+      range_initRange_0 = true;
+      range_initRange_1(partitionIndex);
+    }
+
+    while (true) {
+      if (range_nextIndex_0 == range_batchEnd_0) {
+        long range_nextBatchTodo_0;
+        if (range_numElementsTodo_0 > 1000L) {
+          range_nextBatchTodo_0 = 1000L;
+          range_numElementsTodo_0 -= 1000L;
+        } else {
+          range_nextBatchTodo_0 = range_numElementsTodo_0;
+          range_numElementsTodo_0 = 0;
+          if (range_nextBatchTodo_0 == 0) break;
+        }
+        range_batchEnd_0 += range_nextBatchTodo_0 * 1L;
+      }
+
+      int range_localEnd_0 = (int)((range_batchEnd_0 - range_nextIndex_0) / 1L);
+      for (int range_localIdx_0 = 0; range_localIdx_0 < range_localEnd_0; range_localIdx_0++) {
+        long range_value_0 = ((long)range_localIdx_0 * 1L) + range_nextIndex_0;
+
+        do {
+          boolean filter_isNull_2 = true;
+          long filter_value_2 = -1L;
+          boolean filter_isNull_3 = false;
+          long filter_value_3 = -1L;
+          if (23L == 0) {
+            throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[4] /* errCtx */));
+          } else {
+            long filter_value_4 = -1L;
+
+            filter_value_4 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(range_value_0, 18L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[2] /* errCtx */));
+
+            filter_value_3 = (long)(filter_value_4 % 23L);
+          }
+          if (!filter_isNull_3) {
+            filter_isNull_2 = false; // resultCode could change nullability.
+
+            filter_value_2 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(filter_value_3, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[5] /* errCtx */));
+
+          }
+          boolean filter_isNull_1 = filter_isNull_2;
+          int filter_value_1 = -1;
+          if (!filter_isNull_2) {
+            if (filter_value_2 == (int) filter_value_2) {
+              filter_value_1 = (int) filter_value_2;
+            } else {
+              throw QueryExecutionErrors.castingCauseOverflowError(filter_value_2, ((org.apache.spark.sql.types.LongType$) references[6] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[7] /* to */));
+            }
+          }
+          boolean filter_value_9 = !filter_isNull_1;
+          if (!filter_value_9) continue;
+          boolean filter_isNull_11 = true;
+          long filter_value_12 = -1L;
+          boolean filter_isNull_12 = false;
+          long filter_value_13 = -1L;
+          if (23L == 0) {
+            throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[10] /* errCtx */));
+          } else {
+            long filter_value_14 = -1L;
+
+            filter_value_14 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(range_value_0, 15L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[8] /* errCtx */));
+
+            filter_value_13 = (long)(filter_value_14 % 23L);
+          }
+          if (!filter_isNull_12) {
+            filter_isNull_11 = false; // resultCode could change nullability.
+
+            filter_value_12 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(filter_value_13, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[11] /* errCtx */));
+
+          }
+          boolean filter_isNull_10 = filter_isNull_11;
+          int filter_value_11 = -1;
+          if (!filter_isNull_11) {
+            if (filter_value_12 == (int) filter_value_12) {
+              filter_value_11 = (int) filter_value_12;
+            } else {
+              throw QueryExecutionErrors.castingCauseOverflowError(filter_value_12, ((org.apache.spark.sql.types.LongType$) references[12] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[13] /* to */));
+            }
+          }
+          boolean filter_value_19 = !filter_isNull_10;
+          if (!filter_value_19) continue;
+          boolean filter_isNull_20 = true;
+          long filter_value_22 = -1L;
+          boolean filter_isNull_21 = false;
+          long filter_value_23 = -1L;
+          if (23L == 0) {
+            throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[16] /* errCtx */));
+          } else {
+            long filter_value_24 = -1L;
+
+            filter_value_24 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(range_value_0, 4L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[14] /* errCtx */));
+
+            filter_value_23 = (long)(filter_value_24 % 23L);
+          }
+          if (!filter_isNull_21) {
+            filter_isNull_20 = false; // resultCode could change nullability.
+
+            filter_value_22 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(filter_value_23, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[17] /* errCtx */));
+
+          }
+          boolean filter_isNull_19 = filter_isNull_20;
+          int filter_value_21 = -1;
+          if (!filter_isNull_20) {
+            if (filter_value_22 == (int) filter_value_22) {
+              filter_value_21 = (int) filter_value_22;
+            } else {
+              throw QueryExecutionErrors.castingCauseOverflowError(filter_value_22, ((org.apache.spark.sql.types.LongType$) references[18] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[19] /* to */));
+            }
+          }
+          boolean filter_value_29 = !filter_isNull_19;
+          if (!filter_value_29) continue;
+          boolean filter_isNull_29 = true;
+          long filter_value_32 = -1L;
+          boolean filter_isNull_30 = false;
+          long filter_value_33 = -1L;
+          if (23L == 0) {
+            throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[22] /* errCtx */));
+          } else {
+            long filter_value_34 = -1L;
+
+            filter_value_34 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(range_value_0, 5L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[20] /* errCtx */));
+
+            filter_value_33 = (long)(filter_value_34 % 23L);
+          }
+          if (!filter_isNull_30) {
+            filter_isNull_29 = false; // resultCode could change nullability.
+
+            filter_value_32 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(filter_value_33, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[23] /* errCtx */));
+
+          }
+          boolean filter_isNull_28 = filter_isNull_29;
+          int filter_value_31 = -1;
+          if (!filter_isNull_29) {
+            if (filter_value_32 == (int) filter_value_32) {
+              filter_value_31 = (int) filter_value_32;
+            } else {
+              throw QueryExecutionErrors.castingCauseOverflowError(filter_value_32, ((org.apache.spark.sql.types.LongType$) references[24] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[25] /* to */));
+            }
+          }
+          boolean filter_value_39 = !filter_isNull_28;
+          if (!filter_value_39) continue;
+          boolean filter_isNull_38 = true;
+          long filter_value_42 = -1L;
+          boolean filter_isNull_39 = false;
+          long filter_value_43 = -1L;
+          if (23L == 0) {
+            throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[27] /* errCtx */));
+          } else {
+            filter_value_43 = (long)(range_value_0 % 23L);
+          }
+          if (!filter_isNull_39) {
+            filter_isNull_38 = false; // resultCode could change nullability.
+
+            filter_value_42 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(filter_value_43, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[28] /* errCtx */));
+
+          }
+          boolean filter_isNull_37 = filter_isNull_38;
+          int filter_value_41 = -1;
+          if (!filter_isNull_38) {
+            if (filter_value_42 == (int) filter_value_42) {
+              filter_value_41 = (int) filter_value_42;
+            } else {
+              throw QueryExecutionErrors.castingCauseOverflowError(filter_value_42, ((org.apache.spark.sql.types.LongType$) references[29] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[30] /* to */));
+            }
+          }
+          boolean filter_value_47 = !filter_isNull_37;
+          if (!filter_value_47) continue;
+          boolean filter_isNull_45 = true;
+          long filter_value_50 = -1L;
+          boolean filter_isNull_46 = false;
+          long filter_value_51 = -1L;
+          if (23L == 0) {
+            throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[33] /* errCtx */));
+          } else {
+            long filter_value_52 = -1L;
+
+            filter_value_52 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(range_value_0, 2L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[31] /* errCtx */));
+
+            filter_value_51 = (long)(filter_value_52 % 23L);
+          }
+          if (!filter_isNull_46) {
+            filter_isNull_45 = false; // resultCode could change nullability.
+
+            filter_value_50 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(filter_value_51, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[34] /* errCtx */));
+
+          }
+          boolean filter_isNull_44 = filter_isNull_45;
+          int filter_value_49 = -1;
+          if (!filter_isNull_45) {
+            if (filter_value_50 == (int) filter_value_50) {
+              filter_value_49 = (int) filter_value_50;
+            } else {
+              throw QueryExecutionErrors.castingCauseOverflowError(filter_value_50, ((org.apache.spark.sql.types.LongType$) references[35] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[36] /* to */));
+            }
+          }
+          boolean filter_value_57 = !filter_isNull_44;
+          if (!filter_value_57) continue;
+
+          ((org.apache.spark.sql.execution.metric.SQLMetric) references[1] /* numOutputRows */).add(1);
+
+          project_doConsume_0(range_value_0);
+
+        } while (false);
+
+        if (shouldStop()) {
+          range_nextIndex_0 = range_value_0 + 1L;
+          ((org.apache.spark.sql.execution.metric.SQLMetric) references[0] /* numOutputRows */).add(range_localIdx_0 + 1);
+          range_inputMetrics_0.incRecordsRead(range_localIdx_0 + 1);
+          return;
+        }
+
+      }
+      range_nextIndex_0 = range_batchEnd_0;
+      ((org.apache.spark.sql.execution.metric.SQLMetric) references[0] /* numOutputRows */).add(range_localEnd_0);
+      range_inputMetrics_0.incRecordsRead(range_localEnd_0);
+      range_taskContext_0.killTaskIfInterrupted();
+    }
+  }
+
+}

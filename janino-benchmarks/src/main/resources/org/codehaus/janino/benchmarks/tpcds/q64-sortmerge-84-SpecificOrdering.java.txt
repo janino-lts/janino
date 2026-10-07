@@ -1,0 +1,59 @@
+public SpecificOrdering generate(Object[] references) {
+  return new SpecificOrdering(references);
+}
+
+class SpecificOrdering extends org.apache.spark.sql.catalyst.expressions.BaseOrdering {
+
+  private Object[] references;
+
+
+  public SpecificOrdering(Object[] references) {
+    this.references = references;
+
+  }
+
+  public int compare(InternalRow a, InternalRow b) {
+
+    boolean isNull_0 = a.isNullAt(1);
+    int value_0 = isNull_0 ?
+    -1 : (a.getInt(1));
+    boolean isNull_2 = b.isNullAt(1);
+    int value_2 = isNull_2 ?
+    -1 : (b.getInt(1));
+    if (isNull_0 && isNull_2) {
+      // Nothing
+    } else if (isNull_0) {
+      return -1;
+    } else if (isNull_2) {
+      return 1;
+    } else {
+      int comp = (value_0 > value_2 ? 1 : value_0 < value_2 ? -1 : 0);
+      if (comp != 0) {
+        return comp;
+      }
+    }
+
+    boolean isNull_1 = a.isNullAt(8);
+    int value_1 = isNull_1 ?
+    -1 : (a.getInt(8));
+    boolean isNull_3 = b.isNullAt(8);
+    int value_3 = isNull_3 ?
+    -1 : (b.getInt(8));
+    if (isNull_1 && isNull_3) {
+      // Nothing
+    } else if (isNull_1) {
+      return -1;
+    } else if (isNull_3) {
+      return 1;
+    } else {
+      int comp = (value_1 > value_3 ? 1 : value_1 < value_3 ? -1 : 0);
+      if (comp != 0) {
+        return comp;
+      }
+    }
+
+    return 0;
+  }
+
+
+}

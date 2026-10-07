@@ -29,7 +29,7 @@ below remain for that reason, or because they have not been fixed yet.
 | `Boolean Z = null; boolean x = Z \|\| true;` (also `Z && false`) | `NullPointerException` | `x == true`, no exception | [#40](https://github.com/janino-lts/janino/issues/40) |
 | `Byte B = 1; Object x = z ? B : 5;` | `x` is a `Byte` | `x` is an `Integer` | [#38](https://github.com/janino-lts/janino/issues/38) |
 | `char c = 'a'; Object x = false ? c : (short) 66;` | `x` is an `Integer` | `x` is a `Character` | [#38](https://github.com/janino-lts/janino/issues/38) |
-| `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`) | |
+| `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`) | [#73](https://github.com/janino-lts/janino/issues/73) |
 
 **Constant expressions that are not folded** ([#47](https://github.com/janino-lts/janino/issues/47)): Janino does not
 evaluate shifts, relational operators, `~`, operations with `char` operands and casts to and from `char` at compile
@@ -71,34 +71,23 @@ constant expression, the expressions that Janino does not fold (see section 1) a
 - `byte b = MAX > 5 ? 1 : 2;` with `static final int MAX = 10;`;
 - `int f() { while (MAX > 0) { } }` ("Method must return a value", because the condition is not constant).
 
-**Arrays** ([#58](https://github.com/janino-lts/janino/issues/58)): `a.clone()` of an array `a` has the type
-`Object` instead of the array type (JLS 10.7): `int[] b = a.clone();` is rejected; with a cast, `(int[]) a.clone()`,
-it compiles.
-
-**Inner classes** ([#59](https://github.com/janino-lts/janino/issues/59)): a `protected` member that an enclosing
-class inherits from a class in another package, accessed from an inner class (`in` or `P.this.in` in
-`class P extends FilterInputStream { class Q { ... } }`, or `P.this.clone()`): the code compiles, but the generated
-class throws an `IllegalAccessError` or fails to verify. `javac` generates an accessor method.
-
-**Local classes** ([#60](https://github.com/janino-lts/janino/issues/60)): a local class declaration with a modifier
-or an annotation (`final class L {}`, `abstract class L {}`, `@A class L {}`) is rejected (`IDENTIFIER expected
-instead of 'class'`).
-
 **Multi-catch** ([#21](https://github.com/janino-lts/janino/issues/21), since 3.1.16): the type of the parameter
 of `catch (A | B e)` is the nearest common superclass of the alternatives, not their least upper bound with the
 interfaces that all alternatives implement: `e.n()` with a method `n()` of an interface that `A` and `B` implement,
 but not their common superclass, is rejected (`A method named "n" is not declared in any enclosing class nor any
 supertype`); with a cast, `((I) e).n()`, it compiles.
 
-**Try-with-resources** ([#64](https://github.com/janino-lts/janino/issues/64)): an anonymous or local class in
-the block cannot access the resource variable
-(`try (R r = ...) { new Runnable() { public void run() { r.use(); } }; }`: `Unknown variable or type "r"`).
+**Effectively final local variables** ([#24](https://github.com/janino-lts/janino/issues/24), since 3.1.17; before,
+a local variable had to be declared `final` to be accessed from a local or anonymous class): Janino finds a local
+variable, a parameter, a `catch` parameter or the variable of an enhanced `for` statement effectively final by a
+conservative rule: the variable has an initializer, or is a parameter, and its name is not assigned, incremented or
+decremented anywhere in the method, constructor or initializer that declares it, including nested classes. Janino
+therefore rejects (`Cannot access non-final local variable "x" from inner class`):
 
-**Exception classes with all-uppercase names** ([#65](https://github.com/janino-lts/janino/issues/65)): a type in
-the `throws` clause of a method or constructor declared in the compiled code is ignored if its simple name consists
-of uppercase letters only (`throws X`, `throws IOEXC`),
-because Janino takes it for a type parameter. The `catch` of such an exception that the method throws is rejected
-(`Catch clause is unreachable`); and the exception need neither be caught nor declared (section 3).
+- a variable without an initializer that is assigned exactly once: `int x; x = 1; new Runnable() { ... x ... }`
+  (JLS 4.12.4 requires definite assignment analysis here, which Janino does not have);
+- a variable whose name is assigned in another block or in a nested class:
+  `{ int x = 1; x = 2; } int x = 3; new Runnable() { ... x ... }`.
 
 ## 3. Invalid code that Janino accepts
 
@@ -111,6 +100,11 @@ accessing class nor a subclass of it (`((Object) this).clone()`, `Object o = new
 bytecode ([#54](https://github.com/janino-lts/janino/issues/54)); it rejected them for a parameter, a field or a
 method result of type `Object`.
 
+Code generators rely on some of these leniencies. The code that Apache Spark generates for SQL queries, for
+example, assigns to a `final` local variable, names nested classes by their binary names, creates generic arrays
+and assigns a parameterized type to a field with a different type argument
+([SPARK-58437](https://issues.apache.org/jira/browse/SPARK-58437)); such code keeps compiling.
+
 **`final` variables and definite assignment:**
 
 - assignment to a `final` field: `final int x = 1; void f() { x = 2; }`;
@@ -119,7 +113,9 @@ method result of type `Object`.
 - assignment to a `final` local variable, also twice to a blank one: `final int x = 1; x = 2;`,
   `final int x; x = 1; x = 2;`;
 - assignment to a blank `final` local variable in a loop: `final int x; for (;;) { x = 1; }`;
-- assignment to a `final` parameter or a `final` variable of an enhanced `for` statement;
+- assignment to a `final` parameter, a `final` variable of an enhanced `for` statement, or the (implicitly `final`)
+  resource variable of a try-with-resources statement: `try (R r = new R()) { r = null; }` (the resource is then
+  not closed);
 - assignment to a `static final` field of another class, e.g. an interface field (`I.X = 2;`) or an enum constant
   (`E.A = null;`): this compiles, but throws an `IllegalAccessError` when it is executed.
 
@@ -132,6 +128,11 @@ method result of type `Object`.
 - override that throws a broader checked exception, or a checked exception that the overridden method does not throw;
 - `throws` clause with a type that is not a `Throwable`: `void f() throws String {}`;
 - two fields with the same name and different types: `int x; long x;`;
+- a `catch` parameter, the variable of an enhanced `for` statement or the resource variable of a try-with-resources
+  statement with the name of a local variable or parameter in scope (`int e = 1; try { ... } catch (Exception e) {}`,
+  `try (R r = ...)` with a local variable `r`), two resources with the same name, or a local variable in the block
+  of a try-with-resources statement with the name of a resource variable; the later declaration shadows the earlier
+  one in its scope;
 - `native strictfp` method (the JVM accepts the combination);
 - `static default` interface method; interface field without initializer: `interface I { int X; }`;
 - default method that overrides a method of `Object`: `default boolean equals(Object o) { ... }`;
@@ -140,7 +141,10 @@ method result of type `Object`.
 - an unqualified invocation of a `private` instance method of the enum from the class body of an enum constant
   (`enum E { A { String n() { return p(); } }; private String p() { ... } abstract String n(); }`, which `javac`
   rejects as a reference from a static context; Janino invokes the method on the constant);
-- annotation type element with parameters (`int value(int i);`), or of a type that is not allowed (`Object value();`).
+- annotation type element with parameters (`int value(int i);`), or of a type that is not allowed (`Object value();`);
+- in a script (`IScriptEvaluator`) only ([#72](https://github.com/janino-lts/janino/issues/72)): any modifier on a
+  local variable declaration (`static int x = 1;`, `public int x;`, `abstract int x;`); the modifiers are ignored.
+  In a method body, only `final` and annotations are accepted, like by `javac`.
 
 **Annotations:**
 
@@ -168,7 +172,11 @@ method result of type `Object`.
   statement catches: `try { } catch (Exception e) { throw new IOException(); }`, also the rethrow of the parameter:
   `catch (IOException | SQLException e) { throw e; }` in a method that declares neither exception, and
   `catch (Exception e) { throw e; }` in a method that does not declare the checked exceptions of the `try` block;
-- a checked exception whose class name is all uppercase that is neither caught nor declared (section 2);
+- an invocation of a method that declares a checked exception whose class name is all uppercase (`void m() throws
+  X`, `throws IOEXC`), without catching or declaring the exception
+  ([#65](https://github.com/janino-lts/janino/issues/65); before 3.1.17, such a type was taken for a type parameter
+  and ignored; a `throw` statement and a constructor invocation are checked); a `throws` clause with an
+  all-uppercase name that denotes no type (`void m() throws T` without a type parameter `T`), which is ignored;
 - case label out of the range of the switch type: `switch (b) { case 1000: }` with `byte b`;
 - case label of type `long`, `float` or `double`, whose value is truncated to `int`: `case 1L:`, `case 1.0:`,
   `case 4294967297L:` (which matches the value 1);
@@ -182,6 +190,8 @@ method result of type `Object`.
   (`comparator.naturalOrder()`), through an implementing class or a subinterface (`P.s()`, `J.s()`), or unqualified
   from an implementing class (`s()`);
 - `private` member type of another top-level class, also of a JDK class: `java.util.ArrayList.Itr x;`;
+- the binary name of a nested class (with `$`) in source position: `java.util.Map$Entry e;`,
+  `new java.util.AbstractMap$SimpleEntry<String, String>("a", "b")`;
 - on-demand import of a package that does not exist: `import foo.*;`;
 - static import of a member that does not exist, or is not static: `import static java.lang.Math.foo;`,
   `import static java.lang.String.length;`.

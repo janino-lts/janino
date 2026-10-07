@@ -1,0 +1,114 @@
+public java.lang.Object generate(Object[] references) {
+  return new SpecificUnsafeProjection(references);
+}
+
+class SpecificUnsafeProjection extends org.apache.spark.sql.catalyst.expressions.UnsafeProjection {
+
+  private Object[] references;
+  private org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[] mutableStateArray_0 = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[1];
+
+  public SpecificUnsafeProjection(Object[] references) {
+    this.references = references;
+    mutableStateArray_0[0] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(1, 0);
+
+  }
+
+  public void initialize(int partitionIndex) {
+
+  }
+
+  // Scala.Function1 need this
+  public java.lang.Object apply(java.lang.Object row) {
+    return apply((InternalRow) row);
+  }
+
+  public UnsafeRow apply(InternalRow i) {
+    mutableStateArray_0[0].reset();
+
+
+    mutableStateArray_0[0].zeroOutNullBytes();
+
+    boolean isNull_0 = false;
+    int value_0 = -1;
+    if (4 == 0) {
+      throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[0] /* errCtx */));
+    } else {
+      int value_1 = 42;
+      value_1 = computeHash_0_0(i, value_1);
+      value_1 = computeHash_0_1(i, value_1);
+
+      int remainder_0 = value_1 % 4;
+      if (remainder_0 < 0) {
+        value_0=(remainder_0 + 4) % 4;
+      } else {
+        value_0=remainder_0;
+      }
+
+    }
+    if (isNull_0) {
+      mutableStateArray_0[0].setNullAt(0);
+    } else {
+      mutableStateArray_0[0].write(0, value_0);
+    }
+    return (mutableStateArray_0[0].getRow());
+  }
+
+
+  private int computeHash_0_0(InternalRow i, int value_1) {
+
+    boolean isNull_2 = i.isNullAt(0);
+    UTF8String value_2 = isNull_2 ?
+    null : (i.getUTF8String(0));
+    if (!isNull_2) {
+      value_1 = org.apache.spark.unsafe.hash.Murmur3_x86_32.hashUnsafeBytes(value_2.getBaseObject(), value_2.getBaseOffset(), value_2.numBytes(), value_1);
+    }
+    boolean isNull_3 = i.isNullAt(1);
+    int value_3 = isNull_3 ?
+    -1 : (i.getInt(1));
+    if (!isNull_3) {
+      value_1 = org.apache.spark.unsafe.hash.Murmur3_x86_32.hashInt(value_3, value_1);
+    }
+    boolean isNull_4 = i.isNullAt(2);
+    UTF8String value_4 = isNull_4 ?
+    null : (i.getUTF8String(2));
+    if (!isNull_4) {
+      value_1 = org.apache.spark.unsafe.hash.Murmur3_x86_32.hashUnsafeBytes(value_4.getBaseObject(), value_4.getBaseOffset(), value_4.numBytes(), value_1);
+    }
+    boolean isNull_5 = i.isNullAt(3);
+    UTF8String value_5 = isNull_5 ?
+    null : (i.getUTF8String(3));
+    if (!isNull_5) {
+      value_1 = org.apache.spark.unsafe.hash.Murmur3_x86_32.hashUnsafeBytes(value_5.getBaseObject(), value_5.getBaseOffset(), value_5.numBytes(), value_1);
+    }
+
+    return value_1;
+
+  }
+
+
+  private int computeHash_0_1(InternalRow i, int value_1) {
+
+    boolean isNull_6 = i.isNullAt(4);
+    UTF8String value_6 = isNull_6 ?
+    null : (i.getUTF8String(4));
+    if (!isNull_6) {
+      value_1 = org.apache.spark.unsafe.hash.Murmur3_x86_32.hashUnsafeBytes(value_6.getBaseObject(), value_6.getBaseOffset(), value_6.numBytes(), value_1);
+    }
+    boolean isNull_7 = i.isNullAt(5);
+    UTF8String value_7 = isNull_7 ?
+    null : (i.getUTF8String(5));
+    if (!isNull_7) {
+      value_1 = org.apache.spark.unsafe.hash.Murmur3_x86_32.hashUnsafeBytes(value_7.getBaseObject(), value_7.getBaseOffset(), value_7.numBytes(), value_1);
+    }
+    boolean isNull_8 = i.isNullAt(6);
+    int value_8 = isNull_8 ?
+    -1 : (i.getInt(6));
+    if (!isNull_8) {
+      value_1 = org.apache.spark.unsafe.hash.Murmur3_x86_32.hashInt(value_8, value_1);
+    }
+
+    return value_1;
+
+  }
+
+}

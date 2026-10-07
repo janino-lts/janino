@@ -5024,6 +5024,12 @@ class Java {
 
         // Compile time members:
 
+        /**
+         * The component type of the array (the type of this expression); set by the compiler when it determines
+         * the type.
+         */
+        @Nullable IType componentType;
+
         // Implement "Atom".
 
         @Override public String

@@ -24,6 +24,7 @@
 
 package org.codehaus.janino.benchmarks;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -177,6 +178,36 @@ enum Workload {
 
         @Override public Map<String, byte[]>
         bytecodes(JaninoVersion janino) throws Exception { return janino.selfCompile(); }
+    },
+
+    /**
+     * The class bodies that Apache Spark 4.2.0 generated for the TPC-DS queries, compiled the way Spark compiles
+     * them: each with a new {@code ClassBodyEvaluator}, Spark's default imports and Spark's {@code GeneratedClass}
+     * as the superclass, then loaded and instantiated (see {@link SparkCodegen}, and "tpcds/README.txt" in the
+     * resources for the corpus). One operation compiles the whole corpus, so measure it with longer rounds, e.g.
+     * {@code -millis 5000}.
+     */
+    SPARK_TPCDS {
+
+        @Override public Object
+        run(JaninoVersion janino) throws Exception { return SparkCodegen.compileAll(janino); }
+
+        @Override public void
+        check(JaninoVersion janino) throws Exception {
+            List<Object> instances = SparkCodegen.compileAll(janino);
+            int          n         = SparkCodegen.bodies().size();
+            if (instances.size() != n) {
+                throw new IllegalStateException(janino + ": " + instances.size() + " instead of " + n + " classes");
+            }
+            for (Object instance : instances) {
+                if (!SparkCodegen.extendedClass().isInstance(instance)) {
+                    throw new IllegalStateException(janino + ": " + instance.getClass() + " is not a GeneratedClass");
+                }
+            }
+        }
+
+        @Override public Map<String, byte[]>
+        bytecodes(JaninoVersion janino) throws Exception { return SparkCodegen.bytecodes(janino); }
     };
 
     /**

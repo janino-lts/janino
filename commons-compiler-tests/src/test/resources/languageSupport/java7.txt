@@ -578,8 +578,8 @@ public class P {
 }
 
 === try-with-resources: an anonymous class accesses the resource variable
+janino: OK
 jls: ok
-janino: REJECTED Unknown variable or type "r"
 public class P {
     static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
     public static Object run() {
@@ -588,5 +588,159 @@ public class P {
             q.run();
             return "ok";
         }
+    }
+}
+
+=== try-with-resources: the block accesses the resource variable
+janino: OK
+jls: r
+public class P {
+    static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
+    public static Object run() { try (R r = new R()) { return r.n(); } }
+}
+
+=== try-with-resources: the second resource is initialized with the first
+janino: OK
+jls: aab
+public class P {
+    static String s = "";
+    static class R implements AutoCloseable {
+        final String n;
+        R(String n) { this.n = n; s += n; }
+        public void close() { }
+    }
+    public static Object run() { try (R a = new R("a"); R b = new R(a.n + "b")) { } return s; }
+}
+
+=== try-with-resources: a local class accesses the resource variable
+janino: OK
+jls: ok
+public class P {
+    static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
+    public static Object run() {
+        try (final R r = new R()) {
+            class L { String g() { return r.n(); } }
+            String v = new L().g();
+            return v.equals("r") ? "ok" : v;
+        }
+    }
+}
+
+=== try-with-resources: three resources, each initialized with the previous one
+jls: abc
+janino: OK
+public class P {
+    static class R implements AutoCloseable {
+        final String n;
+        R(String n) { this.n = n; }
+        public void close() { }
+    }
+    public static Object run() {
+        try (R a = new R("a"); R b = new R(a.n + "b"); R c = new R(b.n + "c")) { return c.n; }
+    }
+}
+
+=== try-with-resources: the resource variable is used in a nested try-with-resources statement
+jls: ab
+janino: OK
+public class P {
+    static class R implements AutoCloseable {
+        final String n;
+        R(String n) { this.n = n; }
+        public void close() { }
+    }
+    public static Object run() {
+        try (R a = new R("a")) {
+            try (R b = new R(a.n + "b")) { return b.n; }
+        }
+    }
+}
+
+=== try-with-resources: an anonymous class in the block accesses two resource variables
+jls: ab
+janino: OK
+public class P {
+    static class R implements AutoCloseable {
+        final String n;
+        R(String n) { this.n = n; }
+        public void close() { }
+    }
+    public static Object run() {
+        try (R a = new R("a"); R b = new R("b")) {
+            Object o = new Object() { public String toString() { return a.n + b.n; } };
+            return o.toString();
+        }
+    }
+}
+
+=== try-with-resources: the resource variable is accessed from the catch clause of a nested try statement
+jls: r
+janino: OK
+public class P {
+    static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
+    public static Object run() {
+        try (R r = new R()) {
+            try { throw new Exception(); } catch (Exception e) { return r.n(); }
+        }
+    }
+}
+
+=== try-with-resources: the resource variable shadows a field
+jls: r
+janino: OK
+public class P {
+    static String r = "field";
+    static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
+    public static Object run() { try (R r = new R()) { return r.n(); } }
+}
+
+=== try-with-resources: the catch clause sees the field, not the resource variable
+jls: field
+janino: OK
+public class P {
+    static String r = "field";
+    static class R implements AutoCloseable { public void close() { } }
+    public static Object run() {
+        try (R r = new R()) { throw new Exception(); } catch (Exception e) { return r; }
+    }
+}
+
+=== try-with-resources: the finally block declares a local variable with the name of the resource variable
+jls: rf
+janino: OK
+public class P {
+    static String s = "";
+    static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
+    public static Object run() {
+        try (R r = new R()) { s += r.n(); } finally { String r = "f"; s += r; }
+        return s;
+    }
+}
+
+=== try-with-resources: a local variable with the name of the resource variable after the statement
+jls: x
+janino: OK
+public class P {
+    static class R implements AutoCloseable { public void close() { } }
+    public static Object run() {
+        try (R r = new R()) { }
+        String r = "x";
+        return r;
+    }
+}
+
+=== try-with-resources: a resource variable declared in a loop
+jls: 012
+janino: OK
+public class P {
+    static class R implements AutoCloseable {
+        final String n;
+        R(String n) { this.n = n; }
+        public void close() { }
+    }
+    public static Object run() {
+        String s = "";
+        for (int i = 0; i < 3; ++i) { try (R r = new R("" + i)) { s += r.n; } }
+        return s;
     }
 }

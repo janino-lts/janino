@@ -224,6 +224,7 @@ import org.codehaus.janino.Visitor.RvalueVisitor;
 import org.codehaus.janino.Visitor.TryStatementResourceVisitor;
 import org.codehaus.janino.Visitor.TypeDeclarationVisitor;
 import org.codehaus.janino.Visitor.TypeVisitor;
+import org.codehaus.janino.util.AbstractTraverser;
 import org.codehaus.janino.util.Annotatable;
 import org.codehaus.janino.util.ClassFile;
 import org.codehaus.janino.util.ClassFile.ClassFileException;
@@ -277,6 +278,14 @@ class UnitCompiler {
     public static final boolean JUMP_IF_FALSE = false;
 
     private static final Pattern LOOKS_LIKE_TYPE_PARAMETER = Pattern.compile("\\p{javaUpperCase}+");
+
+    /**
+     * The exception classes with all-uppercase names that the methods of the compilation unit declare in their
+     * THROWS clauses. Before 3.1.17, such a type was taken for a type parameter and ignored (see {@link
+     * #thrownExceptionType(Type, Scope)}), so the invocations of the method needed neither catch nor declare the
+     * exception; for compatibility, they still need not (issue #65, JAVAC_DIFFERENCES.md, section 3).
+     */
+    private final Set<IClass> legacyUncheckedExceptions = new HashSet<>();
 
     private EnumSet<JaninoOption> options = EnumSet.noneOf(JaninoOption.class);
 
@@ -3296,6 +3305,23 @@ class UnitCompiler {
         ));
     }
 
+    /**
+     * @return The {@link LocalVariable} corresponding with the resource variable of a TRY-with-resources statement
+     */
+    public LocalVariable
+    getLocalVariable(LocalVariableDeclaratorResource lvdr) throws CompileException {
+
+        VariableDeclarator vd = lvdr.variableDeclarator;
+        if (vd.localVariable != null) return vd.localVariable;
+
+        // Determine variable type.
+        Type variableType = lvdr.type;
+        for (int k = 0; k < vd.brackets; ++k) variableType = new ArrayType(variableType);
+
+        // Ignore "lvdr.modifiers"; a resource variable is implicitly final (JLS 14.20.3).
+        return (vd.localVariable = new LocalVariable(true /*finaL*/, this.getType(variableType)));
+    }
+
     private boolean
     compile2(ReturnStatement rs) throws CompileException {
 
@@ -3474,6 +3500,12 @@ class UnitCompiler {
     private final Map<LocalVariable, CatchParameter> multiCatchParameters = new HashMap<>();
 
     /**
+     * The local variables of the resources of TRY-with-resources statements ({@code try (R r = ...)}); see {@link
+     * #buildLocalVariableMap(TryStatement, Map)}.
+     */
+    private final Set<LocalVariable> resourceVariables = new HashSet<>();
+
+    /**
      * @return The multi-catch parameter ({@code catch (A | B e)}) that the <var>rv</var> accesses, or {@code null}
      */
     @Nullable private CatchParameter
@@ -3582,13 +3614,18 @@ class UnitCompiler {
                     visitLocalVariableDeclaratorResource(LocalVariableDeclaratorResource lvdr) throws CompileException {
 
                         // final {VariableModifierNoFinal} R Identifier = Expression
-                        IType         lvType = UnitCompiler.this.getType(lvdr.type);
-                        LocalVariable result = UnitCompiler.this.allocateLocalVariable(true /*finaL*/, lvType);
+                        VariableDeclarator vd     = lvdr.variableDeclarator;
+                        LocalVariable      result = UnitCompiler.this.getLocalVariable(lvdr);
+                        result.setSlot(UnitCompiler.this.allocateLocalVariableSlot(result.type, vd.name));
 
-                        ArrayInitializerOrRvalue initializer = lvdr.variableDeclarator.initializer;
+                        // The resource variable is in scope in the initializers of the following resources.
+                        Map<String, LocalVariable> tsVars = ts.localVariables;
+                        if (tsVars != null) tsVars.put(vd.name, result);
+
+                        ArrayInitializerOrRvalue initializer = vd.initializer;
                         assert initializer != null;
 
-                        UnitCompiler.this.compile(initializer, lvType);
+                        UnitCompiler.this.compile(initializer, result.type);
                         UnitCompiler.this.store(ts, result);
 
                         return result;
@@ -4106,7 +4143,7 @@ class UnitCompiler {
             short accessFlags = this.accessFlags(fd.getModifiers());
 
             if (fd.formalParameters.variableArity) accessFlags |= Mod.VARARGS;
-            if (this.superclassMethodAccessors.contains(fd)) accessFlags |= Mod.SYNTHETIC;
+            if (this.accessors.contains(fd)) accessFlags |= Mod.SYNTHETIC;
 
             if (fd.getDeclaringType() instanceof InterfaceDeclaration) {
 
@@ -4174,20 +4211,15 @@ class UnitCompiler {
                 final short eani    = classFile.addConstantUtf8Info("Exceptions");
                 List<Short> tecciis = new ArrayList<>(); // new short[fd.thrownExceptions.length];
                 for (int i = 0; i < fd.thrownExceptions.length; ++i) {
-                    final Type te = fd.thrownExceptions[i];
-                    if (te instanceof ReferenceType) {
-                        ReferenceType rt = (ReferenceType) te;
 
-                        // Don't include thrown exceptions that are parameterized, e.g.
-                        //      void meth() throws EX {...}
-                        // , because we don't generate "Signature" attributes for methods, and "throws Throwable"
-                        // would cause compilation problems when the class is loaded later, e.g. by ClassFileIClass.
-                        if (
-                            rt.identifiers.length == 1
-                            && UnitCompiler.LOOKS_LIKE_TYPE_PARAMETER.matcher(rt.identifiers[0]).matches()
-                        ) continue;
-                    }
-                    tecciis.add(classFile.addConstantClassInfo(this.getRawType(te).getDescriptor()));
+                    // Don't include thrown exceptions that are type parameters, e.g.
+                    //      <EX extends Exception> void meth() throws EX {...}
+                    // , because we don't generate "Signature" attributes for methods, and "throws Throwable"
+                    // would cause compilation problems when the class is loaded later, e.g. by ClassFileIClass.
+                    IClass te = this.thrownExceptionType(fd.thrownExceptions[i], fd);
+                    if (te == null) continue;
+
+                    tecciis.add(classFile.addConstantClassInfo(te.getDescriptor()));
                 }
 
                 short[] sa = new short[tecciis.size()];
@@ -4694,8 +4726,30 @@ class UnitCompiler {
     private void
     buildLocalVariableMap(TryStatement ts, final Map<String, LocalVariable> localVars)
     throws CompileException {
-        ts.localVariables = localVars;
-        this.buildLocalVariableMap(ts.body, localVars);
+
+        // The resource variables are in scope in the initializers of the following resources and in the body, but
+        // not in the CATCH clauses and the FINALLY clause (JLS 14.20.3). "compileTryWithResources()" adds each
+        // resource variable to the map of the TRY statement when the resource is initialized, so the initializers
+        // of the preceding resources do not see it.
+        Map<String, LocalVariable> tsVars = localVars, bodyVars = localVars;
+        for (TryStatement.Resource r : ts.resources) {
+            if (!(r instanceof LocalVariableDeclaratorResource)) continue;
+            LocalVariableDeclaratorResource lvdr = (LocalVariableDeclaratorResource) r;
+
+            if (bodyVars == localVars) {
+                tsVars   = new HashMap<>(localVars);
+                bodyVars = new HashMap<>(localVars);
+            }
+
+            // A resource variable with the name of a local variable in scope (JAVAC: "already defined") is not
+            // reported, for compatibility with the earlier versions that did not see the resource variables; it
+            // shadows that variable, like a CATCH parameter.
+            LocalVariable lv = this.getLocalVariable(lvdr);
+            bodyVars.put(lvdr.variableDeclarator.name, lv);
+            this.resourceVariables.add(lv);
+        }
+        ts.localVariables = tsVars;
+        this.buildLocalVariableMap(ts.body, bodyVars);
         for (CatchClause cc : ts.catchClauses) this.buildLocalVariableMap(cc, localVars);
         if (ts.finallY != null) {
             this.buildLocalVariableMap(ts.finallY, localVars);
@@ -4722,8 +4776,12 @@ class UnitCompiler {
         Map<String, LocalVariable> newVars = new HashMap<>();
         newVars.putAll(localVars);
         for (VariableDeclarator vd : lvds.variableDeclarators) {
-            LocalVariable      lv = this.getLocalVariable(lvds, vd);
-            if (newVars.put(vd.name, lv) != null) {
+            LocalVariable lv   = this.getLocalVariable(lvds, vd);
+            LocalVariable prev = (LocalVariable) newVars.put(vd.name, lv);
+
+            // A local variable with the name of a resource variable in scope (JAVAC: "already defined") is not
+            // reported, for compatibility with the earlier versions that did not see the resource variables.
+            if (prev != null && !this.resourceVariables.contains(prev)) {
                 this.compileError("Redefinition of local variable \"" + vd.name + "\" ", vd.getLocation());
             }
         }
@@ -5441,7 +5499,12 @@ class UnitCompiler {
             }
             return 0;
         } else {
-            this.compileGetValue(this.toRvalueOrCompileException(fa.lhs));
+            Rvalue lhs = this.toRvalueOrCompileException(fa.lhs);
+
+            // The accessor method takes the instance of "ClassName.super.f", not the cast to the superclass.
+            if (this.protectedFieldAccessorClass(fa) != null) lhs = this.protectedFieldAccessReceiver(fa);
+
+            this.compileGetValue(lhs);
             return 1;
         }
     }
@@ -5460,13 +5523,8 @@ class UnitCompiler {
     private int
     compileContext2(ArrayAccessExpression aae) throws CompileException {
 
-        IType lhsType = this.compileGetValue(aae.lhs);
-        if (!UnitCompiler.rawTypeOf(lhsType).isArray()) {
-            this.compileError(
-                "Subscript not allowed on non-array type \"" + lhsType.toString() + "\"",
-                aae.getLocation()
-            );
-        }
+        this.compileGetValue(aae.lhs);
+        this.getType(aae); // Reports "Subscript not allowed on non-array type" if not already reported.
 
         IType indexType = this.compileGetValue(aae.index);
         if (this.unaryNumericPromotion(aae.index, indexType) != IClass.INT) {
@@ -5604,7 +5662,13 @@ class UnitCompiler {
     compileGet2(FieldAccess fa) throws CompileException {
         this.checkAccessible(fa.field, fa.getEnclosingScope(), fa.getLocation());
         this.checkProtectedFieldAccessibleThroughReceiver(fa);
-        this.getfield(fa, fa.field);
+
+        AbstractClassDeclaration accessorClass = this.protectedFieldAccessorClass(fa);
+        if (accessorClass != null) {
+            this.invokeAccessor(fa, accessorClass, fa.field, UnitCompiler.ACCESSOR_READ);
+        } else {
+            this.getfield(fa, fa.field);
+        }
         return fa.field.getType();
     }
 
@@ -6155,7 +6219,7 @@ class UnitCompiler {
                     );
                 }
 
-                this.referenceThis(
+                receiverType = this.referenceThis(
                     mi,                          // locatable
                     scopeTypeDeclaration,        // declaringType
                     scopeTbd,                    // declaringTypeBodyDeclaration
@@ -6255,6 +6319,18 @@ class UnitCompiler {
                 mi.getLocation()
             );
         }
+
+        AbstractClassDeclaration accessorClass = this.protectedMemberAccessorClass(
+            iMethod,
+            receiverType,
+            mi.getEnclosingScope()
+        );
+        if (accessorClass != null) {
+
+            // The JVM denies an inner class the access to a protected method that an enclosing class inherits from
+            // a class in another package; like JAVAC, invoke the synthetic accessor method of that enclosing class.
+            this.invokeAccessor(mi, accessorClass, iMethod, UnitCompiler.ACCESSOR_READ);
+        } else
         if (!iMethod.getDeclaringIClass().isInterface() && !iMethod.isStatic() && iMethod.getAccess() == Access.PRIVATE) {
 
             // In order to make a non-static private method invocable for enclosing types, enclosed types and types
@@ -6278,7 +6354,26 @@ class UnitCompiler {
         {
             this.invokeMethod(mi, iMethod);
         }
+
+        // JLS 10.7: "clone()" of an array returns the array type; the JVM, however, resolves only the descriptor of
+        // "Object.clone()" for arrays, so the result must be cast to the array type (like JAVAC does).
+        IClass arrayType = UnitCompiler.arrayCloneType(iMethod);
+        if (arrayType != null) {
+            this.checkcast(mi, arrayType);
+            return arrayType;
+        }
+
         return iMethod.getReturnType();
+    }
+
+    /**
+     * @return The array type if <var>iMethod</var> is the "clone()" method of an array type (JLS 10.7), otherwise
+     *         {@code null}
+     */
+    @Nullable private static IClass
+    arrayCloneType(IMethod iMethod) {
+        IClass declaringIClass = iMethod.getDeclaringIClass();
+        return declaringIClass.isArray() && "clone".equals(iMethod.getName()) ? declaringIClass : null;
     }
 
     private static boolean
@@ -6379,7 +6474,7 @@ class UnitCompiler {
             this.compileError("Cannot invoke superclass method in non-method scope", scmi.getLocation());
             return IClass.INT;
         }
-        boolean isAccessor = this.superclassMethodAccessors.contains(fd);
+        boolean isAccessor = this.accessors.contains(fd);
         if (fd instanceof MethodDeclarator && ((MethodDeclarator) fd).isStatic() && !isAccessor) {
             this.compileError("Cannot invoke superclass method in static context", scmi.getLocation());
         }
@@ -6410,7 +6505,12 @@ class UnitCompiler {
                 qualification,
                 scmi
             );
-            MethodDeclarator accessor = this.superclassMethodAccessor(enclosingClass, iMethod, scmi.getLocation());
+            MethodDeclarator accessor = this.accessor(
+                enclosingClass,
+                iMethod,
+                UnitCompiler.ACCESSOR_SUPER,
+                scmi.getLocation()
+            );
 
             QualifiedThisReference qtr = new QualifiedThisReference(
                 scmi.getLocation(),
@@ -6461,17 +6561,32 @@ class UnitCompiler {
     }
 
     /**
-     * The synthetic static methods through which inner classes invoke superclass methods of their enclosing classes
-     * ("{@code ClassName.super.m()}"), by enclosing class declaration and invoked method; see {@link
-     * #superclassMethodAccessor(AbstractClassDeclaration, IMethod, Location)}.
+     * The synthetic static methods through which inner classes access members of their enclosing classes that the
+     * JVM denies them: the superclass methods of "{@code ClassName.super.m()}" (issue #22), and the protected members
+     * that an enclosing class inherits from a class in another package (issue #59); by enclosing class declaration
+     * and accessor name. See {@link #accessor(AbstractClassDeclaration, IClass.IMember, int, Location)}.
      */
-    private final Map<AbstractClassDeclaration, Map<IMethod, MethodDeclarator>>
-    superclassMethodAccessorsByClass = new HashMap<>();
+    private final Map<AbstractClassDeclaration, Map<String, MethodDeclarator>> accessorsByClass = new HashMap<>();
 
     /**
-     * All the synthetic accessor methods of {@link #superclassMethodAccessorsByClass}.
+     * The numbers of the members that are accessed through the {@link #accessorsByClass}, by enclosing class
+     * declaration; the accessors of one member share its number (like with JAVAC: "{@code access$000}" and "{@code
+     * access$002}").
      */
-    private final Set<FunctionDeclarator> superclassMethodAccessors = new HashSet<>();
+    private final Map<AbstractClassDeclaration, Map<IClass.IMember, Integer>>
+    accessorNumbersByClass = new HashMap<>();
+
+    /**
+     * All the accessor methods of {@link #accessorsByClass}.
+     */
+    private final Set<FunctionDeclarator> accessors = new HashSet<>();
+
+    /**
+     * The access codes of the accessor methods, which form the last two digits of their names (like with JAVAC):
+     * {@link #ACCESSOR_READ} reads a field or invokes a method, {@link #ACCESSOR_SUPER} invokes a superclass method,
+     * {@link #ACCESSOR_WRITE} assigns a field.
+     */
+    private static final int ACCESSOR_READ = 0, ACCESSOR_SUPER = 1, ACCESSOR_WRITE = 2;
 
     /**
      * @return The raw type of the qualification of the <var>smi</var>, or {@code null} iff it has none
@@ -6513,59 +6628,127 @@ class UnitCompiler {
     }
 
     /**
-     * Returns the synthetic static method of the <var>enclosingClass</var> that invokes the superclass method
-     * <var>iMethod</var> on its first parameter, and creates it if it does not exist yet (like JAVAC):
+     * Returns the synthetic static method of the <var>enclosingClass</var> through which its inner classes access
+     * the <var>member</var>, and creates it if it does not exist yet. Like with JAVAC, the method is named
+     * "{@code access$}<var>n</var><var>cc</var>", where <var>n</var> numbers the members of the
+     * <var>enclosingClass</var> that are accessed through accessors, and <var>cc</var> is the <var>accessCode</var>:
      * <pre>
+     *     static RT access$N00(EnclosingClass x0, P1 x1, ...) throws ... { return x0.m(x1, ...); }
+     *     static RT access$N00(P1 x0, ...) throws ... { return DeclaringClass.m(x0, ...); }     // static method
+     *     static T  access$N00(EnclosingClass x0) { return x0.f; }
+     *     static T  access$N02(EnclosingClass x0, T x1) { return x0.f = x1; }
      *     static RT access$N01(EnclosingClass x0, P1 x1, ...) throws ... { return super.m(x1, ...); }
      * </pre>
      * The method is compiled with the other methods of the <var>enclosingClass</var>, after its member types (see
      * {@link #compile2(AbstractClassDeclaration)}).
      */
     private MethodDeclarator
-    superclassMethodAccessor(AbstractClassDeclaration enclosingClass, IMethod iMethod, Location loc)
+    accessor(AbstractClassDeclaration enclosingClass, IClass.IMember member, int accessCode, Location loc)
     throws CompileException {
 
-        Map<IMethod, MethodDeclarator> accessors = (
-            (Map<IMethod, MethodDeclarator>) this.superclassMethodAccessorsByClass.get(enclosingClass)
+        Map<String, MethodDeclarator> byName = (
+            (Map<String, MethodDeclarator>) this.accessorsByClass.get(enclosingClass)
         );
-        if (accessors == null) {
-            accessors = new HashMap<>();
-            this.superclassMethodAccessorsByClass.put(enclosingClass, accessors);
+        Map<IClass.IMember, Integer> numbers = (
+            (Map<IClass.IMember, Integer>) this.accessorNumbersByClass.get(enclosingClass)
+        );
+        if (byName == null || numbers == null) {
+            byName  = new HashMap<>();
+            numbers = new HashMap<>();
+            this.accessorsByClass.put(enclosingClass, byName);
+            this.accessorNumbersByClass.put(enclosingClass, numbers);
         }
 
-        MethodDeclarator result = (MethodDeclarator) accessors.get(iMethod);
+        Integer number = (Integer) numbers.get(member);
+        if (number == null) {
+            number = Integer.valueOf(numbers.size());
+            numbers.put(member, number);
+        }
+        String name = "access$" + number + "0" + accessCode;
+
+        MethodDeclarator result = (MethodDeclarator) byName.get(name);
         if (result != null) return result;
 
-        IClass[]          parameterTypes   = iMethod.getParameterTypes();
-        FormalParameter[] formalParameters = new FormalParameter[parameterTypes.length + 1];
-        Rvalue[]          arguments        = new Rvalue[parameterTypes.length];
-        formalParameters[0] = new FormalParameter(
-            loc,                                                  // location
-            new Modifier[0],                                      // modifiers
-            new SimpleType(loc, this.resolve(enclosingClass)),    // type
-            "x0"                                                  // name
-        );
-        for (int i = 0; i < parameterTypes.length; i++) {
-            formalParameters[i + 1] = new FormalParameter(
-                loc,                                   // location
-                new Modifier[0],                       // modifiers
-                new SimpleType(loc, parameterTypes[i]), // type
-                "x" + (i + 1)                          // name
+        boolean  isStatic;
+        IClass[] parameterTypes;
+        IClass   returnType;
+        Type[]   thrownExceptionTypes;
+        if (member instanceof IMethod) {
+            IMethod iMethod = (IMethod) member;
+
+            isStatic       = iMethod.isStatic();
+            parameterTypes = iMethod.getParameterTypes();
+            returnType     = iMethod.getReturnType();
+
+            IClass[] thrownExceptions = iMethod.getThrownExceptions();
+            thrownExceptionTypes = new Type[thrownExceptions.length];
+            for (int i = 0; i < thrownExceptions.length; i++) {
+                thrownExceptionTypes[i] = new SimpleType(loc, thrownExceptions[i]);
+            }
+        } else {
+            IField iField = (IField) member;
+
+            isStatic             = iField.isStatic();
+            parameterTypes       = (
+                accessCode == UnitCompiler.ACCESSOR_WRITE
+                ? new IClass[] { iField.getType() }
+                : new IClass[0]
             );
-            arguments[i] = new ParameterAccess(loc, formalParameters[i + 1]);
+            returnType           = iField.getType();
+            thrownExceptionTypes = new Type[0];
         }
 
-        IClass[] thrownExceptions     = iMethod.getThrownExceptions();
-        Type[]   thrownExceptionTypes = new Type[thrownExceptions.length];
-        for (int i = 0; i < thrownExceptions.length; i++) {
-            thrownExceptionTypes[i] = new SimpleType(loc, thrownExceptions[i]);
+        // The parameters: The instance ("x0", unless the member is static), then the method arguments or the value
+        // to assign.
+        int               offset           = isStatic ? 0 : 1;
+        FormalParameter[] formalParameters = new FormalParameter[offset + parameterTypes.length];
+        Rvalue[]          arguments        = new Rvalue[parameterTypes.length];
+        if (!isStatic) {
+            formalParameters[0] = new FormalParameter(
+                loc,                                               // location
+                new Modifier[0],                                   // modifiers
+                new SimpleType(loc, this.resolve(enclosingClass)), // type
+                "x0"                                               // name
+            );
+        }
+        for (int i = 0; i < parameterTypes.length; i++) {
+            formalParameters[offset + i] = new FormalParameter(
+                loc,                                    // location
+                new Modifier[0],                        // modifiers
+                new SimpleType(loc, parameterTypes[i]), // type
+                "x" + (offset + i)                      // name
+            );
+            arguments[i] = new ParameterAccess(loc, formalParameters[offset + i]);
         }
 
-        Rvalue         invocation = new SuperclassMethodInvocation(loc, iMethod.getName(), arguments);
-        BlockStatement statement  = (
-            iMethod.getReturnType() == IClass.VOID
-            ? (BlockStatement) new ExpressionStatement(invocation)
-            : new ReturnStatement(loc, invocation)
+        // The target of the access: The instance, or the declaring class of a static member.
+        Atom target = (
+            isStatic
+            ? (Atom) new SimpleType(loc, member.getDeclaringIClass())
+            : new ParameterAccess(loc, formalParameters[0])
+        );
+
+        Rvalue expression;
+        if (member instanceof IMethod) {
+            String methodName = ((IMethod) member).getName();
+            expression = (
+                accessCode == UnitCompiler.ACCESSOR_SUPER
+                ? new SuperclassMethodInvocation(loc, methodName, arguments)
+                : new MethodInvocation(loc, target, methodName, arguments)
+            );
+        } else {
+            FieldAccess fieldAccess = new FieldAccess(loc, target, (IField) member);
+            expression = (
+                accessCode == UnitCompiler.ACCESSOR_WRITE
+                ? new Assignment(loc, fieldAccess, "=", arguments[0])
+                : fieldAccess
+            );
+        }
+
+        BlockStatement statement = (
+            returnType == IClass.VOID
+            ? (BlockStatement) new ExpressionStatement(expression)
+            : new ReturnStatement(loc, expression)
         );
 
         result = new MethodDeclarator(
@@ -6573,8 +6756,8 @@ class UnitCompiler {
             null,                                               // docComment
             UnitCompiler.accessModifiers(loc, "static"),        // modifiers
             null,                                               // typeParameters
-            new SimpleType(loc, iMethod.getReturnType()),       // type
-            "access$" + accessors.size() + "01",                // name
+            new SimpleType(loc, returnType),                    // type
+            name,                                               // name
             new FormalParameters(loc, formalParameters, false), // formalParameters
             thrownExceptionTypes,                               // thrownExceptions
             null,                                               // defaultValue
@@ -6582,10 +6765,31 @@ class UnitCompiler {
         );
         enclosingClass.addDeclaredMethod(result);
 
-        accessors.put(iMethod, result);
-        this.superclassMethodAccessors.add(result);
+        byName.put(name, result);
+        this.accessors.add(result);
 
         return result;
+    }
+
+    /**
+     * Invokes the accessor method of the <var>accessorClass</var> for the <var>member</var> (see {@link
+     * #accessor(AbstractClassDeclaration, IClass.IMember, int, Location)}); the instance (unless the member is
+     * static) and the method arguments or the value to assign must be on the operand stack.
+     */
+    private void
+    invokeAccessor(Locatable locatable, AbstractClassDeclaration accessorClass, IClass.IMember member, int accessCode)
+    throws CompileException {
+
+        MethodDeclarator accessor = this.accessor(accessorClass, member, accessCode, locatable.getLocation());
+
+        this.invoke(
+            locatable,                                // locatable
+            Opcode.INVOKESTATIC,                      // opcode
+            this.resolve(accessorClass),              // declaringIClass
+            accessor.name,                            // methodName
+            this.toIMethod(accessor).getDescriptor(), // methodMd
+            false                                     // useInterfaceMethodref
+        );
     }
 
     private IType
@@ -7942,7 +8146,16 @@ class UnitCompiler {
     compileSet2(FieldAccess fa) throws CompileException {
         this.checkAccessible(fa.field, fa.getEnclosingScope(), fa.getLocation());
         this.checkProtectedFieldAccessibleThroughReceiver(fa);
-        this.putfield(fa, fa.field);
+
+        AbstractClassDeclaration accessorClass = this.protectedFieldAccessorClass(fa);
+        if (accessorClass != null) {
+
+            // The accessor returns the assigned value (like JAVAC's); discard it, like PUTFIELD.
+            this.invokeAccessor(fa, accessorClass, fa.field, UnitCompiler.ACCESSOR_WRITE);
+            this.pop(fa, fa.field.getType());
+        } else {
+            this.putfield(fa, fa.field);
+        }
     }
     private void
     compileSet2(ArrayAccessExpression aae) throws CompileException {
@@ -8203,57 +8416,25 @@ class UnitCompiler {
             return this.iClassLoader.TYPE_java_lang_Object;
         }
 
-        // Method declaration type parameter?
-        for (Scope s = scope; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
-            if (!(s instanceof MethodDeclarator)) continue;
-            MethodDeclarator md = (MethodDeclarator) s;
-
-            TypeParameter[] typeParameters = md.getOptionalTypeParameters();
-            if (typeParameters != null) {
-                for (TypeParameter tp : typeParameters) {
-                    if (tp.name.equals(simpleTypeName)) {
-                        IType[]         boundTypes;
-                        ReferenceType[] ob = tp.bound;
-                        if (ob == null) {
-                            boundTypes = new IType[] { this.iClassLoader.TYPE_java_lang_Object };
-                        } else {
-                            boundTypes = new IType[ob.length];
-                            for (int i = 0; i < boundTypes.length; i++) {
-                                boundTypes[i] = this.getType(ob[i]);
-                            }
-                        }
-
-                        // Here is the big simplification: Instead of returning the "correct" type, honoring type
-                        // arguments, we simply return the first bound. E.g. "Map.get(K)" returns a "V", but
-                        // JANINO says it's an "Object" (the implicit bound of "V").
-                        return boundTypes[0];
+        // Type parameter of an enclosing method or type declaration?
+        {
+            TypeParameter tp = UnitCompiler.findTypeParameter(simpleTypeName, scope);
+            if (tp != null) {
+                IType[]         boundTypes;
+                ReferenceType[] ob = tp.bound;
+                if (ob == null) {
+                    boundTypes = new IType[] { this.iClassLoader.TYPE_java_lang_Object };
+                } else {
+                    boundTypes = new IType[ob.length];
+                    for (int i = 0; i < boundTypes.length; i++) {
+                        boundTypes[i] = this.getType(ob[i]);
                     }
                 }
-            }
-        }
 
-        // Type declaration type parameter?
-        for (Scope s = scope; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
-            if (!(s instanceof NamedTypeDeclaration)) continue;
-            NamedTypeDeclaration ntd = (NamedTypeDeclaration) s;
-
-            TypeParameter[] typeParameters = ntd.getOptionalTypeParameters();
-            if (typeParameters != null) {
-                for (TypeParameter tp : typeParameters) {
-                    if (tp.name.equals(simpleTypeName)) {
-                        IType[]         boundTypes;
-                        ReferenceType[] ob = tp.bound;
-                        if (ob == null) {
-                            boundTypes = new IClass[] { this.iClassLoader.TYPE_java_lang_Object };
-                        } else {
-                            boundTypes = new IClass[ob.length];
-                            for (int i = 0; i < boundTypes.length; i++) {
-                                boundTypes[i] = this.getType(ob[i]);
-                            }
-                        }
-                        return boundTypes[0];
-                    }
-                }
+                // Here is the big simplification: Instead of returning the "correct" type, honoring type
+                // arguments, we simply return the first bound. E.g. "Map.get(K)" returns a "V", but
+                // JANINO says it's an "Object" (the implicit bound of "V").
+                return boundTypes[0];
             }
         }
 
@@ -8310,8 +8491,100 @@ class UnitCompiler {
         }
     }
 
+    /**
+     * @return The type parameter with the given <var>name</var> of an enclosing method declaration (the innermost
+     *         first), or else of an enclosing type declaration (the innermost first), or {@code null}
+     */
+    @Nullable private static TypeParameter
+    findTypeParameter(String name, Scope scope) {
+
+        // Method declaration type parameter?
+        for (Scope s = scope; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (!(s instanceof MethodDeclarator)) continue;
+
+            TypeParameter[] typeParameters = ((MethodDeclarator) s).getOptionalTypeParameters();
+            if (typeParameters != null) {
+                for (TypeParameter tp : typeParameters) {
+                    if (tp.name.equals(name)) return tp;
+                }
+            }
+        }
+
+        // Type declaration type parameter?
+        for (Scope s = scope; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (!(s instanceof NamedTypeDeclaration)) continue;
+
+            TypeParameter[] typeParameters = ((NamedTypeDeclaration) s).getOptionalTypeParameters();
+            if (typeParameters != null) {
+                for (TypeParameter tp : typeParameters) {
+                    if (tp.name.equals(name)) return tp;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolves a type of the THROWS clause of a function (JLS7 8.4.6): a type parameter is ignored, because the
+     * compiler cannot infer the exception type that an invocation throws (JLS7 15.12.2.6), and the "Exceptions"
+     * attribute cannot express it (see {@link #compile(FunctionDeclarator, ClassFile)}). Before 3.1.17, every
+     * single all-uppercase identifier was taken for a type parameter (issue #65); for compatibility, such an
+     * identifier that does not denote a type is still ignored.
+     *
+     * @param scope The function declaration
+     * @return      The exception class, or {@code null} iff the type is ignored
+     */
+    @Nullable private IClass
+    thrownExceptionType(Type thrownException, Scope scope) throws CompileException {
+
+        if (thrownException instanceof ReferenceType) {
+            String[] identifiers = ((ReferenceType) thrownException).identifiers;
+            if (identifiers.length == 1) {
+                String name = identifiers[0];
+
+                if (UnitCompiler.findTypeParameter(name, scope) != null) return null;
+
+                if (
+                    UnitCompiler.LOOKS_LIKE_TYPE_PARAMETER.matcher(name).matches()
+                    && this.findRawReferenceType(thrownException.getLocation(), name, scope) == null
+                ) return null;
+            }
+        }
+
+        return this.getRawType(thrownException);
+    }
+
+    /**
+     * @return Whether the <var>thrownException</var> of a THROWS clause is a single all-uppercase identifier, which
+     *         versions before 3.1.17 took for a type parameter (issue #65)
+     */
+    private static boolean
+    looksLikeTypeParameter(Type thrownException) {
+
+        if (!(thrownException instanceof ReferenceType)) return false;
+
+        String[] identifiers = ((ReferenceType) thrownException).identifiers;
+        return identifiers.length == 1 && UnitCompiler.LOOKS_LIKE_TYPE_PARAMETER.matcher(identifiers[0]).matches();
+    }
+
     private IClass
     getRawReferenceType(Location location, String simpleTypeName, Scope scope) throws CompileException {
+
+        IClass result = this.findRawReferenceType(location, simpleTypeName, scope);
+        if (result != null) return result;
+
+        // 6.5.5.1.8 Give up.
+        this.compileError("Cannot determine simple type name \"" + simpleTypeName + "\"", location);
+        return this.iClassLoader.TYPE_java_lang_Object;
+    }
+
+    /**
+     * @return The type that the <var>simpleTypeName</var> denotes in the <var>scope</var> (JLS7 6.5.5.1), or {@code
+     *         null} iff there is none
+     */
+    @Nullable private IClass
+    findRawReferenceType(Location location, String simpleTypeName, Scope scope) throws CompileException {
 
         // 6.5.5.1.1 Local class.
         {
@@ -8450,9 +8723,7 @@ class UnitCompiler {
             }
         }
 
-        // 6.5.5.1.8 Give up.
-        this.compileError("Cannot determine simple type name \"" + simpleTypeName + "\"", location);
-        return this.iClassLoader.TYPE_java_lang_Object;
+        return null;
     }
 
     /**
@@ -8685,12 +8956,21 @@ class UnitCompiler {
 
     private IType
     getType2(ArrayAccessExpression aae) throws CompileException {
-        IType componentType = UnitCompiler.getComponentType(this.getType(aae.lhs));
 
-        // After the compile error "Subscript not allowed on non-array type", there is no component type.
-        if (componentType == null && this.compileErrorCount > 0) return this.iClassLoader.TYPE_java_lang_Object;
+        IType componentType = aae.componentType;
+        if (componentType != null) return componentType;
 
-        assert componentType != null : "null component type for " + aae;
+        IType lhsType = this.getType(aae.lhs);
+        componentType = UnitCompiler.getComponentType(lhsType);
+        if (componentType == null) {
+
+            // The type of an expression is determined possibly several times before the expression is compiled (e.g.
+            // when the expression is a method argument), so the error is reported here, and only once.
+            this.compileError("Subscript not allowed on non-array type \"" + lhsType + "\"", aae.getLocation());
+            componentType = this.iClassLoader.TYPE_java_lang_Object;
+        }
+
+        aae.componentType = componentType;
         return componentType;
     }
 
@@ -8808,7 +9088,8 @@ class UnitCompiler {
     getType2(MethodInvocation mi) throws CompileException {
         IMethod iMethod = mi.iMethod != null ? mi.iMethod : (mi.iMethod = this.findIMethod(mi));
 
-        return iMethod.getReturnType();
+        IClass arrayType = UnitCompiler.arrayCloneType(iMethod);
+        return arrayType != null ? arrayType : iMethod.getReturnType();
     }
 
     private IClass
@@ -9110,7 +9391,8 @@ class UnitCompiler {
         // At this point, the member is PROTECTED accessible.
 
         // Check whether the class declaring the context block statement is a subclass of the class declaring the
-        // member or a nested class whose parent is a subclass
+        // member or a nested class (also a static nested class, or a local class in a static method, JLS7 6.6.2.1:
+        // "within the body of a subclass") whose parent is a subclass
         {
             IClass parentClass = iClassDeclaringContext;
             do {
@@ -9118,7 +9400,7 @@ class UnitCompiler {
                 if (iClassDeclaringMember.isAssignableFrom(parentClass)) {
                     return null;
                 }
-                parentClass = parentClass.getOuterIClass();
+                parentClass = parentClass.getDeclaringIClass();
             } while (parentClass != null);
         }
 
@@ -9135,7 +9417,9 @@ class UnitCompiler {
      * Checks the restriction on the access to a {@code protected} instance member through a receiver expression
      * (JLS7 6.6.2.1): If the member is declared in a class in another package, then the type of the receiver must be
      * the class in whose body the access occurs, or an enclosing class, or a subclass of one of these. The JVM
-     * verifies the same (JVMS8 4.10.1.8) and rejects the class otherwise (issue #54).
+     * verifies the same (JVMS8 4.10.1.8) and rejects the class otherwise (issue #54). (The JVM permits the access
+     * only to the subclass itself; an inner class accesses the member through an accessor method of the enclosing
+     * class, see {@link #protectedMemberAccessorClass(IClass.IMember, IType, Scope)}.)
      */
     private void
     checkProtectedMemberAccessibleThroughReceiver(
@@ -9164,7 +9448,7 @@ class UnitCompiler {
             return;
         }
 
-        for (IClass c = iClassDeclaringContext; c != null; c = c.getOuterIClass()) {
+        for (IClass c = iClassDeclaringContext; c != null; c = c.getDeclaringIClass()) {
             if (declaringIClass.isAssignableFrom(c) && c.isAssignableFrom(rawReceiverType)) return;
         }
 
@@ -9186,15 +9470,101 @@ class UnitCompiler {
 
         if (fa.field.getAccess() != Access.PROTECTED || fa.field.isStatic() || this.isType(fa.lhs)) return;
 
-        // "super.field" is compiled as a field access through "this", cast to the superclass (see
-        // "determineValue(SuperclassFieldAccessExpression)"); that access is permitted.
-        if (fa.lhs instanceof Cast && ((Cast) fa.lhs).value instanceof ThisReference) return;
-
         this.checkProtectedMemberAccessibleThroughReceiver(
             fa.field,
-            this.getType(this.toRvalueOrCompileException(fa.lhs)),
+            this.getType(this.protectedFieldAccessReceiver(fa)),
             fa.getEnclosingScope(),
             fa.getLocation()
+        );
+    }
+
+    /**
+     * Returns the receiver of the field access <var>fa</var> for the checks of the access to a protected field:
+     * "{@code super.f}" and "{@code ClassName.super.f}" are compiled as field accesses through "{@code this}" and
+     * "{@code ClassName.this}", cast to the superclass (see {@link #determineValue(SuperclassFieldAccessExpression)});
+     * their receiver is that "this" reference.
+     */
+    private Rvalue
+    protectedFieldAccessReceiver(FieldAccess fa) throws CompileException {
+
+        Rvalue lhs = this.toRvalueOrCompileException(fa.lhs);
+        if (lhs instanceof Cast) {
+            Rvalue value = ((Cast) lhs).value;
+            if (value instanceof ThisReference || value instanceof QualifiedThisReference) return value;
+        }
+
+        return lhs;
+    }
+
+    /**
+     * Determines whether the <var>member</var>, accessed in the <var>contextScope</var> through a receiver of the
+     * <var>receiverType</var> ({@code null} for a static member), must be accessed through a synthetic accessor
+     * method of an enclosing class (issue #59): The member is {@code protected} and declared in a class in another
+     * package, and the class declaring the context is not a subclass of that class (or the receiver type is not a
+     * subclass of the context class), while an enclosing class is. JLS7 6.6.2.1 permits the access ("within the
+     * body of a subclass"), but the JVM denies it to the inner class (JVMS8 5.4.4 and 4.10.1.8), so, like JAVAC,
+     * the inner class invokes an accessor method of the enclosing class.
+     *
+     * @return The enclosing class that hosts the accessor method, or {@code null} iff the member is accessed
+     *         directly (also if it is not accessible at all, which the access checks report)
+     */
+    @Nullable private AbstractClassDeclaration
+    protectedMemberAccessorClass(IClass.IMember member, @Nullable IType receiverType, Scope contextScope)
+    throws CompileException {
+
+        if (member.getAccess() != Access.PROTECTED) return null;
+
+        IClass declaringIClass = member.getDeclaringIClass();
+        IClass rawReceiverType = receiverType == null ? null : UnitCompiler.rawTypeOf(receiverType);
+
+        // The members of an array type are public (JLS7 10.7).
+        if (rawReceiverType != null && rawReceiverType.isArray()) return null;
+
+        TypeDeclaration contextType = null;
+        for (Scope s = contextScope; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (s instanceof TypeDeclaration) {
+                contextType = (TypeDeclaration) s;
+                break;
+            }
+        }
+        if (contextType == null) return null;
+
+        // Within the package of the declaring class, a protected member is accessible like a member with package
+        // access.
+        IClass iClassDeclaringContext = this.resolve(contextType);
+        if (Descriptor.areInSamePackage(declaringIClass.getDescriptor(), iClassDeclaringContext.getDescriptor())) {
+            return null;
+        }
+
+        // The innermost class, from the context outwards, that is a subclass of the declaring class (and of which
+        // the receiver type is a subclass) accesses the member; if it is not the context class, it hosts the
+        // accessor.
+        for (Scope s = contextType; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (!(s instanceof TypeDeclaration)) continue;
+
+            IClass c = this.resolve((TypeDeclaration) s);
+            if (!declaringIClass.isAssignableFrom(c)) continue;
+            if (rawReceiverType != null && !c.isAssignableFrom(rawReceiverType)) continue;
+
+            return s != contextType && s instanceof AbstractClassDeclaration ? (AbstractClassDeclaration) s : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return The enclosing class that hosts the accessor method for the field access <var>fa</var>, or {@code
+     *         null} (see {@link #protectedMemberAccessorClass(IClass.IMember, IType, Scope)})
+     */
+    @Nullable private AbstractClassDeclaration
+    protectedFieldAccessorClass(FieldAccess fa) throws CompileException {
+
+        if (fa.field.getAccess() != Access.PROTECTED) return null;
+
+        return this.protectedMemberAccessorClass(
+            fa.field,
+            fa.field.isStatic() || this.isType(fa.lhs) ? null : this.getType(this.protectedFieldAccessReceiver(fa)),
+            fa.getEnclosingScope()
         );
     }
 
@@ -9926,6 +10296,23 @@ class UnitCompiler {
                                 }
 
                                 BlockStatement       bs = (BlockStatement) s;
+
+                                // Is it declared in the initializer of an enclosing basic FOR statement (issue #75)?
+                                if (bs instanceof ForStatement) {
+                                    BlockStatement init = ((ForStatement) bs).init;
+                                    if (init instanceof LocalVariableDeclarationStatement) {
+                                        LocalVariableDeclarationStatement lvds = (
+                                            (LocalVariableDeclarationStatement) init
+                                        );
+                                        for (VariableDeclarator vd : lvds.variableDeclarators) {
+                                            if (vd.name.equals(localVariableName)) {
+                                                lv = this.getLocalVariable(lvds, vd);
+                                                break DETERMINE_LV;
+                                            }
+                                        }
+                                    }
+                                }
+
                                 Scope                es = bs.getEnclosingScope();
 
                                 List<? extends BlockStatement> statements;
@@ -9940,6 +10327,22 @@ class UnitCompiler {
                                     if (fp.name.equals(localVariableName)) {
                                         lv = this.getLocalVariable(fp);
                                         break DETERMINE_LV;
+                                    }
+                                    continue;
+                                } else
+                                if (es instanceof TryStatement && bs == ((TryStatement) es).body) {
+
+                                    // Is it a resource variable of the enclosing TRY-with-resources statement? The
+                                    // last resource with the name is the one in scope.
+                                    List<TryStatement.Resource> resources = ((TryStatement) es).resources;
+                                    for (int i = resources.size() - 1; i >= 0; --i) {
+                                        TryStatement.Resource r = (TryStatement.Resource) resources.get(i);
+                                        if (!(r instanceof LocalVariableDeclaratorResource)) continue;
+                                        LocalVariableDeclaratorResource lvdr = (LocalVariableDeclaratorResource) r;
+                                        if (lvdr.variableDeclarator.name.equals(localVariableName)) {
+                                            lv = this.getLocalVariable(lvdr);
+                                            break DETERMINE_LV;
+                                        }
                                     }
                                     continue;
                                 } else
@@ -10419,6 +10822,117 @@ class UnitCompiler {
     }
 
     /**
+     * The names of the local variables that are not effectively final (JLS8 4.12.4), by the function or initializer
+     * that declares them; computed on demand by {@link #isEffectivelyFinal(String, BlockStatement)}.
+     */
+    private final Map<Scope, Set<String>> notEffectivelyFinalNames = new HashMap<>();
+
+    /**
+     * Whether the local variable with the given name, which is visible at the given block statement, is effectively
+     * final (JLS8 4.12.4), so that a local or anonymous class may access it although it is not declared FINAL
+     * (issue #24).
+     * <p>
+     *   The rule is conservative, by name: the variable must have an initializer, or be a parameter, a CATCH
+     *   parameter or the variable of an enhanced FOR statement, and its name must not be assigned, incremented or
+     *   decremented anywhere in the function or initializer that declares it, including the bodies of nested
+     *   classes. So a variable without an initializer that is assigned exactly once, and a variable whose name
+     *   is assigned in another block or in a nested class, are not effectively final for this analysis, although
+     *   they are for JAVAC (JAVAC_DIFFERENCES.md, section 2). The analysis never accepts a variable that JAVAC
+     *   rejects.
+     * </p>
+     */
+    private boolean
+    isEffectivelyFinal(String name, BlockStatement bs) {
+
+        // Find the function or initializer that declares the variable; a local variable is visible only within it.
+        Scope s = bs;
+        while (!(s instanceof FunctionDeclarator) && !(s instanceof Initializer)) {
+            if (s instanceof TypeDeclaration) return false;
+            s = s.getEnclosingScope();
+        }
+
+        Set<String> names = (Set<String>) this.notEffectivelyFinalNames.get(s);
+        if (names == null) {
+            names = UnitCompiler.notEffectivelyFinalNames(s);
+            this.notEffectivelyFinalNames.put(s, names);
+        }
+
+        return !names.contains(name);
+    }
+
+    /**
+     * @param functionOrInitializer A {@link FunctionDeclarator} or an {@link Initializer}
+     * @return                      The names of the local variables that are declared without an initializer, or
+     *                              assigned, incremented or decremented in the body, including nested class bodies
+     */
+    private static Set<String>
+    notEffectivelyFinalNames(Scope functionOrInitializer) {
+
+        final Set<String> result = new HashSet<>();
+
+        AbstractTraverser<RuntimeException> traverser = new AbstractTraverser<RuntimeException>() {
+
+            // The base class does not descend into the rvalue initializers of variables.
+            @Override public void
+            traverseArrayInitializerOrRvalue(ArrayInitializerOrRvalue aiorv) {
+                if (aiorv instanceof Rvalue) {
+                    this.visitAtom((Rvalue) aiorv);
+                } else {
+                    super.traverseArrayInitializerOrRvalue(aiorv);
+                }
+            }
+
+            @Override public void
+            traverseLocalVariableDeclarationStatement(LocalVariableDeclarationStatement lvds) {
+                for (VariableDeclarator vd : lvds.variableDeclarators) {
+                    if (vd.initializer == null) result.add(vd.name);
+                }
+                super.traverseLocalVariableDeclarationStatement(lvds);
+            }
+
+            @Override public void
+            traverseAssignment(Assignment a) {
+                UnitCompiler.addSimpleName(a.lhs, result);
+                super.traverseAssignment(a);
+            }
+
+            @Override public void
+            traverseCrement(Crement c) {
+                UnitCompiler.addSimpleName(c.operand, result);
+                super.traverseCrement(c);
+            }
+        };
+
+        if (functionOrInitializer instanceof ConstructorDeclarator) {
+            traverser.traverseConstructorDeclarator((ConstructorDeclarator) functionOrInitializer);
+        } else
+        if (functionOrInitializer instanceof MethodDeclarator) {
+            traverser.traverseMethodDeclarator((MethodDeclarator) functionOrInitializer);
+        } else
+        {
+            traverser.traverseInitializer((Initializer) functionOrInitializer);
+        }
+
+        return result;
+    }
+
+    /**
+     * Adds the simple name that the given lvalue denotes, if any ("{@code x}", "{@code (x)}"), to the given set.
+     */
+    private static void
+    addSimpleName(Lvalue lvalue, Set<String> names) {
+        while (lvalue instanceof ParenthesizedExpression) {
+            Rvalue value = ((ParenthesizedExpression) lvalue).value;
+            if (!(value instanceof Lvalue)) return;
+            lvalue = (Lvalue) value;
+        }
+        if (lvalue instanceof AmbiguousName) {
+            AmbiguousName an = (AmbiguousName) lvalue;
+            if (an.n == 1) names.add(an.identifiers[0]);
+        }
+    }
+
+    /**
      * JLS7 6.5.2.1
      */
     private Atom
@@ -10479,7 +10993,7 @@ class UnitCompiler {
                 while (s instanceof BlockStatement) {
                     LocalVariable lv = ((BlockStatement) s).findLocalVariable(identifier);
                     if (lv != null) {
-                        if (!lv.finaL) {
+                        if (!lv.finaL && !this.isEffectivelyFinal(identifier, (BlockStatement) s)) {
                             this.compileError((
                                 "Cannot access non-final local variable \""
                                 + identifier
@@ -11153,7 +11667,7 @@ class UnitCompiler {
                 if (
                     fd instanceof MethodDeclarator
                     && ((MethodDeclarator) fd).isStatic()
-                    && !this.superclassMethodAccessors.contains(fd)
+                    && !this.accessors.contains(fd)
                 ) {
                     this.compileError(
                         "Superclass method cannot be invoked in static context",
@@ -11652,9 +12166,10 @@ class UnitCompiler {
         IClass[] thrownExceptions = iMethod.getThrownExceptions();
         for (IClass thrownException : thrownExceptions) {
             this.checkThrownException(
-                in,                    // locatable
-                thrownException,       // type
-                in.getEnclosingScope() // scope
+                in,                                                      // locatable
+                thrownException,                                         // type
+                in.getEnclosingScope(),                                  // scope
+                this.legacyUncheckedExceptions.contains(thrownException) // legacyUnchecked
             );
         }
     }
@@ -11665,6 +12180,19 @@ class UnitCompiler {
      */
     private void
     checkThrownException(Locatable locatable, IType type, Scope scope) throws CompileException {
+        this.checkThrownException(locatable, type, scope, false);
+    }
+
+    /**
+     * @param legacyUnchecked Whether the exception need neither be caught nor declared, for compatibility (see
+     *                        {@link #legacyUncheckedExceptions}); the CATCH clauses that catch it are marked
+     *                        reachable nonetheless
+     * @throws CompileException The exception with the given <var>type</var> must not be thrown in the given
+     *                          <var>scope</var>
+     */
+    private void
+    checkThrownException(Locatable locatable, IType type, Scope scope, boolean legacyUnchecked)
+    throws CompileException {
 
         // Thrown object must be assignable to "Throwable".
         if (!(type instanceof IClass) || !this.iClassLoader.TYPE_java_lang_Throwable.isAssignableFrom((IClass) type)) {
@@ -11733,6 +12261,8 @@ class UnitCompiler {
                 break;
             }
         }
+
+        if (legacyUnchecked) return;
 
         this.compileError((
             "Thrown exception of type \""
@@ -12116,7 +12646,13 @@ class UnitCompiler {
         });
     }
 
-    private void
+    /**
+     * Loads the instance of the <var>declaringType</var>, or of its innermost enclosing class that is a subtype of
+     * the <var>targetIType</var>.
+     *
+     * @return The class of the loaded instance, or {@code null} iff a compile error was reported
+     */
+    @Nullable private IClass
     referenceThis(
         Locatable               locatable,
         AbstractTypeDeclaration declaringType,
@@ -12128,7 +12664,7 @@ class UnitCompiler {
         if (UnitCompiler.isStaticContext(declaringTypeBodyDeclaration)) {
             this.compileError("No current instance available in static context", locatable.getLocation());
             this.aconstnull(locatable);
-            return;
+            return null;
         }
 
         int j;
@@ -12154,14 +12690,16 @@ class UnitCompiler {
                 locatable.getLocation()
             );
             this.aconstnull(locatable);
-            return;
+            return null;
         }
+
+        IClass result = this.resolve((TypeDeclaration) path.get(j));
 
         int i;
         if (declaringTypeBodyDeclaration instanceof ConstructorDeclarator) {
             if (j == 0) {
                 this.load(locatable, this.resolve(declaringType), 0);
-                return;
+                return result;
             }
 
             ConstructorDeclarator constructorDeclarator = (
@@ -12193,6 +12731,8 @@ class UnitCompiler {
             inner.defineSyntheticField(sf);
             this.getfield(locatable, sf);
         }
+
+        return result;
     }
 
     /**
@@ -12388,11 +12928,14 @@ class UnitCompiler {
 
             @Override public IClass[]
             getThrownExceptions2() throws CompileException {
-                IClass[] res = new IClass[constructorDeclarator.thrownExceptions.length];
-                for (int i = 0; i < res.length; ++i) {
-                    res[i] = UnitCompiler.this.getRawType(constructorDeclarator.thrownExceptions[i]);
+
+                List<IClass> result = new ArrayList<>();
+                for (Type ti : constructorDeclarator.thrownExceptions) {
+                    IClass te = UnitCompiler.this.thrownExceptionType(ti, constructorDeclarator);
+                    if (te != null) result.add(te);
                 }
-                return res;
+
+                return (IClass[]) result.toArray(new IClass[result.size()]);
             }
 
             @Override public String
@@ -12474,19 +13017,18 @@ class UnitCompiler {
                 List<IClass> result = new ArrayList<>();
                 for (Type ti : methodDeclarator.thrownExceptions) {
 
-                    // KLUDGE: Iff the exception type in the THROWS clause sounds like a type parameter, then
-                    // ignore it. Otherwise we'd have to put
+                    // Iff the exception type in the THROWS clause is a type parameter, then ignore it. Otherwise
+                    // we'd have to put
                     //    try { ... } catch (Throwable t) { throw new AssertionError(t); }
                     // around all invocations of methods that use a type parameter for declaring their exception.
-                    if (ti instanceof ReferenceType) {
-                        String[] identifiers = ((ReferenceType) ti).identifiers;
-                        if (
-                            identifiers.length == 1
-                            && UnitCompiler.LOOKS_LIKE_TYPE_PARAMETER.matcher(identifiers[0]).matches()
-                        ) continue;
-                    }
+                    IClass te = UnitCompiler.this.thrownExceptionType(ti, methodDeclarator);
+                    if (te == null) continue;
 
-                    result.add(UnitCompiler.this.getRawType(ti));
+                    // Before 3.1.17, an exception class with an all-uppercase name was ignored here, too, so the
+                    // invocations of the method needed neither catch nor declare it; see "checkThrownExceptions()".
+                    if (UnitCompiler.looksLikeTypeParameter(ti)) UnitCompiler.this.legacyUncheckedExceptions.add(te);
+
+                    result.add(te);
                 }
 
                 return (IClass[]) result.toArray(new IClass[result.size()]);

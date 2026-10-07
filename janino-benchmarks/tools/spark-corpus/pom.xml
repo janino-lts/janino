@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Class path for capturing the code that Apache Spark generates for the TPC-DS queries; used by "capture.sh" (see
+  the comment there). It is not built or installed, only resolved ("dependency:build-classpath"), and it is not
+  part of the JANINO build.
+
+  "spark-sql" brings the Spark runtime (local mode) with the JANINO that Spark declares; the "tests" JAR of
+  "spark-sql" contains the texts of the TPC-DS queries ("tpcds/q1.sql" etc.).
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.github.janino-lts</groupId>
+  <artifactId>spark-corpus</artifactId>
+  <version>0</version>
+  <packaging>pom</packaging>
+
+  <properties>
+    <spark.version>4.2.0</spark.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-sql_2.13</artifactId>
+      <version>${spark.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-sql_2.13</artifactId>
+      <version>${spark.version}</version>
+      <classifier>tests</classifier>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+  </dependencies>
+</project>

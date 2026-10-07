@@ -49,6 +49,125 @@ h5 {
 
     <a href="index.html">Back to the JANINO home page</a>
 
+    <h4>Version 3.1.17 2026-10-08</h4>
+    <p>
+      Local and anonymous classes can now access effectively final local variables (Java 8), and seven defects are
+      fixed that exist in 3.1.12 already: the type of <code>array.clone()</code>, local classes with modifiers, the
+      scope of the resource variables of try-with-resources statements, the access to <code>protected</code> members
+      of the superclass of an enclosing class, two internal compiler errors, and a <code>throws</code> clause whose
+      exception type has an all-uppercase name. No code that compiled before is rejected now, and the class files of
+      such code are unchanged, with two small exceptions (see the compatibility entry below). The known deviations
+      from JAVAC are documented in
+      <a href="https://github.com/janino-lts/janino/blob/HEAD/JAVAC_DIFFERENCES.md">Differences between Janino and
+      javac</a>.
+    </p>
+    <ul>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/58">issue #58</a>: <code>clone()</code> of an
+        array had the type <code>Object</code> instead of the array type (JLS 10.7): <code>int[] b = a.clone();</code>
+        and <code>a.clone().length</code> were rejected, and <code>a.clone()[0]</code> was an internal compiler error.
+        The invocation is now followed by a cast to the array type, like with JAVAC; the class files of code with the
+        explicit cast, <code>(int[]) a.clone()</code>, are unchanged, and where the clone was used as an
+        <code>Object</code>, the class file contains one more <code>checkcast</code> instruction.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/60">issue #60</a>: A local class declaration
+        with a modifier or an annotation (<code>final class L {}</code>, <code>abstract class L {}</code>,
+        <code>strictfp class L {}</code>, <code>@A class L {}</code>) was a syntax error. The modifiers that JLS 14.3
+        allows are accepted now, and the modifiers and the annotations are written to the class file; other
+        modifiers (e.g. <code>static</code>, <code>public</code>) are rejected, like before.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/71">issue #71</a>: A subscript on an expression
+        that is not an array (<code>o[0]</code> with <code>Object o</code>) was an internal compiler error when the
+        expression was a method or constructor argument, e.g. <code>String.valueOf(o[0])</code>. It is now rejected
+        with "Subscript not allowed on non-array type", like in every other context.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/64">issue #64</a>: The resource variable of a
+        try-with-resources statement, <code>try (R r = new R()) { ... }</code>, was not accessible: neither in the
+        block, nor in the initializers of the following resources, nor in an anonymous or local class declared in
+        the block (<code>Unknown variable or type "r"</code>); only the Java 9 form with an existing variable,
+        <code>try (r) { ... }</code>, worked. The resource variable is now in scope from its declarator to the end
+        of the block, like with JAVAC; it is not accessible in the <code>catch</code> clauses and the
+        <code>finally</code> clause. The class files of code that compiled before are unchanged. A resource
+        variable with the name of a local variable in scope, which JAVAC rejects, keeps compiling; in the block, the
+        name now denotes the resource variable, like with a <code>catch</code> parameter of that name.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/59">issue #59</a>: A <code>protected</code>
+        member that an enclosing class inherits from a class in another package, accessed from an inner class
+        (<code>in</code>, <code>P.this.in</code> or <code>p.in</code> in <code>class P extends FilterInputStream {
+        class Q { ... } }</code>, <code>P.this.clone()</code>, <code>registerAsParallelCapable()</code> in an inner
+        class of a subclass of <code>ClassLoader</code>), compiled into a class that throws an
+        <code>IllegalAccessError</code> or fails to verify, because the JVM permits the access only to the subclass
+        itself. Like JAVAC, Janino now generates a synthetic static accessor method in the enclosing class
+        (<code>access$000</code>, <code>access$002</code>, ...) that the inner class invokes. Also, the access to
+        such a member through <code>P.super</code> (<code>P.super.in</code>), and from a static nested class or a
+        local class in a static method of the subclass, was rejected; it is accepted now, like by JAVAC. The class
+        files of code that compiled before are unchanged.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/65">issue #65</a>, in part: A type in the
+        <code>throws</code> clause of a method or constructor whose simple name consists of uppercase letters only
+        (<code>throws X</code>, <code>throws IOEXC</code>) was taken for a type parameter and ignored, so the
+        <code>catch</code> of such an exception thrown by the method was rejected ("Catch clause is unreachable"),
+        and the <code>Exceptions</code> attribute of the method lacked the exception. Only a type parameter that
+        is declared as such is ignored now; the <code>catch</code> clause is reachable, and the attribute is
+        complete, like with JAVAC. For compatibility, two leniencies remain: an invocation of a method that
+        declares such an exception need neither catch nor declare it (see JAVAC_DIFFERENCES.md, section 3), and
+        an all-uppercase name in a <code>throws</code> clause that denotes no type is still ignored. The class
+        files of code that compiled before are unchanged, except that the <code>Exceptions</code> attribute of a
+        method or constructor with such a <code>throws</code> clause now lists the exception.
+      </li>
+      <li>
+        Implemented <a href="https://github.com/janino-lts/janino/issues/24">issue #24</a>: A local or anonymous
+        class can access a local variable, a parameter, a <code>catch</code> parameter or the variable of an enhanced
+        <code>for</code> statement of the enclosing method, constructor or initializer that is not declared
+        <code>final</code>, if the variable is effectively final (JLS 8.1.3, Java 8); before, such an access was
+        rejected ("Cannot access non-final local variable"). Janino applies a conservative rule: the variable has an
+        initializer, or is a parameter, and its name is not assigned, incremented or decremented anywhere in the
+        enclosing method, including nested classes; a variable without an initializer that is assigned once, and a
+        variable whose name is assigned in another block or in a nested class, are still rejected (see
+        JAVAC_DIFFERENCES.md, section 2). The generated code is the same as for a <code>final</code> variable; the
+        class files of code that compiled before are unchanged.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/75">issue #75</a>: An anonymous or local class
+        that accessed the <code>final</code> loop variable of a basic <code>for</code> statement
+        (<code>for (final int i = 0; i &lt; n; ) { ... }</code>) was an internal compiler error ("Synthetic field
+        "val$i" neither maps a synthetic field of an enclosing instance nor a local variable"); the variable is
+        found now, like a variable that is declared in the loop body. The same applies to a loop variable that is
+        effectively final (issue #24, above). The class files of code that compiled before are unchanged.
+      </li>
+      <li>
+        The module <code>janino-benchmarks</code> (not released) gained the workload <code>SPARK_TPCDS</code>: the
+        code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, compiled the way Spark compiles it, so
+        that the compile time of such code can be compared between JANINO versions.
+      </li>
+      <li>
+        Compatibility: No code that compiled with 3.1.16 is rejected now, and code that compiled before behaves the
+        same. The generated class files are unchanged, except for one more <code>checkcast</code> instruction where
+        the clone of an array was used as an <code>Object</code> (#58) and for the <code>Exceptions</code> attribute
+        of a method or constructor whose <code>throws</code> clause names an exception type with an all-uppercase
+        name (#65); the compilation of JANINO's own sources and of the code that Apache Spark generates yields the
+        same class files as with 3.1.16, byte for byte. Measured interleaved against 3.1.16 on JDK 25
+        (<code>janino-benchmarks</code>, with and without JIT), the compile time is unchanged within the measurement
+        error on all workloads, including the code that Spark generates; the memory that a compilation allocates
+        changes by less than 1 % (0.1 to 0.9 % more on the synthetic workloads, 0.8 % less on the Spark code).
+        Invalid code that JANINO accepts is still accepted
+        (<a href="https://github.com/janino-lts/janino/issues/33">issue #33</a>).
+      </li>
+      <li>
+        New tests: 58 more cases of invalid code in the negative tests (now 426), among them five constructs that
+        the code generator of Apache Spark emits
+        (<a href="https://issues.apache.org/jira/browse/SPARK-58437">SPARK-58437</a>; see JAVAC_DIFFERENCES.md,
+        section 3), 81 more characterization tests (now 458), and <code>DownstreamApiTest</code>, which uses the API
+        of JANINO the way Spark does. New pages: CHANGES_SINCE_3.1.12.md, a summary of the changes since 3.1.12 for
+        projects that consider an upgrade, and COMPATIBILITY.md, what stays the same.
+      </li>
+    </ul>
+
     <h4>Version 3.1.16 2026-10-06</h4>
     <p>
       Two language features that Janino parsed, but did not compile, are implemented now: multi-catch clauses and

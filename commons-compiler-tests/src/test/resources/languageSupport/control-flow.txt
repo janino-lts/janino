@@ -443,11 +443,82 @@ public class P {
 }
 
 === catch of an exception class with an all-uppercase name that a method declares in its throws clause
+janino: OK
 jls: X-
-janino: REJECTED Catch clause is unreachable
 public class P {
     static class X extends Exception { }
     static void m(boolean b) throws X { if (b) throw new X(); }
     static String f(boolean b) { try { m(b); return "-"; } catch (X e) { return "X"; } }
     public static Object run() { return f(true) + f(false); }
+}
+
+=== catch of an exception class with an all-uppercase name that a constructor declares in its throws clause
+jls: X
+janino: OK
+public class P {
+    static class X extends Exception { }
+    P(boolean b) throws X { if (b) throw new X(); }
+    public static Object run() { try { new P(true); return "-"; } catch (X e) { return "X"; } }
+}
+
+=== multi-catch of two exception classes with all-uppercase names
+jls: IOEXC
+janino: OK
+public class P {
+    static class X extends Exception { }
+    static class IOEXC extends Exception { }
+    static void m() throws X, IOEXC { throw new IOEXC(); }
+    public static Object run() { try { m(); return "-"; } catch (X | IOEXC e) { return e.getClass().getSimpleName(); } }
+}
+
+=== exception class with an all-uppercase name in the Exceptions attribute of a method and a constructor
+jls: X-X
+janino: OK
+public class P {
+    static class X extends Exception { }
+    static void m() throws X { }
+    P() throws X { }
+    public static Object run() throws Exception {
+        Class<?>[] a = P.class.getDeclaredMethod("m").getExceptionTypes();
+        Class<?>[] b = P.class.getDeclaredConstructor().getExceptionTypes();
+        String sa = a.length == 1 ? a[0].getSimpleName() : "" + a.length;
+        String sb = b.length == 1 ? b[0].getSimpleName() : "" + b.length;
+        return sa + "-" + sb;
+    }
+}
+
+=== catch of an exception class with an all-uppercase name that an interface method declares
+jls: X
+janino: OK
+public class P {
+    static class X extends Exception { }
+    interface I { void m() throws X; }
+    static class C implements I { public void m() throws X { throw new X(); } }
+    public static Object run() { I i = new C(); try { i.m(); return "-"; } catch (X e) { return "X"; } }
+}
+
+=== catch of an exception class with an all-uppercase name, declared with a qualified name
+jls: X
+janino: OK
+public class P {
+    static class X extends Exception { }
+    static void m() throws P.X { throw new X(); }
+    public static Object run() { try { m(); return "-"; } catch (X e) { return "X"; } }
+}
+
+=== invocation of a generic method whose throws clause names its type parameter
+jls: ok
+janino: OK
+public class P {
+    static <T extends Exception> void m() throws T { }
+    public static Object run() { m(); return "ok"; }
+}
+
+=== catch of an exception class with an all-uppercase name that a generic method declares besides its type parameter
+jls: X
+janino: OK
+public class P {
+    static class X extends Exception { }
+    static <T extends Exception> void m(boolean b) throws T, X { if (b) throw new X(); }
+    public static Object run() { try { m(true); return "-"; } catch (X e) { return "X"; } }
 }

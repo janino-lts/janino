@@ -731,9 +731,9 @@ class Parser {
         } else
         if (context == ClassDeclarationContext.BLOCK) {
             namedClassDeclaration = new LocalClassDeclaration(
-                location,                       // location
-                docComment,                     // docComment
-                this.classModifiers(modifiers), // modifiers
+                location,                            // location
+                docComment,                          // docComment
+                this.localClassModifiers(modifiers), // modifiers
                 className,                      // name
                 typeParameters,                 // typeParameters
                 extendedType,                   // extendedType
@@ -1905,28 +1905,34 @@ class Parser {
             || this.peek("{", ";") != -1
         ) return this.parseStatement();
 
-        // Local class declaration?
-        if (this.peekRead("class")) {
-            // JAVADOC[TM] ignores doc comments for local classes, but we
-            // don't...
-            String docComment = this.doc();
-            if (docComment == null) this.warning("LCDCM", "Local class doc comment missing", this.location());
+        // Local class declaration, or local variable declaration with modifiers? The modifiers of a local class
+        // (JLS 14.3: "abstract", "final", "strictfp" and annotations) and of a local variable ("final" and
+        // annotations) overlap, so both are parsed here.
+        if (this.peek("class", "final", "abstract", "strictfp", "@") != -1) {
+            Location   location   = this.location();
+            String     docComment = this.doc();
+            Modifier[] modifiers  = this.parseModifiers();
 
-            final LocalClassDeclaration lcd = (LocalClassDeclaration) this.parseClassDeclarationRest(
-                docComment,                   // docComment
-                new Modifier[0],              // modifiers
-                ClassDeclarationContext.BLOCK // context
-            );
-            return new LocalClassDeclarationStatement(lcd);
-        }
+            // Modifiers 'class' ClassDeclarationRest
+            if (this.peekRead("class")) {
+                // JAVADOC[TM] ignores doc comments for local classes, but we
+                // don't...
+                if (docComment == null) this.warning("LCDCM", "Local class doc comment missing", location);
 
-        // Modifiers Type VariableDeclarators ';'
-        if (this.peek("final", "@") != -1) {
+                final LocalClassDeclaration lcd = (LocalClassDeclaration) this.parseClassDeclarationRest(
+                    docComment,                   // docComment
+                    modifiers,                    // modifiers
+                    ClassDeclarationContext.BLOCK // context
+                );
+                return new LocalClassDeclarationStatement(lcd);
+            }
+
+            // Modifiers Type VariableDeclarators ';'
             LocalVariableDeclarationStatement lvds = new LocalVariableDeclarationStatement(
-                this.location(),                               // location
-                this.variableModifiers(this.parseModifiers()), // modifiers
-                this.parseType(),                              // type
-                this.parseVariableDeclarators()                // variableDeclarators
+                location,                          // location
+                this.variableModifiers(modifiers), // modifiers
+                this.parseType(),                  // type
+                this.parseVariableDeclarators()    // variableDeclarators
             );
             this.read(";");
             return lvds;
@@ -4122,6 +4128,13 @@ class Parser {
             modifiers,
             "public", "protected", "private", "abstract", "static", "final", "strictfp"
         );
+    }
+
+    private Modifier[]
+    localClassModifiers(Modifier[] modifiers) throws CompileException {
+
+        // JLS 8 14.3 Local Class Declarations
+        return this.checkModifiers(modifiers, "abstract", "final", "strictfp");
     }
 
     private Modifier[]

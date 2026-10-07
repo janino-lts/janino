@@ -1,0 +1,103 @@
+public java.lang.Object generate(Object[] references) {
+  return new SpecificMutableProjection(references);
+}
+
+class SpecificMutableProjection extends org.apache.spark.sql.catalyst.expressions.codegen.BaseMutableProjection {
+
+  private Object[] references;
+  private InternalRow mutableRow;
+  private boolean globalIsNull_0;
+  private boolean isNull_9;
+  private Decimal[] mutableStateArray_0 = new Decimal[1];
+
+  public SpecificMutableProjection(Object[] references) {
+    this.references = references;
+    mutableRow = new org.apache.spark.sql.catalyst.expressions.GenericInternalRow(1);
+
+
+  }
+
+  public void initialize(int partitionIndex) {
+
+  }
+
+  public org.apache.spark.sql.catalyst.expressions.codegen.BaseMutableProjection target(InternalRow row) {
+    mutableRow = row;
+    return this;
+  }
+
+  /* Provide immutable access to the last projected row. */
+  public InternalRow currentValue() {
+    return (InternalRow) mutableRow;
+  }
+
+  public java.lang.Object apply(java.lang.Object _i) {
+    InternalRow i = (InternalRow) _i;
+
+
+    Decimal value_9 = If_0(i);
+    isNull_9 = globalIsNull_0;
+    mutableStateArray_0[0] = value_9;
+
+    // copy all the results into MutableRow
+
+    if (!isNull_9) {
+      mutableRow.setDecimal(0, mutableStateArray_0[0], 21);
+    } else {
+      mutableRow.setDecimal(0, null, 21);
+    }
+
+    return mutableRow;
+  }
+
+
+  private Decimal If_0(InternalRow i) {
+    boolean isNull_1 = true;
+    boolean value_1 = false;
+    boolean isNull_2 = i.isNullAt(1);
+    long value_2 = isNull_2 ?
+    -1L : (i.getLong(1));
+    if (!isNull_2) {
+
+
+      isNull_1 = false; // resultCode could change nullability.
+      value_1 = value_2 == 0L;
+
+    }
+    boolean isNull_0 = false;
+    Decimal value_0 = null;
+    if (!isNull_1 && value_1) {
+
+      isNull_0 = true;
+      value_0 = ((Decimal)null);
+    } else {
+      boolean isNull_6 = i.isNullAt(0);
+      Decimal value_6 = isNull_6 ?
+      null : (i.getDecimal(0, 27, 2));
+      boolean isNull_8 = i.isNullAt(1);
+      long value_8 = isNull_8 ?
+      -1L : (i.getLong(1));
+      boolean isNull_7 = isNull_8;
+      Decimal value_7 = null;
+      if (!isNull_8) {
+        Decimal tmpDecimal_0 = Decimal.apply((long) value_8);
+        tmpDecimal_0.changePrecision(20, 0);
+        value_7 = tmpDecimal_0;
+      }
+      boolean isNull_5 = isNull_6;
+      Decimal value_5 = null;
+      if (isNull_6) {
+        throw QueryExecutionErrors.overflowInSumOfDecimalError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[0] /* errCtx */), "try_avg");
+      } else {
+        value_5 = value_6.$div(value_7).toPrecision(
+          21, 6, Decimal.ROUND_HALF_UP(), false, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[0] /* errCtx */));
+        isNull_5 = value_5 == null;
+      }
+      isNull_0 = isNull_5;
+      value_0 = value_5;
+    }
+    globalIsNull_0 = isNull_0;
+    return value_0;
+  }
+
+}

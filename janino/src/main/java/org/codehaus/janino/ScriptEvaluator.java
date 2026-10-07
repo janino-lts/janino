@@ -996,19 +996,19 @@ class ScriptEvaluator extends MultiCookable implements IScriptEvaluator {
             return;
         }
 
-        // Local class declaration?
+        Modifier[] modifiers = parser.parseModifiers();
+
+        // Local class declaration (with or without modifiers)?
         if (parser.peekRead("class")) {
 
             final LocalClassDeclaration lcd = (LocalClassDeclaration) parser.parseClassDeclarationRest(
                 null,                         // docComment
-                new Modifier[0],              // modifiers
+                modifiers,                    // modifiers
                 ClassDeclarationContext.BLOCK // context
             );
             mainStatements.add(new LocalClassDeclarationStatement(lcd));
             return;
         }
-
-        Modifier[] modifiers = parser.parseModifiers();
 
         // "void" method declaration (without type parameters).
         if (parser.peekRead("void")) {

@@ -1,0 +1,120 @@
+public Object generate(Object[] references) {
+  return new GeneratedIteratorForCodegenStage7(references);
+}
+
+// codegenStageId=7
+final class GeneratedIteratorForCodegenStage7 extends org.apache.spark.sql.execution.BufferedRowIterator {
+  private Object[] references;
+  private scala.collection.Iterator[] inputs;
+  private scala.collection.Iterator inputadapter_input_0;
+  private org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[] filter_mutableStateArray_0 = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[1];
+
+  public GeneratedIteratorForCodegenStage7(Object[] references) {
+    this.references = references;
+  }
+
+  public void init(int index, scala.collection.Iterator[] inputs) {
+    partitionIndex = index;
+    this.inputs = inputs;
+    inputadapter_input_0 = inputs[0];
+    filter_mutableStateArray_0[0] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(9, 128);
+
+  }
+
+  protected void processNext() throws java.io.IOException {
+    while ( inputadapter_input_0.hasNext()) {
+      InternalRow inputadapter_row_0 = (InternalRow) inputadapter_input_0.next();
+
+      do {
+        boolean inputadapter_isNull_4 = inputadapter_row_0.isNullAt(4);
+        int inputadapter_value_4 = inputadapter_isNull_4 ?
+        -1 : (inputadapter_row_0.getInt(4));
+
+        boolean filter_value_2 = !inputadapter_isNull_4;
+        if (!filter_value_2) continue;
+
+        boolean filter_value_3 = false;
+        filter_value_3 = inputadapter_value_4 == 1999;
+        if (!filter_value_3) continue;
+
+        ((org.apache.spark.sql.execution.metric.SQLMetric) references[0] /* numOutputRows */).add(1);
+
+        boolean inputadapter_isNull_0 = inputadapter_row_0.isNullAt(0);
+        UTF8String inputadapter_value_0 = inputadapter_isNull_0 ?
+        null : (inputadapter_row_0.getUTF8String(0));
+        boolean inputadapter_isNull_1 = inputadapter_row_0.isNullAt(1);
+        UTF8String inputadapter_value_1 = inputadapter_isNull_1 ?
+        null : (inputadapter_row_0.getUTF8String(1));
+        boolean inputadapter_isNull_2 = inputadapter_row_0.isNullAt(2);
+        UTF8String inputadapter_value_2 = inputadapter_isNull_2 ?
+        null : (inputadapter_row_0.getUTF8String(2));
+        boolean inputadapter_isNull_3 = inputadapter_row_0.isNullAt(3);
+        UTF8String inputadapter_value_3 = inputadapter_isNull_3 ?
+        null : (inputadapter_row_0.getUTF8String(3));
+        boolean inputadapter_isNull_5 = inputadapter_row_0.isNullAt(5);
+        int inputadapter_value_5 = inputadapter_isNull_5 ?
+        -1 : (inputadapter_row_0.getInt(5));
+        boolean inputadapter_isNull_6 = inputadapter_row_0.isNullAt(6);
+        Decimal inputadapter_value_6 = inputadapter_isNull_6 ?
+        null : (inputadapter_row_0.getDecimal(6, 17, 2));
+        boolean inputadapter_isNull_7 = inputadapter_row_0.isNullAt(7);
+        Decimal inputadapter_value_7 = inputadapter_isNull_7 ?
+        null : (inputadapter_row_0.getDecimal(7, 17, 2));
+        int inputadapter_value_8 = inputadapter_row_0.getInt(8);
+        filter_mutableStateArray_0[0].reset();
+
+        filter_mutableStateArray_0[0].zeroOutNullBytes();
+
+        if (inputadapter_isNull_0) {
+          filter_mutableStateArray_0[0].setNullAt(0);
+        } else {
+          filter_mutableStateArray_0[0].write(0, inputadapter_value_0);
+        }
+
+        if (inputadapter_isNull_1) {
+          filter_mutableStateArray_0[0].setNullAt(1);
+        } else {
+          filter_mutableStateArray_0[0].write(1, inputadapter_value_1);
+        }
+
+        if (inputadapter_isNull_2) {
+          filter_mutableStateArray_0[0].setNullAt(2);
+        } else {
+          filter_mutableStateArray_0[0].write(2, inputadapter_value_2);
+        }
+
+        if (inputadapter_isNull_3) {
+          filter_mutableStateArray_0[0].setNullAt(3);
+        } else {
+          filter_mutableStateArray_0[0].write(3, inputadapter_value_3);
+        }
+
+        filter_mutableStateArray_0[0].write(4, inputadapter_value_4);
+
+        if (inputadapter_isNull_5) {
+          filter_mutableStateArray_0[0].setNullAt(5);
+        } else {
+          filter_mutableStateArray_0[0].write(5, inputadapter_value_5);
+        }
+
+        if (inputadapter_isNull_6) {
+          filter_mutableStateArray_0[0].setNullAt(6);
+        } else {
+          filter_mutableStateArray_0[0].write(6, inputadapter_value_6, 17, 2);
+        }
+
+        if (inputadapter_isNull_7) {
+          filter_mutableStateArray_0[0].setNullAt(7);
+        } else {
+          filter_mutableStateArray_0[0].write(7, inputadapter_value_7, 17, 2);
+        }
+
+        filter_mutableStateArray_0[0].write(8, inputadapter_value_8);
+        append((filter_mutableStateArray_0[0].getRow()));
+
+      } while (false);
+      if (shouldStop()) return;
+    }
+  }
+
+}

@@ -1,0 +1,152 @@
+public java.lang.Object generate(Object[] references) {
+  return new SpecificSafeProjection(references);
+}
+
+class SpecificSafeProjection extends org.apache.spark.sql.catalyst.expressions.codegen.BaseProjection {
+
+  private Object[] references;
+  private InternalRow mutableRow;
+
+
+  public SpecificSafeProjection(Object[] references) {
+    this.references = references;
+    mutableRow = (InternalRow) references[references.length - 1];
+
+  }
+
+  public void initialize(int partitionIndex) {
+
+  }
+
+  public java.lang.Object apply(java.lang.Object _i) {
+    InternalRow i = (InternalRow) _i;
+    Object[] values_0 = new Object[5];
+    createExternalRow_0_0(i, values_0);
+    createExternalRow_0_1(i, values_0);
+    final org.apache.spark.sql.Row value_0 = new org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema(values_0, ((org.apache.spark.sql.types.StructType) references[0] /* schema */));
+    if (false) {
+      mutableRow.setNullAt(0);
+    } else {
+
+      mutableRow.update(0, value_0);
+    }
+
+    return mutableRow;
+  }
+
+
+  private void createExternalRow_0_0(InternalRow i, Object[] values_0) {
+
+    boolean isNull_2 = i.isNullAt(0);
+    Decimal value_2 = isNull_2 ?
+    null : (i.getDecimal(0, 11, 6));
+    boolean isNull_1 = true;
+    java.math.BigDecimal value_1 = null;
+    if (!isNull_2) {
+      isNull_1 = false;
+      if (!isNull_1) {
+
+        java.math.BigDecimal funcResult_0 = null;
+        funcResult_0 = (java.math.BigDecimal) value_2.toJavaBigDecimal();
+        value_1 = funcResult_0;
+
+      }
+    }
+    if (isNull_1) {
+      values_0[0] = null;
+    } else {
+      values_0[0] = value_1;
+    }
+
+    boolean isNull_4 = i.isNullAt(1);
+    Decimal value_4 = isNull_4 ?
+    null : (i.getDecimal(1, 11, 6));
+    boolean isNull_3 = true;
+    java.math.BigDecimal value_3 = null;
+    if (!isNull_4) {
+      isNull_3 = false;
+      if (!isNull_3) {
+
+        java.math.BigDecimal funcResult_1 = null;
+        funcResult_1 = (java.math.BigDecimal) value_4.toJavaBigDecimal();
+        value_3 = funcResult_1;
+
+      }
+    }
+    if (isNull_3) {
+      values_0[1] = null;
+    } else {
+      values_0[1] = value_3;
+    }
+
+    boolean isNull_6 = i.isNullAt(2);
+    Decimal value_6 = isNull_6 ?
+    null : (i.getDecimal(2, 11, 6));
+    boolean isNull_5 = true;
+    java.math.BigDecimal value_5 = null;
+    if (!isNull_6) {
+      isNull_5 = false;
+      if (!isNull_5) {
+
+        java.math.BigDecimal funcResult_2 = null;
+        funcResult_2 = (java.math.BigDecimal) value_6.toJavaBigDecimal();
+        value_5 = funcResult_2;
+
+      }
+    }
+    if (isNull_5) {
+      values_0[2] = null;
+    } else {
+      values_0[2] = value_5;
+    }
+
+  }
+
+
+  private void createExternalRow_0_1(InternalRow i, Object[] values_0) {
+
+    boolean isNull_8 = i.isNullAt(3);
+    Decimal value_8 = isNull_8 ?
+    null : (i.getDecimal(3, 11, 6));
+    boolean isNull_7 = true;
+    java.math.BigDecimal value_7 = null;
+    if (!isNull_8) {
+      isNull_7 = false;
+      if (!isNull_7) {
+
+        java.math.BigDecimal funcResult_3 = null;
+        funcResult_3 = (java.math.BigDecimal) value_8.toJavaBigDecimal();
+        value_7 = funcResult_3;
+
+      }
+    }
+    if (isNull_7) {
+      values_0[3] = null;
+    } else {
+      values_0[3] = value_7;
+    }
+
+    boolean isNull_10 = i.isNullAt(4);
+    Decimal value_10 = isNull_10 ?
+    null : (i.getDecimal(4, 11, 6));
+    boolean isNull_9 = true;
+    java.math.BigDecimal value_9 = null;
+    if (!isNull_10) {
+      isNull_9 = false;
+      if (!isNull_9) {
+
+        java.math.BigDecimal funcResult_4 = null;
+        funcResult_4 = (java.math.BigDecimal) value_10.toJavaBigDecimal();
+        value_9 = funcResult_4;
+
+      }
+    }
+    if (isNull_9) {
+      values_0[4] = null;
+    } else {
+      values_0[4] = value_9;
+    }
+
+  }
+
+}

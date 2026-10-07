@@ -1,0 +1,253 @@
+public Object generate(Object[] references) {
+  return new GeneratedIteratorForCodegenStage7(references);
+}
+
+// codegenStageId=7
+final class GeneratedIteratorForCodegenStage7 extends org.apache.spark.sql.execution.BufferedRowIterator {
+  private Object[] references;
+  private scala.collection.Iterator[] inputs;
+  private boolean hashAgg_initAgg_0;
+  private org.apache.spark.unsafe.KVIterator hashAgg_mapIter_0;
+  private org.apache.spark.sql.execution.UnsafeFixedWidthAggregationMap hashAgg_hashMap_0;
+  private org.apache.spark.sql.execution.UnsafeKVExternalSorter hashAgg_sorter_0;
+  private scala.collection.Iterator inputadapter_input_0;
+  private org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[] hashAgg_mutableStateArray_0 = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[4];
+
+  public GeneratedIteratorForCodegenStage7(Object[] references) {
+    this.references = references;
+  }
+
+  public void init(int index, scala.collection.Iterator[] inputs) {
+    partitionIndex = index;
+    this.inputs = inputs;
+
+    inputadapter_input_0 = inputs[0];
+    hashAgg_mutableStateArray_0[0] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(1, 0);
+    hashAgg_mutableStateArray_0[1] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(2, 32);
+    hashAgg_mutableStateArray_0[2] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(2, 32);
+    hashAgg_mutableStateArray_0[3] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(1, 0);
+
+  }
+
+  private void hashAgg_doAggregateWithKeysOutput_0(UnsafeRow hashAgg_keyTerm_0, UnsafeRow hashAgg_bufferTerm_0)
+  throws java.io.IOException {
+    ((org.apache.spark.sql.execution.metric.SQLMetric) references[5] /* numOutputRows */).add(1);
+
+    boolean hashAgg_isNull_23 = hashAgg_keyTerm_0.isNullAt(0);
+    int hashAgg_value_23 = hashAgg_isNull_23 ?
+    -1 : (hashAgg_keyTerm_0.getInt(0));
+    boolean hashAgg_isNull_24 = hashAgg_bufferTerm_0.isNullAt(0);
+    Decimal hashAgg_value_24 = hashAgg_isNull_24 ?
+    null : (hashAgg_bufferTerm_0.getDecimal(0, 28, 2));
+    boolean hashAgg_value_25 = hashAgg_bufferTerm_0.getBoolean(1);
+    boolean hashAgg_isNull_26 = false;
+    Decimal hashAgg_value_26 = null;
+    if (!false && hashAgg_value_25) {
+      hashAgg_isNull_26 = true;
+      hashAgg_value_26 = ((Decimal)null);
+    } else {
+      boolean hashAgg_isNull_29 = hashAgg_isNull_24;
+      Decimal hashAgg_value_29 = null;
+      if (hashAgg_isNull_24) {
+        throw QueryExecutionErrors.overflowInSumOfDecimalError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[6] /* errCtx */), "try_sum");
+      } else {
+        hashAgg_value_29 = hashAgg_value_24.toPrecision(
+          28, 2, Decimal.ROUND_HALF_UP(), false, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[6] /* errCtx */));
+        hashAgg_isNull_29 = hashAgg_value_29 == null;
+      }
+      hashAgg_isNull_26 = hashAgg_isNull_29;
+      hashAgg_value_26 = hashAgg_value_29;
+    }
+
+    do {
+      boolean filter_value_2 = !hashAgg_isNull_26;
+      if (!filter_value_2) continue;
+
+      boolean filter_isNull_2 = true;
+      boolean filter_value_3 = false;
+      boolean filter_isNull_3 = hashAgg_isNull_26;
+      Decimal filter_value_4 = null;
+      if (!hashAgg_isNull_26) {
+        Decimal filter_tmpDecimal_0 = hashAgg_value_26.clone();
+        filter_tmpDecimal_0.changePrecision(38, 8);
+        filter_value_4 = filter_tmpDecimal_0;
+      }
+      boolean filter_isNull_5 = true;
+      Decimal filter_value_6 = null;
+
+      if (!true) {
+        filter_isNull_5 = false; // resultCode could change nullability.
+
+        filter_value_6 = ((Decimal) references[9] /* literal */).$times(((Decimal)null)).toPrecision(
+          38, 8, Decimal.ROUND_HALF_UP(), false, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[8] /* errCtx */));
+
+      }
+      if (!filter_isNull_5) {
+        filter_isNull_2 = false; // resultCode could change nullability.
+        filter_value_3 = filter_value_4.compare(filter_value_6) > 0;
+
+      }
+      if (filter_isNull_2 || !filter_value_3) continue;
+
+      ((org.apache.spark.sql.execution.metric.SQLMetric) references[7] /* numOutputRows */).add(1);
+
+      // common sub-expressions
+
+      hashAgg_mutableStateArray_0[3].reset();
+
+      hashAgg_mutableStateArray_0[3].zeroOutNullBytes();
+
+      if (hashAgg_isNull_23) {
+        hashAgg_mutableStateArray_0[3].setNullAt(0);
+      } else {
+        hashAgg_mutableStateArray_0[3].write(0, hashAgg_value_23);
+      }
+      append((hashAgg_mutableStateArray_0[3].getRow()));
+
+    } while (false);
+
+  }
+
+  private void hashAgg_doAggregateWithKeys_0(int partitionIndex) throws java.io.IOException {
+    while ( inputadapter_input_0.hasNext()) {
+      InternalRow inputadapter_row_0 = (InternalRow) inputadapter_input_0.next();
+
+      boolean inputadapter_isNull_0 = inputadapter_row_0.isNullAt(0);
+      int inputadapter_value_0 = inputadapter_isNull_0 ?
+      -1 : (inputadapter_row_0.getInt(0));
+      boolean inputadapter_isNull_1 = inputadapter_row_0.isNullAt(1);
+      Decimal inputadapter_value_1 = inputadapter_isNull_1 ?
+      null : (inputadapter_row_0.getDecimal(1, 28, 2));
+      boolean inputadapter_value_2 = inputadapter_row_0.getBoolean(2);
+
+      hashAgg_doConsume_0(inputadapter_row_0, inputadapter_value_0, inputadapter_isNull_0, inputadapter_value_1, inputadapter_isNull_1, inputadapter_value_2);
+      // shouldStop check is eliminated
+    }
+
+    hashAgg_mapIter_0 = ((org.apache.spark.sql.execution.aggregate.HashAggregateExec) references[0] /* plan */).finishAggregate(hashAgg_hashMap_0, hashAgg_sorter_0, ((org.apache.spark.sql.execution.metric.SQLMetric) references[1] /* peakMemory */), ((org.apache.spark.sql.execution.metric.SQLMetric) references[2] /* spillSize */), ((org.apache.spark.sql.execution.metric.SQLMetric) references[3] /* avgHashProbe */), ((org.apache.spark.sql.execution.metric.SQLMetric) references[4] /* numTasksFallBacked */));
+  }
+
+  private void hashAgg_doAggregate_sum_0(boolean hashAgg_exprIsNull_1_0, org.apache.spark.sql.catalyst.InternalRow hashAgg_unsafeRowAggBuffer_0, boolean hashAgg_expr_2_0, org.apache.spark.sql.types.Decimal hashAgg_expr_1_0) throws java.io.IOException {
+    boolean hashAgg_value_6 = hashAgg_unsafeRowAggBuffer_0.getBoolean(1);
+    boolean hashAgg_value_5 = false;
+    hashAgg_value_5 = !(hashAgg_value_6);
+    boolean hashAgg_value_4 = false;
+
+    if (hashAgg_value_5) {
+      boolean hashAgg_isNull_8 = hashAgg_unsafeRowAggBuffer_0.isNullAt(0);
+      Decimal hashAgg_value_8 = hashAgg_isNull_8 ?
+      null : (hashAgg_unsafeRowAggBuffer_0.getDecimal(0, 28, 2));
+      hashAgg_value_4 = hashAgg_isNull_8;
+    }
+    boolean hashAgg_value_3 = true;
+
+    if (!hashAgg_value_4) {
+      boolean hashAgg_value_10 = false;
+      hashAgg_value_10 = !(hashAgg_expr_2_0);
+      boolean hashAgg_value_9 = false;
+
+      if (hashAgg_value_10) {
+        hashAgg_value_9 = hashAgg_exprIsNull_1_0;
+      }
+      hashAgg_value_3 = hashAgg_value_9;
+    }
+    boolean hashAgg_isNull_2 = false;
+    Decimal hashAgg_value_2 = null;
+    if (!false && hashAgg_value_3) {
+      hashAgg_isNull_2 = true;
+      hashAgg_value_2 = ((Decimal)null);
+    } else {
+      boolean hashAgg_isNull_17 = hashAgg_unsafeRowAggBuffer_0.isNullAt(0);
+      Decimal hashAgg_value_17 = hashAgg_isNull_17 ?
+      null : (hashAgg_unsafeRowAggBuffer_0.getDecimal(0, 28, 2));
+
+      Decimal hashAgg_value_15 = null;
+      hashAgg_value_15 = hashAgg_value_17.$plus(hashAgg_expr_1_0);
+      hashAgg_isNull_2 = false;
+      hashAgg_value_2 = hashAgg_value_15;
+    }
+    boolean hashAgg_value_21 = hashAgg_unsafeRowAggBuffer_0.getBoolean(1);
+    boolean hashAgg_value_20 = false;
+
+    if (hashAgg_value_21) {
+      hashAgg_value_20 = hashAgg_expr_2_0;
+    }
+
+    if (!hashAgg_isNull_2) {
+      hashAgg_unsafeRowAggBuffer_0.setDecimal(0, hashAgg_value_2, 28);
+    } else {
+      hashAgg_unsafeRowAggBuffer_0.setDecimal(0, null, 28);
+    }
+
+    hashAgg_unsafeRowAggBuffer_0.setBoolean(1, hashAgg_value_20);
+  }
+
+  private void hashAgg_doConsume_0(InternalRow inputadapter_row_0, int hashAgg_expr_0_0, boolean hashAgg_exprIsNull_0_0, Decimal hashAgg_expr_1_0, boolean hashAgg_exprIsNull_1_0, boolean hashAgg_expr_2_0) throws java.io.IOException {
+    UnsafeRow hashAgg_unsafeRowAggBuffer_0 = null;
+
+    // generate grouping key
+    hashAgg_mutableStateArray_0[0].reset();
+
+    hashAgg_mutableStateArray_0[0].zeroOutNullBytes();
+
+    if (hashAgg_exprIsNull_0_0) {
+      hashAgg_mutableStateArray_0[0].setNullAt(0);
+    } else {
+      hashAgg_mutableStateArray_0[0].write(0, hashAgg_expr_0_0);
+    }
+    int hashAgg_unsafeRowKeyHash_0 = (hashAgg_mutableStateArray_0[0].getRow()).hashCode();
+    if (true) {
+      // try to get the buffer from hash map
+      hashAgg_unsafeRowAggBuffer_0 =
+      hashAgg_hashMap_0.getAggregationBufferFromUnsafeRow((hashAgg_mutableStateArray_0[0].getRow()), hashAgg_unsafeRowKeyHash_0);
+    }
+    // Can't allocate buffer from the hash map. Spill the map and fallback to sort-based
+    // aggregation after processing all input rows.
+    if (hashAgg_unsafeRowAggBuffer_0 == null) {
+      if (hashAgg_sorter_0 == null) {
+        hashAgg_sorter_0 = hashAgg_hashMap_0.destructAndCreateExternalSorter();
+      } else {
+        hashAgg_sorter_0.merge(hashAgg_hashMap_0.destructAndCreateExternalSorter());
+      }
+
+      // the hash map had be spilled, it should have enough memory now,
+      // try to allocate buffer again.
+      hashAgg_unsafeRowAggBuffer_0 = hashAgg_hashMap_0.getAggregationBufferFromUnsafeRow(
+        (hashAgg_mutableStateArray_0[0].getRow()), hashAgg_unsafeRowKeyHash_0);
+      if (hashAgg_unsafeRowAggBuffer_0 == null) {
+        // failed to allocate the first page
+        throw new org.apache.spark.memory.SparkOutOfMemoryError("AGGREGATE_OUT_OF_MEMORY", new java.util.HashMap());
+      }
+    }
+
+    // common sub-expressions
+
+    // evaluate aggregate functions and update aggregation buffers
+    hashAgg_doAggregate_sum_0(hashAgg_exprIsNull_1_0, hashAgg_unsafeRowAggBuffer_0, hashAgg_expr_2_0, hashAgg_expr_1_0);
+
+  }
+
+  protected void processNext() throws java.io.IOException {
+    if (!hashAgg_initAgg_0) {
+      hashAgg_initAgg_0 = true;
+
+      hashAgg_hashMap_0 = ((org.apache.spark.sql.execution.aggregate.HashAggregateExec) references[0] /* plan */).createHashMap();
+      long wholestagecodegen_beforeAgg_0 = System.nanoTime();
+      hashAgg_doAggregateWithKeys_0(partitionIndex);
+      ((org.apache.spark.sql.execution.metric.SQLMetric) references[10] /* aggTime */).add((System.nanoTime() - wholestagecodegen_beforeAgg_0) / 1000000);
+    }
+    // output the result
+
+    while ( hashAgg_mapIter_0.next()) {
+      UnsafeRow hashAgg_aggKey_0 = (UnsafeRow) hashAgg_mapIter_0.getKey();
+      UnsafeRow hashAgg_aggBuffer_0 = (UnsafeRow) hashAgg_mapIter_0.getValue();
+      hashAgg_doAggregateWithKeysOutput_0(hashAgg_aggKey_0, hashAgg_aggBuffer_0);
+      if (shouldStop()) return;
+    }
+    hashAgg_mapIter_0.close();
+    if (hashAgg_sorter_0 == null) {
+      hashAgg_hashMap_0.free();
+    }
+  }
+
+}

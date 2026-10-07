@@ -1,0 +1,123 @@
+public java.lang.Object generate(Object[] references) {
+  return new SpecificUnsafeProjection(references);
+}
+
+class SpecificUnsafeProjection extends org.apache.spark.sql.catalyst.expressions.UnsafeProjection {
+
+  private Object[] references;
+  private org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[] mutableStateArray_0 = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[1];
+
+  public SpecificUnsafeProjection(Object[] references) {
+    this.references = references;
+    mutableStateArray_0[0] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(10, 160);
+
+  }
+
+  public void initialize(int partitionIndex) {
+
+  }
+
+  // Scala.Function1 need this
+  public java.lang.Object apply(java.lang.Object row) {
+    return apply((InternalRow) row);
+  }
+
+  public UnsafeRow apply(InternalRow i) {
+    mutableStateArray_0[0].reset();
+
+
+    mutableStateArray_0[0].zeroOutNullBytes();
+    writeFields_0_0(i);
+    writeFields_0_1(i);
+    return (mutableStateArray_0[0].getRow());
+  }
+
+
+  private void writeFields_0_0(InternalRow i) {
+
+    boolean isNull_0 = i.isNullAt(0);
+    UTF8String value_0 = isNull_0 ?
+    null : (i.getUTF8String(0));
+    if (isNull_0) {
+      mutableStateArray_0[0].setNullAt(0);
+    } else {
+      mutableStateArray_0[0].write(0, value_0);
+    }
+
+    boolean isNull_1 = i.isNullAt(1);
+    UTF8String value_1 = isNull_1 ?
+    null : (i.getUTF8String(1));
+    if (isNull_1) {
+      mutableStateArray_0[0].setNullAt(1);
+    } else {
+      mutableStateArray_0[0].write(1, value_1);
+    }
+
+    boolean isNull_2 = i.isNullAt(2);
+    UTF8String value_2 = isNull_2 ?
+    null : (i.getUTF8String(2));
+    if (isNull_2) {
+      mutableStateArray_0[0].setNullAt(2);
+    } else {
+      mutableStateArray_0[0].write(2, value_2);
+    }
+
+    boolean isNull_3 = i.isNullAt(3);
+    UTF8String value_3 = isNull_3 ?
+    null : (i.getUTF8String(3));
+    if (isNull_3) {
+      mutableStateArray_0[0].setNullAt(3);
+    } else {
+      mutableStateArray_0[0].write(3, value_3);
+    }
+
+    int value_4 = i.getInt(4);
+    mutableStateArray_0[0].write(4, value_4);
+
+    boolean isNull_5 = i.isNullAt(5);
+    int value_5 = isNull_5 ?
+    -1 : (i.getInt(5));
+    if (isNull_5) {
+      mutableStateArray_0[0].setNullAt(5);
+    } else {
+      mutableStateArray_0[0].write(5, value_5);
+    }
+
+  }
+
+
+  private void writeFields_0_1(InternalRow i) {
+
+    boolean isNull_6 = i.isNullAt(6);
+    Decimal value_6 = isNull_6 ?
+    null : (i.getDecimal(6, 17, 2));
+    if (isNull_6) {
+      mutableStateArray_0[0].setNullAt(6);
+    } else {
+      mutableStateArray_0[0].write(6, value_6, 17, 2);
+    }
+
+    boolean isNull_7 = i.isNullAt(7);
+    Decimal value_7 = isNull_7 ?
+    null : (i.getDecimal(7, 17, 2));
+    if (isNull_7) {
+      mutableStateArray_0[0].setNullAt(7);
+    } else {
+      mutableStateArray_0[0].write(7, value_7, 17, 2);
+    }
+
+    int value_8 = i.getInt(8);
+    mutableStateArray_0[0].write(8, value_8);
+
+    boolean isNull_9 = i.isNullAt(9);
+    Decimal value_9 = isNull_9 ?
+    null : (i.getDecimal(9, 21, 6));
+    if (isNull_9) {
+      mutableStateArray_0[0].write(9, (Decimal) null, 21, 6);
+    } else {
+      mutableStateArray_0[0].write(9, value_9, 21, 6);
+    }
+
+  }
+
+}

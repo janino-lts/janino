@@ -1,0 +1,195 @@
+public java.lang.Object generate(Object[] references) {
+  return new SpecificUnsafeProjection(references);
+}
+
+class SpecificUnsafeProjection extends org.apache.spark.sql.catalyst.expressions.UnsafeProjection {
+
+  private Object[] references;
+  private org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[] mutableStateArray_0 = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[1];
+
+  public SpecificUnsafeProjection(Object[] references) {
+    this.references = references;
+    mutableStateArray_0[0] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(48, 768);
+
+  }
+
+  public void initialize(int partitionIndex) {
+
+  }
+
+  // Scala.Function1 need this
+  public java.lang.Object apply(java.lang.Object row) {
+    return apply((InternalRow) row);
+  }
+
+  public UnsafeRow apply(InternalRow i) {
+    mutableStateArray_0[0].reset();
+
+
+
+    writeFields_0_0(i);
+    writeFields_0_1(i);
+    writeFields_0_2(i);
+    return (mutableStateArray_0[0].getRow());
+  }
+
+
+  private void writeFields_0_2(InternalRow i) {
+
+
+    mutableStateArray_0[0].write(32, ((Decimal) references[16] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(33, true);
+
+
+    mutableStateArray_0[0].write(34, ((Decimal) references[17] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(35, true);
+
+
+    mutableStateArray_0[0].write(36, ((Decimal) references[18] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(37, true);
+
+
+    mutableStateArray_0[0].write(38, ((Decimal) references[19] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(39, true);
+
+
+    mutableStateArray_0[0].write(40, ((Decimal) references[20] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(41, true);
+
+
+    mutableStateArray_0[0].write(42, ((Decimal) references[21] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(43, true);
+
+
+    mutableStateArray_0[0].write(44, ((Decimal) references[22] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(45, true);
+
+
+    mutableStateArray_0[0].write(46, ((Decimal) references[23] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(47, true);
+
+  }
+
+
+  private void writeFields_0_0(InternalRow i) {
+
+
+    mutableStateArray_0[0].write(0, ((Decimal) references[0] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(1, true);
+
+
+    mutableStateArray_0[0].write(2, ((Decimal) references[1] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(3, true);
+
+
+    mutableStateArray_0[0].write(4, ((Decimal) references[2] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(5, true);
+
+
+    mutableStateArray_0[0].write(6, ((Decimal) references[3] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(7, true);
+
+
+    mutableStateArray_0[0].write(8, ((Decimal) references[4] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(9, true);
+
+
+    mutableStateArray_0[0].write(10, ((Decimal) references[5] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(11, true);
+
+
+    mutableStateArray_0[0].write(12, ((Decimal) references[6] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(13, true);
+
+
+    mutableStateArray_0[0].write(14, ((Decimal) references[7] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(15, true);
+
+  }
+
+
+  private void writeFields_0_1(InternalRow i) {
+
+
+    mutableStateArray_0[0].write(16, ((Decimal) references[8] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(17, true);
+
+
+    mutableStateArray_0[0].write(18, ((Decimal) references[9] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(19, true);
+
+
+    mutableStateArray_0[0].write(20, ((Decimal) references[10] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(21, true);
+
+
+    mutableStateArray_0[0].write(22, ((Decimal) references[11] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(23, true);
+
+
+    mutableStateArray_0[0].write(24, ((Decimal) references[12] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(25, true);
+
+
+    mutableStateArray_0[0].write(26, ((Decimal) references[13] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(27, true);
+
+
+    mutableStateArray_0[0].write(28, ((Decimal) references[14] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(29, true);
+
+
+    mutableStateArray_0[0].write(30, ((Decimal) references[15] /* literal */), 28, 2);
+
+
+    mutableStateArray_0[0].write(31, true);
+
+  }
+
+}

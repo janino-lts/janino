@@ -1,7 +1,13 @@
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.janino-lts/janino.svg)](https://central.sonatype.com/artifact/io.github.janino-lts/janino)
+[![javadoc.io](https://javadoc.io/badge2/io.github.janino-lts/janino/javadoc.svg)](https://javadoc.io/doc/io.github.janino-lts/janino)
+[![license](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
+
 This repository continues Janino, derived from [janino-compiler/janino](https://github.com/janino-compiler/janino)
 after its author, Arno Unkrig, discontinued the development and archived the original repository. It is an attempt
 to keep Janino alive: to fix bugs, to keep it working on current Java versions, and to stay compatible with
 Janino 3.1.12, on which many projects depend. Janino requires Java 8 or later and is tested on Java 8, 17, 21 and 25.
+[Changes since 3.1.12](CHANGES_SINCE_3.1.12.md) summarizes what an upgrade from 3.1.12 brings, and
+[Compatibility](COMPATIBILITY.md) what stays the same.
 
 Whether this succeeds depends on its users: if Janino matters to you, please report problems, try the releases, or
 help with the work by creating an [issue](https://github.com/janino-lts/janino/issues) or a
@@ -12,7 +18,9 @@ Janino is used by several large Apache projects, among others [Apache Spark](htt
 [Apache Hive](https://hive.apache.org/). (They use the original Janino 3.1.12, not this continuation.)
 Two workflows run the test suites of [Apache Calcite](.github/workflows/calcite.yml) (all modules) and of
 [Spark Catalyst](.github/workflows/spark.yml) against this Janino, each twice: with the Janino that the project
-declares and with this one, and compare the results.
+declares and with this one, and compare the results. The [compile-time benchmarks](janino-benchmarks/README.md)
+compare the compile time of two Janino versions, among others on the code that Apache Spark generates for the
+TPC-DS queries; each release is measured against its predecessor.
 
 Janino compiles Java source code like `javac`, but not in every respect: it accepts some invalid code, rejects some
 valid code, and some valid code behaves differently. All known deviations are listed in
@@ -36,7 +44,7 @@ versions up to 3.1.12 have the group ID `org.codehaus.janino`):
 <dependency>
     <groupId>io.github.janino-lts</groupId>
     <artifactId>janino</artifactId>
-    <version>3.1.16</version>
+    <version>3.1.17</version>
 </dependency>
 ```
 

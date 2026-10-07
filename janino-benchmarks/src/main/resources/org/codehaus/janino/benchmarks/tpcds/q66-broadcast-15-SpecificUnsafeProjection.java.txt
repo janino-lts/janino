@@ -1,0 +1,525 @@
+public java.lang.Object generate(Object[] references) {
+  return new SpecificUnsafeProjection(references);
+}
+
+class SpecificUnsafeProjection extends org.apache.spark.sql.catalyst.expressions.UnsafeProjection {
+
+  private Object[] references;
+  private org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[] mutableStateArray_0 = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[1];
+
+  public SpecificUnsafeProjection(Object[] references) {
+    this.references = references;
+    mutableStateArray_0[0] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(48, 768);
+
+  }
+
+  public void initialize(int partitionIndex) {
+
+  }
+
+  // Scala.Function1 need this
+  public java.lang.Object apply(java.lang.Object row) {
+    return apply((InternalRow) row);
+  }
+
+  public UnsafeRow apply(InternalRow i) {
+    mutableStateArray_0[0].reset();
+
+
+    mutableStateArray_0[0].zeroOutNullBytes();
+    writeFields_0_0(i);
+    writeFields_0_1(i);
+    writeFields_0_2(i);
+    writeFields_0_3(i);
+    writeFields_0_4(i);
+    writeFields_0_5(i);
+    writeFields_0_6(i);
+    writeFields_0_7(i);
+    writeFields_0_8(i);
+    writeFields_0_9(i);
+    return (mutableStateArray_0[0].getRow());
+  }
+
+
+  private void writeFields_0_2(InternalRow i) {
+
+    boolean isNull_10 = i.isNullAt(10);
+    Decimal value_10 = isNull_10 ?
+    null : (i.getDecimal(10, 28, 2));
+    if (isNull_10) {
+      mutableStateArray_0[0].write(10, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(10, value_10, 28, 2);
+    }
+
+    boolean isNull_11 = i.isNullAt(11);
+    boolean value_11 = isNull_11 ?
+    false : (i.getBoolean(11));
+    if (isNull_11) {
+      mutableStateArray_0[0].setNullAt(11);
+    } else {
+      mutableStateArray_0[0].write(11, value_11);
+    }
+
+    boolean isNull_12 = i.isNullAt(12);
+    Decimal value_12 = isNull_12 ?
+    null : (i.getDecimal(12, 28, 2));
+    if (isNull_12) {
+      mutableStateArray_0[0].write(12, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(12, value_12, 28, 2);
+    }
+
+    boolean isNull_13 = i.isNullAt(13);
+    boolean value_13 = isNull_13 ?
+    false : (i.getBoolean(13));
+    if (isNull_13) {
+      mutableStateArray_0[0].setNullAt(13);
+    } else {
+      mutableStateArray_0[0].write(13, value_13);
+    }
+
+    boolean isNull_14 = i.isNullAt(14);
+    Decimal value_14 = isNull_14 ?
+    null : (i.getDecimal(14, 28, 2));
+    if (isNull_14) {
+      mutableStateArray_0[0].write(14, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(14, value_14, 28, 2);
+    }
+
+  }
+
+
+  private void writeFields_0_3(InternalRow i) {
+
+    boolean isNull_15 = i.isNullAt(15);
+    boolean value_15 = isNull_15 ?
+    false : (i.getBoolean(15));
+    if (isNull_15) {
+      mutableStateArray_0[0].setNullAt(15);
+    } else {
+      mutableStateArray_0[0].write(15, value_15);
+    }
+
+    boolean isNull_16 = i.isNullAt(16);
+    Decimal value_16 = isNull_16 ?
+    null : (i.getDecimal(16, 28, 2));
+    if (isNull_16) {
+      mutableStateArray_0[0].write(16, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(16, value_16, 28, 2);
+    }
+
+    boolean isNull_17 = i.isNullAt(17);
+    boolean value_17 = isNull_17 ?
+    false : (i.getBoolean(17));
+    if (isNull_17) {
+      mutableStateArray_0[0].setNullAt(17);
+    } else {
+      mutableStateArray_0[0].write(17, value_17);
+    }
+
+    boolean isNull_18 = i.isNullAt(18);
+    Decimal value_18 = isNull_18 ?
+    null : (i.getDecimal(18, 28, 2));
+    if (isNull_18) {
+      mutableStateArray_0[0].write(18, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(18, value_18, 28, 2);
+    }
+
+    boolean isNull_19 = i.isNullAt(19);
+    boolean value_19 = isNull_19 ?
+    false : (i.getBoolean(19));
+    if (isNull_19) {
+      mutableStateArray_0[0].setNullAt(19);
+    } else {
+      mutableStateArray_0[0].write(19, value_19);
+    }
+
+  }
+
+
+  private void writeFields_0_4(InternalRow i) {
+
+    boolean isNull_20 = i.isNullAt(20);
+    Decimal value_20 = isNull_20 ?
+    null : (i.getDecimal(20, 28, 2));
+    if (isNull_20) {
+      mutableStateArray_0[0].write(20, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(20, value_20, 28, 2);
+    }
+
+    boolean isNull_21 = i.isNullAt(21);
+    boolean value_21 = isNull_21 ?
+    false : (i.getBoolean(21));
+    if (isNull_21) {
+      mutableStateArray_0[0].setNullAt(21);
+    } else {
+      mutableStateArray_0[0].write(21, value_21);
+    }
+
+    boolean isNull_22 = i.isNullAt(22);
+    Decimal value_22 = isNull_22 ?
+    null : (i.getDecimal(22, 28, 2));
+    if (isNull_22) {
+      mutableStateArray_0[0].write(22, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(22, value_22, 28, 2);
+    }
+
+    boolean isNull_23 = i.isNullAt(23);
+    boolean value_23 = isNull_23 ?
+    false : (i.getBoolean(23));
+    if (isNull_23) {
+      mutableStateArray_0[0].setNullAt(23);
+    } else {
+      mutableStateArray_0[0].write(23, value_23);
+    }
+
+    boolean isNull_24 = i.isNullAt(24);
+    Decimal value_24 = isNull_24 ?
+    null : (i.getDecimal(24, 28, 2));
+    if (isNull_24) {
+      mutableStateArray_0[0].write(24, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(24, value_24, 28, 2);
+    }
+
+  }
+
+
+  private void writeFields_0_5(InternalRow i) {
+
+    boolean isNull_25 = i.isNullAt(25);
+    boolean value_25 = isNull_25 ?
+    false : (i.getBoolean(25));
+    if (isNull_25) {
+      mutableStateArray_0[0].setNullAt(25);
+    } else {
+      mutableStateArray_0[0].write(25, value_25);
+    }
+
+    boolean isNull_26 = i.isNullAt(26);
+    Decimal value_26 = isNull_26 ?
+    null : (i.getDecimal(26, 28, 2));
+    if (isNull_26) {
+      mutableStateArray_0[0].write(26, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(26, value_26, 28, 2);
+    }
+
+    boolean isNull_27 = i.isNullAt(27);
+    boolean value_27 = isNull_27 ?
+    false : (i.getBoolean(27));
+    if (isNull_27) {
+      mutableStateArray_0[0].setNullAt(27);
+    } else {
+      mutableStateArray_0[0].write(27, value_27);
+    }
+
+    boolean isNull_28 = i.isNullAt(28);
+    Decimal value_28 = isNull_28 ?
+    null : (i.getDecimal(28, 28, 2));
+    if (isNull_28) {
+      mutableStateArray_0[0].write(28, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(28, value_28, 28, 2);
+    }
+
+    boolean isNull_29 = i.isNullAt(29);
+    boolean value_29 = isNull_29 ?
+    false : (i.getBoolean(29));
+    if (isNull_29) {
+      mutableStateArray_0[0].setNullAt(29);
+    } else {
+      mutableStateArray_0[0].write(29, value_29);
+    }
+
+  }
+
+
+  private void writeFields_0_0(InternalRow i) {
+
+    boolean isNull_0 = i.isNullAt(0);
+    Decimal value_0 = isNull_0 ?
+    null : (i.getDecimal(0, 28, 2));
+    if (isNull_0) {
+      mutableStateArray_0[0].write(0, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(0, value_0, 28, 2);
+    }
+
+    boolean isNull_1 = i.isNullAt(1);
+    boolean value_1 = isNull_1 ?
+    false : (i.getBoolean(1));
+    if (isNull_1) {
+      mutableStateArray_0[0].setNullAt(1);
+    } else {
+      mutableStateArray_0[0].write(1, value_1);
+    }
+
+    boolean isNull_2 = i.isNullAt(2);
+    Decimal value_2 = isNull_2 ?
+    null : (i.getDecimal(2, 28, 2));
+    if (isNull_2) {
+      mutableStateArray_0[0].write(2, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(2, value_2, 28, 2);
+    }
+
+    boolean isNull_3 = i.isNullAt(3);
+    boolean value_3 = isNull_3 ?
+    false : (i.getBoolean(3));
+    if (isNull_3) {
+      mutableStateArray_0[0].setNullAt(3);
+    } else {
+      mutableStateArray_0[0].write(3, value_3);
+    }
+
+    boolean isNull_4 = i.isNullAt(4);
+    Decimal value_4 = isNull_4 ?
+    null : (i.getDecimal(4, 28, 2));
+    if (isNull_4) {
+      mutableStateArray_0[0].write(4, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(4, value_4, 28, 2);
+    }
+
+  }
+
+
+  private void writeFields_0_1(InternalRow i) {
+
+    boolean isNull_5 = i.isNullAt(5);
+    boolean value_5 = isNull_5 ?
+    false : (i.getBoolean(5));
+    if (isNull_5) {
+      mutableStateArray_0[0].setNullAt(5);
+    } else {
+      mutableStateArray_0[0].write(5, value_5);
+    }
+
+    boolean isNull_6 = i.isNullAt(6);
+    Decimal value_6 = isNull_6 ?
+    null : (i.getDecimal(6, 28, 2));
+    if (isNull_6) {
+      mutableStateArray_0[0].write(6, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(6, value_6, 28, 2);
+    }
+
+    boolean isNull_7 = i.isNullAt(7);
+    boolean value_7 = isNull_7 ?
+    false : (i.getBoolean(7));
+    if (isNull_7) {
+      mutableStateArray_0[0].setNullAt(7);
+    } else {
+      mutableStateArray_0[0].write(7, value_7);
+    }
+
+    boolean isNull_8 = i.isNullAt(8);
+    Decimal value_8 = isNull_8 ?
+    null : (i.getDecimal(8, 28, 2));
+    if (isNull_8) {
+      mutableStateArray_0[0].write(8, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(8, value_8, 28, 2);
+    }
+
+    boolean isNull_9 = i.isNullAt(9);
+    boolean value_9 = isNull_9 ?
+    false : (i.getBoolean(9));
+    if (isNull_9) {
+      mutableStateArray_0[0].setNullAt(9);
+    } else {
+      mutableStateArray_0[0].write(9, value_9);
+    }
+
+  }
+
+
+  private void writeFields_0_6(InternalRow i) {
+
+    boolean isNull_30 = i.isNullAt(30);
+    Decimal value_30 = isNull_30 ?
+    null : (i.getDecimal(30, 28, 2));
+    if (isNull_30) {
+      mutableStateArray_0[0].write(30, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(30, value_30, 28, 2);
+    }
+
+    boolean isNull_31 = i.isNullAt(31);
+    boolean value_31 = isNull_31 ?
+    false : (i.getBoolean(31));
+    if (isNull_31) {
+      mutableStateArray_0[0].setNullAt(31);
+    } else {
+      mutableStateArray_0[0].write(31, value_31);
+    }
+
+    boolean isNull_32 = i.isNullAt(32);
+    Decimal value_32 = isNull_32 ?
+    null : (i.getDecimal(32, 28, 2));
+    if (isNull_32) {
+      mutableStateArray_0[0].write(32, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(32, value_32, 28, 2);
+    }
+
+    boolean isNull_33 = i.isNullAt(33);
+    boolean value_33 = isNull_33 ?
+    false : (i.getBoolean(33));
+    if (isNull_33) {
+      mutableStateArray_0[0].setNullAt(33);
+    } else {
+      mutableStateArray_0[0].write(33, value_33);
+    }
+
+    boolean isNull_34 = i.isNullAt(34);
+    Decimal value_34 = isNull_34 ?
+    null : (i.getDecimal(34, 28, 2));
+    if (isNull_34) {
+      mutableStateArray_0[0].write(34, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(34, value_34, 28, 2);
+    }
+
+  }
+
+
+  private void writeFields_0_7(InternalRow i) {
+
+    boolean isNull_35 = i.isNullAt(35);
+    boolean value_35 = isNull_35 ?
+    false : (i.getBoolean(35));
+    if (isNull_35) {
+      mutableStateArray_0[0].setNullAt(35);
+    } else {
+      mutableStateArray_0[0].write(35, value_35);
+    }
+
+    boolean isNull_36 = i.isNullAt(36);
+    Decimal value_36 = isNull_36 ?
+    null : (i.getDecimal(36, 28, 2));
+    if (isNull_36) {
+      mutableStateArray_0[0].write(36, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(36, value_36, 28, 2);
+    }
+
+    boolean isNull_37 = i.isNullAt(37);
+    boolean value_37 = isNull_37 ?
+    false : (i.getBoolean(37));
+    if (isNull_37) {
+      mutableStateArray_0[0].setNullAt(37);
+    } else {
+      mutableStateArray_0[0].write(37, value_37);
+    }
+
+    boolean isNull_38 = i.isNullAt(38);
+    Decimal value_38 = isNull_38 ?
+    null : (i.getDecimal(38, 28, 2));
+    if (isNull_38) {
+      mutableStateArray_0[0].write(38, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(38, value_38, 28, 2);
+    }
+
+    boolean isNull_39 = i.isNullAt(39);
+    boolean value_39 = isNull_39 ?
+    false : (i.getBoolean(39));
+    if (isNull_39) {
+      mutableStateArray_0[0].setNullAt(39);
+    } else {
+      mutableStateArray_0[0].write(39, value_39);
+    }
+
+  }
+
+
+  private void writeFields_0_8(InternalRow i) {
+
+    boolean isNull_40 = i.isNullAt(40);
+    Decimal value_40 = isNull_40 ?
+    null : (i.getDecimal(40, 28, 2));
+    if (isNull_40) {
+      mutableStateArray_0[0].write(40, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(40, value_40, 28, 2);
+    }
+
+    boolean isNull_41 = i.isNullAt(41);
+    boolean value_41 = isNull_41 ?
+    false : (i.getBoolean(41));
+    if (isNull_41) {
+      mutableStateArray_0[0].setNullAt(41);
+    } else {
+      mutableStateArray_0[0].write(41, value_41);
+    }
+
+    boolean isNull_42 = i.isNullAt(42);
+    Decimal value_42 = isNull_42 ?
+    null : (i.getDecimal(42, 28, 2));
+    if (isNull_42) {
+      mutableStateArray_0[0].write(42, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(42, value_42, 28, 2);
+    }
+
+    boolean isNull_43 = i.isNullAt(43);
+    boolean value_43 = isNull_43 ?
+    false : (i.getBoolean(43));
+    if (isNull_43) {
+      mutableStateArray_0[0].setNullAt(43);
+    } else {
+      mutableStateArray_0[0].write(43, value_43);
+    }
+
+    boolean isNull_44 = i.isNullAt(44);
+    Decimal value_44 = isNull_44 ?
+    null : (i.getDecimal(44, 28, 2));
+    if (isNull_44) {
+      mutableStateArray_0[0].write(44, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(44, value_44, 28, 2);
+    }
+
+  }
+
+
+  private void writeFields_0_9(InternalRow i) {
+
+    boolean isNull_45 = i.isNullAt(45);
+    boolean value_45 = isNull_45 ?
+    false : (i.getBoolean(45));
+    if (isNull_45) {
+      mutableStateArray_0[0].setNullAt(45);
+    } else {
+      mutableStateArray_0[0].write(45, value_45);
+    }
+
+    boolean isNull_46 = i.isNullAt(46);
+    Decimal value_46 = isNull_46 ?
+    null : (i.getDecimal(46, 28, 2));
+    if (isNull_46) {
+      mutableStateArray_0[0].write(46, (Decimal) null, 28, 2);
+    } else {
+      mutableStateArray_0[0].write(46, value_46, 28, 2);
+    }
+
+    boolean isNull_47 = i.isNullAt(47);
+    boolean value_47 = isNull_47 ?
+    false : (i.getBoolean(47));
+    if (isNull_47) {
+      mutableStateArray_0[0].setNullAt(47);
+    } else {
+      mutableStateArray_0[0].write(47, value_47);
+    }
+
+  }
+
+}

@@ -668,6 +668,128 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    test_6_6_2_1__Access_to_a_protected_Member_from_an_inner_class() throws Exception {
+
+        // A protected member that an enclosing class inherits from a class in another package is accessible from
+        // the inner classes of that class (JLS 6.6.2.1: "within the body of a subclass"), through a synthetic
+        // accessor method of the enclosing class, like with JAVAC (issue #59).
+
+        // Fields: read, assigned, compound assignment, crement, through "Foo.this", "Foo.super", a variable of the
+        // class or of a subclass; from an inner class of an inner class.
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "import java.io.*;\n"
+            + "public class Foo extends ByteArrayOutputStream {\n"
+            + "    static class Sub extends Foo {}\n"
+            + "    class Inner {\n"
+            + "        int read() { return count; }\n"
+            + "        int write(int c) { return count = c; }\n"
+            + "        int add(int c) { count += c; ++count; return count--; }\n"
+            + "        Object buffer() { return Foo.this.buf; }\n"
+            + "        Object viaSuper() { return Foo.super.buf; }\n"
+            + "        int other(Foo foo) { return foo.count; }\n"
+            + "        int other(Sub sub) { return sub.count; }\n"
+            + "        class Inner2 { int read() { return count; } }\n"
+            + "    }\n"
+            + "    public static boolean main() {\n"
+            + "        Foo foo = new Foo(); Inner inner = foo.new Inner(); Sub sub = new Sub();\n"
+            + "        sub.count = 7;\n"
+            + "        return (\n"
+            + "            inner.write(3) == 3 && inner.read() == 3 && foo.count == 3\n"
+            + "            && inner.add(2) == 6 && foo.count == 5\n"
+            + "            && inner.buffer() == foo.buf && inner.viaSuper() == foo.buf\n"
+            + "            && inner.other(foo) == 5 && inner.other(sub) == 7\n"
+            + "            && inner.new Inner2().read() == 5\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+
+        // Methods: unqualified, through "Foo.this", "Foo.super" and a variable of the class, with arguments and
+        // checked exceptions; from anonymous and local classes; the reflective properties of the accessor method.
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "import java.lang.reflect.*;\n"
+            + "import java.util.*;\n"
+            + "public class Foo extends ArrayList<String> implements Cloneable {\n"
+            + "    class Inner {\n"
+            + "        int a() { removeRange(0, 1); return size(); }\n"
+            + "        int b() { Foo.this.removeRange(0, 1); return size(); }\n"
+            + "        int c() { Foo.super.removeRange(0, 1); return size(); }\n"
+            + "        int d(Foo foo) { foo.removeRange(0, 1); return foo.size(); }\n"
+            + "        Object copy() throws CloneNotSupportedException { return Foo.this.clone(); }\n"
+            + "    }\n"
+            + "    int anon() {\n"
+            + "        return new Object() { public String toString() { removeRange(0, 1); return \"\"; } }\n"
+            + "            .toString().length() + size();\n"
+            + "    }\n"
+            + "    int local() { class L { int g() { removeRange(0, 1); return size(); } } return new L().g(); }\n"
+            + "    public static boolean main() throws Exception {\n"
+            + "        Foo foo = new Foo();\n"
+            + "        foo.addAll(Arrays.asList(\"a\", \"b\", \"c\", \"d\", \"e\", \"f\", \"g\"));\n"
+            + "        Inner inner = foo.new Inner();\n"
+            + "        Method a = Foo.class.getDeclaredMethod(\"access$000\", Foo.class, int.class, int.class);\n"
+            + "        return (\n"
+            + "            inner.a() == 6 && inner.b() == 5 && inner.c() == 4 && inner.d(foo) == 3\n"
+            + "            && foo.anon() == 2 && foo.local() == 1\n"
+            + "            && inner.copy() instanceof Foo && inner.copy() != foo\n"
+            + "            && a.isSynthetic() && Modifier.isStatic(a.getModifiers())\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+
+        // Static members: from an inner class, a static nested class and a local class in a static method.
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "public class Foo extends ClassLoader {\n"
+            + "    class Inner { boolean f() { return registerAsParallelCapable(); } }\n"
+            + "    static class Nested { boolean f() { return ClassLoader.registerAsParallelCapable(); } }\n"
+            + "    static boolean local() {\n"
+            + "        class L { boolean f() { return registerAsParallelCapable(); } }\n"
+            + "        return new L().f();\n"
+            + "    }\n"
+            + "    public static boolean main() {\n"
+            + "        return (new Foo().new Inner().f() || true) && (new Nested().f() || true) && (local() || true);\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "public class Foo extends for_sandbox_tests.ClassWithFields {\n"
+            + "    class Inner { int f() { return protectedField; } }\n"
+            + "    static class Nested { int f() { protectedField += 10; return protectedField; } }\n"
+            + "    public static boolean main() {\n"
+            + "        int before = new Foo().new Inner().f();\n"
+            + "        return new Nested().f() == before + 10 && new Foo().new Inner().f() == before + 10;\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+
+        // Not accessible: from an inner class of a class that is not a subclass, or through an expression whose type
+        // is neither the enclosing class nor a subclass of it.
+        String u = "Protected member cannot be accessed|compiler.err.report.access";
+        this.assertCompilationUnitUncookable(
+            "class Foo { class Inner { Object f(java.io.FilterInputStream s) { return s.in; } } }",
+            u
+        );
+        this.assertCompilationUnitUncookable(
+            "import java.io.*; class Foo extends FilterInputStream { Foo() { super(null); }"
+            + " class Inner { Object f() { return ((FilterInputStream) Foo.this).in; } } }",
+            u
+        );
+        this.assertCompilationUnitUncookable(
+            "import java.io.*; class Foo extends FilterInputStream { Foo() { super(null); }"
+            + " class Inner { Object f(BufferedInputStream b) { return b.in; } } }",
+            u
+        );
+    }
+
+    @Test public void
     test_6_6_2_2__Qualified_Access_to_a_protected_Constructor() throws Exception {
 
         // A protected constructor can be invoked by a class instance creation expression only from within the package
@@ -925,6 +1047,102 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "    }\n"
             + "}\n"
         ), "Main");
+    }
+
+    @Test public void
+    test_8_1_3__Inner_Classes_and_Enclosing_Instances__effectively_final() throws Exception {
+
+        // Since Java 8, a local or anonymous class may access local variables and parameters of the enclosing
+        // method that are effectively final (JLS8 4.12.4): not declared "final", but never assigned (issue #24).
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.util.Arrays;\n"
+            + "\n"
+            + "public class Main {\n"
+            + "    public static boolean\n"
+            + "    main() {\n"
+            + "        return meth(1, \"c\") && catchParameter().equals(\"boom\") && loops().equals(\"ab02\");\n"
+            + "    }\n"
+            + "\n"
+            + "    public static boolean\n"
+            + "    meth(int a, String c) {\n"
+            + "        int    e = 5;\n"
+            + "        long   l = 6L;\n"
+            + "        double d = 7.5;\n"
+            + "        int[]  f = { 8 };\n"
+            + "        f[0] = 9;\n"
+            + "        class Local { int get() { return e; } }\n"
+            + "        Object o = new Object() {\n"
+            + "            public String toString() {\n"
+            + "                return a + c + e + l + d + f[0] + new Local().get() + new Object() {\n"
+            + "                    public String toString() { return \"\" + a; }\n"
+            + "                };\n"
+            + "            }\n"
+            + "        };\n"
+            + "        return o.toString().equals(\"1c567.5951\") && e == 5;\n"
+            + "    }\n"
+            + "\n"
+            + "    public static String\n"
+            + "    catchParameter() {\n"
+            + "        try {\n"
+            + "            throw new RuntimeException(\"boom\");\n"
+            + "        } catch (RuntimeException re) {\n"
+            + "            return new Object() { public String toString() { return re.getMessage(); } }.toString();\n"
+            + "        }\n"
+            + "    }\n"
+            + "\n"
+            + "    public static String\n"
+            + "    loops() {\n"
+            + "        StringBuilder sb = new StringBuilder();\n"
+            + "        for (String s : Arrays.asList(\"a\", \"b\")) {\n"
+            + "            sb.append(new Object() { public String toString() { return s; } });\n"
+            + "        }\n"
+            + "        for (int i = 0; i < 2; i++) {\n"
+            + "            int x = i * 2;\n"
+            + "            sb.append(new Object() { public String toString() { return \"\" + x; } });\n"
+            + "        }\n"
+            + "        return sb.toString();\n"
+            + "    }\n"
+            + "}\n"
+        ), "Main");
+
+        // Assigned after the inner class captured it.
+        this.assertCompilationUnitUncookable(
+            ""
+            + "public class Main {\n"
+            + "    void f() {\n"
+            + "        int x = 1;\n"
+            + "        Runnable r = new Runnable() { public void run() { int y = x; } };\n"
+            + "        x = 2;\n"
+            + "    }\n"
+            + "}\n",
+            "Cannot access non-final local variable|compiler.err.cant.ref.non.effectively.final.var"
+        );
+
+        // Incremented.
+        this.assertCompilationUnitUncookable(
+            ""
+            + "public class Main {\n"
+            + "    void f() {\n"
+            + "        int x = 1;\n"
+            + "        x++;\n"
+            + "        Runnable r = new Runnable() { public void run() { int y = x; } };\n"
+            + "    }\n"
+            + "}\n",
+            "Cannot access non-final local variable|compiler.err.cant.ref.non.effectively.final.var"
+        );
+
+        // Assigned in the inner class.
+        this.assertCompilationUnitUncookable(
+            ""
+            + "public class Main {\n"
+            + "    void f() {\n"
+            + "        int x = 1;\n"
+            + "        Runnable r = new Runnable() { public void run() { x = 2; } };\n"
+            + "    }\n"
+            + "}\n",
+            "Cannot access non-final local variable|compiler.err.cant.ref.non.effectively.final.var"
+        );
     }
 
     @Test public void
@@ -2070,10 +2288,117 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    test_10_7__Array_Members() throws Exception {
+
+        // "clone()" of an array has the array type.
+        this.assertScriptReturnsTrue("int[] a = { 1, 2 }; int[] b = a.clone(); return b != a && b[1] == 2;");
+        this.assertScriptReturnsTrue("int[] a = { 1, 2 }; return a.clone().length == 2;");
+        this.assertScriptReturnsTrue("int[] a = { 1, 2 }; return a.clone()[1] == 2;");
+        this.assertScriptReturnsTrue("String[] a = { \"x\" }; String[] b = a.clone(); return b[0] == \"x\";");
+
+        // The clone of a multi-dimensional array is shallow.
+        this.assertScriptReturnsTrue("int[][] a = { { 3 } }; int[][] b = a.clone(); return b != a && b[0] == a[0];");
+        this.assertScriptReturnsTrue("int[][] a = { { 3 } }; return a.clone()[0][0] == 3;");
+
+        // The clone in other contexts: expression statement, argument, comparison, string concatenation, "Object".
+        this.assertScriptReturnsTrue("int[] a = { 1 }; a.clone(); return true;");
+        this.assertScriptReturnsTrue("int[] a = { 1 }; return java.util.Arrays.equals(a, a.clone());");
+        this.assertScriptReturnsTrue("int[] a = { 1 }; return a.clone() != a;");
+        this.assertScriptReturnsTrue("int[] a = { 1 }; return (\"\" + a.clone()).startsWith(\"[I@\");");
+        this.assertScriptReturnsTrue("int[] a = { 1 }; Object o = a.clone(); return o instanceof int[];");
+        this.assertScriptReturnsTrue("int[] a = { 1 }; int[] b = (int[]) a.clone(); return b[0] == 1;");
+        this.assertScriptReturnsTrue("int[] a = { 1 }; return a.clone().clone()[0] == 1;");
+
+        // "clone()" of an array does not throw "CloneNotSupportedException".
+        this.assertScriptReturnsTrue("int[] a = { 1 }; try { return a.clone()[0] == 1; } finally { }");
+
+        // "length" is a final field.
+        this.assertScriptUncookable("int[] a = { 1 }; a.length = 2;");
+    }
+
+    @Test public void
+    test_11_2__Compile_Time_Checking_of_Exceptions__all_uppercase_names() throws Exception {
+
+        // An exception class whose simple name consists of uppercase letters only is not a type parameter (issue
+        // #65): the "catch" of such an exception is reachable, and the "Exceptions" attribute lists the exception.
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "import java.lang.reflect.*;\n"
+            + "public class Foo {\n"
+            + "    static class X extends Exception {}\n"
+            + "    static class IOEXC extends Exception {}\n"
+            + "    static void m(boolean b) throws X { if (b) throw new X(); }\n"
+            + "    static void n() throws X, IOEXC { throw new IOEXC(); }\n"
+            + "    static <T extends Exception> void g(boolean b) throws T, X { if (b) throw new X(); }\n"
+            + "    Foo(boolean b) throws X { if (b) throw new X(); }\n"
+            + "    public static boolean main() throws Exception {\n"
+            + "        String r = \"\";\n"
+            + "        try { m(true); r += \"-\"; } catch (X e) { r += \"X\"; }\n"
+            + "        try { m(false); r += \"-\"; } catch (X e) { r += \"X\"; }\n"
+            + "        try { n(); } catch (X | IOEXC e) { r += e.getClass().getSimpleName(); }\n"
+            + "        try { g(true); } catch (X e) { r += \"G\"; }\n"
+            + "        try { new Foo(true); } catch (X e) { r += \"C\"; }\n"
+            + "        Method mm = Foo.class.getDeclaredMethod(\"m\", boolean.class);\n"
+            + "        Constructor<?> c = Foo.class.getDeclaredConstructor(boolean.class);\n"
+            + "        return (\n"
+            + "            r.equals(\"X-IOEXCGC\")\n"
+            + "            && mm.getExceptionTypes().length == 1 && mm.getExceptionTypes()[0] == X.class\n"
+            + "            && c.getExceptionTypes().length == 1 && c.getExceptionTypes()[0] == X.class\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+
+        // Not thrown in the "try" block.
+        this.assertCompilationUnitUncookable(
+            ""
+            + "class Foo {\n"
+            + "    static class X extends Exception {}\n"
+            + "    static void m() {}\n"
+            + "    void f() { try { m(); } catch (X e) {} }\n"
+            + "}\n",
+            "Catch clause is unreachable|compiler.err.except.never.thrown.in.try"
+        );
+    }
+
+    @Test public void
     test_14_3__Local_class_declarations() throws Exception {
         this.assertScriptReturnsTrue(
             "class S2 extends SC { public int foo() { return 37; } }; return new S2().foo() == 37;"
         );
+
+        // Local class modifiers: "abstract", "final", "strictfp" and annotations.
+        this.assertScriptReturnsTrue(
+            "final class L {} return java.lang.reflect.Modifier.isFinal(L.class.getModifiers());"
+        );
+        this.assertScriptReturnsTrue(
+            "abstract class L { abstract int f(); } class M extends L { int f() { return 7; } }"
+            + " return new M().f() == 7 && java.lang.reflect.Modifier.isAbstract(L.class.getModifiers());"
+        );
+        this.assertScriptReturnsTrue("strictfp class L { double f() { return 1.5; } } return new L().f() == 1.5;");
+        this.assertScriptReturnsTrue("@Deprecated class L {} return L.class.isAnnotationPresent(Deprecated.class);");
+        this.assertScriptReturnsTrue(
+            "@Deprecated final class L { int f() { return 1; } } return new L().f() == 1;"
+        );
+        this.assertScriptReturnsTrue("/** A doc comment. */ final class L {} return new L() != null;");
+
+        // Other modifiers are not allowed (JLS 14.3), and "abstract" and "final" are mutually exclusive.
+        this.assertScriptUncookable("static class L {}");
+        this.assertScriptUncookable("public class L {}");
+        this.assertScriptUncookable("private class L {}");
+        this.assertScriptUncookable("abstract final class L {}");
+
+        // An abstract local class cannot be instantiated, a final one cannot be extended.
+        this.assertScriptUncookable("abstract class L {} new L();");
+        this.assertScriptUncookable("final class L {} class M extends L {}");
+
+        // Local variable declarations with modifiers are unaffected. (In a script, a declaration with modifiers
+        // may also be a method declaration, and the modifiers are not checked; hence the class body.)
+        this.assertScriptReturnsTrue("final int x = 1; return x == 1;");
+        this.assertScriptReturnsTrue("@SuppressWarnings(\"unused\") final int x = 1; return x == 1;");
+        this.assertClassBodyUncookable("void f() { abstract int x; }");
+        this.assertClassBodyUncookable("void f() { strictfp int x = 1; }");
     }
 
     @Test public void
@@ -2311,6 +2636,49 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "    throw new AssertionError();\n"
             + "}\n"
             + "return b == 22;\n"   // <= Is "b" initialized at this point?
+        );
+    }
+
+    @Test public void
+    test_14_14_1__The_basic_for_statement__captured_loop_variable() throws Exception {
+
+        // An inner class may access the "final" loop variable of a basic FOR statement (issue #75; before, that was
+        // an internal compiler error), and a loop variable that is effectively final (issue #24).
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "public class Main {\n"
+            + "    public static boolean\n"
+            + "    main() {\n"
+            + "        String r = \"\";\n"
+            + "        for (final int i = 1, j = 2; i < 9; ) {\n"
+            + "            r += new Object() { public String toString() { return \"\" + (i + j); } };\n"
+            + "            break;\n"
+            + "        }\n"
+            + "        for (int i = 4; i < 9; ) {\n"
+            + "            class L { int get() { return i; } }\n"
+            + "            if (i > 0) r += new L().get();\n"
+            + "            break;\n"
+            + "        }\n"
+            + "        for (final int i = 5; new Object() { boolean b() { return i < 9; } }.b(); ) {\n"
+            + "            r += i;\n"
+            + "            break;\n"
+            + "        }\n"
+            + "        return r.equals(\"345\");\n"
+            + "    }\n"
+            + "}\n"
+        ), "Main");
+
+        // A loop variable that is incremented is not effectively final.
+        this.assertCompilationUnitUncookable(
+            ""
+            + "public class Main {\n"
+            + "    void f() {\n"
+            + "        for (int i = 0; i < 3; i++) {\n"
+            + "            Runnable r = new Runnable() { public void run() { int y = i; } };\n"
+            + "        }\n"
+            + "    }\n"
+            + "}\n",
+            "Cannot access non-final local variable|compiler.err.cant.ref.non.effectively.final.var"
         );
     }
 
@@ -2829,6 +3197,64 @@ class JlsTest extends CommonsCompilerTestSuite {
         );
     }
 
+    @Test public void
+    test_14_20_3__try_with_resources__4() throws Exception {
+
+        if (this.isJdk && CommonsCompilerTestSuite.JVM_VERSION < 7) return;
+
+        // The resource variable is in scope in the block, in the initializers of the following resources, and in
+        // the anonymous and local classes declared in the block.
+        this.assertScriptReturnsTrue(
+            ""
+            + "class R implements AutoCloseable {\n"
+            + "    final String n;\n"
+            + "    R(String n) { this.n = n; }\n"
+            + "    public void close() {}\n"
+            + "}\n"
+            + "try (R a = new R(\"a\"); R b = new R(a.n + \"b\")) {\n"
+            + "    class L { String g() { return b.n; } }\n"
+            + "    Object o = new Object() { public String toString() { return a.n; } };\n"
+            + "    if (!a.n.equals(\"a\") || !b.n.equals(\"ab\")) return false;\n"
+            + "    return new L().g().equals(\"ab\") && o.toString().equals(\"a\");\n"
+            + "}\n"
+        );
+    }
+
+    @Test public void
+    test_14_20_3__try_with_resources__5() throws Exception {
+
+        if (this.isJdk && CommonsCompilerTestSuite.JVM_VERSION < 7) return;
+
+        // The resource is closed when the block completes, also when the block accesses the resource variable.
+        this.assertScriptReturnsTrue(
+            ""
+            + "final int[] closed = new int[1];\n"
+            + "class R implements AutoCloseable {\n"
+            + "    public void close() { closed[0]++; }\n"
+            + "    int n() { return closed[0]; }\n"
+            + "}\n"
+            + "try (R r = new R()) {\n"
+            + "    if (r.n() != 0) return false;\n"
+            + "}\n"
+            + "return closed[0] == 1;\n"
+        );
+    }
+
+    @Test public void
+    test_14_20_3__try_with_resources__6() throws Exception {
+
+        if (this.isJdk && CommonsCompilerTestSuite.JVM_VERSION < 7) return;
+
+        // The resource variable is not in scope in the CATCH clauses, in the FINALLY clause, after the statement,
+        // and in the initializers of the preceding resources.
+        String r = "class R implements AutoCloseable { R() {} R(R o) {} public void close() {} }\n";
+        this.assertScriptUncookable(r + "try (R r = new R()) {} catch (Exception e) { r.close(); }\n");
+        this.assertScriptUncookable(r + "try (R r = new R()) {} finally { r.close(); }\n");
+        this.assertScriptUncookable(r + "try (R r = new R()) {} r.close();\n");
+        this.assertScriptUncookable(r + "try (R b = new R(a); R a = new R()) {}\n");
+        this.assertScriptUncookable(r + "try (R a = new R(a)) {}\n");
+    }
+
     /**
      * Tests the "enhanced try-with-resources statement" that was introduced with Java 9 with a "local variable
      * declarator resource" with a local variable access.
@@ -3111,6 +3537,20 @@ class JlsTest extends CommonsCompilerTestSuite {
         this.assertExpressionCookable("(new int[3])[(short) 0]");
         this.assertExpressionCookable("(new int[3])[0]");
         this.assertExpressionUncookable("(new int[3])[0L]");
+
+        // Array access expressions as method and constructor arguments, and as array indexes.
+        this.assertScriptReturnsTrue("int[] a = { 7 }; return String.valueOf(a[0]).equals(\"7\");");
+        this.assertScriptReturnsTrue("Object[] o = { \"x\" }; return String.valueOf(o[0]).equals(\"x\");");
+        this.assertScriptReturnsTrue("Object o = new Object[] { \"x\" }; return ((Object[]) o)[0].equals(\"x\");");
+        this.assertScriptReturnsTrue("Object o = new String[] { \"x\" }; return \"x\".equals(((Object[]) o)[0]);");
+        this.assertScriptReturnsTrue("int[] a = { 7 }; return new StringBuilder(a[0]).capacity() == 7;");
+        this.assertScriptReturnsTrue("int[] a = { 1, 2 }; int[] b = { 1 }; return a[b[0]] == 2;");
+        this.assertScriptReturnsTrue("int[][] a = { { 1, 2 } }; return String.valueOf(a[0][1]).equals(\"2\");");
+        this.assertScriptReturnsTrue("String[] s = { \"ab\" }; return s[0].substring(s[0].length() - 1).equals(\"b\");");
+        this.assertScriptUncookable("Object o = new int[1]; return String.valueOf(o[0]);");
+        this.assertScriptUncookable("String s = \"a\"; return String.valueOf(s[0]);");
+        this.assertScriptUncookable("Object o = null; return o[0];");
+        this.assertScriptUncookable("int[] a = { 1 }; Object o = null; return a[o[0]];");
     }
 
     @Test public void

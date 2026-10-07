@@ -1,0 +1,67 @@
+public java.lang.Object generate(Object[] references) {
+  return new SpecificUnsafeProjection(references);
+}
+
+class SpecificUnsafeProjection extends org.apache.spark.sql.catalyst.expressions.UnsafeProjection {
+
+  private Object[] references;
+  private org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[] mutableStateArray_0 = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[1];
+
+  public SpecificUnsafeProjection(Object[] references) {
+    this.references = references;
+    mutableStateArray_0[0] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(1, 0);
+
+  }
+
+  public void initialize(int partitionIndex) {
+
+  }
+
+  // Scala.Function1 need this
+  public java.lang.Object apply(java.lang.Object row) {
+    return apply((InternalRow) row);
+  }
+
+  public UnsafeRow apply(InternalRow i) {
+    mutableStateArray_0[0].reset();
+
+
+    mutableStateArray_0[0].zeroOutNullBytes();
+
+    boolean isNull_0 = false;
+    int value_0 = -1;
+    if (4 == 0) {
+      throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[0] /* errCtx */));
+    } else {
+      int value_1 = 42;
+      boolean isNull_2 = i.isNullAt(0);
+      int value_2 = isNull_2 ?
+      -1 : (i.getInt(0));
+      if (!isNull_2) {
+        value_1 = org.apache.spark.unsafe.hash.Murmur3_x86_32.hashInt(value_2, value_1);
+      }
+      boolean isNull_3 = i.isNullAt(1);
+      int value_3 = isNull_3 ?
+      -1 : (i.getInt(1));
+      if (!isNull_3) {
+        value_1 = org.apache.spark.unsafe.hash.Murmur3_x86_32.hashInt(value_3, value_1);
+      }
+
+      int remainder_0 = value_1 % 4;
+      if (remainder_0 < 0) {
+        value_0=(remainder_0 + 4) % 4;
+      } else {
+        value_0=remainder_0;
+      }
+
+    }
+    if (isNull_0) {
+      mutableStateArray_0[0].setNullAt(0);
+    } else {
+      mutableStateArray_0[0].write(0, value_0);
+    }
+    return (mutableStateArray_0[0].getRow());
+  }
+
+
+}

@@ -35,7 +35,7 @@
 
   <groupId>io.github.janino-lts</groupId>
   <packaging>pom</packaging>
-  <version>3.1.17-SNAPSHOT</version>
+  <version>3.1.17</version>
   <dependencyManagement>
     <dependencies>
       <dependency>

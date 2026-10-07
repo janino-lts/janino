@@ -1,0 +1,79 @@
+public Object generate(Object[] references) {
+  return new GeneratedIteratorForCodegenStage34(references);
+}
+
+// codegenStageId=34
+final class GeneratedIteratorForCodegenStage34 extends org.apache.spark.sql.execution.BufferedRowIterator {
+  private Object[] references;
+  private scala.collection.Iterator[] inputs;
+  private boolean hashAgg_initAgg_0;
+  private boolean hashAgg_bufIsNull_0;
+  private long hashAgg_bufValue_0;
+  private scala.collection.Iterator inputadapter_input_0;
+  private org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[] hashAgg_mutableStateArray_0 = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[1];
+
+  public GeneratedIteratorForCodegenStage34(Object[] references) {
+    this.references = references;
+  }
+
+  public void init(int index, scala.collection.Iterator[] inputs) {
+    partitionIndex = index;
+    this.inputs = inputs;
+
+    inputadapter_input_0 = inputs[0];
+    hashAgg_mutableStateArray_0[0] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(1, 0);
+
+  }
+
+  private void hashAgg_doAggregateWithoutKey_0(int partitionIndex) throws java.io.IOException {
+    // initialize aggregation buffer
+    hashAgg_bufIsNull_0 = false;
+    hashAgg_bufValue_0 = 0L;
+
+    while ( inputadapter_input_0.hasNext()) {
+      InternalRow inputadapter_row_0 = (InternalRow) inputadapter_input_0.next();
+
+      long inputadapter_value_0 = inputadapter_row_0.getLong(0);
+
+      hashAgg_doConsume_0(inputadapter_row_0, inputadapter_value_0);
+      // shouldStop check is eliminated
+    }
+
+  }
+
+  private void hashAgg_doConsume_0(InternalRow inputadapter_row_0, long hashAgg_expr_0_0) throws java.io.IOException {
+    // do aggregate
+    // common sub-expressions
+
+    // evaluate aggregate functions and update aggregation buffers
+
+    long hashAgg_value_3 = -1L;
+
+    hashAgg_value_3 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(hashAgg_bufValue_0, hashAgg_expr_0_0, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[0] /* errCtx */));
+
+    hashAgg_bufIsNull_0 = false;
+    hashAgg_bufValue_0 = hashAgg_value_3;
+
+  }
+
+  protected void processNext() throws java.io.IOException {
+    while (!hashAgg_initAgg_0) {
+      hashAgg_initAgg_0 = true;
+
+      long hashAgg_beforeAgg_0 = System.nanoTime();
+      hashAgg_doAggregateWithoutKey_0(partitionIndex);
+      ((org.apache.spark.sql.execution.metric.SQLMetric) references[2] /* aggTime */).add((System.nanoTime() - hashAgg_beforeAgg_0) / 1000000);
+
+      // output the result
+
+      ((org.apache.spark.sql.execution.metric.SQLMetric) references[1] /* numOutputRows */).add(1);
+      hashAgg_mutableStateArray_0[0].reset();
+
+      hashAgg_mutableStateArray_0[0].zeroOutNullBytes();
+
+      hashAgg_mutableStateArray_0[0].write(0, hashAgg_bufValue_0);
+      append((hashAgg_mutableStateArray_0[0].getRow()));
+    }
+  }
+
+}

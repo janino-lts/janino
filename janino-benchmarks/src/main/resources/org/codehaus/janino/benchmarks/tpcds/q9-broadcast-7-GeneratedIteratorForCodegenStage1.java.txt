@@ -1,0 +1,431 @@
+public Object generate(Object[] references) {
+  return new GeneratedIteratorForCodegenStage1(references);
+}
+
+// codegenStageId=1
+final class GeneratedIteratorForCodegenStage1 extends org.apache.spark.sql.execution.BufferedRowIterator {
+  private Object[] references;
+  private scala.collection.Iterator[] inputs;
+  private boolean range_initRange_0;
+  private long range_nextIndex_0;
+  private TaskContext range_taskContext_0;
+  private InputMetrics range_inputMetrics_0;
+  private long range_batchEnd_0;
+  private long range_numElementsTodo_0;
+  private org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[] range_mutableStateArray_0 = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[3];
+
+  public GeneratedIteratorForCodegenStage1(Object[] references) {
+    this.references = references;
+  }
+
+  public void init(int index, scala.collection.Iterator[] inputs) {
+    partitionIndex = index;
+    this.inputs = inputs;
+
+    range_taskContext_0 = TaskContext.get();
+    range_inputMetrics_0 = range_taskContext_0.taskMetrics().inputMetrics();
+    range_mutableStateArray_0[0] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(1, 0);
+    range_mutableStateArray_0[1] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(1, 0);
+    range_mutableStateArray_0[2] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(5, 0);
+
+  }
+
+  private void range_initRange_1(int idx) {
+    java.math.BigInteger index = java.math.BigInteger.valueOf(idx);
+    java.math.BigInteger numSlice = java.math.BigInteger.valueOf(2L);
+    java.math.BigInteger numElement = java.math.BigInteger.valueOf(20L);
+    java.math.BigInteger step = java.math.BigInteger.valueOf(1L);
+    java.math.BigInteger start = java.math.BigInteger.valueOf(0L);
+    long partitionEnd;
+
+    java.math.BigInteger st = index.multiply(numElement).divide(numSlice).multiply(step).add(start);
+    if (st.compareTo(java.math.BigInteger.valueOf(Long.MAX_VALUE)) > 0) {
+      range_nextIndex_0 = Long.MAX_VALUE;
+    } else if (st.compareTo(java.math.BigInteger.valueOf(Long.MIN_VALUE)) < 0) {
+      range_nextIndex_0 = Long.MIN_VALUE;
+    } else {
+      range_nextIndex_0 = st.longValue();
+    }
+    range_batchEnd_0 = range_nextIndex_0;
+
+    java.math.BigInteger end = index.add(java.math.BigInteger.ONE).multiply(numElement).divide(numSlice)
+    .multiply(step).add(start);
+    if (end.compareTo(java.math.BigInteger.valueOf(Long.MAX_VALUE)) > 0) {
+      partitionEnd = Long.MAX_VALUE;
+    } else if (end.compareTo(java.math.BigInteger.valueOf(Long.MIN_VALUE)) < 0) {
+      partitionEnd = Long.MIN_VALUE;
+    } else {
+      partitionEnd = end.longValue();
+    }
+
+    java.math.BigInteger startToEnd = java.math.BigInteger.valueOf(partitionEnd).subtract(
+      java.math.BigInteger.valueOf(range_nextIndex_0));
+    range_numElementsTodo_0  = startToEnd.divide(step).longValue();
+    if (range_numElementsTodo_0 < 0) {
+      range_numElementsTodo_0 = 0;
+    } else if (startToEnd.remainder(step).compareTo(java.math.BigInteger.valueOf(0L)) != 0) {
+      range_numElementsTodo_0++;
+    }
+  }
+
+  protected void processNext() throws java.io.IOException {
+    // initialize Range
+    if (!range_initRange_0) {
+      range_initRange_0 = true;
+      range_initRange_1(partitionIndex);
+    }
+
+    while (true) {
+      if (range_nextIndex_0 == range_batchEnd_0) {
+        long range_nextBatchTodo_0;
+        if (range_numElementsTodo_0 > 1000L) {
+          range_nextBatchTodo_0 = 1000L;
+          range_numElementsTodo_0 -= 1000L;
+        } else {
+          range_nextBatchTodo_0 = range_numElementsTodo_0;
+          range_numElementsTodo_0 = 0;
+          if (range_nextBatchTodo_0 == 0) break;
+        }
+        range_batchEnd_0 += range_nextBatchTodo_0 * 1L;
+      }
+
+      int range_localEnd_0 = (int)((range_batchEnd_0 - range_nextIndex_0) / 1L);
+      for (int range_localIdx_0 = 0; range_localIdx_0 < range_localEnd_0; range_localIdx_0++) {
+        long range_value_0 = ((long)range_localIdx_0 * 1L) + range_nextIndex_0;
+
+        do {
+          boolean filter_isNull_0 = true;
+          boolean filter_value_0 = false;
+          boolean filter_isNull_2 = true;
+          long filter_value_2 = -1L;
+          boolean filter_isNull_3 = false;
+          long filter_value_3 = -1L;
+          if (23L == 0) {
+            throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[3] /* errCtx */));
+          } else {
+            filter_value_3 = (long)(range_value_0 % 23L);
+          }
+          if (!filter_isNull_3) {
+            filter_isNull_2 = false; // resultCode could change nullability.
+
+            filter_value_2 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(filter_value_3, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[4] /* errCtx */));
+
+          }
+          boolean filter_isNull_1 = filter_isNull_2;
+          int filter_value_1 = -1;
+          if (!filter_isNull_2) {
+            if (filter_value_2 == (int) filter_value_2) {
+              filter_value_1 = (int) filter_value_2;
+            } else {
+              throw QueryExecutionErrors.castingCauseOverflowError(filter_value_2, ((org.apache.spark.sql.types.LongType$) references[5] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[6] /* to */));
+            }
+          }
+          if (!filter_isNull_1) {
+            filter_isNull_0 = false; // resultCode could change nullability.
+            filter_value_0 = filter_value_1 == 1;
+
+          }
+          if (filter_isNull_0 || !filter_value_0) continue;
+
+          ((org.apache.spark.sql.execution.metric.SQLMetric) references[1] /* numOutputRows */).add(1);
+
+          // common sub-expressions
+
+          boolean project_isNull_6 = true;
+          boolean project_value_6 = false;
+          boolean project_isNull_7 = false;
+          long project_value_7 = -1L;
+
+          if (!false) {
+            if (((InternalRow) references[9] /* literal */).isNullAt(0)) {
+              project_isNull_7 = true;
+            } else {
+              project_value_7 = ((InternalRow) references[9] /* literal */).getLong(0);
+            }
+
+          }
+          if (!project_isNull_7) {
+            project_isNull_6 = false; // resultCode could change nullability.
+            project_value_6 = project_value_7 > 62316685L;
+
+          }
+          boolean project_isNull_5 = false;
+          Decimal project_value_5 = null;
+          if (!project_isNull_6 && project_value_6) {
+            boolean project_isNull_9 = false;
+            Decimal project_value_9 = null;
+
+            if (!false) {
+              if (((InternalRow) references[9] /* literal */).isNullAt(1)) {
+                project_isNull_9 = true;
+              } else {
+                project_value_9 = ((InternalRow) references[9] /* literal */).getDecimal(1, 11, 6);
+              }
+
+            }
+            project_isNull_5 = project_isNull_9;
+            project_value_5 = project_value_9;
+          } else {
+            boolean project_isNull_10 = false;
+            Decimal project_value_10 = null;
+
+            if (!false) {
+              if (((InternalRow) references[9] /* literal */).isNullAt(2)) {
+                project_isNull_10 = true;
+              } else {
+                project_value_10 = ((InternalRow) references[9] /* literal */).getDecimal(2, 11, 6);
+              }
+
+            }
+            project_isNull_5 = project_isNull_10;
+            project_value_5 = project_value_10;
+          }
+          boolean project_isNull_12 = true;
+          boolean project_value_12 = false;
+          boolean project_isNull_13 = false;
+          long project_value_13 = -1L;
+
+          if (!false) {
+            if (((InternalRow) references[10] /* literal */).isNullAt(0)) {
+              project_isNull_13 = true;
+            } else {
+              project_value_13 = ((InternalRow) references[10] /* literal */).getLong(0);
+            }
+
+          }
+          if (!project_isNull_13) {
+            project_isNull_12 = false; // resultCode could change nullability.
+            project_value_12 = project_value_13 > 19045798L;
+
+          }
+          boolean project_isNull_11 = false;
+          Decimal project_value_11 = null;
+          if (!project_isNull_12 && project_value_12) {
+            boolean project_isNull_15 = false;
+            Decimal project_value_15 = null;
+
+            if (!false) {
+              if (((InternalRow) references[10] /* literal */).isNullAt(1)) {
+                project_isNull_15 = true;
+              } else {
+                project_value_15 = ((InternalRow) references[10] /* literal */).getDecimal(1, 11, 6);
+              }
+
+            }
+            project_isNull_11 = project_isNull_15;
+            project_value_11 = project_value_15;
+          } else {
+            boolean project_isNull_16 = false;
+            Decimal project_value_16 = null;
+
+            if (!false) {
+              if (((InternalRow) references[10] /* literal */).isNullAt(2)) {
+                project_isNull_16 = true;
+              } else {
+                project_value_16 = ((InternalRow) references[10] /* literal */).getDecimal(2, 11, 6);
+              }
+
+            }
+            project_isNull_11 = project_isNull_16;
+            project_value_11 = project_value_16;
+          }
+          boolean project_isNull_18 = true;
+          boolean project_value_18 = false;
+          boolean project_isNull_19 = false;
+          long project_value_19 = -1L;
+
+          if (!false) {
+            if (((InternalRow) references[11] /* literal */).isNullAt(0)) {
+              project_isNull_19 = true;
+            } else {
+              project_value_19 = ((InternalRow) references[11] /* literal */).getLong(0);
+            }
+
+          }
+          if (!project_isNull_19) {
+            project_isNull_18 = false; // resultCode could change nullability.
+            project_value_18 = project_value_19 > 365541424L;
+
+          }
+          boolean project_isNull_17 = false;
+          Decimal project_value_17 = null;
+          if (!project_isNull_18 && project_value_18) {
+            boolean project_isNull_21 = false;
+            Decimal project_value_21 = null;
+
+            if (!false) {
+              if (((InternalRow) references[11] /* literal */).isNullAt(1)) {
+                project_isNull_21 = true;
+              } else {
+                project_value_21 = ((InternalRow) references[11] /* literal */).getDecimal(1, 11, 6);
+              }
+
+            }
+            project_isNull_17 = project_isNull_21;
+            project_value_17 = project_value_21;
+          } else {
+            boolean project_isNull_22 = false;
+            Decimal project_value_22 = null;
+
+            if (!false) {
+              if (((InternalRow) references[11] /* literal */).isNullAt(2)) {
+                project_isNull_22 = true;
+              } else {
+                project_value_22 = ((InternalRow) references[11] /* literal */).getDecimal(2, 11, 6);
+              }
+
+            }
+            project_isNull_17 = project_isNull_22;
+            project_value_17 = project_value_22;
+          }
+          boolean project_isNull_24 = true;
+          boolean project_value_24 = false;
+          boolean project_isNull_25 = false;
+          long project_value_25 = -1L;
+
+          if (!false) {
+            if (((InternalRow) references[7] /* literal */).isNullAt(0)) {
+              project_isNull_25 = true;
+            } else {
+              project_value_25 = ((InternalRow) references[7] /* literal */).getLong(0);
+            }
+
+          }
+          if (!project_isNull_25) {
+            project_isNull_24 = false; // resultCode could change nullability.
+            project_value_24 = project_value_25 > 216357808L;
+
+          }
+          boolean project_isNull_23 = false;
+          Decimal project_value_23 = null;
+          if (!project_isNull_24 && project_value_24) {
+            boolean project_isNull_27 = false;
+            Decimal project_value_27 = null;
+
+            if (!false) {
+              if (((InternalRow) references[7] /* literal */).isNullAt(1)) {
+                project_isNull_27 = true;
+              } else {
+                project_value_27 = ((InternalRow) references[7] /* literal */).getDecimal(1, 11, 6);
+              }
+
+            }
+            project_isNull_23 = project_isNull_27;
+            project_value_23 = project_value_27;
+          } else {
+            boolean project_isNull_28 = false;
+            Decimal project_value_28 = null;
+
+            if (!false) {
+              if (((InternalRow) references[7] /* literal */).isNullAt(2)) {
+                project_isNull_28 = true;
+              } else {
+                project_value_28 = ((InternalRow) references[7] /* literal */).getDecimal(2, 11, 6);
+              }
+
+            }
+            project_isNull_23 = project_isNull_28;
+            project_value_23 = project_value_28;
+          }
+          boolean project_isNull_30 = true;
+          boolean project_value_30 = false;
+          boolean project_isNull_31 = false;
+          long project_value_31 = -1L;
+
+          if (!false) {
+            if (((InternalRow) references[8] /* literal */).isNullAt(0)) {
+              project_isNull_31 = true;
+            } else {
+              project_value_31 = ((InternalRow) references[8] /* literal */).getLong(0);
+            }
+
+          }
+          if (!project_isNull_31) {
+            project_isNull_30 = false; // resultCode could change nullability.
+            project_value_30 = project_value_31 > 184483884L;
+
+          }
+          boolean project_isNull_29 = false;
+          Decimal project_value_29 = null;
+          if (!project_isNull_30 && project_value_30) {
+            boolean project_isNull_33 = false;
+            Decimal project_value_33 = null;
+
+            if (!false) {
+              if (((InternalRow) references[8] /* literal */).isNullAt(1)) {
+                project_isNull_33 = true;
+              } else {
+                project_value_33 = ((InternalRow) references[8] /* literal */).getDecimal(1, 11, 6);
+              }
+
+            }
+            project_isNull_29 = project_isNull_33;
+            project_value_29 = project_value_33;
+          } else {
+            boolean project_isNull_34 = false;
+            Decimal project_value_34 = null;
+
+            if (!false) {
+              if (((InternalRow) references[8] /* literal */).isNullAt(2)) {
+                project_isNull_34 = true;
+              } else {
+                project_value_34 = ((InternalRow) references[8] /* literal */).getDecimal(2, 11, 6);
+              }
+
+            }
+            project_isNull_29 = project_isNull_34;
+            project_value_29 = project_value_34;
+          }
+          range_mutableStateArray_0[2].reset();
+
+          range_mutableStateArray_0[2].zeroOutNullBytes();
+
+          if (project_isNull_5) {
+            range_mutableStateArray_0[2].setNullAt(0);
+          } else {
+            range_mutableStateArray_0[2].write(0, project_value_5, 11, 6);
+          }
+
+          if (project_isNull_11) {
+            range_mutableStateArray_0[2].setNullAt(1);
+          } else {
+            range_mutableStateArray_0[2].write(1, project_value_11, 11, 6);
+          }
+
+          if (project_isNull_17) {
+            range_mutableStateArray_0[2].setNullAt(2);
+          } else {
+            range_mutableStateArray_0[2].write(2, project_value_17, 11, 6);
+          }
+
+          if (project_isNull_23) {
+            range_mutableStateArray_0[2].setNullAt(3);
+          } else {
+            range_mutableStateArray_0[2].write(3, project_value_23, 11, 6);
+          }
+
+          if (project_isNull_29) {
+            range_mutableStateArray_0[2].setNullAt(4);
+          } else {
+            range_mutableStateArray_0[2].write(4, project_value_29, 11, 6);
+          }
+          append((range_mutableStateArray_0[2].getRow()));
+
+        } while (false);
+
+        if (shouldStop()) {
+          range_nextIndex_0 = range_value_0 + 1L;
+          ((org.apache.spark.sql.execution.metric.SQLMetric) references[0] /* numOutputRows */).add(range_localIdx_0 + 1);
+          range_inputMetrics_0.incRecordsRead(range_localIdx_0 + 1);
+          return;
+        }
+
+      }
+      range_nextIndex_0 = range_batchEnd_0;
+      ((org.apache.spark.sql.execution.metric.SQLMetric) references[0] /* numOutputRows */).add(range_localEnd_0);
+      range_inputMetrics_0.incRecordsRead(range_localEnd_0);
+      range_taskContext_0.killTaskIfInterrupted();
+    }
+  }
+
+}

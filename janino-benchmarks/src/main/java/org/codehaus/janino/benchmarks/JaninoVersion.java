@@ -25,6 +25,8 @@
 package org.codehaus.janino.benchmarks;
 
 import java.io.File;
+import java.io.Reader;
+import java.io.StringReader;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -77,6 +79,16 @@ class JaninoVersion {
     private final Method         expressionEvaluatorEvaluate;
     private final Method         expressionEvaluatorGetBytecodes;
 
+    // org.codehaus.janino.ClassBodyEvaluator
+    private final Constructor<?> classBodyEvaluatorConstructor;
+    private final Method         classBodyEvaluatorSetParentClassLoader;
+    private final Method         classBodyEvaluatorSetClassName;
+    private final Method         classBodyEvaluatorSetDefaultImports;
+    private final Method         classBodyEvaluatorSetExtendedClass;
+    private final Method         classBodyEvaluatorCook;
+    private final Method         classBodyEvaluatorGetClazz;
+    private final Method         classBodyEvaluatorGetBytecodes;
+
     // org.codehaus.janino.Compiler and the resource classes of commons-compiler
     private final Constructor<?> compilerConstructor;
     private final Method         compilerSetSourceFinder;
@@ -119,6 +131,26 @@ class JaninoVersion {
         this.expressionEvaluatorCook              = expressionEvaluatorClass.getMethod("cook", String.class);
         this.expressionEvaluatorEvaluate          = expressionEvaluatorClass.getMethod("evaluate", Object[].class);
         this.expressionEvaluatorGetBytecodes      = expressionEvaluatorClass.getMethod("getBytecodes");
+
+        Class<?> classBodyEvaluatorClass = this.loadClass("org.codehaus.janino.ClassBodyEvaluator");
+        this.classBodyEvaluatorConstructor          = classBodyEvaluatorClass.getConstructor();
+        this.classBodyEvaluatorSetParentClassLoader = classBodyEvaluatorClass.getMethod(
+            "setParentClassLoader",
+            ClassLoader.class
+        );
+        this.classBodyEvaluatorSetClassName      = classBodyEvaluatorClass.getMethod("setClassName", String.class);
+        this.classBodyEvaluatorSetDefaultImports = classBodyEvaluatorClass.getMethod(
+            "setDefaultImports",
+            String[].class
+        );
+        this.classBodyEvaluatorSetExtendedClass  = classBodyEvaluatorClass.getMethod("setExtendedClass", Class.class);
+        this.classBodyEvaluatorCook              = classBodyEvaluatorClass.getMethod(
+            "cook",
+            String.class,
+            Reader.class
+        );
+        this.classBodyEvaluatorGetClazz          = classBodyEvaluatorClass.getMethod("getClazz");
+        this.classBodyEvaluatorGetBytecodes      = classBodyEvaluatorClass.getMethod("getBytecodes");
 
         this.resourceFinderClass = this.loadClass("org.codehaus.commons.compiler.util.resource.ResourceFinder");
         Class<?> resourceCreatorClass = this.loadClass("org.codehaus.commons.compiler.util.resource.ResourceCreator");
@@ -207,7 +239,7 @@ class JaninoVersion {
      * @return {@code janino-benchmarks/target}, i.e. the directory that contains "benchmarks.jar" (or "classes",
      *         when run from an IDE)
      */
-    private static File
+    static File
     targetDirectory() throws URISyntaxException {
         URL location = JaninoVersion.class.getProtectionDomain().getCodeSource().getLocation();
         return new File(location.toURI()).getAbsoluteFile().getParentFile();
@@ -274,6 +306,45 @@ class JaninoVersion {
     getBytecodes(Object expressionEvaluator) throws Exception {
         @SuppressWarnings("unchecked") Map<String, byte[]>
         result = (Map<String, byte[]>) JaninoVersion.invoke(this.expressionEvaluatorGetBytecodes, expressionEvaluator);
+        return result;
+    }
+
+    /**
+     * Compiles a class body the way Apache Spark's {@code CodeGenerator} does: with a new {@code
+     * ClassBodyEvaluator}, the given parent class loader, default imports and superclass. See {@link SparkCodegen}.
+     *
+     * @return The {@code ClassBodyEvaluator}; see {@link #classBodyClass(Object)} and {@link
+     *         #classBodyBytecodes(Object)}
+     */
+    public Object
+    compileClassBody(
+        ClassLoader parentClassLoader,
+        Class<?>    extendedClass,
+        String[]    defaultImports,
+        String      className,
+        String      fileName,
+        String      body
+    ) throws Exception {
+        Object cbe = this.classBodyEvaluatorConstructor.newInstance();
+        JaninoVersion.invoke(this.classBodyEvaluatorSetParentClassLoader, cbe, parentClassLoader);
+        JaninoVersion.invoke(this.classBodyEvaluatorSetClassName, cbe, className);
+        JaninoVersion.invoke(this.classBodyEvaluatorSetDefaultImports, cbe, (Object) defaultImports);
+        JaninoVersion.invoke(this.classBodyEvaluatorSetExtendedClass, cbe, extendedClass);
+        JaninoVersion.invoke(this.classBodyEvaluatorCook, cbe, fileName, new StringReader(body));
+        return cbe;
+    }
+
+    /** @return The class that a {@code ClassBodyEvaluator} generated; see {@link #compileClassBody} */
+    public Class<?>
+    classBodyClass(Object classBodyEvaluator) throws Exception {
+        return (Class<?>) JaninoVersion.invoke(this.classBodyEvaluatorGetClazz, classBodyEvaluator);
+    }
+
+    /** @return The class files generated by a {@code ClassBodyEvaluator}; see {@link #compileClassBody} */
+    public Map<String, byte[]>
+    classBodyBytecodes(Object classBodyEvaluator) throws Exception {
+        @SuppressWarnings("unchecked") Map<String, byte[]>
+        result = (Map<String, byte[]>) JaninoVersion.invoke(this.classBodyEvaluatorGetBytecodes, classBodyEvaluator);
         return result;
     }
 
