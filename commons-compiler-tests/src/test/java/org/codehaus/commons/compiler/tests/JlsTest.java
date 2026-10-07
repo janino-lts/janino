@@ -3172,6 +3172,20 @@ class JlsTest extends CommonsCompilerTestSuite {
         this.assertExpressionCookable("(new int[3])[(short) 0]");
         this.assertExpressionCookable("(new int[3])[0]");
         this.assertExpressionUncookable("(new int[3])[0L]");
+
+        // Array access expressions as method and constructor arguments, and as array indexes.
+        this.assertScriptReturnsTrue("int[] a = { 7 }; return String.valueOf(a[0]).equals(\"7\");");
+        this.assertScriptReturnsTrue("Object[] o = { \"x\" }; return String.valueOf(o[0]).equals(\"x\");");
+        this.assertScriptReturnsTrue("Object o = new Object[] { \"x\" }; return ((Object[]) o)[0].equals(\"x\");");
+        this.assertScriptReturnsTrue("Object o = new String[] { \"x\" }; return \"x\".equals(((Object[]) o)[0]);");
+        this.assertScriptReturnsTrue("int[] a = { 7 }; return new StringBuilder(a[0]).capacity() == 7;");
+        this.assertScriptReturnsTrue("int[] a = { 1, 2 }; int[] b = { 1 }; return a[b[0]] == 2;");
+        this.assertScriptReturnsTrue("int[][] a = { { 1, 2 } }; return String.valueOf(a[0][1]).equals(\"2\");");
+        this.assertScriptReturnsTrue("String[] s = { \"ab\" }; return s[0].substring(s[0].length() - 1).equals(\"b\");");
+        this.assertScriptUncookable("Object o = new int[1]; return String.valueOf(o[0]);");
+        this.assertScriptUncookable("String s = \"a\"; return String.valueOf(s[0]);");
+        this.assertScriptUncookable("Object o = null; return o[0];");
+        this.assertScriptUncookable("int[] a = { 1 }; Object o = null; return a[o[0]];");
     }
 
     @Test public void

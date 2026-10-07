@@ -444,3 +444,42 @@ public class P { String[] f(int[] a) { return (String[]) a.clone(); } }
 === clone() of an int array: element assigned to a String
 janino: REJECTED Assignment conversion not possible from type "int" to type "java.lang.String"
 public class P { String f(int[] a) { return a.clone()[0]; } }
+
+=== subscript of non-array as a method argument
+janino: REJECTED Subscript not allowed on non-array type "java.lang.Object"
+public class P {
+    String f(Object o) { return String.valueOf(o[0]); }
+}
+
+=== subscript of a String as a method argument
+janino: REJECTED Subscript not allowed on non-array type "java.lang.String"
+public class P {
+    String f(String s) { return String.valueOf(s[0]); }
+}
+
+=== subscript of non-array as a constructor argument
+janino: REJECTED Subscript not allowed on non-array type "java.lang.Object"
+public class P {
+    P(Object x) {}
+    P f(Object o) { return new P(o[0]); }
+}
+
+=== subscript of non-array as an array index
+janino: REJECTED Subscript not allowed on non-array type "java.lang.Object"
+public class P {
+    int f(int[] a, Object o) { return a[o[0]]; }
+}
+
+=== subscript of non-array as the argument of an overloaded method
+janino: REJECTED Subscript not allowed on non-array type "java.lang.Object"
+public class P {
+    void g(int i) {}
+    void g(String s) {}
+    void f(Object o) { g(o[0]); }
+}
+
+=== subscript of non-array as an argument of a static method of another class
+janino: REJECTED Subscript not allowed on non-array type "java.lang.Object"
+public class P {
+    int f(Object o) { return Integer.parseInt(o[0]); }
+}

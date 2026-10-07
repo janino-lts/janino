@@ -5460,13 +5460,8 @@ class UnitCompiler {
     private int
     compileContext2(ArrayAccessExpression aae) throws CompileException {
 
-        IType lhsType = this.compileGetValue(aae.lhs);
-        if (!UnitCompiler.rawTypeOf(lhsType).isArray()) {
-            this.compileError(
-                "Subscript not allowed on non-array type \"" + lhsType.toString() + "\"",
-                aae.getLocation()
-            );
-        }
+        this.compileGetValue(aae.lhs);
+        this.getType(aae); // Reports "Subscript not allowed on non-array type" if not already reported.
 
         IType indexType = this.compileGetValue(aae.index);
         if (this.unaryNumericPromotion(aae.index, indexType) != IClass.INT) {
@@ -8704,12 +8699,21 @@ class UnitCompiler {
 
     private IType
     getType2(ArrayAccessExpression aae) throws CompileException {
-        IType componentType = UnitCompiler.getComponentType(this.getType(aae.lhs));
 
-        // After the compile error "Subscript not allowed on non-array type", there is no component type.
-        if (componentType == null && this.compileErrorCount > 0) return this.iClassLoader.TYPE_java_lang_Object;
+        IType componentType = aae.componentType;
+        if (componentType != null) return componentType;
 
-        assert componentType != null : "null component type for " + aae;
+        IType lhsType = this.getType(aae.lhs);
+        componentType = UnitCompiler.getComponentType(lhsType);
+        if (componentType == null) {
+
+            // The type of an expression is determined possibly several times before the expression is compiled (e.g.
+            // when the expression is a method argument), so the error is reported here, and only once.
+            this.compileError("Subscript not allowed on non-array type \"" + lhsType + "\"", aae.getLocation());
+            componentType = this.iClassLoader.TYPE_java_lang_Object;
+        }
+
+        aae.componentType = componentType;
         return componentType;
     }
 

@@ -66,6 +66,12 @@ h5 {
         allows are accepted now, and the modifiers and the annotations are written to the class file; other
         modifiers (e.g. <code>static</code>, <code>public</code>) are rejected, like before.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/71">issue #71</a>: A subscript on an expression
+        that is not an array (<code>o[0]</code> with <code>Object o</code>) was an internal compiler error when the
+        expression was a method or constructor argument, e.g. <code>String.valueOf(o[0])</code>. It is now rejected
+        with "Subscript not allowed on non-array type", like in every other context.
+      </li>
     </ul>
 
     <h4>Version 3.1.16 2026-10-06</h4>
