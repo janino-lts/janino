@@ -9,8 +9,9 @@ Usage: compare_junit.py <baseline-dir> <candidate-dir>
 
 Both directories are searched recursively for "*.xml" files in the JUnit XML format (as Gradle writes them to
 "build/test-results"). A test is identified by its module (the path of the XML file relative to the directory, up
-to "build", e.g. "core" or "example/csv"), its class and its name, so that equally named test classes of different
-modules are told apart. The script prints a summary and the differences (also to the GitHub job summary, if the
+to "build", e.g. "core" or "example/csv"), its class, its name without identity hash codes, and the number of the
+execution among equally named tests. The script prints a summary and the differences (also to the GitHub job
+summary, if the
 environment variable GITHUB_STEP_SUMMARY is set) and exits with status 1 if
  * a test passed with the baseline, but failed with the candidate,
  * a test that ran with the baseline did not run with the candidate (e.g. because the test JVM crashed), or
@@ -18,11 +19,16 @@ environment variable GITHUB_STEP_SUMMARY is set) and exits with status 1 if
 """
 
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 
 PASSED, FAILED, SKIPPED = "passed", "failed", "skipped"
 MAX_LISTED = 100
+
+# The display names of some parameterized tests contain the identity hash code of a parameter object, e.g.
+# "[1] CAST, org.apache.calcite.test.SqlOperatorFixtureImpl@784bc074", which differs between the runs.
+IDENTITY_HASH = re.compile(r"@[0-9a-f]{1,8}\b")
 
 
 def module_name(directory, xml_dir):
@@ -36,11 +42,13 @@ def module_name(directory, xml_dir):
 
 
 def read_results(directory):
-    """Returns {(module, class name, test name): status} for all JUnit XML files below the directory.
+    """Returns {(module, class name, test name, n): status} for all JUnit XML files below the directory.
 
-    A test that is reported more than once (e.g. a repeated test) counts as failed if any of its executions failed.
+    "n" counts the executions of the same test name (0, 1, ...; e.g. parameterized tests whose display names are
+    equal after the removal of identity hash codes), so that a missing execution is noticed.
     """
     results = {}
+    executions = {}
     for root, _, files in os.walk(directory):
         module = module_name(directory, root)
         for name in sorted(files):
@@ -55,16 +63,16 @@ def read_results(directory):
                 print("WARNING: cannot parse " + path + ": " + str(e))
                 continue
             for case in tree.getroot().iter("testcase"):
-                key = (module, case.get("classname", ""), case.get("name", ""))
+                name = (module, case.get("classname", ""), IDENTITY_HASH.sub("", case.get("name", "")))
+                n = executions.get(name, 0)
+                executions[name] = n + 1
                 if case.find("failure") is not None or case.find("error") is not None:
                     status = FAILED
                 elif case.find("skipped") is not None:
                     status = SKIPPED
                 else:
                     status = PASSED
-                previous = results.get(key)
-                if previous is None or status == FAILED or (status == PASSED and previous == SKIPPED):
-                    results[key] = status
+                results[name + (n,)] = status
     return results
 
 
@@ -73,8 +81,8 @@ def count(results, status):
 
 
 def test_name(key):
-    module, class_name, name = key
-    return (module + ": " if module else "") + class_name + " > " + name
+    module, class_name, name, n = key
+    return (module + ": " if module else "") + class_name + " > " + name + (" #" + str(n + 1) if n else "")
 
 
 def listing(title, keys, lines):
