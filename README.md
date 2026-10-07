@@ -12,7 +12,9 @@ Janino is used by several large Apache projects, among others [Apache Spark](htt
 [Apache Hive](https://hive.apache.org/). (They use the original Janino 3.1.12, not this continuation.)
 Two workflows run the test suites of [Apache Calcite](.github/workflows/calcite.yml) (all modules) and of
 [Spark Catalyst](.github/workflows/spark.yml) against this Janino, each twice: with the Janino that the project
-declares and with this one, and compare the results.
+declares and with this one, and compare the results. The [compile-time benchmarks](janino-benchmarks/README.md)
+compare the compile time of two Janino versions, among others on the code that Apache Spark generates for the
+TPC-DS queries; each release is measured against its predecessor.
 
 Janino compiles Java source code like `javac`, but not in every respect: it accepts some invalid code, rejects some
 valid code, and some valid code behaves differently. All known deviations are listed in

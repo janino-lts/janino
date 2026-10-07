@@ -1,0 +1,242 @@
+public Object generate(Object[] references) {
+  return new GeneratedIteratorForCodegenStage4(references);
+}
+
+// codegenStageId=4
+final class GeneratedIteratorForCodegenStage4 extends org.apache.spark.sql.execution.BufferedRowIterator {
+  private Object[] references;
+  private scala.collection.Iterator[] inputs;
+  private boolean range_initRange_0;
+  private long range_nextIndex_0;
+  private TaskContext range_taskContext_0;
+  private InputMetrics range_inputMetrics_0;
+  private long range_batchEnd_0;
+  private long range_numElementsTodo_0;
+  private org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[] range_mutableStateArray_0 = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[3];
+
+  public GeneratedIteratorForCodegenStage4(Object[] references) {
+    this.references = references;
+  }
+
+  public void init(int index, scala.collection.Iterator[] inputs) {
+    partitionIndex = index;
+    this.inputs = inputs;
+
+    range_taskContext_0 = TaskContext.get();
+    range_inputMetrics_0 = range_taskContext_0.taskMetrics().inputMetrics();
+    range_mutableStateArray_0[0] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(1, 0);
+    range_mutableStateArray_0[1] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(1, 0);
+    range_mutableStateArray_0[2] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(1, 0);
+
+  }
+
+  private void range_initRange_1(int idx) {
+    java.math.BigInteger index = java.math.BigInteger.valueOf(idx);
+    java.math.BigInteger numSlice = java.math.BigInteger.valueOf(2L);
+    java.math.BigInteger numElement = java.math.BigInteger.valueOf(20L);
+    java.math.BigInteger step = java.math.BigInteger.valueOf(1L);
+    java.math.BigInteger start = java.math.BigInteger.valueOf(0L);
+    long partitionEnd;
+
+    java.math.BigInteger st = index.multiply(numElement).divide(numSlice).multiply(step).add(start);
+    if (st.compareTo(java.math.BigInteger.valueOf(Long.MAX_VALUE)) > 0) {
+      range_nextIndex_0 = Long.MAX_VALUE;
+    } else if (st.compareTo(java.math.BigInteger.valueOf(Long.MIN_VALUE)) < 0) {
+      range_nextIndex_0 = Long.MIN_VALUE;
+    } else {
+      range_nextIndex_0 = st.longValue();
+    }
+    range_batchEnd_0 = range_nextIndex_0;
+
+    java.math.BigInteger end = index.add(java.math.BigInteger.ONE).multiply(numElement).divide(numSlice)
+    .multiply(step).add(start);
+    if (end.compareTo(java.math.BigInteger.valueOf(Long.MAX_VALUE)) > 0) {
+      partitionEnd = Long.MAX_VALUE;
+    } else if (end.compareTo(java.math.BigInteger.valueOf(Long.MIN_VALUE)) < 0) {
+      partitionEnd = Long.MIN_VALUE;
+    } else {
+      partitionEnd = end.longValue();
+    }
+
+    java.math.BigInteger startToEnd = java.math.BigInteger.valueOf(partitionEnd).subtract(
+      java.math.BigInteger.valueOf(range_nextIndex_0));
+    range_numElementsTodo_0  = startToEnd.divide(step).longValue();
+    if (range_numElementsTodo_0 < 0) {
+      range_numElementsTodo_0 = 0;
+    } else if (startToEnd.remainder(step).compareTo(java.math.BigInteger.valueOf(0L)) != 0) {
+      range_numElementsTodo_0++;
+    }
+  }
+
+  protected void processNext() throws java.io.IOException {
+    // initialize Range
+    if (!range_initRange_0) {
+      range_initRange_0 = true;
+      range_initRange_1(partitionIndex);
+    }
+
+    while (true) {
+      if (range_nextIndex_0 == range_batchEnd_0) {
+        long range_nextBatchTodo_0;
+        if (range_numElementsTodo_0 > 1000L) {
+          range_nextBatchTodo_0 = 1000L;
+          range_numElementsTodo_0 -= 1000L;
+        } else {
+          range_nextBatchTodo_0 = range_numElementsTodo_0;
+          range_numElementsTodo_0 = 0;
+          if (range_nextBatchTodo_0 == 0) break;
+        }
+        range_batchEnd_0 += range_nextBatchTodo_0 * 1L;
+      }
+
+      int range_localEnd_0 = (int)((range_batchEnd_0 - range_nextIndex_0) / 1L);
+      for (int range_localIdx_0 = 0; range_localIdx_0 < range_localEnd_0; range_localIdx_0++) {
+        long range_value_0 = ((long)range_localIdx_0 * 1L) + range_nextIndex_0;
+
+        do {
+          boolean filter_hasNull_0 = false;
+          UTF8String[] filter_args_0 = new UTF8String[2];
+
+          if (!filter_hasNull_0) {
+            filter_args_0[0] = ((UTF8String) references[2] /* literal */);
+          }
+
+          if (!filter_hasNull_0) {
+            boolean filter_isNull_4 = false;
+            long filter_value_4 = -1L;
+            if (7L == 0) {
+              throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[5] /* errCtx */));
+            } else {
+              long filter_value_5 = -1L;
+
+              filter_value_5 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(range_value_0, 4L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[3] /* errCtx */));
+
+              filter_value_4 = (long)(filter_value_5 % 7L);
+            }
+            boolean filter_isNull_3 = filter_isNull_4;
+            UTF8String filter_value_3 = null;
+            if (!filter_isNull_4) {
+              UTF8String filter_tmp_0;
+              filter_tmp_0 = UTF8String.fromString(String.valueOf(filter_value_4));
+              filter_value_3 = filter_tmp_0;
+            }
+            if (!filter_isNull_3) {
+              filter_args_0[1] = filter_value_3;
+            } else {
+              filter_hasNull_0 = true;
+            }
+          }
+
+          UTF8String filter_value_1 = null;
+          if (!filter_hasNull_0) {
+            filter_value_1 = UTF8String.concat(filter_args_0);
+          }
+          boolean filter_isNull_1 = filter_value_1 == null;
+          byte filter_inTmpResult_0 = -1;
+          if (!filter_isNull_1) {
+            filter_inTmpResult_0 = 0;
+            UTF8String filter_valueArg_0 = filter_value_1;
+            do {
+              if (false) {
+                filter_inTmpResult_0 = -1; // filter_isNull_0 = true;
+              } else if (filter_valueArg_0.binaryEquals(((UTF8String) references[6] /* literal */))) {
+                filter_inTmpResult_0 = 1; // filter_isNull_0 = false; filter_value_0 = true;
+                continue;
+              }
+
+              if (false) {
+                filter_inTmpResult_0 = -1; // filter_isNull_0 = true;
+              } else if (filter_valueArg_0.binaryEquals(((UTF8String) references[7] /* literal */))) {
+                filter_inTmpResult_0 = 1; // filter_isNull_0 = false; filter_value_0 = true;
+                continue;
+              }
+
+            } while (false);
+          }
+          final boolean filter_isNull_0 = (filter_inTmpResult_0 == -1);
+          final boolean filter_value_0 = (filter_inTmpResult_0 == 1);
+          if (filter_isNull_0 || !filter_value_0) continue;
+          boolean filter_isNull_13 = true;
+          long filter_value_13 = -1L;
+          boolean filter_isNull_14 = false;
+          long filter_value_14 = -1L;
+          if (23L == 0) {
+            throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[9] /* errCtx */));
+          } else {
+            filter_value_14 = (long)(range_value_0 % 23L);
+          }
+          if (!filter_isNull_14) {
+            filter_isNull_13 = false; // resultCode could change nullability.
+
+            filter_value_13 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(filter_value_14, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[10] /* errCtx */));
+
+          }
+          boolean filter_isNull_12 = filter_isNull_13;
+          int filter_value_12 = -1;
+          if (!filter_isNull_13) {
+            if (filter_value_13 == (int) filter_value_13) {
+              filter_value_12 = (int) filter_value_13;
+            } else {
+              throw QueryExecutionErrors.castingCauseOverflowError(filter_value_13, ((org.apache.spark.sql.types.LongType$) references[11] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[12] /* to */));
+            }
+          }
+          boolean filter_value_18 = !filter_isNull_12;
+          if (!filter_value_18) continue;
+
+          ((org.apache.spark.sql.execution.metric.SQLMetric) references[1] /* numOutputRows */).add(1);
+
+          // common sub-expressions
+
+          boolean project_isNull_1 = true;
+          long project_value_1 = -1L;
+          boolean project_isNull_2 = false;
+          long project_value_2 = -1L;
+          if (23L == 0) {
+            throw QueryExecutionErrors.remainderByZeroError(((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[14] /* errCtx */));
+          } else {
+            project_value_2 = (long)(range_value_0 % 23L);
+          }
+          if (!project_isNull_2) {
+            project_isNull_1 = false; // resultCode could change nullability.
+
+            project_value_1 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(project_value_2, 1L, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[15] /* errCtx */));
+
+          }
+          boolean project_isNull_0 = project_isNull_1;
+          int project_value_0 = -1;
+          if (!project_isNull_1) {
+            if (project_value_1 == (int) project_value_1) {
+              project_value_0 = (int) project_value_1;
+            } else {
+              throw QueryExecutionErrors.castingCauseOverflowError(project_value_1, ((org.apache.spark.sql.types.LongType$) references[16] /* from */), ((org.apache.spark.sql.types.IntegerType$) references[17] /* to */));
+            }
+          }
+          range_mutableStateArray_0[2].reset();
+
+          range_mutableStateArray_0[2].zeroOutNullBytes();
+
+          if (project_isNull_0) {
+            range_mutableStateArray_0[2].setNullAt(0);
+          } else {
+            range_mutableStateArray_0[2].write(0, project_value_0);
+          }
+          append((range_mutableStateArray_0[2].getRow()));
+
+        } while (false);
+
+        if (shouldStop()) {
+          range_nextIndex_0 = range_value_0 + 1L;
+          ((org.apache.spark.sql.execution.metric.SQLMetric) references[0] /* numOutputRows */).add(range_localIdx_0 + 1);
+          range_inputMetrics_0.incRecordsRead(range_localIdx_0 + 1);
+          return;
+        }
+
+      }
+      range_nextIndex_0 = range_batchEnd_0;
+      ((org.apache.spark.sql.execution.metric.SQLMetric) references[0] /* numOutputRows */).add(range_localEnd_0);
+      range_inputMetrics_0.incRecordsRead(range_localEnd_0);
+      range_taskContext_0.killTaskIfInterrupted();
+    }
+  }
+
+}

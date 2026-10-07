@@ -1,0 +1,167 @@
+public java.lang.Object generate(Object[] references) {
+  return new SpecificSafeProjection(references);
+}
+
+class SpecificSafeProjection extends org.apache.spark.sql.catalyst.expressions.codegen.BaseProjection {
+
+  private Object[] references;
+  private InternalRow mutableRow;
+  private long argValue_0;
+  private long argValue_1;
+  private long argValue_2;
+  private long argValue_3;
+  private long argValue_4;
+  private long argValue_5;
+  private long argValue_6;
+  private long argValue_7;
+
+  public SpecificSafeProjection(Object[] references) {
+    this.references = references;
+    mutableRow = (InternalRow) references[references.length - 1];
+
+
+  }
+
+  public void initialize(int partitionIndex) {
+
+  }
+
+  public java.lang.Object apply(java.lang.Object _i) {
+    InternalRow i = (InternalRow) _i;
+    Object[] values_0 = new Object[8];
+    createExternalRow_0_0(i, values_0);
+    createExternalRow_0_1(i, values_0);
+    final org.apache.spark.sql.Row value_0 = new org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema(values_0, ((org.apache.spark.sql.types.StructType) references[0] /* schema */));
+    if (false) {
+      mutableRow.setNullAt(0);
+    } else {
+
+      mutableRow.update(0, value_0);
+    }
+
+    return mutableRow;
+  }
+
+
+  private void createExternalRow_0_0(InternalRow i, Object[] values_0) {
+
+    long value_2 = i.getLong(0);
+    argValue_0 = value_2;
+
+
+    java.lang.Long value_1 = null;
+    if (!false) {
+      value_1 = (java.lang.Long) java.lang.Long.valueOf(argValue_0);
+    }
+    if (false) {
+      values_0[0] = null;
+    } else {
+      values_0[0] = value_1;
+    }
+
+    long value_4 = i.getLong(1);
+    argValue_1 = value_4;
+
+
+    java.lang.Long value_3 = null;
+    if (!false) {
+      value_3 = (java.lang.Long) java.lang.Long.valueOf(argValue_1);
+    }
+    if (false) {
+      values_0[1] = null;
+    } else {
+      values_0[1] = value_3;
+    }
+
+    long value_6 = i.getLong(2);
+    argValue_2 = value_6;
+
+
+    java.lang.Long value_5 = null;
+    if (!false) {
+      value_5 = (java.lang.Long) java.lang.Long.valueOf(argValue_2);
+    }
+    if (false) {
+      values_0[2] = null;
+    } else {
+      values_0[2] = value_5;
+    }
+
+    long value_8 = i.getLong(3);
+    argValue_3 = value_8;
+
+
+    java.lang.Long value_7 = null;
+    if (!false) {
+      value_7 = (java.lang.Long) java.lang.Long.valueOf(argValue_3);
+    }
+    if (false) {
+      values_0[3] = null;
+    } else {
+      values_0[3] = value_7;
+    }
+
+  }
+
+
+  private void createExternalRow_0_1(InternalRow i, Object[] values_0) {
+
+    long value_10 = i.getLong(4);
+    argValue_4 = value_10;
+
+
+    java.lang.Long value_9 = null;
+    if (!false) {
+      value_9 = (java.lang.Long) java.lang.Long.valueOf(argValue_4);
+    }
+    if (false) {
+      values_0[4] = null;
+    } else {
+      values_0[4] = value_9;
+    }
+
+    long value_12 = i.getLong(5);
+    argValue_5 = value_12;
+
+
+    java.lang.Long value_11 = null;
+    if (!false) {
+      value_11 = (java.lang.Long) java.lang.Long.valueOf(argValue_5);
+    }
+    if (false) {
+      values_0[5] = null;
+    } else {
+      values_0[5] = value_11;
+    }
+
+    long value_14 = i.getLong(6);
+    argValue_6 = value_14;
+
+
+    java.lang.Long value_13 = null;
+    if (!false) {
+      value_13 = (java.lang.Long) java.lang.Long.valueOf(argValue_6);
+    }
+    if (false) {
+      values_0[6] = null;
+    } else {
+      values_0[6] = value_13;
+    }
+
+    long value_16 = i.getLong(7);
+    argValue_7 = value_16;
+
+
+    java.lang.Long value_15 = null;
+    if (!false) {
+      value_15 = (java.lang.Long) java.lang.Long.valueOf(argValue_7);
+    }
+    if (false) {
+      values_0[7] = null;
+    } else {
+      values_0[7] = value_15;
+    }
+
+  }
+
+}

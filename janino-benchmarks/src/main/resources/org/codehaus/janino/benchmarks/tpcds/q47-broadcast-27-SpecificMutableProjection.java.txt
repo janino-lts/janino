@@ -1,0 +1,49 @@
+public java.lang.Object generate(Object[] references) {
+  return new SpecificMutableProjection(references);
+}
+
+class SpecificMutableProjection extends org.apache.spark.sql.catalyst.expressions.codegen.BaseMutableProjection {
+
+  private Object[] references;
+  private InternalRow mutableRow;
+  private long value_2;
+  private Decimal[] mutableStateArray_0 = new Decimal[1];
+
+  public SpecificMutableProjection(Object[] references) {
+    this.references = references;
+    mutableRow = new org.apache.spark.sql.catalyst.expressions.GenericInternalRow(2);
+
+
+  }
+
+  public void initialize(int partitionIndex) {
+
+  }
+
+  public org.apache.spark.sql.catalyst.expressions.codegen.BaseMutableProjection target(InternalRow row) {
+    mutableRow = row;
+    return this;
+  }
+
+  /* Provide immutable access to the last projected row. */
+  public InternalRow currentValue() {
+    return (InternalRow) mutableRow;
+  }
+
+  public java.lang.Object apply(java.lang.Object _i) {
+    InternalRow i = (InternalRow) _i;
+
+
+
+    mutableStateArray_0[0] = ((Decimal) references[0] /* literal */);
+
+
+    value_2 = 0L;
+
+    // copy all the results into MutableRow
+    mutableRow.setDecimal(0, mutableStateArray_0[0], 27);mutableRow.setLong(1, value_2);
+    return mutableRow;
+  }
+
+
+}

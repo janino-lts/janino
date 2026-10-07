@@ -1,0 +1,48 @@
+public java.lang.Object generate(Object[] references) {
+  return new SpecificUnsafeProjection(references);
+}
+
+class SpecificUnsafeProjection extends org.apache.spark.sql.catalyst.expressions.UnsafeProjection {
+
+  private Object[] references;
+  private org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[] mutableStateArray_0 = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter[1];
+
+  public SpecificUnsafeProjection(Object[] references) {
+    this.references = references;
+    mutableStateArray_0[0] = new org.apache.spark.sql.catalyst.expressions.codegen.UnsafeRowWriter(1, 0);
+
+  }
+
+  public void initialize(int partitionIndex) {
+
+  }
+
+  // Scala.Function1 need this
+  public java.lang.Object apply(java.lang.Object row) {
+    return apply((InternalRow) row);
+  }
+
+  public UnsafeRow apply(InternalRow i) {
+    mutableStateArray_0[0].reset();
+
+
+    mutableStateArray_0[0].zeroOutNullBytes();
+
+    boolean isNull_1 = i.isNullAt(10);
+    int value_1 = isNull_1 ?
+    -1 : (i.getInt(10));
+    long value_0 = 0L;
+    boolean isNull_0 = isNull_1;
+    if (!isNull_1) {
+      value_0 = (long) value_1;
+    }
+    if (isNull_0) {
+      mutableStateArray_0[0].setNullAt(0);
+    } else {
+      mutableStateArray_0[0].write(0, value_0);
+    }
+    return (mutableStateArray_0[0].getRow());
+  }
+
+
+}

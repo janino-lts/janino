@@ -129,6 +129,11 @@ h5 {
         found now, like a variable that is declared in the loop body. The same applies to a loop variable that is
         effectively final (issue #24, above). The class files of code that compiled before are unchanged.
       </li>
+      <li>
+        The module <code>janino-benchmarks</code> (not released) gained the workload <code>SPARK_TPCDS</code>: the
+        code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, compiled the way Spark compiles it, so
+        that the compile time of such code can be compared between JANINO versions.
+      </li>
     </ul>
 
     <h4>Version 3.1.16 2026-10-06</h4>

@@ -1,0 +1,130 @@
+public java.lang.Object generate(Object[] references) {
+  return new SpecificMutableProjection(references);
+}
+
+class SpecificMutableProjection extends org.apache.spark.sql.catalyst.expressions.codegen.BaseMutableProjection {
+
+  private Object[] references;
+  private InternalRow mutableRow;
+  private boolean globalIsNull_0;
+  private int value_21;
+  private int value_22;
+  private int value_23;
+  private boolean isNull_20;
+  private int value_24;
+  private boolean isNull_21;
+
+  public SpecificMutableProjection(Object[] references) {
+    this.references = references;
+    mutableRow = new org.apache.spark.sql.catalyst.expressions.GenericInternalRow(4);
+
+
+  }
+
+  public void initialize(int partitionIndex) {
+
+  }
+
+  public org.apache.spark.sql.catalyst.expressions.codegen.BaseMutableProjection target(InternalRow row) {
+    mutableRow = row;
+    return this;
+  }
+
+  /* Provide immutable access to the last projected row. */
+  public InternalRow currentValue() {
+    return (InternalRow) mutableRow;
+  }
+
+  public java.lang.Object apply(java.lang.Object _i) {
+    InternalRow i = (InternalRow) _i;
+
+
+    int value_15 = If_0(i);
+    value_21 = value_15;
+
+    int value_17 = i.getInt(1);
+
+    int value_16 = -1;
+
+    value_16 = org.apache.spark.sql.catalyst.util.MathUtils.addExact(value_17, 1, ((org.apache.spark.sql.catalyst.trees.SQLQueryContext) references[0] /* errCtx */));
+    value_22 = value_16;
+
+    boolean isNull_18 = i.isNullAt(8);
+    int value_19 = isNull_18 ?
+    -1 : (i.getInt(8));
+    isNull_20 = isNull_18;
+    value_23 = value_19;
+
+    boolean isNull_19 = i.isNullAt(9);
+    int value_20 = isNull_19 ?
+    -1 : (i.getInt(9));
+    isNull_21 = isNull_19;
+    value_24 = value_20;
+
+    // copy all the results into MutableRow
+    mutableRow.setInt(0, value_21);mutableRow.setInt(1, value_22);
+    if (!isNull_20) {
+      mutableRow.setInt(2, value_23);
+    } else {
+      mutableRow.setNullAt(2);
+    }
+
+    if (!isNull_21) {
+      mutableRow.setInt(3, value_24);
+    } else {
+      mutableRow.setNullAt(3);
+    }
+
+    return mutableRow;
+  }
+
+
+  private int If_0(InternalRow i) {
+    boolean isNull_4 = i.isNullAt(8);
+    int value_4 = isNull_4 ?
+    -1 : (i.getInt(8));
+    boolean isNull_5 = i.isNullAt(2);
+    int value_5 = isNull_5 ?
+    -1 : (i.getInt(2));
+    boolean value_3 = (isNull_4 && isNull_5) ||
+    (!isNull_4 && !isNull_5 && value_4 == value_5);
+    boolean value_2 = false;
+
+    if (value_3) {
+      boolean isNull_7 = i.isNullAt(9);
+      int value_7 = isNull_7 ?
+      -1 : (i.getInt(9));
+      boolean isNull_8 = i.isNullAt(3);
+      int value_8 = isNull_8 ?
+      -1 : (i.getInt(3));
+      boolean value_6 = (isNull_7 && isNull_8) ||
+      (!isNull_7 && !isNull_8 && value_7 == value_8);
+      value_2 = value_6;
+    }
+    boolean value_1 = false;
+
+    if (value_2) {
+      int value_11 = i.getInt(0);
+
+      boolean value_10 = false;
+      value_10 = value_11 == 0;
+      boolean value_9 = false;
+      value_9 = !(value_10);
+      value_1 = value_9;
+    }
+    boolean isNull_0 = false;
+    int value_0 = -1;
+    if (!false && value_1) {
+      int value_13 = i.getInt(0);
+      isNull_0 = false;
+      value_0 = value_13;
+    } else {
+      int value_14 = i.getInt(1);
+      isNull_0 = false;
+      value_0 = value_14;
+    }
+    globalIsNull_0 = isNull_0;
+    return value_0;
+  }
+
+}
