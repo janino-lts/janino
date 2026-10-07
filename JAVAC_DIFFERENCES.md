@@ -71,10 +71,6 @@ constant expression, the expressions that Janino does not fold (see section 1) a
 - `byte b = MAX > 5 ? 1 : 2;` with `static final int MAX = 10;`;
 - `int f() { while (MAX > 0) { } }` ("Method must return a value", because the condition is not constant).
 
-**Arrays** ([#58](https://github.com/janino-lts/janino/issues/58)): `a.clone()` of an array `a` has the type
-`Object` instead of the array type (JLS 10.7): `int[] b = a.clone();` and `a.clone().length` are rejected, and
-`a.clone()[0]` is an internal compiler error; with a cast, `(int[]) a.clone()`, it compiles.
-
 **Inner classes** ([#59](https://github.com/janino-lts/janino/issues/59)): a `protected` member that an enclosing
 class inherits from a class in another package, accessed from an inner class (`in` or `P.this.in` in
 `class P extends FilterInputStream { class Q { ... } }`, or `P.this.clone()`): the code compiles, but the generated

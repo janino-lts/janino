@@ -49,6 +49,18 @@ h5 {
 
     <a href="index.html">Back to the JANINO home page</a>
 
+    <h4>Version 3.1.17 (unreleased)</h4>
+    <ul>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/58">issue #58</a>: <code>clone()</code> of an
+        array had the type <code>Object</code> instead of the array type (JLS 10.7): <code>int[] b = a.clone();</code>
+        and <code>a.clone().length</code> were rejected, and <code>a.clone()[0]</code> was an internal compiler error.
+        The invocation is now followed by a cast to the array type, like with JAVAC; the class files of code with the
+        explicit cast, <code>(int[]) a.clone()</code>, are unchanged, and where the clone was used as an
+        <code>Object</code>, the class file contains one more <code>checkcast</code> instruction.
+      </li>
+    </ul>
+
     <h4>Version 3.1.16 2026-10-06</h4>
     <p>
       Two language features that Janino parsed, but did not compile, are implemented now: multi-catch clauses and

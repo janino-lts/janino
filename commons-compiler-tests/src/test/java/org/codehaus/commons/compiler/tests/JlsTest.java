@@ -2070,6 +2070,35 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    test_10_7__Array_Members() throws Exception {
+
+        // "clone()" of an array has the array type.
+        this.assertScriptReturnsTrue("int[] a = { 1, 2 }; int[] b = a.clone(); return b != a && b[1] == 2;");
+        this.assertScriptReturnsTrue("int[] a = { 1, 2 }; return a.clone().length == 2;");
+        this.assertScriptReturnsTrue("int[] a = { 1, 2 }; return a.clone()[1] == 2;");
+        this.assertScriptReturnsTrue("String[] a = { \"x\" }; String[] b = a.clone(); return b[0] == \"x\";");
+
+        // The clone of a multi-dimensional array is shallow.
+        this.assertScriptReturnsTrue("int[][] a = { { 3 } }; int[][] b = a.clone(); return b != a && b[0] == a[0];");
+        this.assertScriptReturnsTrue("int[][] a = { { 3 } }; return a.clone()[0][0] == 3;");
+
+        // The clone in other contexts: expression statement, argument, comparison, string concatenation, "Object".
+        this.assertScriptReturnsTrue("int[] a = { 1 }; a.clone(); return true;");
+        this.assertScriptReturnsTrue("int[] a = { 1 }; return java.util.Arrays.equals(a, a.clone());");
+        this.assertScriptReturnsTrue("int[] a = { 1 }; return a.clone() != a;");
+        this.assertScriptReturnsTrue("int[] a = { 1 }; return (\"\" + a.clone()).startsWith(\"[I@\");");
+        this.assertScriptReturnsTrue("int[] a = { 1 }; Object o = a.clone(); return o instanceof int[];");
+        this.assertScriptReturnsTrue("int[] a = { 1 }; int[] b = (int[]) a.clone(); return b[0] == 1;");
+        this.assertScriptReturnsTrue("int[] a = { 1 }; return a.clone().clone()[0] == 1;");
+
+        // "clone()" of an array does not throw "CloneNotSupportedException".
+        this.assertScriptReturnsTrue("int[] a = { 1 }; try { return a.clone()[0] == 1; } finally { }");
+
+        // "length" is a final field.
+        this.assertScriptUncookable("int[] a = { 1 }; a.length = 2;");
+    }
+
+    @Test public void
     test_14_3__Local_class_declarations() throws Exception {
         this.assertScriptReturnsTrue(
             "class S2 extends SC { public int foo() { return 37; } }; return new S2().foo() == 37;"

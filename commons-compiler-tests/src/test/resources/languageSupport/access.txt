@@ -116,8 +116,8 @@ public class P extends java.io.FilterInputStream {
 }
 
 === clone() of an int array without a cast
+janino: OK
 jls: true
-janino: REJECTED Assignment conversion not possible from type "java.lang.Object" to type "int[]"
 public class P {
     public static Object run() {
         int[] a = { 1 }; int[] b = a.clone();
@@ -126,22 +126,22 @@ public class P {
 }
 
 === clone() of an int array: length
+janino: OK
 jls: 2
-janino: REJECTED "java.lang.Object" has no field "length"
 public class P {
     public static Object run() { int[] a = { 1, 2 }; return String.valueOf(a.clone().length); }
 }
 
 === clone() of an int array: element access
+janino: OK
 jls: 7
-janino: INVALID InternalCompilerException
 public class P {
     public static Object run() { int[] a = { 7 }; return String.valueOf(a.clone()[0]); }
 }
 
 === clone() of a two-dimensional String array
+janino: OK
 jls: x
-janino: REJECTED Assignment conversion not possible from type "java.lang.Object" to type "java.lang.String[][]"
 public class P {
     public static Object run() {
         String[][] a = { { "x" } }; String[][] b = a.clone();

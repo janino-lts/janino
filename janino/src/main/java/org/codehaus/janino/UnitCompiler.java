@@ -6278,7 +6278,26 @@ class UnitCompiler {
         {
             this.invokeMethod(mi, iMethod);
         }
+
+        // JLS 10.7: "clone()" of an array returns the array type; the JVM, however, resolves only the descriptor of
+        // "Object.clone()" for arrays, so the result must be cast to the array type (like JAVAC does).
+        IClass arrayType = UnitCompiler.arrayCloneType(iMethod);
+        if (arrayType != null) {
+            this.checkcast(mi, arrayType);
+            return arrayType;
+        }
+
         return iMethod.getReturnType();
+    }
+
+    /**
+     * @return The array type if <var>iMethod</var> is the "clone()" method of an array type (JLS 10.7), otherwise
+     *         {@code null}
+     */
+    @Nullable private static IClass
+    arrayCloneType(IMethod iMethod) {
+        IClass declaringIClass = iMethod.getDeclaringIClass();
+        return declaringIClass.isArray() && "clone".equals(iMethod.getName()) ? declaringIClass : null;
     }
 
     private static boolean
@@ -8808,7 +8827,8 @@ class UnitCompiler {
     getType2(MethodInvocation mi) throws CompileException {
         IMethod iMethod = mi.iMethod != null ? mi.iMethod : (mi.iMethod = this.findIMethod(mi));
 
-        return iMethod.getReturnType();
+        IClass arrayType = UnitCompiler.arrayCloneType(iMethod);
+        return arrayType != null ? arrayType : iMethod.getReturnType();
     }
 
     private IClass
