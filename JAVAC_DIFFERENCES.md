@@ -29,7 +29,7 @@ below remain for that reason, or because they have not been fixed yet.
 | `Boolean Z = null; boolean x = Z \|\| true;` (also `Z && false`) | `NullPointerException` | `x == true`, no exception | [#40](https://github.com/janino-lts/janino/issues/40) |
 | `Byte B = 1; Object x = z ? B : 5;` | `x` is a `Byte` | `x` is an `Integer` | [#38](https://github.com/janino-lts/janino/issues/38) |
 | `char c = 'a'; Object x = false ? c : (short) 66;` | `x` is an `Integer` | `x` is a `Character` | [#38](https://github.com/janino-lts/janino/issues/38) |
-| `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`) | |
+| `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`) | [#73](https://github.com/janino-lts/janino/issues/73) |
 
 **Constant expressions that are not folded** ([#47](https://github.com/janino-lts/janino/issues/47)): Janino does not
 evaluate shifts, relational operators, `~`, operations with `char` operands and casts to and from `char` at compile
@@ -134,9 +134,9 @@ method result of type `Object`.
   (`enum E { A { String n() { return p(); } }; private String p() { ... } abstract String n(); }`, which `javac`
   rejects as a reference from a static context; Janino invokes the method on the constant);
 - annotation type element with parameters (`int value(int i);`), or of a type that is not allowed (`Object value();`);
-- in a script (`IScriptEvaluator`) only: any modifier on a local variable declaration (`static int x = 1;`,
-  `public int x;`, `abstract int x;`); the modifiers are ignored. In a method body, only `final` and annotations are
-  accepted, like by `javac`.
+- in a script (`IScriptEvaluator`) only ([#72](https://github.com/janino-lts/janino/issues/72)): any modifier on a
+  local variable declaration (`static int x = 1;`, `public int x;`, `abstract int x;`); the modifiers are ignored.
+  In a method body, only `final` and annotations are accepted, like by `javac`.
 
 **Annotations:**
 
