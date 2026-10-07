@@ -82,11 +82,6 @@ interfaces that all alternatives implement: `e.n()` with a method `n()` of an in
 but not their common superclass, is rejected (`A method named "n" is not declared in any enclosing class nor any
 supertype`); with a cast, `((I) e).n()`, it compiles.
 
-**Try-with-resources** ([#64](https://github.com/janino-lts/janino/issues/64)): the resource variable is not
-accessible: neither from the block (`try (R r = ...) { r.use(); }`: `Unknown variable or type "r"`), nor from the
-initializer of a later resource (`try (A a = ...; B b = new B(a))`), nor from an anonymous or local class in the
-block. Only the Java 9 form with an existing variable, `try (r) { ... }`, works.
-
 **Exception classes with all-uppercase names** ([#65](https://github.com/janino-lts/janino/issues/65)): a type in
 the `throws` clause of a method or constructor declared in the compiled code is ignored if its simple name consists
 of uppercase letters only (`throws X`, `throws IOEXC`),
@@ -112,7 +107,9 @@ method result of type `Object`.
 - assignment to a `final` local variable, also twice to a blank one: `final int x = 1; x = 2;`,
   `final int x; x = 1; x = 2;`;
 - assignment to a blank `final` local variable in a loop: `final int x; for (;;) { x = 1; }`;
-- assignment to a `final` parameter or a `final` variable of an enhanced `for` statement;
+- assignment to a `final` parameter, a `final` variable of an enhanced `for` statement, or the (implicitly `final`)
+  resource variable of a try-with-resources statement: `try (R r = new R()) { r = null; }` (the resource is then
+  not closed);
 - assignment to a `static final` field of another class, e.g. an interface field (`I.X = 2;`) or an enum constant
   (`E.A = null;`): this compiles, but throws an `IllegalAccessError` when it is executed.
 
@@ -125,6 +122,11 @@ method result of type `Object`.
 - override that throws a broader checked exception, or a checked exception that the overridden method does not throw;
 - `throws` clause with a type that is not a `Throwable`: `void f() throws String {}`;
 - two fields with the same name and different types: `int x; long x;`;
+- a `catch` parameter, the variable of an enhanced `for` statement or the resource variable of a try-with-resources
+  statement with the name of a local variable or parameter in scope (`int e = 1; try { ... } catch (Exception e) {}`,
+  `try (R r = ...)` with a local variable `r`), two resources with the same name, or a local variable in the block
+  of a try-with-resources statement with the name of a resource variable; the later declaration shadows the earlier
+  one in its scope;
 - `native strictfp` method (the JVM accepts the combination);
 - `static default` interface method; interface field without initializer: `interface I { int X; }`;
 - default method that overrides a method of `Object`: `default boolean equals(Object o) { ... }`;

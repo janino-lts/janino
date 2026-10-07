@@ -3296,6 +3296,23 @@ class UnitCompiler {
         ));
     }
 
+    /**
+     * @return The {@link LocalVariable} corresponding with the resource variable of a TRY-with-resources statement
+     */
+    public LocalVariable
+    getLocalVariable(LocalVariableDeclaratorResource lvdr) throws CompileException {
+
+        VariableDeclarator vd = lvdr.variableDeclarator;
+        if (vd.localVariable != null) return vd.localVariable;
+
+        // Determine variable type.
+        Type variableType = lvdr.type;
+        for (int k = 0; k < vd.brackets; ++k) variableType = new ArrayType(variableType);
+
+        // Ignore "lvdr.modifiers"; a resource variable is implicitly final (JLS 14.20.3).
+        return (vd.localVariable = new LocalVariable(true /*finaL*/, this.getType(variableType)));
+    }
+
     private boolean
     compile2(ReturnStatement rs) throws CompileException {
 
@@ -3474,6 +3491,12 @@ class UnitCompiler {
     private final Map<LocalVariable, CatchParameter> multiCatchParameters = new HashMap<>();
 
     /**
+     * The local variables of the resources of TRY-with-resources statements ({@code try (R r = ...)}); see {@link
+     * #buildLocalVariableMap(TryStatement, Map)}.
+     */
+    private final Set<LocalVariable> resourceVariables = new HashSet<>();
+
+    /**
      * @return The multi-catch parameter ({@code catch (A | B e)}) that the <var>rv</var> accesses, or {@code null}
      */
     @Nullable private CatchParameter
@@ -3582,13 +3605,18 @@ class UnitCompiler {
                     visitLocalVariableDeclaratorResource(LocalVariableDeclaratorResource lvdr) throws CompileException {
 
                         // final {VariableModifierNoFinal} R Identifier = Expression
-                        IType         lvType = UnitCompiler.this.getType(lvdr.type);
-                        LocalVariable result = UnitCompiler.this.allocateLocalVariable(true /*finaL*/, lvType);
+                        VariableDeclarator vd     = lvdr.variableDeclarator;
+                        LocalVariable      result = UnitCompiler.this.getLocalVariable(lvdr);
+                        result.setSlot(UnitCompiler.this.allocateLocalVariableSlot(result.type, vd.name));
 
-                        ArrayInitializerOrRvalue initializer = lvdr.variableDeclarator.initializer;
+                        // The resource variable is in scope in the initializers of the following resources.
+                        Map<String, LocalVariable> tsVars = ts.localVariables;
+                        if (tsVars != null) tsVars.put(vd.name, result);
+
+                        ArrayInitializerOrRvalue initializer = vd.initializer;
                         assert initializer != null;
 
-                        UnitCompiler.this.compile(initializer, lvType);
+                        UnitCompiler.this.compile(initializer, result.type);
                         UnitCompiler.this.store(ts, result);
 
                         return result;
@@ -4694,8 +4722,30 @@ class UnitCompiler {
     private void
     buildLocalVariableMap(TryStatement ts, final Map<String, LocalVariable> localVars)
     throws CompileException {
-        ts.localVariables = localVars;
-        this.buildLocalVariableMap(ts.body, localVars);
+
+        // The resource variables are in scope in the initializers of the following resources and in the body, but
+        // not in the CATCH clauses and the FINALLY clause (JLS 14.20.3). "compileTryWithResources()" adds each
+        // resource variable to the map of the TRY statement when the resource is initialized, so the initializers
+        // of the preceding resources do not see it.
+        Map<String, LocalVariable> tsVars = localVars, bodyVars = localVars;
+        for (TryStatement.Resource r : ts.resources) {
+            if (!(r instanceof LocalVariableDeclaratorResource)) continue;
+            LocalVariableDeclaratorResource lvdr = (LocalVariableDeclaratorResource) r;
+
+            if (bodyVars == localVars) {
+                tsVars   = new HashMap<>(localVars);
+                bodyVars = new HashMap<>(localVars);
+            }
+
+            // A resource variable with the name of a local variable in scope (JAVAC: "already defined") is not
+            // reported, for compatibility with the earlier versions that did not see the resource variables; it
+            // shadows that variable, like a CATCH parameter.
+            LocalVariable lv = this.getLocalVariable(lvdr);
+            bodyVars.put(lvdr.variableDeclarator.name, lv);
+            this.resourceVariables.add(lv);
+        }
+        ts.localVariables = tsVars;
+        this.buildLocalVariableMap(ts.body, bodyVars);
         for (CatchClause cc : ts.catchClauses) this.buildLocalVariableMap(cc, localVars);
         if (ts.finallY != null) {
             this.buildLocalVariableMap(ts.finallY, localVars);
@@ -4722,8 +4772,12 @@ class UnitCompiler {
         Map<String, LocalVariable> newVars = new HashMap<>();
         newVars.putAll(localVars);
         for (VariableDeclarator vd : lvds.variableDeclarators) {
-            LocalVariable      lv = this.getLocalVariable(lvds, vd);
-            if (newVars.put(vd.name, lv) != null) {
+            LocalVariable lv   = this.getLocalVariable(lvds, vd);
+            LocalVariable prev = (LocalVariable) newVars.put(vd.name, lv);
+
+            // A local variable with the name of a resource variable in scope (JAVAC: "already defined") is not
+            // reported, for compatibility with the earlier versions that did not see the resource variables.
+            if (prev != null && !this.resourceVariables.contains(prev)) {
                 this.compileError("Redefinition of local variable \"" + vd.name + "\" ", vd.getLocation());
             }
         }
@@ -9964,6 +10018,22 @@ class UnitCompiler {
                                     if (fp.name.equals(localVariableName)) {
                                         lv = this.getLocalVariable(fp);
                                         break DETERMINE_LV;
+                                    }
+                                    continue;
+                                } else
+                                if (es instanceof TryStatement && bs == ((TryStatement) es).body) {
+
+                                    // Is it a resource variable of the enclosing TRY-with-resources statement? The
+                                    // last resource with the name is the one in scope.
+                                    List<TryStatement.Resource> resources = ((TryStatement) es).resources;
+                                    for (int i = resources.size() - 1; i >= 0; --i) {
+                                        TryStatement.Resource r = (TryStatement.Resource) resources.get(i);
+                                        if (!(r instanceof LocalVariableDeclaratorResource)) continue;
+                                        LocalVariableDeclaratorResource lvdr = (LocalVariableDeclaratorResource) r;
+                                        if (lvdr.variableDeclarator.name.equals(localVariableName)) {
+                                            lv = this.getLocalVariable(lvdr);
+                                            break DETERMINE_LV;
+                                        }
                                     }
                                     continue;
                                 } else

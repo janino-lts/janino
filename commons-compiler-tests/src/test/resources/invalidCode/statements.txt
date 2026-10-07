@@ -660,3 +660,92 @@ public class P {
     static void m() throws X { throw new X(); }
     void f() { m(); }
 }
+
+=== assignment to a resource variable
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    static class R implements AutoCloseable { public void close() { } }
+    void f() { try (R r = new R()) { r = null; } }
+}
+
+=== forward reference to a later resource
+janino: REJECTED Unknown variable or type "a"
+public class P {
+    static class R implements AutoCloseable { R() { } R(R other) { } public void close() { } }
+    void f() { try (R b = new R(a); R a = new R()) { } }
+}
+
+=== resource variable initialized with itself
+janino: REJECTED Local variable "a" is not initialized
+public class P {
+    static class R implements AutoCloseable { R(R other) { } public void close() { } }
+    void f() { try (R a = new R(a)) { } }
+}
+
+=== resource variable with the name of a local variable
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    static class R implements AutoCloseable { public void close() { } }
+    void f() { R r = null; try (R r = new R()) { } }
+}
+
+=== two resources with the same name
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    static class R implements AutoCloseable { public void close() { } }
+    void f() { try (R a = new R(); R a = new R()) { } }
+}
+
+=== resource variable with the name of a parameter
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    static class R implements AutoCloseable { public void close() { } }
+    void f(R r) { try (R r = new R()) { } }
+}
+
+=== local variable in the block with the name of the resource variable
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    static class R implements AutoCloseable { public void close() { } }
+    void f() { try (R r = new R()) { R r = null; } }
+}
+
+=== resource variable accessed from the catch clause
+janino: REJECTED Unknown variable or type "r"
+public class P {
+    static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
+    void f() { try (R r = new R()) { } catch (Exception e) { r.n(); } }
+}
+
+=== resource variable accessed from the finally block
+janino: REJECTED Unknown variable or type "r"
+public class P {
+    static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
+    void f() { try (R r = new R()) { } finally { r.n(); } }
+}
+
+=== resource variable accessed after the try statement
+janino: REJECTED Unknown variable or type "r"
+public class P {
+    static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
+    void f() { try (R r = new R()) { } r.n(); }
+}
+
+=== catch parameter with the name of a local variable
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f() { int e = 1; try { } catch (Exception e) { } }
+}
+
+=== variable of an enhanced for statement with the name of a local variable
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void f() { int x = 1; for (int x : new int[0]) { } }
+}

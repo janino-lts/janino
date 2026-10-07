@@ -2890,6 +2890,64 @@ class JlsTest extends CommonsCompilerTestSuite {
         );
     }
 
+    @Test public void
+    test_14_20_3__try_with_resources__4() throws Exception {
+
+        if (this.isJdk && CommonsCompilerTestSuite.JVM_VERSION < 7) return;
+
+        // The resource variable is in scope in the block, in the initializers of the following resources, and in
+        // the anonymous and local classes declared in the block.
+        this.assertScriptReturnsTrue(
+            ""
+            + "class R implements AutoCloseable {\n"
+            + "    final String n;\n"
+            + "    R(String n) { this.n = n; }\n"
+            + "    public void close() {}\n"
+            + "}\n"
+            + "try (R a = new R(\"a\"); R b = new R(a.n + \"b\")) {\n"
+            + "    class L { String g() { return b.n; } }\n"
+            + "    Object o = new Object() { public String toString() { return a.n; } };\n"
+            + "    if (!a.n.equals(\"a\") || !b.n.equals(\"ab\")) return false;\n"
+            + "    return new L().g().equals(\"ab\") && o.toString().equals(\"a\");\n"
+            + "}\n"
+        );
+    }
+
+    @Test public void
+    test_14_20_3__try_with_resources__5() throws Exception {
+
+        if (this.isJdk && CommonsCompilerTestSuite.JVM_VERSION < 7) return;
+
+        // The resource is closed when the block completes, also when the block accesses the resource variable.
+        this.assertScriptReturnsTrue(
+            ""
+            + "final int[] closed = new int[1];\n"
+            + "class R implements AutoCloseable {\n"
+            + "    public void close() { closed[0]++; }\n"
+            + "    int n() { return closed[0]; }\n"
+            + "}\n"
+            + "try (R r = new R()) {\n"
+            + "    if (r.n() != 0) return false;\n"
+            + "}\n"
+            + "return closed[0] == 1;\n"
+        );
+    }
+
+    @Test public void
+    test_14_20_3__try_with_resources__6() throws Exception {
+
+        if (this.isJdk && CommonsCompilerTestSuite.JVM_VERSION < 7) return;
+
+        // The resource variable is not in scope in the CATCH clauses, in the FINALLY clause, after the statement,
+        // and in the initializers of the preceding resources.
+        String r = "class R implements AutoCloseable { R() {} R(R o) {} public void close() {} }\n";
+        this.assertScriptUncookable(r + "try (R r = new R()) {} catch (Exception e) { r.close(); }\n");
+        this.assertScriptUncookable(r + "try (R r = new R()) {} finally { r.close(); }\n");
+        this.assertScriptUncookable(r + "try (R r = new R()) {} r.close();\n");
+        this.assertScriptUncookable(r + "try (R b = new R(a); R a = new R()) {}\n");
+        this.assertScriptUncookable(r + "try (R a = new R(a)) {}\n");
+    }
+
     /**
      * Tests the "enhanced try-with-resources statement" that was introduced with Java 9 with a "local variable
      * declarator resource" with a local variable access.

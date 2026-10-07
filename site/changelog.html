@@ -72,6 +72,17 @@ h5 {
         expression was a method or constructor argument, e.g. <code>String.valueOf(o[0])</code>. It is now rejected
         with "Subscript not allowed on non-array type", like in every other context.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/64">issue #64</a>: The resource variable of a
+        try-with-resources statement, <code>try (R r = new R()) { ... }</code>, was not accessible: neither in the
+        block, nor in the initializers of the following resources, nor in an anonymous or local class declared in
+        the block (<code>Unknown variable or type "r"</code>); only the Java 9 form with an existing variable,
+        <code>try (r) { ... }</code>, worked. The resource variable is now in scope from its declarator to the end
+        of the block, like with JAVAC; it is not accessible in the <code>catch</code> clauses and the
+        <code>finally</code> clause. The class files of code that compiled before are unchanged. A resource
+        variable with the name of a local variable in scope, which JAVAC rejects, keeps compiling; in the block, the
+        name now denotes the resource variable, like with a <code>catch</code> parameter of that name.
+      </li>
     </ul>
 
     <h4>Version 3.1.16 2026-10-06</h4>
