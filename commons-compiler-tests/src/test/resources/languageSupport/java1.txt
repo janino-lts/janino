@@ -381,3 +381,66 @@ public class P {
     }
     public static Object run() { return new Sub().call(); }
 }
+
+=== final loop variable of a basic for statement captured by an anonymous class
+jls: 7
+janino: OK
+public class P {
+    public static Object run() {
+        Object o = null;
+        for (final int i = 7; i < 9; ) {
+            o = new Object() { public String toString() { return "" + i; } };
+            break;
+        }
+        return o.toString();
+    }
+}
+
+=== final loop variable of a basic for statement captured by a local class
+jls: 7
+janino: OK
+public class P {
+    public static Object run() {
+        for (final int i = Integer.parseInt("7"); i < 9; ) {
+            class L { int f() { return i; } }
+            return new L().f();
+        }
+        return "-";
+    }
+}
+
+=== final loop variable of a basic for statement captured from a nested statement of the loop body
+jls: 7
+janino: OK
+public class P {
+    public static Object run() {
+        Object o = "-";
+        for (final int i = 7; i < 9; ) {
+            if (i > 0) { o = new Object() { public String toString() { return "" + i; } }; }
+            break;
+        }
+        return o.toString();
+    }
+}
+
+=== final loop variables of a basic for statement with two declarators captured by an anonymous class
+jls: 3
+janino: OK
+public class P {
+    public static Object run() {
+        for (final int i = Integer.parseInt("1"), j = 2; i < 9; ) {
+            return new Object() { public String toString() { return "" + (i + j); } }.toString();
+        }
+        return "-";
+    }
+}
+
+=== final loop variable of a basic for statement captured by an anonymous class in the condition
+jls: 7
+janino: OK
+public class P {
+    public static Object run() {
+        for (final int i = 7; new Object() { boolean b() { return i < 9; } }.b(); ) { return "" + i; }
+        return "-";
+    }
+}

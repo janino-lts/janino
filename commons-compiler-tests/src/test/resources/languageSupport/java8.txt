@@ -348,3 +348,15 @@ public class P {
         }.toString();
     }
 }
+
+=== effectively final loop variable of a basic for statement captured by an anonymous class
+janino: OK
+jls: 7
+public class P {
+    public static Object run() {
+        for (int i = 7; i < 9; ) {
+            return new Object() { public String toString() { return "" + i; } }.toString();
+        }
+        return "-";
+    }
+}

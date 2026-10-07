@@ -121,6 +121,14 @@ h5 {
         JAVAC_DIFFERENCES.md, section 2). The generated code is the same as for a <code>final</code> variable; the
         class files of code that compiled before are unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/75">issue #75</a>: An anonymous or local class
+        that accessed the <code>final</code> loop variable of a basic <code>for</code> statement
+        (<code>for (final int i = 0; i &lt; n; ) { ... }</code>) was an internal compiler error ("Synthetic field
+        "val$i" neither maps a synthetic field of an enclosing instance nor a local variable"); the variable is
+        found now, like a variable that is declared in the loop body. The same applies to a loop variable that is
+        effectively final (issue #24, above). The class files of code that compiled before are unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.16 2026-10-06</h4>

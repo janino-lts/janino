@@ -2640,6 +2640,49 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    test_14_14_1__The_basic_for_statement__captured_loop_variable() throws Exception {
+
+        // An inner class may access the "final" loop variable of a basic FOR statement (issue #75; before, that was
+        // an internal compiler error), and a loop variable that is effectively final (issue #24).
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "public class Main {\n"
+            + "    public static boolean\n"
+            + "    main() {\n"
+            + "        String r = \"\";\n"
+            + "        for (final int i = 1, j = 2; i < 9; ) {\n"
+            + "            r += new Object() { public String toString() { return \"\" + (i + j); } };\n"
+            + "            break;\n"
+            + "        }\n"
+            + "        for (int i = 4; i < 9; ) {\n"
+            + "            class L { int get() { return i; } }\n"
+            + "            if (i > 0) r += new L().get();\n"
+            + "            break;\n"
+            + "        }\n"
+            + "        for (final int i = 5; new Object() { boolean b() { return i < 9; } }.b(); ) {\n"
+            + "            r += i;\n"
+            + "            break;\n"
+            + "        }\n"
+            + "        return r.equals(\"345\");\n"
+            + "    }\n"
+            + "}\n"
+        ), "Main");
+
+        // A loop variable that is incremented is not effectively final.
+        this.assertCompilationUnitUncookable(
+            ""
+            + "public class Main {\n"
+            + "    void f() {\n"
+            + "        for (int i = 0; i < 3; i++) {\n"
+            + "            Runnable r = new Runnable() { public void run() { int y = i; } };\n"
+            + "        }\n"
+            + "    }\n"
+            + "}\n",
+            "Cannot access non-final local variable|compiler.err.cant.ref.non.effectively.final.var"
+        );
+    }
+
+    @Test public void
     test_14_14_2_1__The_enhanced_for_statement_Iterable1() throws Exception {
         this.assertScriptReturnsTrue(
             "String x = \"A\";\n"

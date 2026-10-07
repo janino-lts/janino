@@ -552,7 +552,6 @@ public class P {
 
 === loop variable of a basic for statement captured by an anonymous class
 janino: REJECTED Cannot access non-final local variable "i" from inner class
-recovery: INVALID InternalCompilerException
 public class P {
     Runnable f() {
         Runnable r = null;

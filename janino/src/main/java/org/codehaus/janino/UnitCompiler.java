@@ -10296,6 +10296,23 @@ class UnitCompiler {
                                 }
 
                                 BlockStatement       bs = (BlockStatement) s;
+
+                                // Is it declared in the initializer of an enclosing basic FOR statement (issue #75)?
+                                if (bs instanceof ForStatement) {
+                                    BlockStatement init = ((ForStatement) bs).init;
+                                    if (init instanceof LocalVariableDeclarationStatement) {
+                                        LocalVariableDeclarationStatement lvds = (
+                                            (LocalVariableDeclarationStatement) init
+                                        );
+                                        for (VariableDeclarator vd : lvds.variableDeclarators) {
+                                            if (vd.name.equals(localVariableName)) {
+                                                lv = this.getLocalVariable(lvds, vd);
+                                                break DETERMINE_LV;
+                                            }
+                                        }
+                                    }
+                                }
+
                                 Scope                es = bs.getEnclosingScope();
 
                                 List<? extends BlockStatement> statements;
