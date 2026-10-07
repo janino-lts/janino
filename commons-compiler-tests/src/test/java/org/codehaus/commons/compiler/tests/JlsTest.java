@@ -1050,6 +1050,102 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    test_8_1_3__Inner_Classes_and_Enclosing_Instances__effectively_final() throws Exception {
+
+        // Since Java 8, a local or anonymous class may access local variables and parameters of the enclosing
+        // method that are effectively final (JLS8 4.12.4): not declared "final", but never assigned (issue #24).
+        this.assertCompilationUnitMainReturnsTrue((
+            ""
+            + "import java.util.Arrays;\n"
+            + "\n"
+            + "public class Main {\n"
+            + "    public static boolean\n"
+            + "    main() {\n"
+            + "        return meth(1, \"c\") && catchParameter().equals(\"boom\") && loops().equals(\"ab02\");\n"
+            + "    }\n"
+            + "\n"
+            + "    public static boolean\n"
+            + "    meth(int a, String c) {\n"
+            + "        int    e = 5;\n"
+            + "        long   l = 6L;\n"
+            + "        double d = 7.5;\n"
+            + "        int[]  f = { 8 };\n"
+            + "        f[0] = 9;\n"
+            + "        class Local { int get() { return e; } }\n"
+            + "        Object o = new Object() {\n"
+            + "            public String toString() {\n"
+            + "                return a + c + e + l + d + f[0] + new Local().get() + new Object() {\n"
+            + "                    public String toString() { return \"\" + a; }\n"
+            + "                };\n"
+            + "            }\n"
+            + "        };\n"
+            + "        return o.toString().equals(\"1c567.5951\") && e == 5;\n"
+            + "    }\n"
+            + "\n"
+            + "    public static String\n"
+            + "    catchParameter() {\n"
+            + "        try {\n"
+            + "            throw new RuntimeException(\"boom\");\n"
+            + "        } catch (RuntimeException re) {\n"
+            + "            return new Object() { public String toString() { return re.getMessage(); } }.toString();\n"
+            + "        }\n"
+            + "    }\n"
+            + "\n"
+            + "    public static String\n"
+            + "    loops() {\n"
+            + "        StringBuilder sb = new StringBuilder();\n"
+            + "        for (String s : Arrays.asList(\"a\", \"b\")) {\n"
+            + "            sb.append(new Object() { public String toString() { return s; } });\n"
+            + "        }\n"
+            + "        for (int i = 0; i < 2; i++) {\n"
+            + "            int x = i * 2;\n"
+            + "            sb.append(new Object() { public String toString() { return \"\" + x; } });\n"
+            + "        }\n"
+            + "        return sb.toString();\n"
+            + "    }\n"
+            + "}\n"
+        ), "Main");
+
+        // Assigned after the inner class captured it.
+        this.assertCompilationUnitUncookable(
+            ""
+            + "public class Main {\n"
+            + "    void f() {\n"
+            + "        int x = 1;\n"
+            + "        Runnable r = new Runnable() { public void run() { int y = x; } };\n"
+            + "        x = 2;\n"
+            + "    }\n"
+            + "}\n",
+            "Cannot access non-final local variable|compiler.err.cant.ref.non.effectively.final.var"
+        );
+
+        // Incremented.
+        this.assertCompilationUnitUncookable(
+            ""
+            + "public class Main {\n"
+            + "    void f() {\n"
+            + "        int x = 1;\n"
+            + "        x++;\n"
+            + "        Runnable r = new Runnable() { public void run() { int y = x; } };\n"
+            + "    }\n"
+            + "}\n",
+            "Cannot access non-final local variable|compiler.err.cant.ref.non.effectively.final.var"
+        );
+
+        // Assigned in the inner class.
+        this.assertCompilationUnitUncookable(
+            ""
+            + "public class Main {\n"
+            + "    void f() {\n"
+            + "        int x = 1;\n"
+            + "        Runnable r = new Runnable() { public void run() { x = 2; } };\n"
+            + "    }\n"
+            + "}\n",
+            "Cannot access non-final local variable|compiler.err.cant.ref.non.effectively.final.var"
+        );
+    }
+
+    @Test public void
     test_8_4_8_3__Requirements_in_Overriding_and_Hiding() throws Exception {
 
         this.assertClassBodyExecutable(

@@ -77,6 +77,18 @@ interfaces that all alternatives implement: `e.n()` with a method `n()` of an in
 but not their common superclass, is rejected (`A method named "n" is not declared in any enclosing class nor any
 supertype`); with a cast, `((I) e).n()`, it compiles.
 
+**Effectively final local variables** ([#24](https://github.com/janino-lts/janino/issues/24), since 3.1.17; before,
+a local variable had to be declared `final` to be accessed from a local or anonymous class): Janino finds a local
+variable, a parameter, a `catch` parameter or the variable of an enhanced `for` statement effectively final by a
+conservative rule: the variable has an initializer, or is a parameter, and its name is not assigned, incremented or
+decremented anywhere in the method, constructor or initializer that declares it, including nested classes. Janino
+therefore rejects (`Cannot access non-final local variable "x" from inner class`):
+
+- a variable without an initializer that is assigned exactly once: `int x; x = 1; new Runnable() { ... x ... }`
+  (JLS 4.12.4 requires definite assignment analysis here, which Janino does not have);
+- a variable whose name is assigned in another block or in a nested class:
+  `{ int x = 1; x = 2; } int x = 3; new Runnable() { ... x ... }`.
+
 ## 3. Invalid code that Janino accepts
 
 `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it behaves

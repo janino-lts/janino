@@ -109,6 +109,18 @@ h5 {
         files of code that compiled before are unchanged, except that the <code>Exceptions</code> attribute of a
         method or constructor with such a <code>throws</code> clause now lists the exception.
       </li>
+      <li>
+        Implemented <a href="https://github.com/janino-lts/janino/issues/24">issue #24</a>: A local or anonymous
+        class can access a local variable, a parameter, a <code>catch</code> parameter or the variable of an enhanced
+        <code>for</code> statement of the enclosing method, constructor or initializer that is not declared
+        <code>final</code>, if the variable is effectively final (JLS 8.1.3, Java 8); before, such an access was
+        rejected ("Cannot access non-final local variable"). Janino applies a conservative rule: the variable has an
+        initializer, or is a parameter, and its name is not assigned, incremented or decremented anywhere in the
+        enclosing method, including nested classes; a variable without an initializer that is assigned once, and a
+        variable whose name is assigned in another block or in a nested class, are still rejected (see
+        JAVAC_DIFFERENCES.md, section 2). The generated code is the same as for a <code>final</code> variable; the
+        class files of code that compiled before are unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.16 2026-10-06</h4>

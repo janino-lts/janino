@@ -224,6 +224,7 @@ import org.codehaus.janino.Visitor.RvalueVisitor;
 import org.codehaus.janino.Visitor.TryStatementResourceVisitor;
 import org.codehaus.janino.Visitor.TypeDeclarationVisitor;
 import org.codehaus.janino.Visitor.TypeVisitor;
+import org.codehaus.janino.util.AbstractTraverser;
 import org.codehaus.janino.util.Annotatable;
 import org.codehaus.janino.util.ClassFile;
 import org.codehaus.janino.util.ClassFile.ClassFileException;
@@ -10804,6 +10805,117 @@ class UnitCompiler {
     }
 
     /**
+     * The names of the local variables that are not effectively final (JLS8 4.12.4), by the function or initializer
+     * that declares them; computed on demand by {@link #isEffectivelyFinal(String, BlockStatement)}.
+     */
+    private final Map<Scope, Set<String>> notEffectivelyFinalNames = new HashMap<>();
+
+    /**
+     * Whether the local variable with the given name, which is visible at the given block statement, is effectively
+     * final (JLS8 4.12.4), so that a local or anonymous class may access it although it is not declared FINAL
+     * (issue #24).
+     * <p>
+     *   The rule is conservative, by name: the variable must have an initializer, or be a parameter, a CATCH
+     *   parameter or the variable of an enhanced FOR statement, and its name must not be assigned, incremented or
+     *   decremented anywhere in the function or initializer that declares it, including the bodies of nested
+     *   classes. So a variable without an initializer that is assigned exactly once, and a variable whose name
+     *   is assigned in another block or in a nested class, are not effectively final for this analysis, although
+     *   they are for JAVAC (JAVAC_DIFFERENCES.md, section 2). The analysis never accepts a variable that JAVAC
+     *   rejects.
+     * </p>
+     */
+    private boolean
+    isEffectivelyFinal(String name, BlockStatement bs) {
+
+        // Find the function or initializer that declares the variable; a local variable is visible only within it.
+        Scope s = bs;
+        while (!(s instanceof FunctionDeclarator) && !(s instanceof Initializer)) {
+            if (s instanceof TypeDeclaration) return false;
+            s = s.getEnclosingScope();
+        }
+
+        Set<String> names = (Set<String>) this.notEffectivelyFinalNames.get(s);
+        if (names == null) {
+            names = UnitCompiler.notEffectivelyFinalNames(s);
+            this.notEffectivelyFinalNames.put(s, names);
+        }
+
+        return !names.contains(name);
+    }
+
+    /**
+     * @param functionOrInitializer A {@link FunctionDeclarator} or an {@link Initializer}
+     * @return                      The names of the local variables that are declared without an initializer, or
+     *                              assigned, incremented or decremented in the body, including nested class bodies
+     */
+    private static Set<String>
+    notEffectivelyFinalNames(Scope functionOrInitializer) {
+
+        final Set<String> result = new HashSet<>();
+
+        AbstractTraverser<RuntimeException> traverser = new AbstractTraverser<RuntimeException>() {
+
+            // The base class does not descend into the rvalue initializers of variables.
+            @Override public void
+            traverseArrayInitializerOrRvalue(ArrayInitializerOrRvalue aiorv) {
+                if (aiorv instanceof Rvalue) {
+                    this.visitAtom((Rvalue) aiorv);
+                } else {
+                    super.traverseArrayInitializerOrRvalue(aiorv);
+                }
+            }
+
+            @Override public void
+            traverseLocalVariableDeclarationStatement(LocalVariableDeclarationStatement lvds) {
+                for (VariableDeclarator vd : lvds.variableDeclarators) {
+                    if (vd.initializer == null) result.add(vd.name);
+                }
+                super.traverseLocalVariableDeclarationStatement(lvds);
+            }
+
+            @Override public void
+            traverseAssignment(Assignment a) {
+                UnitCompiler.addSimpleName(a.lhs, result);
+                super.traverseAssignment(a);
+            }
+
+            @Override public void
+            traverseCrement(Crement c) {
+                UnitCompiler.addSimpleName(c.operand, result);
+                super.traverseCrement(c);
+            }
+        };
+
+        if (functionOrInitializer instanceof ConstructorDeclarator) {
+            traverser.traverseConstructorDeclarator((ConstructorDeclarator) functionOrInitializer);
+        } else
+        if (functionOrInitializer instanceof MethodDeclarator) {
+            traverser.traverseMethodDeclarator((MethodDeclarator) functionOrInitializer);
+        } else
+        {
+            traverser.traverseInitializer((Initializer) functionOrInitializer);
+        }
+
+        return result;
+    }
+
+    /**
+     * Adds the simple name that the given lvalue denotes, if any ("{@code x}", "{@code (x)}"), to the given set.
+     */
+    private static void
+    addSimpleName(Lvalue lvalue, Set<String> names) {
+        while (lvalue instanceof ParenthesizedExpression) {
+            Rvalue value = ((ParenthesizedExpression) lvalue).value;
+            if (!(value instanceof Lvalue)) return;
+            lvalue = (Lvalue) value;
+        }
+        if (lvalue instanceof AmbiguousName) {
+            AmbiguousName an = (AmbiguousName) lvalue;
+            if (an.n == 1) names.add(an.identifiers[0]);
+        }
+    }
+
+    /**
      * JLS7 6.5.2.1
      */
     private Atom
@@ -10864,7 +10976,7 @@ class UnitCompiler {
                 while (s instanceof BlockStatement) {
                     LocalVariable lv = ((BlockStatement) s).findLocalVariable(identifier);
                     if (lv != null) {
-                        if (!lv.finaL) {
+                        if (!lv.finaL && !this.isEffectivelyFinal(identifier, (BlockStatement) s)) {
                             this.compileError((
                                 "Cannot access non-final local variable \""
                                 + identifier

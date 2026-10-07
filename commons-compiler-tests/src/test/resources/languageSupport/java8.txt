@@ -55,8 +55,8 @@ public class P {
 }
 
 === effectively final local variable captured by an anonymous class
+janino: OK
 jls: 5
-janino: REJECTED Cannot access non-final local variable "x" from inner class
 public class P {
     public static Object run() {
         int x = 5;
@@ -164,4 +164,187 @@ public class P {
         public Comparator reversed() { return Comparator.super.reversed(); }
     }
     public static Object run() { return new C().reversed().compare("a", "b"); }
+}
+
+=== effectively final parameters captured by an anonymous class
+jls: v5
+janino: OK
+public class P {
+    static String f(int x, String s) {
+        return new Object() { public String toString() { return s + x; } }.toString();
+    }
+    public static Object run() { return f(5, "v"); }
+}
+
+=== effectively final catch parameter captured by an anonymous class
+jls: boom
+janino: OK
+public class P {
+    public static Object run() {
+        try {
+            throw new RuntimeException("boom");
+        } catch (RuntimeException e) {
+            return new Object() { public String toString() { return e.getMessage(); } }.toString();
+        }
+    }
+}
+
+=== effectively final variable of an enhanced for statement over an array captured by an anonymous class
+jls: ab
+janino: OK
+public class P {
+    public static Object run() {
+        StringBuilder sb = new StringBuilder();
+        for (String s : new String[] { "a", "b" }) {
+            sb.append(new Object() { public String toString() { return s; } });
+        }
+        return sb.toString();
+    }
+}
+
+=== effectively final variable of an enhanced for statement over an Iterable captured by an anonymous class
+jls: ab
+janino: OK
+public class P {
+    public static Object run() {
+        StringBuilder sb = new StringBuilder();
+        for (String s : java.util.Arrays.asList("a", "b")) {
+            sb.append(new Object() { public String toString() { return s; } });
+        }
+        return sb.toString();
+    }
+}
+
+=== effectively final local variables of several types captured by an anonymous class
+jls: 1-2-3.5-s
+janino: OK
+public class P {
+    public static Object run() {
+        int i = 1; long l = 2L; double d = 3.5; String s = "s";
+        return new Object() { public String toString() { return i + "-" + l + "-" + d + "-" + s; } }.toString();
+    }
+}
+
+=== assignment to an element of an effectively final array captured by an anonymous class
+jls: 5
+janino: OK
+public class P {
+    public static Object run() {
+        int[] a = { 4 };
+        a[0] = 5;
+        return new Object() { public String toString() { return "" + a[0]; } }.toString();
+    }
+}
+
+=== effectively final local variable captured by a local class
+jls: 7
+janino: OK
+public class P {
+    public static Object run() {
+        int x = 7;
+        class L { int f() { return x; } }
+        return new L().f();
+    }
+}
+
+=== effectively final local variable captured by an anonymous class in an instance initializer
+jls: 8
+janino: OK
+public class P {
+    String v;
+    { int x = 8; v = new Object() { public String toString() { return "" + x; } }.toString(); }
+    public static Object run() { return new P().v; }
+}
+
+=== effectively final local variable captured by an anonymous class in a constructor
+jls: 9
+janino: OK
+public class P {
+    String v;
+    P(int p) { int x = p + 1; v = new Object() { public String toString() { return "" + x; } }.toString(); }
+    public static Object run() { return new P(8).v; }
+}
+
+=== effectively final local variable captured by a nested anonymous class
+jls: 10
+janino: OK
+public class P {
+    public static Object run() {
+        int x = 10;
+        return new Object() {
+            public String toString() { return new Object() { public String toString() { return "" + x; } }.toString(); }
+        }.toString();
+    }
+}
+
+=== effectively final local variable declared in a loop body and captured by an anonymous class
+jls: 024
+janino: OK
+public class P {
+    public static Object run() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 3; i++) {
+            int x = i * 2;
+            sb.append(new Object() { public String toString() { return "" + x; } });
+        }
+        return sb.toString();
+    }
+}
+
+=== effectively final local variable read by the method after an anonymous class captured it
+jls: 1111
+janino: OK
+public class P {
+    public static Object run() {
+        int x = 11;
+        Object o = new Object() { public String toString() { return "" + x; } };
+        return o.toString() + x;
+    }
+}
+
+=== effectively final local variable captured by an anonymous class that declares a variable with the same name
+jls: 122
+janino: OK
+public class P {
+    public static Object run() {
+        int x = 12;
+        return new Object() {
+            public String toString() { String a = "" + x; int x = 2; return a + x; }
+        }.toString();
+    }
+}
+
+=== local variable without an initializer, assigned once, captured by an anonymous class
+jls: 13
+janino: REJECTED Cannot access non-final local variable "x" from inner class
+public class P {
+    public static Object run() {
+        int x;
+        x = 13;
+        return new Object() { public String toString() { return "" + x; } }.toString();
+    }
+}
+
+=== captured local variable with the name of a variable that is assigned in another block
+jls: 14
+janino: REJECTED Cannot access non-final local variable "x" from inner class
+public class P {
+    public static Object run() {
+        { int x = 1; x = 2; }
+        int x = 14;
+        return new Object() { public String toString() { return "" + x; } }.toString();
+    }
+}
+
+=== captured local variable with the name of a variable that is assigned in a nested class
+jls: 151
+janino: REJECTED Cannot access non-final local variable "x" from inner class
+public class P {
+    public static Object run() {
+        int x = 15;
+        return new Object() {
+            public String toString() { String a = "" + x; return a + f(); }
+            String f() { int x = 0; x++; return "" + x; }
+        }.toString();
+    }
 }

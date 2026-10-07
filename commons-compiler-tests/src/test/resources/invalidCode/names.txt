@@ -490,3 +490,116 @@ janino: REJECTED "L" is not enclosed by "java.util.ArrayList"
 public class P extends java.util.ArrayList {
     static void f() { class L { void g() { removeRange(0, 0); } } }
 }
+
+=== local variable assigned after an anonymous class captured it
+janino: REJECTED Cannot access non-final local variable "x" from inner class
+public class P {
+    Runnable f() {
+        int x = 1;
+        Runnable r = new Runnable() { public void run() { int y = x; } };
+        x = 2;
+        return r;
+    }
+}
+
+=== local variable incremented before an anonymous class captures it
+janino: REJECTED Cannot access non-final local variable "x" from inner class
+public class P {
+    Runnable f() {
+        int x = 1;
+        x++;
+        return new Runnable() { public void run() { int y = x; } };
+    }
+}
+
+=== local variable assigned in a nested block before an anonymous class captures it
+janino: REJECTED Cannot access non-final local variable "x" from inner class
+public class P {
+    Runnable f(boolean b) {
+        int x = 1;
+        if (b) { x = 2; }
+        return new Runnable() { public void run() { int y = x; } };
+    }
+}
+
+=== local variable assigned inside the anonymous class that captures it
+janino: REJECTED Cannot access non-final local variable "x" from inner class
+public class P {
+    Runnable f() {
+        int x = 1;
+        return new Runnable() { public void run() { x = 2; } };
+    }
+}
+
+=== local variable with a compound assignment captured by an anonymous class
+janino: REJECTED Cannot access non-final local variable "x" from inner class
+public class P {
+    Runnable f() {
+        int x = 1;
+        x += 1;
+        return new Runnable() { public void run() { int y = x; } };
+    }
+}
+
+=== parameter assigned before an anonymous class captures it
+janino: REJECTED Cannot access non-final local variable "x" from inner class
+public class P {
+    Runnable f(int x) {
+        x = 2;
+        return new Runnable() { public void run() { int y = x; } };
+    }
+}
+
+=== loop variable of a basic for statement captured by an anonymous class
+janino: REJECTED Cannot access non-final local variable "i" from inner class
+recovery: INVALID InternalCompilerException
+public class P {
+    Runnable f() {
+        Runnable r = null;
+        for (int i = 0; i < 3; i++) {
+            r = new Runnable() { public void run() { int y = i; } };
+        }
+        return r;
+    }
+}
+
+=== variable of an enhanced for statement assigned in the body and captured by an anonymous class
+janino: REJECTED Cannot access non-final local variable "s" from inner class
+public class P {
+    Runnable f(String[] a) {
+        Runnable r = null;
+        for (String s : a) {
+            s = "";
+            r = new Runnable() { public void run() { String t = s; } };
+        }
+        return r;
+    }
+}
+
+=== local variable assigned inside an anonymous class that is the initializer of a variable
+janino: REJECTED Cannot access non-final local variable "x" from inner class
+public class P {
+    void f() {
+        int x = 1;
+        Runnable r = new Runnable() { public void run() { x = 2; } };
+    }
+}
+
+=== local variable assigned in the initializer of another variable before an anonymous class captures it
+janino: REJECTED Cannot access non-final local variable "x" from inner class
+public class P {
+    Runnable f() {
+        int x = 1;
+        int y = (x = 2);
+        return new Runnable() { public void run() { int z = x + y; } };
+    }
+}
+
+=== local variable assigned in a field initializer of the anonymous class that captures it
+janino: REJECTED Cannot access non-final local variable "x" from inner class
+public class P {
+    Object f() {
+        int x = 1;
+        return new Object() { int y = (x = 2); };
+    }
+}
