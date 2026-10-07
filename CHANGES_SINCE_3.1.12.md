@@ -3,8 +3,8 @@
 For projects that depend on Janino 3.1.12, the last release of the original project, and consider an upgrade:
 what the releases 3.1.13 to 3.1.17 of this continuation change, in short. The
 [change log](https://janino-lts.github.io/janino/changelog.html) has the complete entries, with details and
-examples; this page summarizes it. State: 3.1.16 was released on 2026-10-06; 3.1.17 is in development, and its
-entries are marked as such.
+examples; this page summarizes it. State: 3.1.17, released on 2026-10-08; the entries of 3.1.17 are marked with
+the version.
 
 ## What stays the same
 
@@ -16,7 +16,7 @@ entries are marked as such.
   [#33]), with the exceptions listed under "Code that is now rejected" below.
 - Code that compiled correctly with 3.1.12 compiles into the same class files, except where a fix changes them
   (the change log names these cases) and except for the class file version (below). For the code that Apache
-  Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.17-SNAPSHOT differ from those of 3.1.12
+  Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.17 differ from those of 3.1.12
   only in the class file version ([benchmarks](janino-benchmarks/README.md)).
 
 ## What changes for every user
@@ -161,8 +161,8 @@ affected.
 - The compilation of Janino's own sources is about 6 % faster than with 3.1.12 and allocates about 16 % less
   memory ([#26], 3.1.15). Code with many nested `try` / `finally` statements compiles somewhat slower, because the
   code that Janino generates for them since 3.1.14 is correct, but larger.
-- On the code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, 3.1.17-SNAPSHOT and 3.1.12 compile
-  equally fast within the measurement error; without the JIT compiler, 3.1.17-SNAPSHOT needs 1 % less time and
+- On the code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, 3.1.17 and 3.1.12 compile
+  equally fast within the measurement error; without the JIT compiler, 3.1.17 needs 1 % less time and
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers;
   every release is measured against its predecessor the same way.
 - New tests: characterization tests that record the correct result and Janino's actual behavior for 458 language

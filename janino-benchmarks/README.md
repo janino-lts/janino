@@ -62,29 +62,29 @@ compiler and 25 seconds with `-Xint`, hence the longer rounds. To compare with a
 group ID `org.codehaus.janino`). JDK 24 and later warn about `sun.misc.Unsafe` when a class of Spark is loaded;
 `--sun-misc-unsafe-memory-access=allow` silences that.
 
-## Results: Janino 3.1.12 and 3.1.17-SNAPSHOT on the Spark corpus
+## Results: Janino 3.1.12 and 3.1.17 on the Spark corpus
 
-Measured on 2026-10-07 on a laptop with JDK 25.0.2; the snapshot contains all changes from 3.1.13 to 3.1.17. A is
-Janino 3.1.12, B is 3.1.17-SNAPSHOT (in the A/A control, A is 3.1.17-SNAPSHOT, too); the times and the allocation
-are per operation, i.e. per compilation of the whole corpus.
+Measured on 2026-10-07 on a laptop with JDK 25.0.2; 3.1.17 contains all changes from 3.1.13 on. A is Janino
+3.1.12, B is 3.1.17 (in the A/A control, A is 3.1.17, too); the times and the allocation are per operation, i.e.
+per compilation of the whole corpus.
 
 | Run | A [s] | B [s] | B/A | p10 | p90 | A [MB] | B [MB] | alloc B/A |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | A/A control, JIT, 20 rounds of 2 s | 0.933 | 0.965 | 1.023 | 0.997 | 1.067 | 718 | 743 | 1.036 |
-| 3.1.12 vs. 3.1.17-SNAPSHOT, JIT, 20 rounds of 2 s | 0.962 | 0.966 | 0.995 | 0.927 | 1.079 | 749 | 737 | 0.983 |
-| 3.1.12 vs. 3.1.17-SNAPSHOT, `-Xint`, 10 rounds of 4 s | 25.37 | 25.11 | 0.987 | 0.955 | 1.018 | 879 | 839 | 0.954 |
+| 3.1.12 vs. 3.1.17, JIT, 20 rounds of 2 s | 0.962 | 0.966 | 0.995 | 0.927 | 1.079 | 749 | 737 | 0.983 |
+| 3.1.12 vs. 3.1.17, `-Xint`, 10 rounds of 4 s | 25.37 | 25.11 | 0.987 | 0.955 | 1.018 | 879 | 839 | 0.954 |
 
 - With the JIT compiler, no difference is measurable: the A/A control spreads by about 7 %, and the comparison lies
   within that spread.
-- Without the JIT compiler, 3.1.17-SNAPSHOT needs 1 % less time and allocates 4.6 % less memory per operation than
+- Without the JIT compiler, 3.1.17 needs 1 % less time and allocates 4.6 % less memory per operation than
   3.1.12; the allocation is the most reliable of these numbers.
 - The class files are the same size (2,125,722 bytes for the corpus) and differ only in the class file version
   (Java 6 with 3.1.12, Java 8 since 3.1.13, which raised the default target version); every instruction and
   attribute is identical.
 
-## Results: Janino 3.1.16 and 3.1.17-SNAPSHOT on all workloads
+## Results: Janino 3.1.16 and 3.1.17 on all workloads
 
-Measured on 2026-10-07 on the same laptop with JDK 25.0.2; A is Janino 3.1.16, B is 3.1.17-SNAPSHOT. B/A is the
+Measured on 2026-10-07 on the same laptop with JDK 25.0.2; A is Janino 3.1.16, B is 3.1.17. B/A is the
 median ratio of the compile times (p10 and p90 in brackets, rounded), "A/A" the same for the control run of B against
 itself, "alloc" the ratio of the memory that one operation allocates.
 
