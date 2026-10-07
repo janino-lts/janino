@@ -2,7 +2,8 @@
 **/bin/
 **/build/
 **/upload/
-**/target
+**/target/
+**/__pycache__/
 
 # ignore .project since everyone's different!
 **/.project
