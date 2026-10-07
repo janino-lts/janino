@@ -96,6 +96,19 @@ h5 {
         local class in a static method of the subclass, was rejected; it is accepted now, like by JAVAC. The class
         files of code that compiled before are unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/65">issue #65</a>, in part: A type in the
+        <code>throws</code> clause of a method or constructor whose simple name consists of uppercase letters only
+        (<code>throws X</code>, <code>throws IOEXC</code>) was taken for a type parameter and ignored, so the
+        <code>catch</code> of such an exception thrown by the method was rejected ("Catch clause is unreachable"),
+        and the <code>Exceptions</code> attribute of the method lacked the exception. Only a type parameter that
+        is declared as such is ignored now; the <code>catch</code> clause is reachable, and the attribute is
+        complete, like with JAVAC. For compatibility, two leniencies remain: an invocation of a method that
+        declares such an exception need neither catch nor declare it (see JAVAC_DIFFERENCES.md, section 3), and
+        an all-uppercase name in a <code>throws</code> clause that denotes no type is still ignored. The class
+        files of code that compiled before are unchanged, except that the <code>Exceptions</code> attribute of a
+        method or constructor with such a <code>throws</code> clause now lists the exception.
+      </li>
     </ul>
 
     <h4>Version 3.1.16 2026-10-06</h4>

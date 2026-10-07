@@ -278,6 +278,14 @@ class UnitCompiler {
 
     private static final Pattern LOOKS_LIKE_TYPE_PARAMETER = Pattern.compile("\\p{javaUpperCase}+");
 
+    /**
+     * The exception classes with all-uppercase names that the methods of the compilation unit declare in their
+     * THROWS clauses. Before 3.1.17, such a type was taken for a type parameter and ignored (see {@link
+     * #thrownExceptionType(Type, Scope)}), so the invocations of the method needed neither catch nor declare the
+     * exception; for compatibility, they still need not (issue #65, JAVAC_DIFFERENCES.md, section 3).
+     */
+    private final Set<IClass> legacyUncheckedExceptions = new HashSet<>();
+
     private EnumSet<JaninoOption> options = EnumSet.noneOf(JaninoOption.class);
 
     /**
@@ -4202,20 +4210,15 @@ class UnitCompiler {
                 final short eani    = classFile.addConstantUtf8Info("Exceptions");
                 List<Short> tecciis = new ArrayList<>(); // new short[fd.thrownExceptions.length];
                 for (int i = 0; i < fd.thrownExceptions.length; ++i) {
-                    final Type te = fd.thrownExceptions[i];
-                    if (te instanceof ReferenceType) {
-                        ReferenceType rt = (ReferenceType) te;
 
-                        // Don't include thrown exceptions that are parameterized, e.g.
-                        //      void meth() throws EX {...}
-                        // , because we don't generate "Signature" attributes for methods, and "throws Throwable"
-                        // would cause compilation problems when the class is loaded later, e.g. by ClassFileIClass.
-                        if (
-                            rt.identifiers.length == 1
-                            && UnitCompiler.LOOKS_LIKE_TYPE_PARAMETER.matcher(rt.identifiers[0]).matches()
-                        ) continue;
-                    }
-                    tecciis.add(classFile.addConstantClassInfo(this.getRawType(te).getDescriptor()));
+                    // Don't include thrown exceptions that are type parameters, e.g.
+                    //      <EX extends Exception> void meth() throws EX {...}
+                    // , because we don't generate "Signature" attributes for methods, and "throws Throwable"
+                    // would cause compilation problems when the class is loaded later, e.g. by ClassFileIClass.
+                    IClass te = this.thrownExceptionType(fd.thrownExceptions[i], fd);
+                    if (te == null) continue;
+
+                    tecciis.add(classFile.addConstantClassInfo(te.getDescriptor()));
                 }
 
                 short[] sa = new short[tecciis.size()];
@@ -8412,57 +8415,25 @@ class UnitCompiler {
             return this.iClassLoader.TYPE_java_lang_Object;
         }
 
-        // Method declaration type parameter?
-        for (Scope s = scope; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
-            if (!(s instanceof MethodDeclarator)) continue;
-            MethodDeclarator md = (MethodDeclarator) s;
-
-            TypeParameter[] typeParameters = md.getOptionalTypeParameters();
-            if (typeParameters != null) {
-                for (TypeParameter tp : typeParameters) {
-                    if (tp.name.equals(simpleTypeName)) {
-                        IType[]         boundTypes;
-                        ReferenceType[] ob = tp.bound;
-                        if (ob == null) {
-                            boundTypes = new IType[] { this.iClassLoader.TYPE_java_lang_Object };
-                        } else {
-                            boundTypes = new IType[ob.length];
-                            for (int i = 0; i < boundTypes.length; i++) {
-                                boundTypes[i] = this.getType(ob[i]);
-                            }
-                        }
-
-                        // Here is the big simplification: Instead of returning the "correct" type, honoring type
-                        // arguments, we simply return the first bound. E.g. "Map.get(K)" returns a "V", but
-                        // JANINO says it's an "Object" (the implicit bound of "V").
-                        return boundTypes[0];
+        // Type parameter of an enclosing method or type declaration?
+        {
+            TypeParameter tp = UnitCompiler.findTypeParameter(simpleTypeName, scope);
+            if (tp != null) {
+                IType[]         boundTypes;
+                ReferenceType[] ob = tp.bound;
+                if (ob == null) {
+                    boundTypes = new IType[] { this.iClassLoader.TYPE_java_lang_Object };
+                } else {
+                    boundTypes = new IType[ob.length];
+                    for (int i = 0; i < boundTypes.length; i++) {
+                        boundTypes[i] = this.getType(ob[i]);
                     }
                 }
-            }
-        }
 
-        // Type declaration type parameter?
-        for (Scope s = scope; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
-            if (!(s instanceof NamedTypeDeclaration)) continue;
-            NamedTypeDeclaration ntd = (NamedTypeDeclaration) s;
-
-            TypeParameter[] typeParameters = ntd.getOptionalTypeParameters();
-            if (typeParameters != null) {
-                for (TypeParameter tp : typeParameters) {
-                    if (tp.name.equals(simpleTypeName)) {
-                        IType[]         boundTypes;
-                        ReferenceType[] ob = tp.bound;
-                        if (ob == null) {
-                            boundTypes = new IClass[] { this.iClassLoader.TYPE_java_lang_Object };
-                        } else {
-                            boundTypes = new IClass[ob.length];
-                            for (int i = 0; i < boundTypes.length; i++) {
-                                boundTypes[i] = this.getType(ob[i]);
-                            }
-                        }
-                        return boundTypes[0];
-                    }
-                }
+                // Here is the big simplification: Instead of returning the "correct" type, honoring type
+                // arguments, we simply return the first bound. E.g. "Map.get(K)" returns a "V", but
+                // JANINO says it's an "Object" (the implicit bound of "V").
+                return boundTypes[0];
             }
         }
 
@@ -8519,8 +8490,100 @@ class UnitCompiler {
         }
     }
 
+    /**
+     * @return The type parameter with the given <var>name</var> of an enclosing method declaration (the innermost
+     *         first), or else of an enclosing type declaration (the innermost first), or {@code null}
+     */
+    @Nullable private static TypeParameter
+    findTypeParameter(String name, Scope scope) {
+
+        // Method declaration type parameter?
+        for (Scope s = scope; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (!(s instanceof MethodDeclarator)) continue;
+
+            TypeParameter[] typeParameters = ((MethodDeclarator) s).getOptionalTypeParameters();
+            if (typeParameters != null) {
+                for (TypeParameter tp : typeParameters) {
+                    if (tp.name.equals(name)) return tp;
+                }
+            }
+        }
+
+        // Type declaration type parameter?
+        for (Scope s = scope; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (!(s instanceof NamedTypeDeclaration)) continue;
+
+            TypeParameter[] typeParameters = ((NamedTypeDeclaration) s).getOptionalTypeParameters();
+            if (typeParameters != null) {
+                for (TypeParameter tp : typeParameters) {
+                    if (tp.name.equals(name)) return tp;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolves a type of the THROWS clause of a function (JLS7 8.4.6): a type parameter is ignored, because the
+     * compiler cannot infer the exception type that an invocation throws (JLS7 15.12.2.6), and the "Exceptions"
+     * attribute cannot express it (see {@link #compile(FunctionDeclarator, ClassFile)}). Before 3.1.17, every
+     * single all-uppercase identifier was taken for a type parameter (issue #65); for compatibility, such an
+     * identifier that does not denote a type is still ignored.
+     *
+     * @param scope The function declaration
+     * @return      The exception class, or {@code null} iff the type is ignored
+     */
+    @Nullable private IClass
+    thrownExceptionType(Type thrownException, Scope scope) throws CompileException {
+
+        if (thrownException instanceof ReferenceType) {
+            String[] identifiers = ((ReferenceType) thrownException).identifiers;
+            if (identifiers.length == 1) {
+                String name = identifiers[0];
+
+                if (UnitCompiler.findTypeParameter(name, scope) != null) return null;
+
+                if (
+                    UnitCompiler.LOOKS_LIKE_TYPE_PARAMETER.matcher(name).matches()
+                    && this.findRawReferenceType(thrownException.getLocation(), name, scope) == null
+                ) return null;
+            }
+        }
+
+        return this.getRawType(thrownException);
+    }
+
+    /**
+     * @return Whether the <var>thrownException</var> of a THROWS clause is a single all-uppercase identifier, which
+     *         versions before 3.1.17 took for a type parameter (issue #65)
+     */
+    private static boolean
+    looksLikeTypeParameter(Type thrownException) {
+
+        if (!(thrownException instanceof ReferenceType)) return false;
+
+        String[] identifiers = ((ReferenceType) thrownException).identifiers;
+        return identifiers.length == 1 && UnitCompiler.LOOKS_LIKE_TYPE_PARAMETER.matcher(identifiers[0]).matches();
+    }
+
     private IClass
     getRawReferenceType(Location location, String simpleTypeName, Scope scope) throws CompileException {
+
+        IClass result = this.findRawReferenceType(location, simpleTypeName, scope);
+        if (result != null) return result;
+
+        // 6.5.5.1.8 Give up.
+        this.compileError("Cannot determine simple type name \"" + simpleTypeName + "\"", location);
+        return this.iClassLoader.TYPE_java_lang_Object;
+    }
+
+    /**
+     * @return The type that the <var>simpleTypeName</var> denotes in the <var>scope</var> (JLS7 6.5.5.1), or {@code
+     *         null} iff there is none
+     */
+    @Nullable private IClass
+    findRawReferenceType(Location location, String simpleTypeName, Scope scope) throws CompileException {
 
         // 6.5.5.1.1 Local class.
         {
@@ -8659,9 +8722,7 @@ class UnitCompiler {
             }
         }
 
-        // 6.5.5.1.8 Give up.
-        this.compileError("Cannot determine simple type name \"" + simpleTypeName + "\"", location);
-        return this.iClassLoader.TYPE_java_lang_Object;
+        return null;
     }
 
     /**
@@ -11976,9 +12037,10 @@ class UnitCompiler {
         IClass[] thrownExceptions = iMethod.getThrownExceptions();
         for (IClass thrownException : thrownExceptions) {
             this.checkThrownException(
-                in,                    // locatable
-                thrownException,       // type
-                in.getEnclosingScope() // scope
+                in,                                                      // locatable
+                thrownException,                                         // type
+                in.getEnclosingScope(),                                  // scope
+                this.legacyUncheckedExceptions.contains(thrownException) // legacyUnchecked
             );
         }
     }
@@ -11989,6 +12051,19 @@ class UnitCompiler {
      */
     private void
     checkThrownException(Locatable locatable, IType type, Scope scope) throws CompileException {
+        this.checkThrownException(locatable, type, scope, false);
+    }
+
+    /**
+     * @param legacyUnchecked Whether the exception need neither be caught nor declared, for compatibility (see
+     *                        {@link #legacyUncheckedExceptions}); the CATCH clauses that catch it are marked
+     *                        reachable nonetheless
+     * @throws CompileException The exception with the given <var>type</var> must not be thrown in the given
+     *                          <var>scope</var>
+     */
+    private void
+    checkThrownException(Locatable locatable, IType type, Scope scope, boolean legacyUnchecked)
+    throws CompileException {
 
         // Thrown object must be assignable to "Throwable".
         if (!(type instanceof IClass) || !this.iClassLoader.TYPE_java_lang_Throwable.isAssignableFrom((IClass) type)) {
@@ -12057,6 +12132,8 @@ class UnitCompiler {
                 break;
             }
         }
+
+        if (legacyUnchecked) return;
 
         this.compileError((
             "Thrown exception of type \""
@@ -12722,11 +12799,14 @@ class UnitCompiler {
 
             @Override public IClass[]
             getThrownExceptions2() throws CompileException {
-                IClass[] res = new IClass[constructorDeclarator.thrownExceptions.length];
-                for (int i = 0; i < res.length; ++i) {
-                    res[i] = UnitCompiler.this.getRawType(constructorDeclarator.thrownExceptions[i]);
+
+                List<IClass> result = new ArrayList<>();
+                for (Type ti : constructorDeclarator.thrownExceptions) {
+                    IClass te = UnitCompiler.this.thrownExceptionType(ti, constructorDeclarator);
+                    if (te != null) result.add(te);
                 }
-                return res;
+
+                return (IClass[]) result.toArray(new IClass[result.size()]);
             }
 
             @Override public String
@@ -12808,19 +12888,18 @@ class UnitCompiler {
                 List<IClass> result = new ArrayList<>();
                 for (Type ti : methodDeclarator.thrownExceptions) {
 
-                    // KLUDGE: Iff the exception type in the THROWS clause sounds like a type parameter, then
-                    // ignore it. Otherwise we'd have to put
+                    // Iff the exception type in the THROWS clause is a type parameter, then ignore it. Otherwise
+                    // we'd have to put
                     //    try { ... } catch (Throwable t) { throw new AssertionError(t); }
                     // around all invocations of methods that use a type parameter for declaring their exception.
-                    if (ti instanceof ReferenceType) {
-                        String[] identifiers = ((ReferenceType) ti).identifiers;
-                        if (
-                            identifiers.length == 1
-                            && UnitCompiler.LOOKS_LIKE_TYPE_PARAMETER.matcher(identifiers[0]).matches()
-                        ) continue;
-                    }
+                    IClass te = UnitCompiler.this.thrownExceptionType(ti, methodDeclarator);
+                    if (te == null) continue;
 
-                    result.add(UnitCompiler.this.getRawType(ti));
+                    // Before 3.1.17, an exception class with an all-uppercase name was ignored here, too, so the
+                    // invocations of the method needed neither catch nor declare it; see "checkThrownExceptions()".
+                    if (UnitCompiler.looksLikeTypeParameter(ti)) UnitCompiler.this.legacyUncheckedExceptions.add(te);
+
+                    result.add(te);
                 }
 
                 return (IClass[]) result.toArray(new IClass[result.size()]);

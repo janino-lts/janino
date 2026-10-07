@@ -77,12 +77,6 @@ interfaces that all alternatives implement: `e.n()` with a method `n()` of an in
 but not their common superclass, is rejected (`A method named "n" is not declared in any enclosing class nor any
 supertype`); with a cast, `((I) e).n()`, it compiles.
 
-**Exception classes with all-uppercase names** ([#65](https://github.com/janino-lts/janino/issues/65)): a type in
-the `throws` clause of a method or constructor declared in the compiled code is ignored if its simple name consists
-of uppercase letters only (`throws X`, `throws IOEXC`),
-because Janino takes it for a type parameter. The `catch` of such an exception that the method throws is rejected
-(`Catch clause is unreachable`); and the exception need neither be caught nor declared (section 3).
-
 ## 3. Invalid code that Janino accepts
 
 `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it behaves
@@ -161,7 +155,11 @@ method result of type `Object`.
   statement catches: `try { } catch (Exception e) { throw new IOException(); }`, also the rethrow of the parameter:
   `catch (IOException | SQLException e) { throw e; }` in a method that declares neither exception, and
   `catch (Exception e) { throw e; }` in a method that does not declare the checked exceptions of the `try` block;
-- a checked exception whose class name is all uppercase that is neither caught nor declared (section 2);
+- an invocation of a method that declares a checked exception whose class name is all uppercase (`void m() throws
+  X`, `throws IOEXC`), without catching or declaring the exception
+  ([#65](https://github.com/janino-lts/janino/issues/65); before 3.1.17, such a type was taken for a type parameter
+  and ignored; a `throw` statement and a constructor invocation are checked); a `throws` clause with an
+  all-uppercase name that denotes no type (`void m() throws T` without a type parameter `T`), which is ignored;
 - case label out of the range of the switch type: `switch (b) { case 1000: }` with `byte b`;
 - case label of type `long`, `float` or `double`, whose value is truncated to `int`: `case 1L:`, `case 1.0:`,
   `case 4294967297L:` (which matches the value 1);

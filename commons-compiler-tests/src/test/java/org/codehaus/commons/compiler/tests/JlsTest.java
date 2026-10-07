@@ -2221,6 +2221,52 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    test_11_2__Compile_Time_Checking_of_Exceptions__all_uppercase_names() throws Exception {
+
+        // An exception class whose simple name consists of uppercase letters only is not a type parameter (issue
+        // #65): the "catch" of such an exception is reachable, and the "Exceptions" attribute lists the exception.
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "import java.lang.reflect.*;\n"
+            + "public class Foo {\n"
+            + "    static class X extends Exception {}\n"
+            + "    static class IOEXC extends Exception {}\n"
+            + "    static void m(boolean b) throws X { if (b) throw new X(); }\n"
+            + "    static void n() throws X, IOEXC { throw new IOEXC(); }\n"
+            + "    static <T extends Exception> void g(boolean b) throws T, X { if (b) throw new X(); }\n"
+            + "    Foo(boolean b) throws X { if (b) throw new X(); }\n"
+            + "    public static boolean main() throws Exception {\n"
+            + "        String r = \"\";\n"
+            + "        try { m(true); r += \"-\"; } catch (X e) { r += \"X\"; }\n"
+            + "        try { m(false); r += \"-\"; } catch (X e) { r += \"X\"; }\n"
+            + "        try { n(); } catch (X | IOEXC e) { r += e.getClass().getSimpleName(); }\n"
+            + "        try { g(true); } catch (X e) { r += \"G\"; }\n"
+            + "        try { new Foo(true); } catch (X e) { r += \"C\"; }\n"
+            + "        Method mm = Foo.class.getDeclaredMethod(\"m\", boolean.class);\n"
+            + "        Constructor<?> c = Foo.class.getDeclaredConstructor(boolean.class);\n"
+            + "        return (\n"
+            + "            r.equals(\"X-IOEXCGC\")\n"
+            + "            && mm.getExceptionTypes().length == 1 && mm.getExceptionTypes()[0] == X.class\n"
+            + "            && c.getExceptionTypes().length == 1 && c.getExceptionTypes()[0] == X.class\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+
+        // Not thrown in the "try" block.
+        this.assertCompilationUnitUncookable(
+            ""
+            + "class Foo {\n"
+            + "    static class X extends Exception {}\n"
+            + "    static void m() {}\n"
+            + "    void f() { try { m(); } catch (X e) {} }\n"
+            + "}\n",
+            "Catch clause is unreachable|compiler.err.except.never.thrown.in.try"
+        );
+    }
+
+    @Test public void
     test_14_3__Local_class_declarations() throws Exception {
         this.assertScriptReturnsTrue(
             "class S2 extends SC { public int foo() { return 37; } }; return new S2().foo() == 37;"

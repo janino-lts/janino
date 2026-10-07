@@ -749,3 +749,48 @@ recovery: ACCEPTED
 public class P {
     void f() { int x = 1; for (int x : new int[0]) { } }
 }
+
+=== throws clause with an undeclared all-uppercase type name
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    void m() throws T { }
+}
+
+=== throws clause with an undeclared all-uppercase type name in an interface
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    interface I { void m() throws EX; }
+}
+
+=== catch of an exception class with an all-uppercase name that nothing throws
+janino: REJECTED Catch clause is unreachable
+public class P {
+    static class X extends Exception { }
+    void f() { try { f(); } catch (X e) { } }
+}
+
+=== checked exception with an all-uppercase class name thrown by a throw statement, neither caught nor declared
+janino: REJECTED Thrown exception of type "P$X" is neither caught
+public class P {
+    static class X extends Exception { }
+    void f() { throw new X(); }
+}
+
+=== checked exception with an all-uppercase class name of a constructor is neither caught nor declared
+janino: REJECTED Thrown exception of type "P$X" is neither caught
+public class P {
+    static class X extends Exception { }
+    P() throws X { }
+    static void f() { new P(); }
+}
+
+=== checked exception with an all-uppercase class name of a method invoked through a variable is not handled
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    static class X extends Exception { }
+    void m() throws X { }
+    void f(P p) { p.m(); }
+}
