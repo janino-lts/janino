@@ -133,7 +133,10 @@ method result of type `Object`.
 - an unqualified invocation of a `private` instance method of the enum from the class body of an enum constant
   (`enum E { A { String n() { return p(); } }; private String p() { ... } abstract String n(); }`, which `javac`
   rejects as a reference from a static context; Janino invokes the method on the constant);
-- annotation type element with parameters (`int value(int i);`), or of a type that is not allowed (`Object value();`).
+- annotation type element with parameters (`int value(int i);`), or of a type that is not allowed (`Object value();`);
+- in a script (`IScriptEvaluator`) only: any modifier on a local variable declaration (`static int x = 1;`,
+  `public int x;`, `abstract int x;`); the modifiers are ignored. In a method body, only `final` and annotations are
+  accepted, like by `javac`.
 
 **Annotations:**
 
