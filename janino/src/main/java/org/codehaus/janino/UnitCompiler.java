@@ -4134,7 +4134,7 @@ class UnitCompiler {
             short accessFlags = this.accessFlags(fd.getModifiers());
 
             if (fd.formalParameters.variableArity) accessFlags |= Mod.VARARGS;
-            if (this.superclassMethodAccessors.contains(fd)) accessFlags |= Mod.SYNTHETIC;
+            if (this.accessors.contains(fd)) accessFlags |= Mod.SYNTHETIC;
 
             if (fd.getDeclaringType() instanceof InterfaceDeclaration) {
 
@@ -5495,7 +5495,12 @@ class UnitCompiler {
             }
             return 0;
         } else {
-            this.compileGetValue(this.toRvalueOrCompileException(fa.lhs));
+            Rvalue lhs = this.toRvalueOrCompileException(fa.lhs);
+
+            // The accessor method takes the instance of "ClassName.super.f", not the cast to the superclass.
+            if (this.protectedFieldAccessorClass(fa) != null) lhs = this.protectedFieldAccessReceiver(fa);
+
+            this.compileGetValue(lhs);
             return 1;
         }
     }
@@ -5653,7 +5658,13 @@ class UnitCompiler {
     compileGet2(FieldAccess fa) throws CompileException {
         this.checkAccessible(fa.field, fa.getEnclosingScope(), fa.getLocation());
         this.checkProtectedFieldAccessibleThroughReceiver(fa);
-        this.getfield(fa, fa.field);
+
+        AbstractClassDeclaration accessorClass = this.protectedFieldAccessorClass(fa);
+        if (accessorClass != null) {
+            this.invokeAccessor(fa, accessorClass, fa.field, UnitCompiler.ACCESSOR_READ);
+        } else {
+            this.getfield(fa, fa.field);
+        }
         return fa.field.getType();
     }
 
@@ -6204,7 +6215,7 @@ class UnitCompiler {
                     );
                 }
 
-                this.referenceThis(
+                receiverType = this.referenceThis(
                     mi,                          // locatable
                     scopeTypeDeclaration,        // declaringType
                     scopeTbd,                    // declaringTypeBodyDeclaration
@@ -6304,6 +6315,18 @@ class UnitCompiler {
                 mi.getLocation()
             );
         }
+
+        AbstractClassDeclaration accessorClass = this.protectedMemberAccessorClass(
+            iMethod,
+            receiverType,
+            mi.getEnclosingScope()
+        );
+        if (accessorClass != null) {
+
+            // The JVM denies an inner class the access to a protected method that an enclosing class inherits from
+            // a class in another package; like JAVAC, invoke the synthetic accessor method of that enclosing class.
+            this.invokeAccessor(mi, accessorClass, iMethod, UnitCompiler.ACCESSOR_READ);
+        } else
         if (!iMethod.getDeclaringIClass().isInterface() && !iMethod.isStatic() && iMethod.getAccess() == Access.PRIVATE) {
 
             // In order to make a non-static private method invocable for enclosing types, enclosed types and types
@@ -6447,7 +6470,7 @@ class UnitCompiler {
             this.compileError("Cannot invoke superclass method in non-method scope", scmi.getLocation());
             return IClass.INT;
         }
-        boolean isAccessor = this.superclassMethodAccessors.contains(fd);
+        boolean isAccessor = this.accessors.contains(fd);
         if (fd instanceof MethodDeclarator && ((MethodDeclarator) fd).isStatic() && !isAccessor) {
             this.compileError("Cannot invoke superclass method in static context", scmi.getLocation());
         }
@@ -6478,7 +6501,12 @@ class UnitCompiler {
                 qualification,
                 scmi
             );
-            MethodDeclarator accessor = this.superclassMethodAccessor(enclosingClass, iMethod, scmi.getLocation());
+            MethodDeclarator accessor = this.accessor(
+                enclosingClass,
+                iMethod,
+                UnitCompiler.ACCESSOR_SUPER,
+                scmi.getLocation()
+            );
 
             QualifiedThisReference qtr = new QualifiedThisReference(
                 scmi.getLocation(),
@@ -6529,17 +6557,32 @@ class UnitCompiler {
     }
 
     /**
-     * The synthetic static methods through which inner classes invoke superclass methods of their enclosing classes
-     * ("{@code ClassName.super.m()}"), by enclosing class declaration and invoked method; see {@link
-     * #superclassMethodAccessor(AbstractClassDeclaration, IMethod, Location)}.
+     * The synthetic static methods through which inner classes access members of their enclosing classes that the
+     * JVM denies them: the superclass methods of "{@code ClassName.super.m()}" (issue #22), and the protected members
+     * that an enclosing class inherits from a class in another package (issue #59); by enclosing class declaration
+     * and accessor name. See {@link #accessor(AbstractClassDeclaration, IClass.IMember, int, Location)}.
      */
-    private final Map<AbstractClassDeclaration, Map<IMethod, MethodDeclarator>>
-    superclassMethodAccessorsByClass = new HashMap<>();
+    private final Map<AbstractClassDeclaration, Map<String, MethodDeclarator>> accessorsByClass = new HashMap<>();
 
     /**
-     * All the synthetic accessor methods of {@link #superclassMethodAccessorsByClass}.
+     * The numbers of the members that are accessed through the {@link #accessorsByClass}, by enclosing class
+     * declaration; the accessors of one member share its number (like with JAVAC: "{@code access$000}" and "{@code
+     * access$002}").
      */
-    private final Set<FunctionDeclarator> superclassMethodAccessors = new HashSet<>();
+    private final Map<AbstractClassDeclaration, Map<IClass.IMember, Integer>>
+    accessorNumbersByClass = new HashMap<>();
+
+    /**
+     * All the accessor methods of {@link #accessorsByClass}.
+     */
+    private final Set<FunctionDeclarator> accessors = new HashSet<>();
+
+    /**
+     * The access codes of the accessor methods, which form the last two digits of their names (like with JAVAC):
+     * {@link #ACCESSOR_READ} reads a field or invokes a method, {@link #ACCESSOR_SUPER} invokes a superclass method,
+     * {@link #ACCESSOR_WRITE} assigns a field.
+     */
+    private static final int ACCESSOR_READ = 0, ACCESSOR_SUPER = 1, ACCESSOR_WRITE = 2;
 
     /**
      * @return The raw type of the qualification of the <var>smi</var>, or {@code null} iff it has none
@@ -6581,59 +6624,127 @@ class UnitCompiler {
     }
 
     /**
-     * Returns the synthetic static method of the <var>enclosingClass</var> that invokes the superclass method
-     * <var>iMethod</var> on its first parameter, and creates it if it does not exist yet (like JAVAC):
+     * Returns the synthetic static method of the <var>enclosingClass</var> through which its inner classes access
+     * the <var>member</var>, and creates it if it does not exist yet. Like with JAVAC, the method is named
+     * "{@code access$}<var>n</var><var>cc</var>", where <var>n</var> numbers the members of the
+     * <var>enclosingClass</var> that are accessed through accessors, and <var>cc</var> is the <var>accessCode</var>:
      * <pre>
+     *     static RT access$N00(EnclosingClass x0, P1 x1, ...) throws ... { return x0.m(x1, ...); }
+     *     static RT access$N00(P1 x0, ...) throws ... { return DeclaringClass.m(x0, ...); }     // static method
+     *     static T  access$N00(EnclosingClass x0) { return x0.f; }
+     *     static T  access$N02(EnclosingClass x0, T x1) { return x0.f = x1; }
      *     static RT access$N01(EnclosingClass x0, P1 x1, ...) throws ... { return super.m(x1, ...); }
      * </pre>
      * The method is compiled with the other methods of the <var>enclosingClass</var>, after its member types (see
      * {@link #compile2(AbstractClassDeclaration)}).
      */
     private MethodDeclarator
-    superclassMethodAccessor(AbstractClassDeclaration enclosingClass, IMethod iMethod, Location loc)
+    accessor(AbstractClassDeclaration enclosingClass, IClass.IMember member, int accessCode, Location loc)
     throws CompileException {
 
-        Map<IMethod, MethodDeclarator> accessors = (
-            (Map<IMethod, MethodDeclarator>) this.superclassMethodAccessorsByClass.get(enclosingClass)
+        Map<String, MethodDeclarator> byName = (
+            (Map<String, MethodDeclarator>) this.accessorsByClass.get(enclosingClass)
         );
-        if (accessors == null) {
-            accessors = new HashMap<>();
-            this.superclassMethodAccessorsByClass.put(enclosingClass, accessors);
+        Map<IClass.IMember, Integer> numbers = (
+            (Map<IClass.IMember, Integer>) this.accessorNumbersByClass.get(enclosingClass)
+        );
+        if (byName == null || numbers == null) {
+            byName  = new HashMap<>();
+            numbers = new HashMap<>();
+            this.accessorsByClass.put(enclosingClass, byName);
+            this.accessorNumbersByClass.put(enclosingClass, numbers);
         }
 
-        MethodDeclarator result = (MethodDeclarator) accessors.get(iMethod);
+        Integer number = (Integer) numbers.get(member);
+        if (number == null) {
+            number = Integer.valueOf(numbers.size());
+            numbers.put(member, number);
+        }
+        String name = "access$" + number + "0" + accessCode;
+
+        MethodDeclarator result = (MethodDeclarator) byName.get(name);
         if (result != null) return result;
 
-        IClass[]          parameterTypes   = iMethod.getParameterTypes();
-        FormalParameter[] formalParameters = new FormalParameter[parameterTypes.length + 1];
-        Rvalue[]          arguments        = new Rvalue[parameterTypes.length];
-        formalParameters[0] = new FormalParameter(
-            loc,                                                  // location
-            new Modifier[0],                                      // modifiers
-            new SimpleType(loc, this.resolve(enclosingClass)),    // type
-            "x0"                                                  // name
-        );
-        for (int i = 0; i < parameterTypes.length; i++) {
-            formalParameters[i + 1] = new FormalParameter(
-                loc,                                   // location
-                new Modifier[0],                       // modifiers
-                new SimpleType(loc, parameterTypes[i]), // type
-                "x" + (i + 1)                          // name
+        boolean  isStatic;
+        IClass[] parameterTypes;
+        IClass   returnType;
+        Type[]   thrownExceptionTypes;
+        if (member instanceof IMethod) {
+            IMethod iMethod = (IMethod) member;
+
+            isStatic       = iMethod.isStatic();
+            parameterTypes = iMethod.getParameterTypes();
+            returnType     = iMethod.getReturnType();
+
+            IClass[] thrownExceptions = iMethod.getThrownExceptions();
+            thrownExceptionTypes = new Type[thrownExceptions.length];
+            for (int i = 0; i < thrownExceptions.length; i++) {
+                thrownExceptionTypes[i] = new SimpleType(loc, thrownExceptions[i]);
+            }
+        } else {
+            IField iField = (IField) member;
+
+            isStatic             = iField.isStatic();
+            parameterTypes       = (
+                accessCode == UnitCompiler.ACCESSOR_WRITE
+                ? new IClass[] { iField.getType() }
+                : new IClass[0]
             );
-            arguments[i] = new ParameterAccess(loc, formalParameters[i + 1]);
+            returnType           = iField.getType();
+            thrownExceptionTypes = new Type[0];
         }
 
-        IClass[] thrownExceptions     = iMethod.getThrownExceptions();
-        Type[]   thrownExceptionTypes = new Type[thrownExceptions.length];
-        for (int i = 0; i < thrownExceptions.length; i++) {
-            thrownExceptionTypes[i] = new SimpleType(loc, thrownExceptions[i]);
+        // The parameters: The instance ("x0", unless the member is static), then the method arguments or the value
+        // to assign.
+        int               offset           = isStatic ? 0 : 1;
+        FormalParameter[] formalParameters = new FormalParameter[offset + parameterTypes.length];
+        Rvalue[]          arguments        = new Rvalue[parameterTypes.length];
+        if (!isStatic) {
+            formalParameters[0] = new FormalParameter(
+                loc,                                               // location
+                new Modifier[0],                                   // modifiers
+                new SimpleType(loc, this.resolve(enclosingClass)), // type
+                "x0"                                               // name
+            );
+        }
+        for (int i = 0; i < parameterTypes.length; i++) {
+            formalParameters[offset + i] = new FormalParameter(
+                loc,                                    // location
+                new Modifier[0],                        // modifiers
+                new SimpleType(loc, parameterTypes[i]), // type
+                "x" + (offset + i)                      // name
+            );
+            arguments[i] = new ParameterAccess(loc, formalParameters[offset + i]);
         }
 
-        Rvalue         invocation = new SuperclassMethodInvocation(loc, iMethod.getName(), arguments);
-        BlockStatement statement  = (
-            iMethod.getReturnType() == IClass.VOID
-            ? (BlockStatement) new ExpressionStatement(invocation)
-            : new ReturnStatement(loc, invocation)
+        // The target of the access: The instance, or the declaring class of a static member.
+        Atom target = (
+            isStatic
+            ? (Atom) new SimpleType(loc, member.getDeclaringIClass())
+            : new ParameterAccess(loc, formalParameters[0])
+        );
+
+        Rvalue expression;
+        if (member instanceof IMethod) {
+            String methodName = ((IMethod) member).getName();
+            expression = (
+                accessCode == UnitCompiler.ACCESSOR_SUPER
+                ? new SuperclassMethodInvocation(loc, methodName, arguments)
+                : new MethodInvocation(loc, target, methodName, arguments)
+            );
+        } else {
+            FieldAccess fieldAccess = new FieldAccess(loc, target, (IField) member);
+            expression = (
+                accessCode == UnitCompiler.ACCESSOR_WRITE
+                ? new Assignment(loc, fieldAccess, "=", arguments[0])
+                : fieldAccess
+            );
+        }
+
+        BlockStatement statement = (
+            returnType == IClass.VOID
+            ? (BlockStatement) new ExpressionStatement(expression)
+            : new ReturnStatement(loc, expression)
         );
 
         result = new MethodDeclarator(
@@ -6641,8 +6752,8 @@ class UnitCompiler {
             null,                                               // docComment
             UnitCompiler.accessModifiers(loc, "static"),        // modifiers
             null,                                               // typeParameters
-            new SimpleType(loc, iMethod.getReturnType()),       // type
-            "access$" + accessors.size() + "01",                // name
+            new SimpleType(loc, returnType),                    // type
+            name,                                               // name
             new FormalParameters(loc, formalParameters, false), // formalParameters
             thrownExceptionTypes,                               // thrownExceptions
             null,                                               // defaultValue
@@ -6650,10 +6761,31 @@ class UnitCompiler {
         );
         enclosingClass.addDeclaredMethod(result);
 
-        accessors.put(iMethod, result);
-        this.superclassMethodAccessors.add(result);
+        byName.put(name, result);
+        this.accessors.add(result);
 
         return result;
+    }
+
+    /**
+     * Invokes the accessor method of the <var>accessorClass</var> for the <var>member</var> (see {@link
+     * #accessor(AbstractClassDeclaration, IClass.IMember, int, Location)}); the instance (unless the member is
+     * static) and the method arguments or the value to assign must be on the operand stack.
+     */
+    private void
+    invokeAccessor(Locatable locatable, AbstractClassDeclaration accessorClass, IClass.IMember member, int accessCode)
+    throws CompileException {
+
+        MethodDeclarator accessor = this.accessor(accessorClass, member, accessCode, locatable.getLocation());
+
+        this.invoke(
+            locatable,                                // locatable
+            Opcode.INVOKESTATIC,                      // opcode
+            this.resolve(accessorClass),              // declaringIClass
+            accessor.name,                            // methodName
+            this.toIMethod(accessor).getDescriptor(), // methodMd
+            false                                     // useInterfaceMethodref
+        );
     }
 
     private IType
@@ -8010,7 +8142,16 @@ class UnitCompiler {
     compileSet2(FieldAccess fa) throws CompileException {
         this.checkAccessible(fa.field, fa.getEnclosingScope(), fa.getLocation());
         this.checkProtectedFieldAccessibleThroughReceiver(fa);
-        this.putfield(fa, fa.field);
+
+        AbstractClassDeclaration accessorClass = this.protectedFieldAccessorClass(fa);
+        if (accessorClass != null) {
+
+            // The accessor returns the assigned value (like JAVAC's); discard it, like PUTFIELD.
+            this.invokeAccessor(fa, accessorClass, fa.field, UnitCompiler.ACCESSOR_WRITE);
+            this.pop(fa, fa.field.getType());
+        } else {
+            this.putfield(fa, fa.field);
+        }
     }
     private void
     compileSet2(ArrayAccessExpression aae) throws CompileException {
@@ -9188,7 +9329,8 @@ class UnitCompiler {
         // At this point, the member is PROTECTED accessible.
 
         // Check whether the class declaring the context block statement is a subclass of the class declaring the
-        // member or a nested class whose parent is a subclass
+        // member or a nested class (also a static nested class, or a local class in a static method, JLS7 6.6.2.1:
+        // "within the body of a subclass") whose parent is a subclass
         {
             IClass parentClass = iClassDeclaringContext;
             do {
@@ -9196,7 +9338,7 @@ class UnitCompiler {
                 if (iClassDeclaringMember.isAssignableFrom(parentClass)) {
                     return null;
                 }
-                parentClass = parentClass.getOuterIClass();
+                parentClass = parentClass.getDeclaringIClass();
             } while (parentClass != null);
         }
 
@@ -9213,7 +9355,9 @@ class UnitCompiler {
      * Checks the restriction on the access to a {@code protected} instance member through a receiver expression
      * (JLS7 6.6.2.1): If the member is declared in a class in another package, then the type of the receiver must be
      * the class in whose body the access occurs, or an enclosing class, or a subclass of one of these. The JVM
-     * verifies the same (JVMS8 4.10.1.8) and rejects the class otherwise (issue #54).
+     * verifies the same (JVMS8 4.10.1.8) and rejects the class otherwise (issue #54). (The JVM permits the access
+     * only to the subclass itself; an inner class accesses the member through an accessor method of the enclosing
+     * class, see {@link #protectedMemberAccessorClass(IClass.IMember, IType, Scope)}.)
      */
     private void
     checkProtectedMemberAccessibleThroughReceiver(
@@ -9242,7 +9386,7 @@ class UnitCompiler {
             return;
         }
 
-        for (IClass c = iClassDeclaringContext; c != null; c = c.getOuterIClass()) {
+        for (IClass c = iClassDeclaringContext; c != null; c = c.getDeclaringIClass()) {
             if (declaringIClass.isAssignableFrom(c) && c.isAssignableFrom(rawReceiverType)) return;
         }
 
@@ -9264,15 +9408,101 @@ class UnitCompiler {
 
         if (fa.field.getAccess() != Access.PROTECTED || fa.field.isStatic() || this.isType(fa.lhs)) return;
 
-        // "super.field" is compiled as a field access through "this", cast to the superclass (see
-        // "determineValue(SuperclassFieldAccessExpression)"); that access is permitted.
-        if (fa.lhs instanceof Cast && ((Cast) fa.lhs).value instanceof ThisReference) return;
-
         this.checkProtectedMemberAccessibleThroughReceiver(
             fa.field,
-            this.getType(this.toRvalueOrCompileException(fa.lhs)),
+            this.getType(this.protectedFieldAccessReceiver(fa)),
             fa.getEnclosingScope(),
             fa.getLocation()
+        );
+    }
+
+    /**
+     * Returns the receiver of the field access <var>fa</var> for the checks of the access to a protected field:
+     * "{@code super.f}" and "{@code ClassName.super.f}" are compiled as field accesses through "{@code this}" and
+     * "{@code ClassName.this}", cast to the superclass (see {@link #determineValue(SuperclassFieldAccessExpression)});
+     * their receiver is that "this" reference.
+     */
+    private Rvalue
+    protectedFieldAccessReceiver(FieldAccess fa) throws CompileException {
+
+        Rvalue lhs = this.toRvalueOrCompileException(fa.lhs);
+        if (lhs instanceof Cast) {
+            Rvalue value = ((Cast) lhs).value;
+            if (value instanceof ThisReference || value instanceof QualifiedThisReference) return value;
+        }
+
+        return lhs;
+    }
+
+    /**
+     * Determines whether the <var>member</var>, accessed in the <var>contextScope</var> through a receiver of the
+     * <var>receiverType</var> ({@code null} for a static member), must be accessed through a synthetic accessor
+     * method of an enclosing class (issue #59): The member is {@code protected} and declared in a class in another
+     * package, and the class declaring the context is not a subclass of that class (or the receiver type is not a
+     * subclass of the context class), while an enclosing class is. JLS7 6.6.2.1 permits the access ("within the
+     * body of a subclass"), but the JVM denies it to the inner class (JVMS8 5.4.4 and 4.10.1.8), so, like JAVAC,
+     * the inner class invokes an accessor method of the enclosing class.
+     *
+     * @return The enclosing class that hosts the accessor method, or {@code null} iff the member is accessed
+     *         directly (also if it is not accessible at all, which the access checks report)
+     */
+    @Nullable private AbstractClassDeclaration
+    protectedMemberAccessorClass(IClass.IMember member, @Nullable IType receiverType, Scope contextScope)
+    throws CompileException {
+
+        if (member.getAccess() != Access.PROTECTED) return null;
+
+        IClass declaringIClass = member.getDeclaringIClass();
+        IClass rawReceiverType = receiverType == null ? null : UnitCompiler.rawTypeOf(receiverType);
+
+        // The members of an array type are public (JLS7 10.7).
+        if (rawReceiverType != null && rawReceiverType.isArray()) return null;
+
+        TypeDeclaration contextType = null;
+        for (Scope s = contextScope; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (s instanceof TypeDeclaration) {
+                contextType = (TypeDeclaration) s;
+                break;
+            }
+        }
+        if (contextType == null) return null;
+
+        // Within the package of the declaring class, a protected member is accessible like a member with package
+        // access.
+        IClass iClassDeclaringContext = this.resolve(contextType);
+        if (Descriptor.areInSamePackage(declaringIClass.getDescriptor(), iClassDeclaringContext.getDescriptor())) {
+            return null;
+        }
+
+        // The innermost class, from the context outwards, that is a subclass of the declaring class (and of which
+        // the receiver type is a subclass) accesses the member; if it is not the context class, it hosts the
+        // accessor.
+        for (Scope s = contextType; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (!(s instanceof TypeDeclaration)) continue;
+
+            IClass c = this.resolve((TypeDeclaration) s);
+            if (!declaringIClass.isAssignableFrom(c)) continue;
+            if (rawReceiverType != null && !c.isAssignableFrom(rawReceiverType)) continue;
+
+            return s != contextType && s instanceof AbstractClassDeclaration ? (AbstractClassDeclaration) s : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return The enclosing class that hosts the accessor method for the field access <var>fa</var>, or {@code
+     *         null} (see {@link #protectedMemberAccessorClass(IClass.IMember, IType, Scope)})
+     */
+    @Nullable private AbstractClassDeclaration
+    protectedFieldAccessorClass(FieldAccess fa) throws CompileException {
+
+        if (fa.field.getAccess() != Access.PROTECTED) return null;
+
+        return this.protectedMemberAccessorClass(
+            fa.field,
+            fa.field.isStatic() || this.isType(fa.lhs) ? null : this.getType(this.protectedFieldAccessReceiver(fa)),
+            fa.getEnclosingScope()
         );
     }
 
@@ -11247,7 +11477,7 @@ class UnitCompiler {
                 if (
                     fd instanceof MethodDeclarator
                     && ((MethodDeclarator) fd).isStatic()
-                    && !this.superclassMethodAccessors.contains(fd)
+                    && !this.accessors.contains(fd)
                 ) {
                     this.compileError(
                         "Superclass method cannot be invoked in static context",
@@ -12210,7 +12440,13 @@ class UnitCompiler {
         });
     }
 
-    private void
+    /**
+     * Loads the instance of the <var>declaringType</var>, or of its innermost enclosing class that is a subtype of
+     * the <var>targetIType</var>.
+     *
+     * @return The class of the loaded instance, or {@code null} iff a compile error was reported
+     */
+    @Nullable private IClass
     referenceThis(
         Locatable               locatable,
         AbstractTypeDeclaration declaringType,
@@ -12222,7 +12458,7 @@ class UnitCompiler {
         if (UnitCompiler.isStaticContext(declaringTypeBodyDeclaration)) {
             this.compileError("No current instance available in static context", locatable.getLocation());
             this.aconstnull(locatable);
-            return;
+            return null;
         }
 
         int j;
@@ -12248,14 +12484,16 @@ class UnitCompiler {
                 locatable.getLocation()
             );
             this.aconstnull(locatable);
-            return;
+            return null;
         }
+
+        IClass result = this.resolve((TypeDeclaration) path.get(j));
 
         int i;
         if (declaringTypeBodyDeclaration instanceof ConstructorDeclarator) {
             if (j == 0) {
                 this.load(locatable, this.resolve(declaringType), 0);
-                return;
+                return result;
             }
 
             ConstructorDeclarator constructorDeclarator = (
@@ -12287,6 +12525,8 @@ class UnitCompiler {
             inner.defineSyntheticField(sf);
             this.getfield(locatable, sf);
         }
+
+        return result;
     }
 
     /**

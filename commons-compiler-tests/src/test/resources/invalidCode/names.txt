@@ -445,3 +445,48 @@ public class P {
     static class Base { String f = "basef"; }
     static class Sub extends Base { static class Nested { String call() { return Sub.super.f; } } }
 }
+
+=== protected field of the superclass of an unrelated class read from an inner class
+janino: REJECTED Protected member cannot be accessed from type "P$Q"
+public class P {
+    class Q { Object f(java.io.FilterInputStream s) { return s.in; } }
+}
+
+=== protected field of the superclass read through P.this, cast to the superclass type, from an inner class
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.FilterInputStream"
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    class Q { Object f() { return ((java.io.FilterInputStream) P.this).in; } }
+}
+
+=== protected field of the superclass read through an expression of a sibling subclass type from an inner class
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.BufferedInputStream"
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    class Q { Object f(java.io.BufferedInputStream b) { return b.in; } }
+}
+
+=== protected method of the superclass invoked through an expression of the superclass type from an inner class
+janino: REJECTED Protected member cannot be accessed through an expression of type "java.util.AbstractList"
+public class P extends java.util.ArrayList {
+    class Q { void f(java.util.AbstractList l) { l.removeRange(0, 0); } }
+}
+
+=== protected static method of the superclass of an unrelated class invoked from a local class in a static method
+janino: REJECTED No applicable constructor/method found for zero actual parameters
+public class P {
+    static void f() { class L { boolean g() { return ClassLoader.registerAsParallelCapable(); } } }
+}
+
+=== protected field of the superclass read unqualified from a static nested class
+janino: REJECTED "S" is not enclosed by "P"
+public class P extends java.io.FilterInputStream {
+    P() { super(null); }
+    static class S { Object f() { return in; } }
+}
+
+=== protected method of the superclass invoked unqualified from a local class in a static method
+janino: REJECTED "L" is not enclosed by "java.util.ArrayList"
+public class P extends java.util.ArrayList {
+    static void f() { class L { void g() { removeRange(0, 0); } } }
+}

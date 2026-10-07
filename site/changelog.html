@@ -83,6 +83,19 @@ h5 {
         variable with the name of a local variable in scope, which JAVAC rejects, keeps compiling; in the block, the
         name now denotes the resource variable, like with a <code>catch</code> parameter of that name.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/59">issue #59</a>: A <code>protected</code>
+        member that an enclosing class inherits from a class in another package, accessed from an inner class
+        (<code>in</code>, <code>P.this.in</code> or <code>p.in</code> in <code>class P extends FilterInputStream {
+        class Q { ... } }</code>, <code>P.this.clone()</code>, <code>registerAsParallelCapable()</code> in an inner
+        class of a subclass of <code>ClassLoader</code>), compiled into a class that throws an
+        <code>IllegalAccessError</code> or fails to verify, because the JVM permits the access only to the subclass
+        itself. Like JAVAC, Janino now generates a synthetic static accessor method in the enclosing class
+        (<code>access$000</code>, <code>access$002</code>, ...) that the inner class invokes. Also, the access to
+        such a member through <code>P.super</code> (<code>P.super.in</code>), and from a static nested class or a
+        local class in a static method of the subclass, was rejected; it is accepted now, like by JAVAC. The class
+        files of code that compiled before are unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.16 2026-10-06</h4>

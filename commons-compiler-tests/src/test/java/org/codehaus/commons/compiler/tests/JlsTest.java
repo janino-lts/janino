@@ -668,6 +668,128 @@ class JlsTest extends CommonsCompilerTestSuite {
     }
 
     @Test public void
+    test_6_6_2_1__Access_to_a_protected_Member_from_an_inner_class() throws Exception {
+
+        // A protected member that an enclosing class inherits from a class in another package is accessible from
+        // the inner classes of that class (JLS 6.6.2.1: "within the body of a subclass"), through a synthetic
+        // accessor method of the enclosing class, like with JAVAC (issue #59).
+
+        // Fields: read, assigned, compound assignment, crement, through "Foo.this", "Foo.super", a variable of the
+        // class or of a subclass; from an inner class of an inner class.
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "import java.io.*;\n"
+            + "public class Foo extends ByteArrayOutputStream {\n"
+            + "    static class Sub extends Foo {}\n"
+            + "    class Inner {\n"
+            + "        int read() { return count; }\n"
+            + "        int write(int c) { return count = c; }\n"
+            + "        int add(int c) { count += c; ++count; return count--; }\n"
+            + "        Object buffer() { return Foo.this.buf; }\n"
+            + "        Object viaSuper() { return Foo.super.buf; }\n"
+            + "        int other(Foo foo) { return foo.count; }\n"
+            + "        int other(Sub sub) { return sub.count; }\n"
+            + "        class Inner2 { int read() { return count; } }\n"
+            + "    }\n"
+            + "    public static boolean main() {\n"
+            + "        Foo foo = new Foo(); Inner inner = foo.new Inner(); Sub sub = new Sub();\n"
+            + "        sub.count = 7;\n"
+            + "        return (\n"
+            + "            inner.write(3) == 3 && inner.read() == 3 && foo.count == 3\n"
+            + "            && inner.add(2) == 6 && foo.count == 5\n"
+            + "            && inner.buffer() == foo.buf && inner.viaSuper() == foo.buf\n"
+            + "            && inner.other(foo) == 5 && inner.other(sub) == 7\n"
+            + "            && inner.new Inner2().read() == 5\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+
+        // Methods: unqualified, through "Foo.this", "Foo.super" and a variable of the class, with arguments and
+        // checked exceptions; from anonymous and local classes; the reflective properties of the accessor method.
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "import java.lang.reflect.*;\n"
+            + "import java.util.*;\n"
+            + "public class Foo extends ArrayList<String> implements Cloneable {\n"
+            + "    class Inner {\n"
+            + "        int a() { removeRange(0, 1); return size(); }\n"
+            + "        int b() { Foo.this.removeRange(0, 1); return size(); }\n"
+            + "        int c() { Foo.super.removeRange(0, 1); return size(); }\n"
+            + "        int d(Foo foo) { foo.removeRange(0, 1); return foo.size(); }\n"
+            + "        Object copy() throws CloneNotSupportedException { return Foo.this.clone(); }\n"
+            + "    }\n"
+            + "    int anon() {\n"
+            + "        return new Object() { public String toString() { removeRange(0, 1); return \"\"; } }\n"
+            + "            .toString().length() + size();\n"
+            + "    }\n"
+            + "    int local() { class L { int g() { removeRange(0, 1); return size(); } } return new L().g(); }\n"
+            + "    public static boolean main() throws Exception {\n"
+            + "        Foo foo = new Foo();\n"
+            + "        foo.addAll(Arrays.asList(\"a\", \"b\", \"c\", \"d\", \"e\", \"f\", \"g\"));\n"
+            + "        Inner inner = foo.new Inner();\n"
+            + "        Method a = Foo.class.getDeclaredMethod(\"access$000\", Foo.class, int.class, int.class);\n"
+            + "        return (\n"
+            + "            inner.a() == 6 && inner.b() == 5 && inner.c() == 4 && inner.d(foo) == 3\n"
+            + "            && foo.anon() == 2 && foo.local() == 1\n"
+            + "            && inner.copy() instanceof Foo && inner.copy() != foo\n"
+            + "            && a.isSynthetic() && Modifier.isStatic(a.getModifiers())\n"
+            + "        );\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+
+        // Static members: from an inner class, a static nested class and a local class in a static method.
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "public class Foo extends ClassLoader {\n"
+            + "    class Inner { boolean f() { return registerAsParallelCapable(); } }\n"
+            + "    static class Nested { boolean f() { return ClassLoader.registerAsParallelCapable(); } }\n"
+            + "    static boolean local() {\n"
+            + "        class L { boolean f() { return registerAsParallelCapable(); } }\n"
+            + "        return new L().f();\n"
+            + "    }\n"
+            + "    public static boolean main() {\n"
+            + "        return (new Foo().new Inner().f() || true) && (new Nested().f() || true) && (local() || true);\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+        this.assertCompilationUnitMainReturnsTrue(
+            ""
+            + "public class Foo extends for_sandbox_tests.ClassWithFields {\n"
+            + "    class Inner { int f() { return protectedField; } }\n"
+            + "    static class Nested { int f() { protectedField += 10; return protectedField; } }\n"
+            + "    public static boolean main() {\n"
+            + "        int before = new Foo().new Inner().f();\n"
+            + "        return new Nested().f() == before + 10 && new Foo().new Inner().f() == before + 10;\n"
+            + "    }\n"
+            + "}\n",
+            "Foo"
+        );
+
+        // Not accessible: from an inner class of a class that is not a subclass, or through an expression whose type
+        // is neither the enclosing class nor a subclass of it.
+        String u = "Protected member cannot be accessed|compiler.err.report.access";
+        this.assertCompilationUnitUncookable(
+            "class Foo { class Inner { Object f(java.io.FilterInputStream s) { return s.in; } } }",
+            u
+        );
+        this.assertCompilationUnitUncookable(
+            "import java.io.*; class Foo extends FilterInputStream { Foo() { super(null); }"
+            + " class Inner { Object f() { return ((FilterInputStream) Foo.this).in; } } }",
+            u
+        );
+        this.assertCompilationUnitUncookable(
+            "import java.io.*; class Foo extends FilterInputStream { Foo() { super(null); }"
+            + " class Inner { Object f(BufferedInputStream b) { return b.in; } } }",
+            u
+        );
+    }
+
+    @Test public void
     test_6_6_2_2__Qualified_Access_to_a_protected_Constructor() throws Exception {
 
         // A protected constructor can be invoked by a class instance creation expression only from within the package
