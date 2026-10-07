@@ -1,0 +1,80 @@
+# Compatibility
+
+What stays the same from one release of Janino to the next, and how that is checked. The goal: a project that
+depends on Janino 3.1.12, the last release of the original project, can move to any later release without changes
+to its own code, to the code that it generates, or to the behavior of the generated code. The projects that compile
+generated code with Janino, among others Apache Spark and Apache Calcite, test their code generators against
+Janino, not against `javac`; this page is written for them.
+
+## What stays the same
+
+- **Packages and API.** The Java packages (`org.codehaus.janino`, `org.codehaus.commons.compiler`, ...), the
+  OSGi bundle symbolic names and the automatic module names are those of 3.1.12. The public classes, methods and
+  fields of 3.1.12 remain, with their signatures and their meaning; nothing is removed, also nothing that is
+  deprecated (the security-manager-based `Sandbox` is deprecated since 3.1.13, but still there). New API is only
+  added. A comparison of the public and protected members of the 3.1.12 JARs with the current ones (`javap`)
+  finds one exception, which came in with the last upstream pull request: the two constructors of the AST class
+  `Java.Wildcard` gained a parameter for the annotations of the wildcard (3.1.13). The other thing that changed
+  is the Maven group ID, `io.github.janino-lts` since 3.1.15 (see the [README](README.md) for the consequences).
+- **Java 8.** Janino runs on Java 8 and later (3.1.12: Java 7) and is tested on Java 8, 17, 21 and 25. The class
+  files that it
+  generates have the class file version of Java 8 by default (since 3.1.13; before, Java 6); the target version
+  can be set, as before.
+- **Code that compiles keeps compiling.** Code that Janino 3.1.12 accepts is still accepted, including the invalid
+  code that `javac` rejects; see [Differences between Janino and javac](JAVAC_DIFFERENCES.md), section 3, and
+  [issue #33](https://github.com/janino-lts/janino/issues/33). Exceptions are made only for code that compiled into
+  class files that the JVM rejects, or that failed at run time anyway, and every such case is listed in the
+  "Compatibility" entry of the release in the [change log](https://janino-lts.github.io/janino/changelog.html).
+- **Generated code behaves the same.** The behavior of code that compiled correctly before changes only where it
+  was clearly wrong: a wrong value, an exception, a class file that the JVM rejects. Otherwise the class files
+  are unchanged, byte for byte; where a fix changes them, the change log says so, and the release notes report the
+  result of the class file comparison of the [benchmarks](janino-benchmarks/README.md) (`CodeSizeReport`). For the
+  code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.17-SNAPSHOT differ from
+  those of 3.1.12 only in the class file version.
+- **Compile time.** Every release is measured against its predecessor, interleaved in one JVM, on synthetic
+  workloads and on the code that Spark generates; the result is part of the release notes.
+
+## The API that Apache Spark uses
+
+Spark compiles the code that it generates for SQL queries with Janino (`CodeCompiler.scala` in Spark 4.3 and
+later, `CodeGenerator.scala` in Spark 4.2 and earlier, `QueryExecutionErrors.scala`; state of 2026-10-07). The
+members that it uses are fixed points of the API:
+
+| Member | Used for |
+|---|---|
+| `ClassBodyEvaluator()` | one evaluator per generated class |
+| `ClassBodyEvaluator.setParentClassLoader(ClassLoader)` | the class loader that sees Spark and the user's classes |
+| `ClassBodyEvaluator.setClassName(String)` | `org.apache.spark.sql.catalyst.expressions.GeneratedClass` |
+| `ClassBodyEvaluator.setDefaultImports(String...)` | twenty classes of Spark |
+| `ClassBodyEvaluator.setExtendedClass(Class)` | Spark's `GeneratedClass` as the superclass |
+| `ClassBodyEvaluator.setDebuggingInformation(boolean, boolean, boolean)` | when the generated code is logged |
+| `ClassBodyEvaluator.cook(String, String)` | `cook("generated.java", body)` |
+| `ClassBodyEvaluator.getBytecodes()` | the class files, for the bytecode statistics |
+| `ClassBodyEvaluator.getClazz()` | the generated class, instantiated with its no-arg constructor |
+| `ClassFile(InputStream)`, `getThisClassName()`, `getConstantPoolSize()` | the bytecode statistics |
+| `ClassFile.methodInfos`, `MethodInfo.getName()`, `MethodInfo.getAttributes()` | the methods |
+| `CodeAttribute.code` | the code size of every method |
+| `CompileException(String, Location)`, `CompileException.getLocation()` | a compile error, rethrown |
+| `InternalCompilerException(String, Throwable)` | an internal error, rethrown |
+
+The test `DownstreamApiTest` in the module `janino` uses these members exactly as Spark does, statically typed:
+a change of one of them breaks the build. Spark's generated code also relies on four leniencies of the compiler,
+which `javac` does not have ([SPARK-58437](https://issues.apache.org/jira/browse/SPARK-58437)): the assignment to a
+`final` local variable, the binary name of a nested class (`ArrayBuilder$ofInt`) in source position, generic array
+creation (`new Foo<X>[n]`) and the assignment of a parameterized type to a field with a different type argument.
+They are recorded in the negative tests (`InvalidCodeTest`) and stay; see
+[Differences between Janino and javac](JAVAC_DIFFERENCES.md), section 3.
+
+## How it is checked
+
+- **Downstream test suites.** Two workflows run the complete test suite of
+  [Apache Calcite](.github/workflows/calcite.yml) and the 349 test suites of
+  [Spark Catalyst](.github/workflows/spark.yml) against every build: once with the Janino that the project
+  declares and once with this one, and compare the results. No release without both being green.
+- **Recorded behavior.** The negative tests (`InvalidCodeTest`, 426 cases of invalid code) and the
+  characterization tests (`LanguageSupportTest`, 458 cases of valid code) record Janino's actual behavior, so that
+  every change of it, intended or not, fails a test. Differential tests compile generated expressions and control
+  flow with Janino and with `javac` and compare the results.
+- **Class files.** `CodeSizeReport` of the benchmarks compares the class files that two versions generate, byte
+  for byte, for all workloads, including the code that Spark generates.
+- **Java versions.** The test suite runs on Java 8, 17, 21 and 25 in CI.

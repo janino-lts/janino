@@ -602,3 +602,32 @@ public class P {
         return new Object() { int y = (x = 2); };
     }
 }
+
+=== binary name of a nested class as a type
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    Object f() { java.util.Map$Entry e = null; return e; }
+}
+
+=== binary name of a nested class in a class instance creation
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    Object f() { return new java.util.AbstractMap$SimpleEntry<String, String>("a", "b"); }
+}
+
+=== generics: parameterized field assigned an expression with a different type argument
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    java.util.Iterator<Integer> it;
+    void f(java.util.Iterator<Object> o) { it = o; }
+}
+
+=== generics: generic array creation in a field initializer
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    java.util.List<String>[] a = new java.util.List<String>[2];
+}

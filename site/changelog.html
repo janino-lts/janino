@@ -134,6 +134,13 @@ h5 {
         code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, compiled the way Spark compiles it, so
         that the compile time of such code can be compared between JANINO versions.
       </li>
+      <li>
+        New tests: five more cases of invalid code that the code generator of Apache Spark emits
+        (<a href="https://issues.apache.org/jira/browse/SPARK-58437">SPARK-58437</a>) in the negative tests (now
+        426; see JAVAC_DIFFERENCES.md, section 3), and <code>DownstreamApiTest</code>, which uses the API of JANINO
+        the way Spark does. New pages: CHANGES_SINCE_3.1.12.md, a summary of the changes since 3.1.12 for projects
+        that consider an upgrade, and COMPATIBILITY.md, what stays the same.
+      </li>
     </ul>
 
     <h4>Version 3.1.16 2026-10-06</h4>

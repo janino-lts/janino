@@ -6,6 +6,8 @@ This repository continues Janino, derived from [janino-compiler/janino](https://
 after its author, Arno Unkrig, discontinued the development and archived the original repository. It is an attempt
 to keep Janino alive: to fix bugs, to keep it working on current Java versions, and to stay compatible with
 Janino 3.1.12, on which many projects depend. Janino requires Java 8 or later and is tested on Java 8, 17, 21 and 25.
+[Changes since 3.1.12](CHANGES_SINCE_3.1.12.md) summarizes what an upgrade from 3.1.12 brings, and
+[Compatibility](COMPATIBILITY.md) what stays the same.
 
 Whether this succeeds depends on its users: if Janino matters to you, please report problems, try the releases, or
 help with the work by creating an [issue](https://github.com/janino-lts/janino/issues) or a

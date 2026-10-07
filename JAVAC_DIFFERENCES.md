@@ -100,6 +100,11 @@ accessing class nor a subclass of it (`((Object) this).clone()`, `Object o = new
 bytecode ([#54](https://github.com/janino-lts/janino/issues/54)); it rejected them for a parameter, a field or a
 method result of type `Object`.
 
+Code generators rely on some of these leniencies. The code that Apache Spark generates for SQL queries, for
+example, assigns to a `final` local variable, names nested classes by their binary names, creates generic arrays
+and assigns a parameterized type to a field with a different type argument
+([SPARK-58437](https://issues.apache.org/jira/browse/SPARK-58437)); such code keeps compiling.
+
 **`final` variables and definite assignment:**
 
 - assignment to a `final` field: `final int x = 1; void f() { x = 2; }`;
@@ -185,6 +190,8 @@ method result of type `Object`.
   (`comparator.naturalOrder()`), through an implementing class or a subinterface (`P.s()`, `J.s()`), or unqualified
   from an implementing class (`s()`);
 - `private` member type of another top-level class, also of a JDK class: `java.util.ArrayList.Itr x;`;
+- the binary name of a nested class (with `$`) in source position: `java.util.Map$Entry e;`,
+  `new java.util.AbstractMap$SimpleEntry<String, String>("a", "b")`;
 - on-demand import of a package that does not exist: `import foo.*;`;
 - static import of a member that does not exist, or is not static: `import static java.lang.Math.foo;`,
   `import static java.lang.String.length;`.

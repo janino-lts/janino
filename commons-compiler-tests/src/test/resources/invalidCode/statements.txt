@@ -794,3 +794,10 @@ public class P {
     void m() throws X { }
     void f(P p) { p.m(); }
 }
+
+=== final local array variable is assigned after its declaration
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    int f() { final int[] arr = null; arr = new int[3]; return arr.length; }
+}
