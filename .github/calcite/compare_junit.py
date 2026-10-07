@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Compares the JUnit XML reports of two test runs, a baseline run and a candidate run.
 
-Used by the workflow ".github/workflows/calcite.yml": the tests of Apache Calcite are executed with the JANINO that
-Calcite declares (the baseline) and with the JANINO of this repository (the candidate). A test that passes with the
-baseline and fails with the candidate is a regression; a test that fails with both is not.
+Used by the workflows ".github/workflows/calcite.yml" and "spark.yml": the tests of a project that uses JANINO are
+executed with the JANINO that the project declares (the baseline) and with the JANINO of this repository (the
+candidate). A test that passes with the baseline and fails with the candidate is a regression; a test that fails
+with both is not.
 
 Usage: compare_junit.py <baseline-dir> <candidate-dir>
+       compare_junit.py <candidate-dir>      (no baseline: the run must contain tests, and none may have failed)
 
 Both directories are searched recursively for "*.xml" files in the JUnit XML format (as Gradle writes them to
 "build/test-results"). A test is identified by its module (the path of the XML file relative to the directory, up
@@ -97,10 +99,50 @@ def listing(title, keys, lines):
         lines.append("- ... and " + str(len(keys) - MAX_LISTED) + " more")
 
 
+def table(lines, runs):
+    lines.append("| Run | Tests | Passed | Failed | Skipped |")
+    lines.append("|---|---:|---:|---:|---:|")
+    for name, results in runs:
+        lines.append("| " + name + " | " + str(len(results)) + " | " + str(count(results, PASSED)) + " | "
+                     + str(count(results, FAILED)) + " | " + str(count(results, SKIPPED)) + " |")
+
+
+def verdict(lines, problems, ok):
+    lines.append("")
+    lines.append("**FAILED:** " + "; ".join(problems) + "." if problems else "**OK:** " + ok)
+
+
+def report(lines, problems):
+    text = os.linesep.join(lines)
+    print(text)
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as f:
+            print(text, file=f)
+    return 1 if problems else 0
+
+
+def check(candidate):
+    """Checks a single run: it must contain tests, and none of them may have failed."""
+    failed = [k for k, s in candidate.items() if s == FAILED]
+    lines = ["## Tests of the candidate", ""]
+    table(lines, [("candidate", candidate)])
+    problems = []
+    if not candidate:
+        problems.append("the candidate run contains no test")
+    if failed:
+        problems.append(str(len(failed)) + " test(s) failed")
+    verdict(lines, problems, "every test passed.")
+    listing("Failed", failed, lines)
+    return report(lines, problems)
+
+
 def main(argv):
-    if len(argv) != 3:
-        print("usage: compare_junit.py <baseline-dir> <candidate-dir>")
+    if len(argv) not in (2, 3):
+        print("usage: compare_junit.py [<baseline-dir>] <candidate-dir>")
         return 2
+    if len(argv) == 2:
+        return check(read_results(argv[1]))
     baseline = read_results(argv[1])
     candidate = read_results(argv[2])
 
@@ -111,12 +153,8 @@ def main(argv):
     extra = [k for k in candidate if k not in baseline]
     newly_skipped = [k for k, s in candidate.items() if s == SKIPPED and baseline.get(k) == PASSED]
 
-    lines = ["## Calcite tests: candidate against baseline", ""]
-    lines.append("| Run | Tests | Passed | Failed | Skipped |")
-    lines.append("|---|---:|---:|---:|---:|")
-    for name, results in (("baseline", baseline), ("candidate", candidate)):
-        lines.append("| " + name + " | " + str(len(results)) + " | " + str(count(results, PASSED)) + " | "
-                     + str(count(results, FAILED)) + " | " + str(count(results, SKIPPED)) + " |")
+    lines = ["## Tests: candidate against baseline", ""]
+    table(lines, [("baseline", baseline), ("candidate", candidate)])
 
     problems = []
     if not baseline:
@@ -128,12 +166,8 @@ def main(argv):
     if missing:
         problems.append(str(len(missing)) + " test(s) ran with the baseline, but not with the candidate")
 
-    lines.append("")
-    if problems:
-        lines.append("**FAILED:** " + "; ".join(problems) + ".")
-    else:
-        lines.append("**OK:** every test that passed with the baseline passed with the candidate, and every test"
-                     " that ran with the baseline ran with the candidate.")
+    verdict(lines, problems, "every test that passed with the baseline passed with the candidate, and every test"
+            " that ran with the baseline ran with the candidate.")
 
     listing("Regressions: passed with the baseline, failed with the candidate", regressions, lines)
     listing("Missing: ran with the baseline, but not with the candidate", missing, lines)
@@ -141,14 +175,7 @@ def main(argv):
     listing("Failed with both", failing_in_both, lines)
     listing("Fixed: failed with the baseline, passed with the candidate", fixed, lines)
     listing("Only with the candidate", extra, lines)
-
-    text = os.linesep.join(lines)
-    print(text)
-    summary = os.environ.get("GITHUB_STEP_SUMMARY")
-    if summary:
-        with open(summary, "a", encoding="utf-8") as f:
-            print(text, file=f)
-    return 1 if problems else 0
+    return report(lines, problems)
 
 
 if __name__ == "__main__":

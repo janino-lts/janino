@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Class path for running the published test suites of Spark Catalyst with a selectable JANINO; used by
+  "run_suites.sh" and the workflow ".github/workflows/spark.yml". It is not built or installed, only resolved
+  ("dependency:build-classpath").
+
+  The JANINO that Spark declares (3.1.9 in all Spark 4.x releases) is excluded everywhere; the direct dependency
+  below selects the JANINO to test, through the properties "janino.groupId" and "janino.version", e.g.
+    -Djanino.groupId=org.codehaus.janino   -Djanino.version=3.1.9             (the baseline, what Spark ships)
+    -Djanino.groupId=io.github.janino-lts  -Djanino.version=3.1.17-SNAPSHOT   (a candidate)
+
+  The test-scoped dependencies of spark-catalyst are not transitive and are listed here in the versions of the
+  Spark release ("spark-parent" POM).
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.github.janino-lts</groupId>
+  <artifactId>spark-catalyst-tests</artifactId>
+  <version>0</version>
+  <packaging>pom</packaging>
+
+  <properties>
+    <spark.version>4.2.0</spark.version>
+    <janino.groupId>org.codehaus.janino</janino.groupId>
+    <janino.version>3.1.9</janino.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>${janino.groupId}</groupId>
+      <artifactId>janino</artifactId>
+      <version>${janino.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-catalyst_2.13</artifactId>
+      <version>${spark.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.codehaus.janino</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-catalyst_2.13</artifactId>
+      <version>${spark.version}</version>
+      <type>test-jar</type>
+      <exclusions>
+        <exclusion>
+          <groupId>org.codehaus.janino</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-core_2.13</artifactId>
+      <version>${spark.version}</version>
+      <type>test-jar</type>
+      <exclusions>
+        <exclusion>
+          <groupId>org.codehaus.janino</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-tags_2.13</artifactId>
+      <version>${spark.version}</version>
+      <type>test-jar</type>
+    </dependency>
+
+    <dependency>
+      <groupId>org.scalatest</groupId>
+      <artifactId>scalatest_2.13</artifactId>
+      <version>3.2.19</version>
+    </dependency>
+    <dependency>
+      <groupId>org.scalatestplus</groupId>
+      <artifactId>scalacheck-1-18_2.13</artifactId>
+      <version>3.2.19.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.scalacheck</groupId>
+      <artifactId>scalacheck_2.13</artifactId>
+      <version>1.18.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.scalatestplus</groupId>
+      <artifactId>mockito-5-18_2.13</artifactId>
+      <version>3.2.19.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>5.23.0</version>
+    </dependency>
+    <dependency>
+      <groupId>net.bytebuddy</groupId>
+      <artifactId>byte-buddy</artifactId>
+      <version>1.18.4</version>
+    </dependency>
+    <dependency>
+      <groupId>net.bytebuddy</groupId>
+      <artifactId>byte-buddy-agent</artifactId>
+      <version>1.18.4</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>6.0.3</version>
+    </dependency>
+    <dependency>
+      <groupId>com.github.sbt.junit</groupId>
+      <artifactId>jupiter-interface</artifactId>
+      <version>0.17.0</version>
+    </dependency>
+  </dependencies>
+</project>
