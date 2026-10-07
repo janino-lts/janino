@@ -10,10 +10,11 @@
 # the baseline did not run with the candidate. Without a baseline (input "baseline" set to "none"), the candidate
 # run itself must be green.
 #
-# Two suites are excluded by default ("excludes"): "BufferHolderSparkSubmitSuite" needs a Spark installation, and
-# "SubExprEvaluationRuntimeSuite" fails with a NoSuchMethodError, because the published Catalyst jar shades Guava
-# and the tests jar does not. A LinkageError like that aborts the whole ScalaTest run (the test job then fails and
-# names the suite): add such a suite to "excludes".
+# Four suites are excluded by default ("excludes"), because they need the Spark source tree or installation:
+# "BufferHolderSparkSubmitSuite" runs spark-submit, "SQLKeywordSuite" and "TableIdentifierParserSuite" read the
+# ANTLR grammar, and "SubExprEvaluationRuntimeSuite" fails with a NoSuchMethodError, because the published Catalyst
+# jar shades Guava and the tests jar does not. Such errors abort the whole ScalaTest run (the test job then fails
+# and names the suite, or the cause): add such a suite to "excludes".
 #
 # The workflow runs when started manually ("Actions" > "Spark" > "Run workflow") and once a week with the default
 # values. It does NOT run for pull requests. Before a release, start it manually for the release branch.
@@ -42,7 +43,7 @@ on:
       excludes:
         description: Regular expression of excluded suite names
         type: string
-        default: SparkSubmit|SubExprEvaluationRuntimeSuite
+        default: SparkSubmit|SubExprEvaluationRuntimeSuite|SQLKeywordSuite|TableIdentifierParserSuite
   schedule:
     - cron: '47 3 * * 1'   # Mondays, 03:47 UTC
 
@@ -54,7 +55,9 @@ env:
   BASELINE: ${{ inputs.baseline || '3.1.9' }}   # "none" = no baseline run
   CANDIDATE: ${{ inputs.candidate || '' }}
   SUITES: ${{ inputs.suites || 'org.apache.spark' }}
-  EXCLUDES: ${{ inputs.excludes || 'SparkSubmit|SubExprEvaluationRuntimeSuite' }}
+  EXCLUDES: >-
+    ${{ inputs.excludes ||
+    'SparkSubmit|SubExprEvaluationRuntimeSuite|SQLKeywordSuite|TableIdentifierParserSuite' }}
 
 jobs:
 
