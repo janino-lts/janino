@@ -1,3 +1,7 @@
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.janino-lts/janino.svg)](https://central.sonatype.com/artifact/io.github.janino-lts/janino)
+[![javadoc.io](https://javadoc.io/badge2/io.github.janino-lts/janino/javadoc.svg)](https://javadoc.io/doc/io.github.janino-lts/janino)
+[![license](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
+
 This repository continues Janino, derived from [janino-compiler/janino](https://github.com/janino-compiler/janino)
 after its author, Arno Unkrig, discontinued the development and archived the original repository. It is an attempt
 to keep Janino alive: to fix bugs, to keep it working on current Java versions, and to stay compatible with
