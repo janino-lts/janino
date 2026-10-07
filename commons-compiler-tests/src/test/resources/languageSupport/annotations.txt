@@ -406,8 +406,8 @@ public class P {
 }
 
 === declared RUNTIME annotation on a local class
+janino: OK
 jls: true
-janino: REJECTED IDENTIFIER expected instead of 'class'
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -614,5 +614,17 @@ public class P {
     public static void m(@SuppressWarnings("x") int x) {}
     public static Object run() throws Exception {
         return String.valueOf(P.class.getMethod("m", int.class).getParameterAnnotations()[0].length);
+    }
+}
+
+=== declared RUNTIME annotation with an element on a local class
+jls: 7
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A { int value(); }
+    public static Object run() {
+        @A(7) final class L {}
+        return String.valueOf(((A) L.class.getAnnotation(A.class)).value());
     }
 }

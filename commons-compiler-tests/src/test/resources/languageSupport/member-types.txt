@@ -154,8 +154,8 @@ public class P {
 }
 
 === final local class: modifiers
+janino: OK
 jls: 10
-janino: REJECTED IDENTIFIER expected instead of 'class'
 public class P {
     public static Object run() { final class L {} return Integer.toHexString(L.class.getModifiers()); }
 }
@@ -166,4 +166,33 @@ janino: WRONG 10
 minJava: 9
 public class P {
     public static Object run() { return Integer.toHexString(new Object() {}.getClass().getModifiers()); }
+}
+
+=== abstract local class: modifiers, and a subclass
+jls: 400/7
+janino: OK
+public class P {
+    public static Object run() {
+        abstract class L { abstract int f(); }
+        class M extends L { int f() { return 7; } }
+        return Integer.toHexString(L.class.getModifiers()) + "/" + new M().f();
+    }
+}
+
+=== strictfp local class: modifiers
+jls: 0
+janino: OK
+public class P {
+    public static Object run() { strictfp class L {} return Integer.toHexString(L.class.getModifiers()); }
+}
+
+=== local class with a doc comment and a modifier
+jls: 1
+janino: OK
+public class P {
+    public static Object run() {
+        /** A local class. */
+        final class L { int f() { return 1; } }
+        return String.valueOf(new L().f());
+    }
 }

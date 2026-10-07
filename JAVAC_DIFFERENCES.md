@@ -76,10 +76,6 @@ class inherits from a class in another package, accessed from an inner class (`i
 `class P extends FilterInputStream { class Q { ... } }`, or `P.this.clone()`): the code compiles, but the generated
 class throws an `IllegalAccessError` or fails to verify. `javac` generates an accessor method.
 
-**Local classes** ([#60](https://github.com/janino-lts/janino/issues/60)): a local class declaration with a modifier
-or an annotation (`final class L {}`, `abstract class L {}`, `@A class L {}`) is rejected (`IDENTIFIER expected
-instead of 'class'`).
-
 **Multi-catch** ([#21](https://github.com/janino-lts/janino/issues/21), since 3.1.16): the type of the parameter
 of `catch (A | B e)` is the nearest common superclass of the alternatives, not their least upper bound with the
 interfaces that all alternatives implement: `e.n()` with a method `n()` of an interface that `A` and `B` implement,

@@ -59,6 +59,13 @@ h5 {
         explicit cast, <code>(int[]) a.clone()</code>, are unchanged, and where the clone was used as an
         <code>Object</code>, the class file contains one more <code>checkcast</code> instruction.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/60">issue #60</a>: A local class declaration
+        with a modifier or an annotation (<code>final class L {}</code>, <code>abstract class L {}</code>,
+        <code>strictfp class L {}</code>, <code>@A class L {}</code>) was a syntax error. The modifiers that JLS 14.3
+        allows are accepted now, and the modifiers and the annotations are written to the class file; other
+        modifiers (e.g. <code>static</code>, <code>public</code>) are rejected, like before.
+      </li>
     </ul>
 
     <h4>Version 3.1.16 2026-10-06</h4>

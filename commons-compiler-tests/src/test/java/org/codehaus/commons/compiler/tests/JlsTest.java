@@ -2103,6 +2103,38 @@ class JlsTest extends CommonsCompilerTestSuite {
         this.assertScriptReturnsTrue(
             "class S2 extends SC { public int foo() { return 37; } }; return new S2().foo() == 37;"
         );
+
+        // Local class modifiers: "abstract", "final", "strictfp" and annotations.
+        this.assertScriptReturnsTrue(
+            "final class L {} return java.lang.reflect.Modifier.isFinal(L.class.getModifiers());"
+        );
+        this.assertScriptReturnsTrue(
+            "abstract class L { abstract int f(); } class M extends L { int f() { return 7; } }"
+            + " return new M().f() == 7 && java.lang.reflect.Modifier.isAbstract(L.class.getModifiers());"
+        );
+        this.assertScriptReturnsTrue("strictfp class L { double f() { return 1.5; } } return new L().f() == 1.5;");
+        this.assertScriptReturnsTrue("@Deprecated class L {} return L.class.isAnnotationPresent(Deprecated.class);");
+        this.assertScriptReturnsTrue(
+            "@Deprecated final class L { int f() { return 1; } } return new L().f() == 1;"
+        );
+        this.assertScriptReturnsTrue("/** A doc comment. */ final class L {} return new L() != null;");
+
+        // Other modifiers are not allowed (JLS 14.3), and "abstract" and "final" are mutually exclusive.
+        this.assertScriptUncookable("static class L {}");
+        this.assertScriptUncookable("public class L {}");
+        this.assertScriptUncookable("private class L {}");
+        this.assertScriptUncookable("abstract final class L {}");
+
+        // An abstract local class cannot be instantiated, a final one cannot be extended.
+        this.assertScriptUncookable("abstract class L {} new L();");
+        this.assertScriptUncookable("final class L {} class M extends L {}");
+
+        // Local variable declarations with modifiers are unaffected. (In a script, a declaration with modifiers
+        // may also be a method declaration, and the modifiers are not checked; hence the class body.)
+        this.assertScriptReturnsTrue("final int x = 1; return x == 1;");
+        this.assertScriptReturnsTrue("@SuppressWarnings(\"unused\") final int x = 1; return x == 1;");
+        this.assertClassBodyUncookable("void f() { abstract int x; }");
+        this.assertClassBodyUncookable("void f() { strictfp int x = 1; }");
     }
 
     @Test public void

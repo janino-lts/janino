@@ -585,3 +585,35 @@ recovery: ACCEPTED
 public class P {
     enum E { A { String n() { return p(); } }; private String p() { return "p"; } abstract String n(); }
 }
+
+=== static local class
+janino: REJECTED Unexpected token "static" in primary
+public class P { void f() { static class L {} } }
+
+=== public local class
+janino: REJECTED Unexpected token "public" in primary
+public class P { void f() { public class L {} } }
+
+=== private local class
+janino: REJECTED Unexpected token "private" in primary
+public class P { void f() { private class L {} } }
+
+=== abstract final local class
+janino: REJECTED Only one of abstract final is allowed
+public class P { void f() { abstract final class L {} } }
+
+=== instantiation of an abstract local class
+janino: REJECTED Cannot instantiate abstract "P$L"
+public class P { Object f() { abstract class L {} return new L(); } }
+
+=== subclass of a final local class
+janino: REJECTED "P$L" is final; classes cannot extend a final class
+public class P { void f() { final class L {} class M extends L {} } }
+
+=== abstract local variable
+janino: REJECTED Access modifier(s) abstract not allowed in this context
+public class P { void f() { abstract int x; } }
+
+=== strictfp local variable
+janino: REJECTED Access modifier(s) strictfp not allowed in this context
+public class P { void f() { strictfp int x = 1; } }
