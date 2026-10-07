@@ -168,7 +168,7 @@ affected.
 - New tests: characterization tests that record the correct result and Janino's actual behavior for 458 language
   constructs, negative tests with 426 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and two workflows that run the test suites
-  of Apache Calcite and of Spark Catalyst against every build ([Compatibility](COMPATIBILITY.md)).
+  of Apache Calcite and of Spark Catalyst every week and before every release ([Compatibility](COMPATIBILITY.md)).
 
 [#2]: https://github.com/janino-lts/janino/issues/2
 [#3]: https://github.com/janino-lts/janino/issues/3

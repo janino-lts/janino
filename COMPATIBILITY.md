@@ -74,8 +74,9 @@ They are recorded in the negative tests (`InvalidCodeTest`) and stay; see
 
 - **Downstream test suites.** Two workflows run the complete test suite of
   [Apache Calcite](.github/workflows/calcite.yml) and the 349 test suites of
-  [Spark Catalyst](.github/workflows/spark.yml) against every build: once with the Janino that the project
-  declares and once with this one, and compare the results. No release without both being green.
+  [Spark Catalyst](.github/workflows/spark.yml) against the current sources every week, and against every
+  release candidate before the release: once with the Janino that the project declares and once with this one,
+  and compare the results. No release without both being green.
 - **Recorded behavior.** The negative tests (`InvalidCodeTest`, 426 cases of invalid code) and the
   characterization tests (`LanguageSupportTest`, 458 cases of valid code) record Janino's actual behavior, so that
   every change of it, intended or not, fails a test. Differential tests compile generated expressions and control
