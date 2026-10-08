@@ -1353,17 +1353,6 @@ class ScriptEvaluator extends MultiCookable implements IScriptEvaluator {
         final Set<String> parameterNames     = new HashSet<>();
         new AbstractTraverser<RuntimeException>() {
 
-            // The base class does not descend into the initializers of variables and into array initializers
-            // (issue #76); it is public API, so it stays like that, and this traverser descends itself.
-            @Override public void
-            traverseArrayInitializerOrRvalue(Java.ArrayInitializerOrRvalue aiorv) {
-                if (aiorv instanceof Java.Rvalue) {
-                    this.visitAtom((Java.Rvalue) aiorv);
-                } else {
-                    super.traverseArrayInitializerOrRvalue(aiorv);
-                }
-            }
-
             @Override public void
             traverseLocalVariableDeclarationStatement(Java.LocalVariableDeclarationStatement lvds) {
                 for (VariableDeclarator vd : lvds.variableDeclarators) localVariableNames.add(vd.name);
