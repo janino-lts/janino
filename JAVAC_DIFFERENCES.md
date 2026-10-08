@@ -54,6 +54,12 @@ time (see section 2). Their values are correct, but a `static final` field with 
 instance as the first parameter. Reflection shows these modifiers and names, and code in the same package that is
 compiled against the class file can access these members.
 
+**Protected member types in the class files** ([#87](https://github.com/janino-lts/janino/issues/87)): the
+`access_flags` of a `protected` member type contain `ACC_PROTECTED` (`0x0004`) in addition to `ACC_PUBLIC`; `javac`
+writes `ACC_PUBLIC` only. Janino keeps the bit because it determines the accessibility of a type that it reads from a
+class file from these flags. The JVM ignores it, and the reflection API reads the modifiers from the `InnerClasses`
+attribute, which is the same as with `javac`.
+
 **Parameter annotations** (since 3.1.16, [#61](https://github.com/janino-lts/janino/issues/61); before, they were
 not written at all): Janino records the annotations of the parameters against the parameters of the method
 descriptor, which include the parameters that the compiler prepends to the declared ones: the captured local

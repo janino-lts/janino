@@ -23,6 +23,7 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#73](https://github.com/janino-lts/janino/issues/73) | Local and anonymous classes as `javac` describes them | changed | reflection results |
 | [#74](https://github.com/janino-lts/janino/issues/74) | No `ACC_STRICT` in the flags of `strictfp` classes | changed | unchanged |
 | [#76](https://github.com/janino-lts/janino/issues/76) | `AbstractTraverser` descends into initializers | unchanged | subclasses of `AbstractTraverser` |
+| [#87](https://github.com/janino-lts/janino/issues/87) | Class flags of member types as `javac` writes them | changed | unchanged |
 
 ### Local and anonymous classes (#73)
 
@@ -83,3 +84,26 @@ the nodes that are new to the traversal.
 
 **What stays the same.** The results of `ExpressionEvaluator.guessParameterNames()` and
 `ScriptEvaluator.guessParameterNames()` are the same as with 3.1.18.
+
+### Class flags of member types (#87)
+
+The 3.1.x line fixes the part of #87 that changes behavior (3.1.19): a `protected` member type gets `ACC_PUBLIC`, so
+that a subclass in another package can use it. `master` has that fix, too, and also the rest:
+
+**Class files.** The `access_flags` of a member type (a class, interface, enum or annotation type declared in the
+body of another type) no longer contain the bits `0x0002` (`private`) and `0x0008` (`static`), which are not class
+flags (JVMS 4.1) and which only the `InnerClasses` entry records, and a member class (not an interface) has the flag
+`ACC_SUPER`, like with `javac`. For example, `static class S` has the flags `0x0020` (3.1.x: `0x0008`), `public
+class I` `0x0021` (3.1.x: `0x0001`), `private static class P` `0x0020` (3.1.x: `0x000a`), and `interface J`
+`0x0600` (3.1.x: `0x0608`). The size of the class files does not change.
+
+**Behavior.** Unchanged. The JVM ignores the bits (and treats `ACC_SUPER` as set in every class file since Java 8);
+the reflection API, and with it the default `serialVersionUID` of a serializable member class, reads the modifiers
+from the `InnerClasses` entry, which is unchanged. When Janino compiles against such a class file, it reads only the
+access bits, `ACC_FINAL`, `ACC_ABSTRACT`, `ACC_ENUM` and `ACC_INTERFACE` from these flags, and accepts the same code
+as before.
+
+**What stays the same.** A `protected` member type keeps `0x0004` (`ACC_PROTECTED`) in addition to `ACC_PUBLIC`
+(`javac`: `ACC_PUBLIC` only), like in 3.1.x: Janino determines the accessibility of a type that it reads from a class
+file from these flags, and with both bits it still sees a `protected` type. See
+[Differences between Janino and javac](JAVAC_DIFFERENCES.md), section 1.

@@ -25,6 +25,7 @@
 package org.codehaus.janino.tests;
 
 import java.io.ByteArrayInputStream;
+import java.io.ObjectStreamClass;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,6 +40,7 @@ import org.codehaus.janino.Compiler;
 import org.codehaus.janino.IClassLoader;
 import org.codehaus.janino.Mod;
 import org.codehaus.janino.ResourceFinderIClassLoader;
+import org.codehaus.janino.SimpleCompiler;
 import org.codehaus.janino.util.ClassFile;
 import org.junit.Assert;
 import org.junit.Test;
@@ -132,29 +134,56 @@ class ProtectedMemberTypeTest {
     }
 
     /**
-     * {@code ACC_PUBLIC} is added to the flags of the {@code protected} member types, like with JAVAC; {@code
-     * ACC_PROTECTED} stays (JAVAC clears it, the JVM ignores it). The flags of all other member types are unchanged.
+     * The flags of member types are those of JAVAC (issue #87): {@code ACC_PUBLIC} for the {@code protected} member
+     * types, {@code ACC_SUPER} for classes, and neither {@code ACC_PRIVATE} nor {@code ACC_STATIC}. Unlike with JAVAC,
+     * {@code ACC_PROTECTED} stays, so that JANINO, when it reads the class file, still sees a {@code protected} type;
+     * the JVM ignores it.
      */
     @Test public void
     testAccessFlags() throws Exception {
         Map<String, byte[]> classes = ProtectedMemberTypeTest.compileA();
 
-        Assert.assertEquals(Mod.PUBLIC | Mod.PROTECTED | Mod.STATIC, ProtectedMemberTypeTest.flags(classes, "ProtS"));
-        Assert.assertEquals(Mod.PUBLIC | Mod.PROTECTED,              ProtectedMemberTypeTest.flags(classes, "ProtI"));
+        Assert.assertEquals(Mod.PUBLIC | Mod.PROTECTED | Mod.SUPER, ProtectedMemberTypeTest.flags(classes, "ProtS"));
+        Assert.assertEquals(Mod.PUBLIC | Mod.PROTECTED | Mod.SUPER, ProtectedMemberTypeTest.flags(classes, "ProtI"));
         Assert.assertEquals(
-            Mod.PUBLIC | Mod.PROTECTED | Mod.STATIC | Mod.INTERFACE | Mod.ABSTRACT,
+            Mod.PUBLIC | Mod.PROTECTED | Mod.INTERFACE | Mod.ABSTRACT,
             ProtectedMemberTypeTest.flags(classes, "PI")
         );
         Assert.assertEquals(
-            Mod.PUBLIC | Mod.PROTECTED,
-            ProtectedMemberTypeTest.flags(classes, "PE") & (Mod.PUBLIC | Mod.PROTECTED)
+            Mod.PUBLIC | Mod.PROTECTED | Mod.FINAL | Mod.SUPER | Mod.ENUM,
+            ProtectedMemberTypeTest.flags(classes, "PE")
         );
 
-        // Unchanged.
-        Assert.assertEquals(Mod.PUBLIC | Mod.STATIC,                   ProtectedMemberTypeTest.flags(classes, "PubS"));
-        Assert.assertEquals(Mod.STATIC,                                ProtectedMemberTypeTest.flags(classes, "PkgS"));
-        Assert.assertEquals(Mod.PRIVATE | Mod.STATIC,                  ProtectedMemberTypeTest.flags(classes, "PrivS"));
-        Assert.assertEquals(Mod.STATIC | Mod.INTERFACE | Mod.ABSTRACT, ProtectedMemberTypeTest.flags(classes, "I"));
+        Assert.assertEquals(Mod.PUBLIC | Mod.SUPER,        ProtectedMemberTypeTest.flags(classes, "PubS"));
+        Assert.assertEquals(Mod.SUPER,                     ProtectedMemberTypeTest.flags(classes, "PkgS"));
+        Assert.assertEquals(Mod.SUPER,                     ProtectedMemberTypeTest.flags(classes, "PrivS"));
+        Assert.assertEquals(Mod.INTERFACE | Mod.ABSTRACT, ProtectedMemberTypeTest.flags(classes, "I"));
+    }
+
+    /**
+     * The modifiers that the reflection API reports, and therefore the default {@code serialVersionUID} of a
+     * serializable member class, come from the {@code InnerClasses} attribute; they are the same as with 3.1.18,
+     * which wrote other {@code access_flags} (issue #87).
+     */
+    @Test public void
+    testSerialVersionUidOfMemberClasses() throws Exception {
+        SimpleCompiler sc = new SimpleCompiler();
+        sc.cook(
+            ""
+            + "public class P {\n"
+            + "    public static class S implements java.io.Serializable { int x; }\n"
+            + "    protected static class T implements java.io.Serializable { int y; }\n"
+            + "    private class U implements java.io.Serializable { int z; }\n"
+            + "}\n"
+        );
+        ClassLoader cl = sc.getClassLoader();
+
+        Assert.assertEquals(-7416770703760539819L, ObjectStreamClass.lookup(cl.loadClass("P$S")).getSerialVersionUID());
+        Assert.assertEquals(514917891290028149L,   ObjectStreamClass.lookup(cl.loadClass("P$T")).getSerialVersionUID());
+        Assert.assertEquals(5541701940790853378L,  ObjectStreamClass.lookup(cl.loadClass("P$U")).getSerialVersionUID());
+        Assert.assertEquals(Mod.PUBLIC | Mod.STATIC,    cl.loadClass("P$S").getModifiers());
+        Assert.assertEquals(Mod.PROTECTED | Mod.STATIC, cl.loadClass("P$T").getModifiers());
+        Assert.assertEquals(Mod.PRIVATE,                cl.loadClass("P$U").getModifiers());
     }
 
     private static Map<String, byte[]>
