@@ -1,10 +1,10 @@
 # Changes since 3.1.12
 
 For projects that depend on Janino 3.1.12, the last release of the original project, and consider an upgrade:
-what the releases 3.1.13 to 3.1.18 of this continuation change, in short. The
+what the releases 3.1.13 to 3.1.19 of this continuation change, in short. The
 [change log](https://janino-lts.github.io/janino/changelog.html) has the complete entries, with details and
-examples; this page summarizes it. State: 3.1.18, released on 2026-10-08. The entries of 3.1.17 and 3.1.18 are marked
-with the version.
+examples; this page summarizes it. State: 3.1.18 was released on 2026-10-08; 3.1.19 is in development, and its
+entries are marked as such. The entries of 3.1.17 and later are marked with the version.
 
 ## What stays the same
 
@@ -83,7 +83,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   error ([#62]).
 - The class bodies of enum constants were ignored ([#44]).
 
-**Inner classes, scopes and access** (3.1.16, 3.1.17):
+**Inner classes, scopes and access** (3.1.16, 3.1.17, 3.1.19):
 
 - An anonymous or local class in a `catch` clause could access neither the `catch` parameter nor a local variable
   declared before the `try` statement ([#63]).
@@ -96,6 +96,9 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   `final` loop variable of a basic `for` statement, captured by an inner class, was an internal compiler error
   ([#75]). A type in a `throws` clause whose name consists of uppercase letters only was taken for a type
   parameter ([#65]).
+- 3.1.19 (in development): A `protected` member type (class, interface or enum) could not be used from a subclass of
+  the enclosing type in another package: the JVM threw an `IllegalAccessError`. Its class file now has the flag
+  `ACC_PUBLIC`, like with `javac` ([#87]); the class files of all other code are unchanged.
 
 **Arrays and expressions** (3.1.17):
 
@@ -168,7 +171,7 @@ affected.
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers;
   every release is measured against its predecessor the same way.
 - New tests: characterization tests that record the correct result and Janino's actual behavior for 458 language
-  constructs, negative tests with 426 cases of invalid code, differential tests that compile generated expressions
+  constructs, negative tests with 427 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and two workflows that run the test suites
   of Apache Calcite and of Spark Catalyst every week and before every release ([Compatibility](COMPATIBILITY.md)).
 
@@ -216,3 +219,4 @@ affected.
 [#71]: https://github.com/janino-lts/janino/issues/71
 [#75]: https://github.com/janino-lts/janino/issues/75
 [#76]: https://github.com/janino-lts/janino/issues/76
+[#87]: https://github.com/janino-lts/janino/issues/87

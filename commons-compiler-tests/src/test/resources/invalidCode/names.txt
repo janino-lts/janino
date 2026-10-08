@@ -244,6 +244,13 @@ public class P {
     java.util.ArrayList.Itr x;
 }
 
+=== private member type of a class in another package, resolved at run time
+janino: INVALID LinkageError
+recovery: ACCEPTED
+public class P {
+    static Object o = java.util.ArrayList.Itr.class;
+}
+
 === on-demand import of a package that does not exist
 janino: ACCEPTED
 recovery: ACCEPTED

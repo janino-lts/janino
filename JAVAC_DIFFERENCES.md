@@ -189,7 +189,9 @@ and assigns a parameterized type to a field with a different type argument
 - invocation of a static interface method as if it were inherited (JLS 8.4.8): through an instance
   (`comparator.naturalOrder()`), through an implementing class or a subinterface (`P.s()`, `J.s()`), or unqualified
   from an implementing class (`s()`);
-- `private` member type of another top-level class, also of a JDK class: `java.util.ArrayList.Itr x;`;
+- `private` member type of another top-level class, also of a JDK class: `java.util.ArrayList.Itr x;`; for a class
+  in another package, the JVM throws an `IllegalAccessError` when it resolves the reference, e.g. for
+  `java.util.ArrayList.Itr.class` ([#33](https://github.com/janino-lts/janino/issues/33));
 - the binary name of a nested class (with `$`) in source position: `java.util.Map$Entry e;`,
   `new java.util.AbstractMap$SimpleEntry<String, String>("a", "b")`;
 - on-demand import of a package that does not exist: `import foo.*;`;
