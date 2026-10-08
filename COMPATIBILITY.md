@@ -85,6 +85,32 @@ creation (`new Foo<X>[n]`) and the assignment of a parameterized type to a field
 They are recorded in the negative tests (`InvalidCodeTest`) and stay; see
 [Differences between Janino and javac](JAVAC_DIFFERENCES.md), section 3.
 
+## The API that Apache Calcite uses
+
+Calcite compiles the code that it generates for queries, metadata handlers and expressions with Janino, mostly
+through the `commons-compiler` interfaces (Calcite 1.42.0: `EnumerableInterpretable`, `JaninoRelMetadataProvider`,
+`JaninoRexCompiler`, `RexExecutable`, `JaninoCompiler`; state of 2026-10-08). The members that it uses are fixed
+points of the API as well:
+
+| Member | Used for |
+|---|---|
+| `CompilerFactoryFactory.getDefaultCompilerFactory(ClassLoader)` | finding the Janino implementation |
+| `ICompilerFactory.newSimpleCompiler()`, `newClassBodyEvaluator()` | one compiler per generated class |
+| `ISimpleCompiler.setParentClassLoader(ClassLoader)`, `cook(String)` | compiling a complete class |
+| `ISimpleCompiler.getClassLoader()` | loading the class, instantiated with its constructor |
+| `IClassBodyEvaluator.setClassName(String)`, `setExtendedClass(Class)` | the name and the superclass |
+| `IClassBodyEvaluator.setImplementedInterfaces(Class[])` | the interfaces of the generated class |
+| `IClassBodyEvaluator.setParentClassLoader(ClassLoader)` | the class loader that sees Calcite |
+| `IClassBodyEvaluator.createInstance(Reader)` | compiling and instantiating in one step |
+| `setDebuggingInformation(boolean, boolean, boolean)` | line numbers in debug mode |
+| `ClassBodyEvaluator()`, `cook(Scanner)`, `getClazz()`; `Scanner(String, Reader)` | the same, with the Janino classes |
+| `JavaSourceClassLoader(ClassLoader, ResourceFinder, String)`, `setDebuggingInfo(...)` | a source class loader |
+| `JavaSourceClassLoader.generateBytecodes(String)`, overridden | counting the bytes of the class files |
+| `MapResourceFinder(Map)`, `ClassFile.getSourceResourceName(String)` | the source, kept in memory |
+| `CompileException` | a compile error, caught |
+
+`DownstreamApiTest` covers these members as well, each of Calcite's uses in one test method.
+
 ## How it is checked
 
 - **Downstream test suites.** Two workflows run the complete test suite of
