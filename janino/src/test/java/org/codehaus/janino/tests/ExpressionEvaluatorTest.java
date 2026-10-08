@@ -71,7 +71,7 @@ class ExpressionEvaluatorTest {
 
     /**
      * The names in the initializers of local variables and fields, and in array initializers (issue #76): before
-     * 3.1.18, {@code guessParameterNames()} did not find them, because {@link AbstractTraverser} does not descend into
+     * 3.1.18, {@code guessParameterNames()} did not find them, because {@link AbstractTraverser} did not descend into
      * such initializers.
      */
     @Test public void
@@ -102,21 +102,37 @@ class ExpressionEvaluatorTest {
     }
 
     /**
-     * {@link AbstractTraverser} itself still does not descend into the initializers of variables (issue #76): it is
-     * public API, and a subclass would otherwise see more nodes than before. The 3.1.x line keeps that behavior; only
-     * the traversers of {@code guessParameterNames()} descend into initializers.
+     * {@link AbstractTraverser} descends into the initializers of variables and fields, and into array initializers
+     * (issue #76). The 3.1.x line keeps the old behavior, which did not; there, only the traversers of {@code
+     * guessParameterNames()} descend into initializers.
      */
     @Test public void
-    testAbstractTraverserInitializersUnchanged() throws Exception {
-        Java.BlockStatement bs = new Parser(new Scanner(null, new StringReader("int y = x + 1;")))
-            .parseBlockStatement();
+    testAbstractTraverserInitializers() throws Exception {
+        Assert.assertEquals(ExpressionEvaluatorTest.set("x"), ExpressionEvaluatorTest.ambiguousNames(
+            "class P { void f() { int y = x + 1; } }"
+        ));
+        Assert.assertEquals(ExpressionEvaluatorTest.set("x"), ExpressionEvaluatorTest.ambiguousNames(
+            "class P { int y = f(x); }"
+        ));
+        Assert.assertEquals(ExpressionEvaluatorTest.set("a", "b"), ExpressionEvaluatorTest.ambiguousNames(
+            "class P { int[][] y = { { a + 1 }, { -b } }; }"
+        ));
+    }
+
+    /**
+     * @return The first identifiers of the {@link Java.AmbiguousName}s that {@link AbstractTraverser} visits in the
+     *         <var>compilationUnit</var>
+     */
+    private static Set<String>
+    ambiguousNames(String compilationUnit) throws Exception {
+        Java.AbstractCompilationUnit cu = new Parser(new Scanner(null, new StringReader(compilationUnit)))
+            .parseAbstractCompilationUnit();
 
         final Set<String> names = new HashSet<>();
         new AbstractTraverser<RuntimeException>() {
             @Override public void traverseAmbiguousName(Java.AmbiguousName an) { names.add(an.identifiers[0]); }
-        }.visitBlockStatement(bs);
-
-        Assert.assertEquals(ExpressionEvaluatorTest.set(), names);
+        }.visitAbstractCompilationUnit(cu);
+        return names;
     }
 
     private static Set<String>

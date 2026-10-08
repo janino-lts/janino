@@ -22,6 +22,7 @@ changes in behavior and what stays the same; the class file comparison of the
 |---|---|---|---|
 | [#73](https://github.com/janino-lts/janino/issues/73) | Local and anonymous classes as `javac` describes them | changed | reflection results |
 | [#74](https://github.com/janino-lts/janino/issues/74) | No `ACC_STRICT` in the flags of `strictfp` classes | changed | unchanged |
+| [#76](https://github.com/janino-lts/janino/issues/76) | `AbstractTraverser` descends into initializers | unchanged | subclasses of `AbstractTraverser` |
 
 ### Local and anonymous classes (#73)
 
@@ -65,3 +66,20 @@ Both deviations from `javac` are listed in [Differences between Janino and javac
 flag) in its class flags, like with `javac`.
 
 **Behavior.** Unchanged; the JVM ignored the bit. Only tools that read class files see the difference.
+
+### `AbstractTraverser` descends into initializers (#76)
+
+**Behavior.** `org.codehaus.janino.util.AbstractTraverser` (public API) now descends into the initializers of local
+variables and fields and into the values of array initializers. In 3.1.x, it passes such an rvalue to `traverseRvalue()`
+only, so that a subclass sees neither the specific `traverse*()` method of the rvalue (e.g.
+`traverseMethodInvocation()`) nor its subordinate nodes: for `int y = x + 1;`, the `traverseAmbiguousName()` of a
+subclass is not invoked for `x` in 3.1.x and is on `master`. A subclass that counts or collects nodes sees more of them.
+A subclass that overrides `traverseArrayInitializerOrRvalue()` to descend itself, as 3.1.x does in
+`guessParameterNames()`, works as before and no longer needs the override.
+
+**Class files.** Unchanged. The compiler uses `AbstractTraverser` to find the variables that are not effectively
+final, which descended into initializers already, and to set the enclosing scope of rvalues, which does not reach
+the nodes that are new to the traversal.
+
+**What stays the same.** The results of `ExpressionEvaluator.guessParameterNames()` and
+`ScriptEvaluator.guessParameterNames()` are the same as with 3.1.18.

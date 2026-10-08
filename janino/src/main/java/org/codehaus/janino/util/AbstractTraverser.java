@@ -414,7 +414,7 @@ class AbstractTraverser<EX extends Throwable> implements Traverser<EX> {
 
         @Override @Nullable public Void
         visitRvalue(Rvalue rvalue) throws EX {
-            AbstractTraverser.this.traverseRvalue(rvalue);
+            rvalue.accept(AbstractTraverser.this.rvalueTraverser);
             return null;
         }
     };

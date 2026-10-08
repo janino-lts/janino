@@ -10998,16 +10998,6 @@ class UnitCompiler {
 
         AbstractTraverser<RuntimeException> traverser = new AbstractTraverser<RuntimeException>() {
 
-            // The base class does not descend into the rvalue initializers of variables.
-            @Override public void
-            traverseArrayInitializerOrRvalue(ArrayInitializerOrRvalue aiorv) {
-                if (aiorv instanceof Rvalue) {
-                    this.visitAtom((Rvalue) aiorv);
-                } else {
-                    super.traverseArrayInitializerOrRvalue(aiorv);
-                }
-            }
-
             @Override public void
             traverseLocalVariableDeclarationStatement(LocalVariableDeclarationStatement lvds) {
                 for (VariableDeclarator vd : lvds.variableDeclarators) {
