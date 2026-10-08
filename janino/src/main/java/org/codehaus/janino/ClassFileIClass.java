@@ -324,8 +324,15 @@ class ClassFileIClass extends IClass {
         }
     }
 
+    /**
+     * The {@code access_flags} of a {@code protected} member type that JANINO compiled contain both {@code ACC_PUBLIC}
+     * and {@code ACC_PROTECTED} (issue #87); such a type is {@code protected}.
+     */
     @Override public Access
-    getAccess() { return ClassFileIClass.accessFlags2Access(this.accessFlags); }
+    getAccess() {
+        if ((this.accessFlags & Mod.PPP) == (Mod.PUBLIC | Mod.PROTECTED)) return Access.PROTECTED;
+        return ClassFileIClass.accessFlags2Access(this.accessFlags);
+    }
 
     @Override public boolean
     isFinal() { return Mod.isFinal(this.accessFlags); }
