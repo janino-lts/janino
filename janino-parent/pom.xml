@@ -376,6 +376,31 @@
     </profile>
 
     <!--
+      JAVADOC of JDK 23 and later copies web fonts (about 4 MB) into every generated documentation; "no-fonts" leaves
+      them out, so that the browser uses the fonts of the system, like with the JAVADOC of earlier JDKs. Activated
+      automatically, because older JAVADOC versions do not know the option.
+    -->
+    <profile>
+      <id>javadoc-no-fonts</id>
+      <activation>
+        <jdk>[23,)</jdk>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <configuration>
+              <additionalOptions>
+                <additionalOption>--no-fonts</additionalOption>
+              </additionalOptions>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!--
       Signs all artifacts with GPG (Maven Central requires that):
         mvn -f janino-parent/pom.xml -P have_gpg clean install -Dgpg.keyname=<fingerprint>
       Add "-Dgpg.executable=<path>/gpg.exe" if "gpg" is not on the path. The signatures ("*.asc") are in the "target"
