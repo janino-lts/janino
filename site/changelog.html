@@ -124,6 +124,12 @@ h5 {
         a <code>protected</code> type. The class files of <code>protected</code> member types change by this one bit;
         those of all other code are unchanged. The modifiers that the reflection API reports are unchanged.
       </li>
+      <li>
+        New test case of invalid code that JANINO accepts
+        (<a href="https://github.com/janino-lts/janino/issues/33">issue #33</a>): a <code>private</code> member type
+        of a class in another package, e.g. <code>java.util.ArrayList.Itr.class</code>; JANINO compiles it, and the
+        JVM throws an <code>IllegalAccessError</code> when it resolves the reference. The behavior is unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.18 2026-10-08</h4>
