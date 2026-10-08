@@ -92,6 +92,22 @@ h5 {
       </li>
     </ul>
 
+    <h4>Version 3.1.19 (unreleased)</h4>
+    <ul>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/87">issue #87</a>: A <code>protected</code> member
+        type (class, interface or enum) could not be used from a subclass of the enclosing type in another package,
+        although JANINO compiled the code: the JVM threw an <code>IllegalAccessError</code>, e.g. for
+        <code>new ProtS()</code> in <code>package b; class B extends a.A { ... }</code> with
+        <code>protected static class ProtS</code> in <code>a.A</code>. The JVM knows no protected classes and grants
+        access from another package only to a class whose flags contain <code>ACC_PUBLIC</code>; JAVAC sets it for a
+        <code>protected</code> member type, and so does JANINO now. Unlike JAVAC, JANINO keeps the flag
+        <code>ACC_PROTECTED</code>, which the JVM ignores, so that JANINO, when it reads such a class file, still sees
+        a <code>protected</code> type. The class files of <code>protected</code> member types change by this one bit;
+        those of all other code are unchanged. The modifiers that the reflection API reports are unchanged.
+      </li>
+    </ul>
+
     <h4>Version 3.1.18 2026-10-08</h4>
     <p>
       The first release of the 3.1.x maintenance line (see "Release lines" in

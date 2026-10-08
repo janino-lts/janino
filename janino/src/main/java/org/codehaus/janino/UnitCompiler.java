@@ -561,6 +561,7 @@ class UnitCompiler {
         }
         if (this.isEnumConstantBody(cd)) accessFlags |= Mod.ENUM; // Like "javac".
         if (UnitCompiler.isMemberTypeOfInterface(cd)) accessFlags |= Mod.PUBLIC;
+        accessFlags = UnitCompiler.protectedMemberTypeAccessFlags(cd, accessFlags);
 
         // A local or anonymous class has the flag "ACC_SUPER", like with "javac", but not "ACC_PRIVATE", which is not
         // a class flag (JVMS 4.1; the AST declares an anonymous class "private final"). An anonymous class keeps
@@ -1324,6 +1325,7 @@ class UnitCompiler {
         if (id instanceof AnnotationTypeDeclaration)  accessFlags |= Mod.ANNOTATION;
         if (id instanceof MemberInterfaceDeclaration) accessFlags |= Mod.STATIC;
         if (UnitCompiler.isMemberTypeOfInterface(id)) accessFlags |= Mod.PUBLIC;
+        accessFlags = UnitCompiler.protectedMemberTypeAccessFlags(id, accessFlags);
 
         ClassFile cf = this.newClassFile(
             accessFlags,
@@ -1793,6 +1795,24 @@ class UnitCompiler {
      *         interface is implicitly static and abstract, an annotation type is an interface, and a member enum is
      *         implicitly static and final
      */
+    /**
+     * The JVM knows no {@code protected} classes: for it, a class is accessible from another package only if its
+     * {@code access_flags} contain {@code ACC_PUBLIC} (JVMS 5.4.4). Therefore, like with JAVAC, a {@code protected}
+     * member type gets {@code ACC_PUBLIC}, so that a subclass of the enclosing type in another package can access it
+     * (issue #87). Unlike with JAVAC, {@code ACC_PROTECTED} stays set: the JVM ignores it, and when JANINO reads the
+     * class file, it still sees a {@code protected} type (see {@link ClassFileIClass#getAccess()}).
+     *
+     * @return <var>accessFlags</var>, plus {@code ACC_PUBLIC} iff <var>td</var> is a {@code protected} member type
+     */
+    private static short
+    protectedMemberTypeAccessFlags(TypeDeclaration td, short accessFlags) {
+        return (
+            td instanceof MemberTypeDeclaration && Mod.isProtectedAccess(accessFlags)
+            ? (short) (accessFlags | Mod.PUBLIC)
+            : accessFlags
+        );
+    }
+
     private short
     innerClassAccessFlags(MemberTypeDeclaration mtd) throws CompileException {
 
