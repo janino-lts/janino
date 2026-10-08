@@ -90,6 +90,16 @@ h5 {
         themselves since 3.1.18 and 3.1.17, use the base class again; their results are unchanged. The class files are
         unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/87">issue #87</a> completely (the part that changes
+        behavior is fixed in 3.1.19, see there): The flags of the class file of a member type contained the bits
+        <code>0x0002</code> (<code>private</code>) and <code>0x0008</code> (<code>static</code>), which are not class
+        flags, and a member class had no <code>ACC_SUPER</code>; now they are as with JAVAC, except that a
+        <code>protected</code> member type keeps <code>ACC_PROTECTED</code> next to <code>ACC_PUBLIC</code>. The JVM
+        ignored these bits, and the reflection API reads the modifiers from the <code>InnerClasses</code> attribute,
+        which is unchanged; so the behavior is unchanged, including the default <code>serialVersionUID</code> of
+        serializable member classes. The class files of member types change accordingly; their size does not.
+      </li>
     </ul>
 
     <h4>Version 3.1.19 (unreleased)</h4>

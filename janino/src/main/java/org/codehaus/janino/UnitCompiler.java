@@ -562,6 +562,7 @@ class UnitCompiler {
         if (this.isEnumConstantBody(cd)) accessFlags |= Mod.ENUM; // Like "javac".
         if (UnitCompiler.isMemberTypeOfInterface(cd)) accessFlags |= Mod.PUBLIC;
         accessFlags = UnitCompiler.protectedMemberTypeAccessFlags(cd, accessFlags);
+        accessFlags = UnitCompiler.memberTypeClassFlags(cd, accessFlags);
 
         // A local or anonymous class has the flag "ACC_SUPER", like with "javac", but not "ACC_PRIVATE", which is not
         // a class flag (JVMS 4.1; the AST declares an anonymous class "private final"). An anonymous class keeps
@@ -1323,9 +1324,9 @@ class UnitCompiler {
         accessFlags |= Mod.INTERFACE;
         accessFlags |= Mod.ABSTRACT;
         if (id instanceof AnnotationTypeDeclaration)  accessFlags |= Mod.ANNOTATION;
-        if (id instanceof MemberInterfaceDeclaration) accessFlags |= Mod.STATIC;
         if (UnitCompiler.isMemberTypeOfInterface(id)) accessFlags |= Mod.PUBLIC;
         accessFlags = UnitCompiler.protectedMemberTypeAccessFlags(id, accessFlags);
+        accessFlags = UnitCompiler.memberTypeClassFlags(id, accessFlags);
 
         ClassFile cf = this.newClassFile(
             accessFlags,
@@ -1811,6 +1812,22 @@ class UnitCompiler {
             ? (short) (accessFlags | Mod.PUBLIC)
             : accessFlags
         );
+    }
+
+    /**
+     * Like with JAVAC, the {@code access_flags} of a member type contain only class flags (JVMS 4.1): neither {@code
+     * ACC_PRIVATE} nor {@code ACC_STATIC}, which only the {@code InnerClasses} entry records, and a member class (not
+     * an interface) has {@code ACC_SUPER} (issue #87). The JVM ignores all three. {@code ACC_PROTECTED} stays, see
+     * {@link #protectedMemberTypeAccessFlags(TypeDeclaration, short)}.
+     *
+     * @return <var>accessFlags</var>, changed as described iff <var>td</var> is a member type
+     */
+    private static short
+    memberTypeClassFlags(TypeDeclaration td, short accessFlags) {
+        if (!(td instanceof MemberTypeDeclaration)) return accessFlags;
+        accessFlags &= ~(Mod.PRIVATE | Mod.STATIC);
+        if (!(td instanceof InterfaceDeclaration)) accessFlags |= Mod.SUPER;
+        return accessFlags;
     }
 
     private short
