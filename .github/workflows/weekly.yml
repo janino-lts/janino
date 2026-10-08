@@ -1,0 +1,35 @@
+# Starts the downstream workflows "Calcite" and "Spark" once a week on both release lines: on "master" (the
+# development line) and on "3.1.x" (the maintenance line, see "Release lines" in COMPATIBILITY.md).
+#
+# Scheduled workflows run only on the default branch. Therefore the two workflows have no schedule of their own;
+# instead, this workflow starts them with "workflow_dispatch" on each branch, exactly as if they were started manually
+# ("Actions" > "Calcite" > "Run workflow" > "Use workflow from: 3.1.x"). Each run uses the workflow file and the
+# sources of its branch, with the default values of its inputs. The results are the runs of "Calcite" and "Spark",
+# not this workflow.
+#
+# To add or remove a release line, change the list "ref" below.
+
+name: Weekly
+
+on:
+  schedule:
+    - cron: '17 3 * * 1'   # Mondays, 03:17 UTC
+  workflow_dispatch:
+
+permissions:
+  actions: write   # to start the other workflows
+
+jobs:
+  dispatch:
+    name: Start ${{ matrix.workflow }} on ${{ matrix.ref }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workflow: [ calcite.yml, spark.yml ]
+        ref: [ master, 3.1.x ]
+    steps:
+      - name: Start ${{ matrix.workflow }} on ${{ matrix.ref }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run "${{ matrix.workflow }}" --repo "${{ github.repository }}" --ref "${{ matrix.ref }}"

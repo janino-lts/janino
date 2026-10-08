@@ -17,8 +17,9 @@
 # The workflow runs
 #  * when started manually ("Actions" > "Calcite" > "Run workflow"): the Calcite ref, the baseline and the candidate
 #    can be chosen; and
-#  * once a week with the default values: the Calcite release tag below, the baseline 3.1.12, and the candidate built
-#    from the branch "master".
+#  * once a week with the default values (the Calcite release tag below, the baseline 3.1.12, and the candidate built
+#    from the branch), on "master" and on "3.1.x": the workflow "Weekly" starts it on both branches, because a
+#    scheduled workflow would run only on the default branch.
 # It does NOT run for pull requests. Before a release, start it manually for the release branch.
 
 name: Calcite
@@ -42,8 +43,6 @@ on:
         description: Gradle tasks that run the tests, e.g. test (all modules) or :core:test
         type: string
         default: test
-  schedule:
-    - cron: '17 3 * * 1'   # Mondays, 03:17 UTC
 
 permissions:
   contents: read
