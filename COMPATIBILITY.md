@@ -17,9 +17,8 @@ Janino, not against `javac`; this page is written for them.
   `Java.Wildcard` gained a parameter for the annotations of the wildcard (3.1.13). The other thing that changed
   is the Maven group ID, `io.github.janino-lts` since 3.1.15 (see the [README](README.md) for the consequences).
 - **Java 8.** Janino runs on Java 8 and later (3.1.12: Java 7) and is tested on Java 8, 17, 21 and 25. The class
-  files that it
-  generates have the class file version of Java 8 by default (since 3.1.13; before, Java 6); the target version
-  can be set, as before.
+  files that it generates have the class file version of Java 8 by default (since 3.1.13; before, Java 6); the
+  target version can be set, as before.
 - **Code that compiles keeps compiling.** Code that Janino 3.1.12 accepts is still accepted, including the invalid
   code that `javac` rejects; see [Differences between Janino and javac](JAVAC_DIFFERENCES.md), section 3, and
   [issue #33](https://github.com/janino-lts/janino/issues/33). Exceptions are made only for code that compiled into
@@ -38,6 +37,22 @@ Janino, not against `javac`; this page is written for them.
   objects, are the cases that Spark's alternative compiler cannot handle and routes to Janino); this stays.
 - **Compile time.** Every release is measured against its predecessor, interleaved in one JVM, on synthetic
   workloads and on the code that Spark generates; the result is part of the release notes.
+
+## Release lines
+
+Janino is maintained in two lines:
+
+- **3.1.x**, the maintenance line, on the branch `3.1.x`. The releases 3.1.18, 3.1.19, ... are made from it. They
+  contain only fixes of valid code that is rejected, that crashes the compiler, that compiles into class files
+  that the JVM rejects, or that behaves wrongly, and everything that this page promises applies to them: no API
+  changes, the code that 3.1.12 accepts stays accepted, Java 8 and the class files of code that compiled
+  correctly before stay the same, except where the change log names the reason. The 3.1.x line is maintained as
+  long as projects depend on it. For production use, take the latest 3.1.x release.
+- **`master`**, the development line. Changes that do not fit the rules of the 3.1.x line are developed there;
+  when and as which version they are released is open. Nothing of it reaches a 3.1.x release.
+
+A fix that both lines need is made on `3.1.x` first and then merged into `master`, so `master` always contains all
+fixes of the 3.1.x line. Issues carry the label of the 3.1.x release that is to contain the fix.
 
 ## The API that Apache Spark uses
 
