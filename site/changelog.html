@@ -52,6 +52,16 @@ h5 {
     <h4>Version 3.1.18 (unreleased)</h4>
     <ul>
       <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/76">issue #76</a>, in part:
+        <code>ExpressionEvaluator.guessParameterNames()</code> and <code>ScriptEvaluator.guessParameterNames()</code>
+        did not find the names in the initializers of local variables and fields and in array initializers, e.g.
+        <code>x</code> in <code>int y = x; return y;</code> and <code>a</code> and <code>b</code> in
+        <code>new int[] { a, b }</code>. They find them now; a name that occurs only in such an initializer and
+        denotes a field of the superclass is now guessed to be a parameter, like the same name in a statement.
+        <code>AbstractTraverser</code>, which does not descend into such initializers either, is public API and stays
+        unchanged in the 3.1.x line, so that its subclasses see the same nodes as before.
+      </li>
+      <li>
         The JAVADOC JARs no longer contain the web fonts that the JAVADOC tool of JDK 23 and later adds (about 4 MB
         per JAR); the browser uses the fonts of the system instead, like with the JAVADOC of earlier JDKs.
       </li>

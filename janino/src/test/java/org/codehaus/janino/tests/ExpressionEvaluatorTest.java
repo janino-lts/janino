@@ -31,8 +31,11 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.codehaus.janino.ExpressionEvaluator;
+import org.codehaus.janino.Java;
+import org.codehaus.janino.Parser;
 import org.codehaus.janino.Scanner;
 import org.codehaus.janino.ScriptEvaluator;
+import org.codehaus.janino.util.AbstractTraverser;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -65,4 +68,71 @@ class ExpressionEvaluatorTest {
         );
         Assert.assertEquals(new HashSet<>(Arrays.asList("b", "d")), parameterNames);
     }
+
+    /**
+     * The names in the initializers of local variables and fields, and in array initializers (issue #76): before
+     * 3.1.18, {@code guessParameterNames()} did not find them, because {@link AbstractTraverser} does not descend into
+     * such initializers.
+     */
+    @Test public void
+    testGuessParameterNamesInInitializers() throws Exception {
+        Assert.assertEquals(ExpressionEvaluatorTest.set("a", "b"), ExpressionEvaluatorTest.guessExpression(
+            "new int[] { a, b }"
+        ));
+        Assert.assertEquals(ExpressionEvaluatorTest.set("c", "d"), ExpressionEvaluatorTest.guessExpression(
+            "new Object() { int f = c; }.hashCode() + d"
+        ));
+        Assert.assertEquals(ExpressionEvaluatorTest.set("x"), ExpressionEvaluatorTest.guessScript(
+            "int y = x; return y;"
+        ));
+        Assert.assertEquals(ExpressionEvaluatorTest.set("x"), ExpressionEvaluatorTest.guessScript(
+            "int y; y = x; return y;"
+        ));
+        Assert.assertEquals(ExpressionEvaluatorTest.set("p", "q"), ExpressionEvaluatorTest.guessScript(
+            "int[] a = { p, q.length() }; return a;"
+        ));
+        Assert.assertEquals(ExpressionEvaluatorTest.set("v"), ExpressionEvaluatorTest.guessScript(
+            "Runnable r = new Runnable() { public void run() { int u = v; } }; return r;"
+        ));
+
+        // A name that is declared as a local variable is not a parameter, also in an initializer.
+        Assert.assertEquals(ExpressionEvaluatorTest.set(), ExpressionEvaluatorTest.guessScript(
+            "int y = 1; int z = y + Math.abs(y); return z;"
+        ));
+    }
+
+    /**
+     * {@link AbstractTraverser} itself still does not descend into the initializers of variables (issue #76): it is
+     * public API, and a subclass would otherwise see more nodes than before. The 3.1.x line keeps that behavior; only
+     * the traversers of {@code guessParameterNames()} descend into initializers.
+     */
+    @Test public void
+    testAbstractTraverserInitializersUnchanged() throws Exception {
+        Java.BlockStatement bs = new Parser(new Scanner(null, new StringReader("int y = x + 1;")))
+            .parseBlockStatement();
+
+        final Set<String> names = new HashSet<>();
+        new AbstractTraverser<RuntimeException>() {
+            @Override public void traverseAmbiguousName(Java.AmbiguousName an) { names.add(an.identifiers[0]); }
+        }.visitBlockStatement(bs);
+
+        Assert.assertEquals(ExpressionEvaluatorTest.set(), names);
+    }
+
+    private static Set<String>
+    guessExpression(String expression) throws Exception {
+        return ExpressionEvaluatorTest.set(
+            ExpressionEvaluator.guessParameterNames(new Scanner(null, new StringReader(expression)))
+        );
+    }
+
+    private static Set<String>
+    guessScript(String script) throws Exception {
+        return ExpressionEvaluatorTest.set(
+            ScriptEvaluator.guessParameterNames(new Scanner(null, new StringReader(script)))
+        );
+    }
+
+    private static Set<String>
+    set(String... elements) { return new HashSet<>(Arrays.asList(elements)); }
 }
