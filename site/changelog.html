@@ -49,6 +49,20 @@ h5 {
 
     <a href="index.html">Back to the JANINO home page</a>
 
+    <h4>Version 3.1.18 (unreleased)</h4>
+    <ul>
+      <li>
+        The JAVADOC JARs no longer contain the web fonts that the JAVADOC tool of JDK 23 and later adds (about 4 MB
+        per JAR); the browser uses the fonts of the system instead, like with the JAVADOC of earlier JDKs.
+      </li>
+      <li>
+        New tests: <code>DownstreamApiTest</code> now also uses the API of JANINO the way Apache Calcite does
+        (<code>ISimpleCompiler</code>, <code>IClassBodyEvaluator</code>, <code>ClassBodyEvaluator</code> with a
+        <code>Scanner</code>, and a subclass of <code>JavaSourceClassLoader</code>); COMPATIBILITY.md lists the
+        members that Calcite uses.
+      </li>
+    </ul>
+
     <h4>Version 3.1.17 2026-10-08</h4>
     <p>
       Local and anonymous classes can now access effectively final local variables (Java 8), and seven defects are
