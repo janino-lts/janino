@@ -1,10 +1,10 @@
 # Changes since 3.1.12
 
 For projects that depend on Janino 3.1.12, the last release of the original project, and consider an upgrade:
-what the releases 3.1.13 to 3.1.17 of this continuation change, in short. The
+what the releases 3.1.13 to 3.1.18 of this continuation change, in short. The
 [change log](https://janino-lts.github.io/janino/changelog.html) has the complete entries, with details and
-examples; this page summarizes it. State: 3.1.17, released on 2026-10-08; the entries of 3.1.17 are marked with
-the version.
+examples; this page summarizes it. State: 3.1.18, released on 2026-10-08. The entries of 3.1.17 and 3.1.18 are marked
+with the version.
 
 ## What stays the same
 
@@ -110,7 +110,7 @@ compile error now: overriding a `final` method, extending a `final` class, dupli
 from another package, a local variable that is not definitely assigned ([#54]); and various internal compiler
 errors, also after a first compile error when the error handler does not throw ([#32], [#34]).
 
-**API and tools** (3.1.13, 3.1.15):
+**API and tools** (3.1.13, 3.1.15, 3.1.18):
 
 - The `cookFiles(...)` methods of `IMultiCookable` did not name the files in compile errors, and
   `cookFiles(String[])` failed with a `NullPointerException` ([#19]); a `NullPointerException` when a directory
@@ -120,6 +120,8 @@ errors, also after a first compile error when the error handler does not throw (
   ([#6]).
 - The command line compiler reports the options `-g:lines` and `-g:vars` correctly with `-verbose`;
   `DeepCopier` can be compiled by Janino itself.
+- 3.1.18: `ExpressionEvaluator.guessParameterNames()` and `ScriptEvaluator.guessParameterNames()` did not find
+  the names in the initializers of variables and fields and in array initializers ([#76]).
 
 ## New language support
 
@@ -213,3 +215,4 @@ affected.
 [#66]: https://github.com/janino-lts/janino/issues/66
 [#71]: https://github.com/janino-lts/janino/issues/71
 [#75]: https://github.com/janino-lts/janino/issues/75
+[#76]: https://github.com/janino-lts/janino/issues/76

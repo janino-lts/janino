@@ -28,8 +28,8 @@ Janino, not against `javac`; this page is written for them.
   was clearly wrong: a wrong value, an exception, a class file that the JVM rejects. Otherwise the class files
   are unchanged, byte for byte; where a fix changes them, the change log says so, and the release notes report the
   result of the class file comparison of the [benchmarks](janino-benchmarks/README.md) (`CodeSizeReport`). For the
-  code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.17 differ from
-  those of 3.1.12 only in the class file version, and are identical to those of 3.1.16.
+  code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.18 differ from
+  those of 3.1.12 only in the class file version, and are identical to those of 3.1.17.
 - **Class resolution.** The compiler resolves the classes that the compiled code references through the parent
   class loader that the application sets (`setParentClassLoader()`), by reflection: also classes that exist only
   in that class loader and nowhere as a file, e.g. the classes of a REPL session, and also by their binary names

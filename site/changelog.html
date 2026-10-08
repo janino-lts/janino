@@ -49,7 +49,13 @@ h5 {
 
     <a href="index.html">Back to the JANINO home page</a>
 
-    <h4>Version 3.1.18 (unreleased)</h4>
+    <h4>Version 3.1.18 2026-10-08</h4>
+    <p>
+      The first release of the 3.1.x maintenance line (see "Release lines" in
+      <a href="https://github.com/janino-lts/janino/blob/HEAD/COMPATIBILITY.md">Compatibility</a>): one fix in the
+      parameter name guessing of the evaluators, smaller JAVADOC JARs, and tests that use the API of JANINO the way
+      Apache Spark and Apache Calcite do. The compiler itself is unchanged.
+    </p>
     <ul>
       <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/76">issue #76</a>, in part:
@@ -70,6 +76,11 @@ h5 {
         (<code>ISimpleCompiler</code>, <code>IClassBodyEvaluator</code>, <code>ClassBodyEvaluator</code> with a
         <code>Scanner</code>, and a subclass of <code>JavaSourceClassLoader</code>); COMPATIBILITY.md lists the
         members that Calcite uses.
+      </li>
+      <li>
+        Compatibility: The compiler is unchanged; the generated class files are the same as with 3.1.17, byte for
+        byte, for all workloads of the benchmarks, including JANINO's own sources and the code that Apache Spark
+        generates. The only change of behavior is that of <code>guessParameterNames()</code> (issue #76, above).
       </li>
     </ul>
 

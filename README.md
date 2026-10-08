@@ -45,7 +45,7 @@ versions up to 3.1.12 have the group ID `org.codehaus.janino`):
 <dependency>
     <groupId>io.github.janino-lts</groupId>
     <artifactId>janino</artifactId>
-    <version>3.1.17</version>
+    <version>3.1.18</version>
 </dependency>
 ```
 
