@@ -11035,6 +11035,13 @@ class UnitCompiler {
 
         AbstractTraverser<RuntimeException> traverser = new AbstractTraverser<RuntimeException>() {
 
+            // The class body of an enum constant is a static context and cannot refer to a local variable; before
+            // issue #88, the base class did not visit enum constants. So that this analysis rejects no code that it
+            // accepted before (an assignment to a field "x" in such a class body would count against a local
+            // variable "x"), it does not look into them.
+            @Override public void
+            traverseEnumConstant(EnumConstant ec) {}
+
             @Override public void
             traverseLocalVariableDeclarationStatement(LocalVariableDeclarationStatement lvds) {
                 for (VariableDeclarator vd : lvds.variableDeclarators) {

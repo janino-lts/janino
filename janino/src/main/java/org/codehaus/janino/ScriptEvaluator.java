@@ -1353,6 +1353,12 @@ class ScriptEvaluator extends MultiCookable implements IScriptEvaluator {
         final Set<String> parameterNames     = new HashSet<>();
         new AbstractTraverser<RuntimeException>() {
 
+            // A name in an enum constant cannot denote a parameter (an enum is a static context); before issue #88,
+            // the base class did not visit enum constants. So that the guessed names stay the same, this traverser
+            // does not look into them.
+            @Override public void
+            traverseEnumConstant(Java.EnumConstant ec) {}
+
             @Override public void
             traverseLocalVariableDeclarationStatement(Java.LocalVariableDeclarationStatement lvds) {
                 for (VariableDeclarator vd : lvds.variableDeclarators) localVariableNames.add(vd.name);

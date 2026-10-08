@@ -100,6 +100,14 @@ h5 {
         which is unchanged; so the behavior is unchanged, including the default <code>serialVersionUID</code> of
         serializable member classes. The class files of member types change accordingly; their size does not.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/88">issue #88</a>: <code>AbstractTraverser</code>
+        did not visit the constants of an enum declaration (<code>traverseEnumConstant()</code> was never invoked), so
+        that its subclasses saw neither the arguments of an enum constant, nor its class body, nor its annotations. Now
+        it visits them. Subclasses of <code>AbstractTraverser</code> see these nodes now. JANINO's own traversers (the
+        effectively final analysis and <code>guessParameterNames()</code>) do not look into enum constants, so that
+        their results are unchanged. The class files are unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.19 (unreleased)</h4>
