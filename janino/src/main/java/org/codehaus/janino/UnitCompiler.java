@@ -562,29 +562,25 @@ class UnitCompiler {
         if (this.isEnumConstantBody(cd)) accessFlags |= Mod.ENUM; // Like "javac".
         if (UnitCompiler.isMemberTypeOfInterface(cd)) accessFlags |= Mod.PUBLIC;
 
+        // A local or anonymous class has the flag "ACC_SUPER", like with "javac", but not "ACC_PRIVATE", which is not
+        // a class flag (JVMS 4.1; the AST declares an anonymous class "private final"). An anonymous class keeps
+        // "ACC_FINAL" (unlike with "javac"), because the default "serialVersionUID" of a serializable class depends on
+        // it (issue #73).
+        if (cd instanceof LocalClassDeclaration || cd instanceof AnonymousClassDeclaration) {
+            accessFlags = (short) ((accessFlags & ~Mod.PRIVATE) | Mod.SUPER);
+        }
+
+        // "ACC_STRICT" is a method flag; "javac" never sets it on a class (JVMS 4.1, issue #74).
+        accessFlags &= ~Mod.STRICTFP;
+
         // Create "ClassFile" object.
         ClassFile cf = this.newClassFile(accessFlags, iClass, iClass.getSuperclass(), iClass.getInterfaces());
 
         // Add class annotations with retention != SOURCE.
         this.compileAnnotations(cd.getAnnotations(), cf, cf);
 
-        if (cd.getEnclosingScope() instanceof Block) {
-
-            // Add an "InnerClasses" attribute entry for this anonymous class declaration on the class file (JLS8,
-            // section 4.7.6, "The InnerClasses Attribute").
-            short innerClassInfoIndex = cf.addConstantClassInfo(iClass.getDescriptor());
-            short innerNameIndex      = (
-                this instanceof NamedTypeDeclaration
-                ? cf.addConstantUtf8Info(((NamedTypeDeclaration) this).getName())
-                : (short) 0
-            );
-            assert cd.getAnnotations().length == 0 : "NYI";
-            cf.addInnerClassesAttributeEntry(new ClassFile.InnerClassesAttribute.Entry(
-                innerClassInfoIndex,  // innerClassInfoIndex
-                (short) 0,            // outerClassInfoIndex
-                innerNameIndex,       // innerNameIndex
-                accessFlags           // innerClassAccessFlags
-            ));
+        if (cd instanceof LocalClassDeclaration || cd instanceof AnonymousClassDeclaration) {
+            this.addLocalOrAnonymousClassAttributes(cd, iClass, cf);
         } else
         if (cd.getEnclosingScope() instanceof TypeDeclaration) {
 
@@ -966,9 +962,136 @@ class UnitCompiler {
         this.checkDuplicateFields(cd, cf);
         this.checkFinalMethodOverrides(cd, iClass, cf);
 
+        this.addLocalAndAnonymousClassEntries(cd, cf);
+
         // Add the generated class file to a thread-local store.
         this.addClassFile(cf);
     }
+
+    /**
+     * For a local or an anonymous class: adds the {@code InnerClasses} entry for the class itself and the {@code
+     * EnclosingMethod} attribute to its class file (JVMS 4.7.6, 4.7.7), from which the reflection API takes its
+     * simple name, whether it is local or anonymous, its enclosing class and its enclosing method or constructor.
+     * Notes the entry for the class file of the enclosing class, which must have it as well (otherwise {@code
+     * Class.getDeclaringClass()} throws an {@link IncompatibleClassChangeError}); see {@link
+     * #addLocalAndAnonymousClassEntries(AbstractTypeDeclaration, ClassFile)}.
+     */
+    private void
+    addLocalOrAnonymousClassAttributes(AbstractClassDeclaration cd, IClass iClass, ClassFile cf)
+    throws CompileException {
+
+        // The innermost enclosing method or constructor (if any), and the innermost enclosing type declaration.
+        FunctionDeclarator enclosingFunction = null;
+        Scope              s                 = cd.getEnclosingScope();
+        for (; !(s instanceof TypeDeclaration); s = s.getEnclosingScope()) {
+            if (s instanceof FunctionDeclarator && enclosingFunction == null) {
+                enclosingFunction = (FunctionDeclarator) s;
+            }
+        }
+        TypeDeclaration enclosingType = (TypeDeclaration) s;
+
+        // Like "javac": the simple name of a local class, none for an anonymous class; the declared modifiers of a
+        // local class; "final enum" for the class body of an enum constant; "final" for any other anonymous class (see
+        // "ACC_FINAL" above; "javac" writes 0).
+        String innerName  = cd instanceof LocalClassDeclaration ? ((LocalClassDeclaration) cd).getName() : null;
+        short  innerFlags = (
+            cd instanceof LocalClassDeclaration ? (short) (this.accessFlags(cd.getModifiers()) & ~Mod.STRICTFP) :
+            this.isEnumConstantBody(cd)         ? (short) (Mod.FINAL | Mod.ENUM) :
+            Mod.FINAL
+        );
+
+        cf.addInnerClassesAttributeEntry(new ClassFile.InnerClassesAttribute.Entry(
+            cf.addConstantClassInfo(iClass.getDescriptor()),             // innerClassInfoIndex
+            (short) 0,                                                   // outerClassInfoIndex
+            innerName == null ? (short) 0 : cf.addConstantUtf8Info(innerName), // innerNameIndex
+            innerFlags                                                   // innerClassAccessFlags
+        ));
+
+        // The method or constructor as it is written to the class file: a private instance method of a class is
+        // compiled as a static method "name$" with the declaring class as an additional first parameter. A class in
+        // a field initializer or an initializer is not enclosed by a method or constructor (JVMS 4.7.7).
+        String methodName = null;
+        String methodMd   = null;
+        if (enclosingFunction != null && !"<clinit>".equals(enclosingFunction.name)) {
+            if (enclosingFunction instanceof ConstructorDeclarator) {
+                methodName = "<init>";
+                methodMd   = this.toIInvocable(enclosingFunction).getDescriptor().toString();
+            } else
+            if (
+                enclosingFunction.getAccess() == Access.PRIVATE
+                && !((MethodDeclarator) enclosingFunction).isStatic()
+                && !(enclosingFunction.getDeclaringType() instanceof InterfaceDeclaration)
+            ) {
+                methodName = enclosingFunction.name + '$';
+                methodMd   = (
+                    this.toIMethod((MethodDeclarator) enclosingFunction)
+                    .getDescriptor()
+                    .prependParameter(this.resolve(enclosingFunction.getDeclaringType()).getDescriptor())
+                    .toString()
+                );
+            } else
+            {
+                methodName = enclosingFunction.name;
+                methodMd   = this.toIInvocable(enclosingFunction).getDescriptor().toString();
+            }
+        }
+        cf.addEnclosingMethodAttribute(this.resolve(enclosingType).getDescriptor(), methodName, methodMd);
+
+        // Note the entry for the class file of the enclosing class. (A class may be compiled more than once, e.g.
+        // when the constructors are compiled again; the last time wins.)
+        LocalAndAnonymousClass lac = new LocalAndAnonymousClass(iClass.getDescriptor(), innerName, innerFlags);
+        List<LocalAndAnonymousClass> l = (
+            (List<LocalAndAnonymousClass>) this.localAndAnonymousClasses.get(enclosingType)
+        );
+        if (l == null) this.localAndAnonymousClasses.put(enclosingType, (l = new ArrayList<LocalAndAnonymousClass>()));
+        for (Iterator<LocalAndAnonymousClass> it = l.iterator(); it.hasNext();) {
+            if (((LocalAndAnonymousClass) it.next()).descriptor.equals(lac.descriptor)) it.remove();
+        }
+        l.add(lac);
+    }
+
+    /**
+     * Adds the {@code InnerClasses} entries for the local and anonymous classes that the <var>td</var> immediately
+     * encloses to its class file <var>cf</var> (JVMS 4.7.6), like "javac"; see {@link
+     * #addLocalOrAnonymousClassAttributes(AbstractClassDeclaration, IClass, ClassFile)}.
+     */
+    private void
+    addLocalAndAnonymousClassEntries(AbstractTypeDeclaration td, ClassFile cf) {
+        List<LocalAndAnonymousClass> l = (List<LocalAndAnonymousClass>) this.localAndAnonymousClasses.remove(td);
+        if (l == null) return;
+        for (LocalAndAnonymousClass lac : l) {
+            cf.addInnerClassesAttributeEntry(new ClassFile.InnerClassesAttribute.Entry(
+                cf.addConstantClassInfo(lac.descriptor),                              // innerClassInfoIndex
+                (short) 0,                                                            // outerClassInfoIndex
+                lac.innerName == null ? (short) 0 : cf.addConstantUtf8Info(lac.innerName), // innerNameIndex
+                lac.innerFlags                                                        // innerClassAccessFlags
+            ));
+        }
+    }
+
+    /**
+     * A local or anonymous class that has been compiled, for the {@code InnerClasses} entry in the class file of the
+     * enclosing class.
+     */
+    private static final
+    class LocalAndAnonymousClass {
+
+        final String           descriptor;
+        @Nullable final String innerName;
+        final short            innerFlags;
+
+        LocalAndAnonymousClass(String descriptor, @Nullable String innerName, short innerFlags) {
+            this.descriptor = descriptor;
+            this.innerName  = innerName;
+            this.innerFlags = innerFlags;
+        }
+    }
+
+    /**
+     * The local and anonymous classes that have been compiled, by their innermost enclosing type declaration.
+     */
+    private final Map<TypeDeclaration, List<LocalAndAnonymousClass>>
+    localAndAnonymousClasses = new HashMap<TypeDeclaration, List<LocalAndAnonymousClass>>();
 
     /**
      * Reports a compile error for fields with the same name <em>and</em> the same type, which the JVM rejects (JVMS8
@@ -1265,6 +1388,8 @@ class UnitCompiler {
 
         // Report what the JVM would reject when it loads the interface.
         this.checkDuplicateFields(id, cf);
+
+        this.addLocalAndAnonymousClassEntries(id, cf);
 
         // Add the generated class file to a thread-local store.
         this.addClassFile(cf);
@@ -4180,8 +4305,9 @@ class UnitCompiler {
         // number of parameters of the method descriptor, so that it includes the parameters that are prepended to
         // the declared ones: The enclosing instance and the captured local variables of inner class constructors,
         // the name and the ordinal of enum constructors, and the "this" of a private instance method (see above).
-        // ("javac" writes the number of declared parameters, and relies on the "EnclosingMethod" attribute, which
-        // this compiler does not generate, when the reflection API matches the annotations to the parameters.)
+        // ("javac" writes the number of declared parameters, and relies on the "EnclosingMethod" attribute when the
+        // reflection API matches the annotations to the parameters; with the number of the descriptor, the reflection
+        // API needs no matching.)
         {
             final ClassFile.MethodInfo mi2             = mi;
             final FormalParameter[]    fps             = fd.formalParameters.parameters;

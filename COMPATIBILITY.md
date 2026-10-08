@@ -49,7 +49,8 @@ Janino is maintained in two lines:
   correctly before stay the same, except where the change log names the reason. The 3.1.x line is maintained as
   long as projects depend on it. For production use, take the latest 3.1.x release.
 - **`master`**, the development line. Changes that do not fit the rules of the 3.1.x line are developed there;
-  when and as which version they are released is open. Nothing of it reaches a 3.1.x release.
+  when and as which version they are released is open. Nothing of it reaches a 3.1.x release. On `master`,
+  [Development line](DEVELOPMENT_LINE.md) lists these changes.
 
 A fix that both lines need is made on `3.1.x` first and then merged into `master`, so `master` always contains all
 fixes of the 3.1.x line. Issues carry the label of the 3.1.x release that is to contain the fix.

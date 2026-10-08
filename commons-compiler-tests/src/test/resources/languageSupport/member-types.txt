@@ -196,3 +196,161 @@ public class P {
         return String.valueOf(new L().f());
     }
 }
+
+=== local class: reflection
+jls: [L] true false false P run null null
+janino: OK
+public class P {
+    public static Object run() {
+        class L { }
+        Class c = L.class;
+        return (
+            "[" + c.getSimpleName() + "] " + c.isLocalClass() + " " + c.isAnonymousClass() + " " + c.isMemberClass()
+            + " " + c.getEnclosingClass().getName() + " " + c.getEnclosingMethod().getName()
+            + " " + c.getDeclaringClass() + " " + c.getCanonicalName()
+        );
+    }
+}
+
+=== anonymous class: reflection
+jls: [] false true false P run null null
+janino: OK
+public class P {
+    public static Object run() {
+        Class c = new Object() { }.getClass();
+        return (
+            "[" + c.getSimpleName() + "] " + c.isLocalClass() + " " + c.isAnonymousClass() + " " + c.isMemberClass()
+            + " " + c.getEnclosingClass().getName() + " " + c.getEnclosingMethod().getName()
+            + " " + c.getDeclaringClass() + " " + c.getCanonicalName()
+        );
+    }
+}
+
+=== local class in a constructor: enclosing constructor
+jls: P null
+janino: OK
+public class P {
+    Class c;
+    P() { class C { } c = C.class; }
+    public static Object run() {
+        Class c = new P().c;
+        return c.getEnclosingConstructor().getDeclaringClass().getName() + " " + c.getEnclosingMethod();
+    }
+}
+
+=== anonymous class in a constructor of an inner class: enclosing constructor
+jls: P$I 2
+janino: OK
+public class P {
+    class I { Object o; I(int a) { o = new Object() { }; } }
+    public static Object run() {
+        Class c = new P().new I(1).o.getClass();
+        return (
+            c.getEnclosingConstructor().getDeclaringClass().getName()
+            + " " + c.getEnclosingConstructor().getParameterTypes().length
+        );
+    }
+}
+
+=== anonymous class in a field initializer: no enclosing method
+jls: P null null true
+janino: OK
+public class P {
+    static Object o = new Object() { };
+    public static Object run() {
+        Class c = o.getClass();
+        return (
+            c.getEnclosingClass().getName() + " " + c.getEnclosingMethod() + " " + c.getEnclosingConstructor()
+            + " " + c.isAnonymousClass()
+        );
+    }
+}
+
+=== anonymous class in a static initializer: no enclosing method
+jls: P null null true
+janino: OK
+public class P {
+    static Object o;
+    static { o = new Object() { }; }
+    public static Object run() {
+        Class c = o.getClass();
+        return (
+            c.getEnclosingClass().getName() + " " + c.getEnclosingMethod() + " " + c.getEnclosingConstructor()
+            + " " + c.isAnonymousClass()
+        );
+    }
+}
+
+=== local class in an anonymous class
+jls: K true true h
+janino: OK
+public class P {
+    public static Object run() {
+        Class c = new Object() { Object h() { class K { } return new K(); } }.h().getClass();
+        return (
+            c.getSimpleName() + " " + c.isLocalClass() + " " + c.getEnclosingClass().isAnonymousClass()
+            + " " + c.getEnclosingMethod().getName()
+        );
+    }
+}
+
+=== anonymous class in a local class
+jls: L g true
+janino: OK
+public class P {
+    public static Object run() {
+        class L { Object g() { return new Object() { }; } }
+        Class c = new L().g().getClass();
+        return (
+            c.getEnclosingClass().getSimpleName() + " " + c.getEnclosingMethod().getName() + " " + c.isAnonymousClass()
+        );
+    }
+}
+
+=== anonymous class in a private method: enclosing method
+jls: p
+janino: WRONG p$
+public class P {
+    private Object p() { return new Object() { }; }
+    public static Object run() { return new P().p().getClass().getEnclosingMethod().getName(); }
+}
+
+=== class body of an enum constant: reflection
+jls: true E 4010
+janino: OK
+minJava: 9
+public class P {
+    enum E { A { }, B }
+    public static Object run() {
+        Class c = E.A.getClass();
+        return (
+            c.isAnonymousClass() + " " + c.getEnclosingClass().getSimpleName()
+            + " " + Integer.toHexString(c.getModifiers())
+        );
+    }
+}
+
+=== anonymous class in an interface constant
+jls: I null true
+janino: OK
+public class P {
+    interface I { Object X = new Object() { }; }
+    public static Object run() {
+        Class c = I.X.getClass();
+        return c.getEnclosingClass().getSimpleName() + " " + c.getEnclosingMethod() + " " + c.isAnonymousClass();
+    }
+}
+
+=== local classes with modifiers: reflection
+jls: [F] 10 [A] 400
+janino: OK
+public class P {
+    public static Object run() {
+        final class F { }
+        abstract class A { }
+        return (
+            "[" + F.class.getSimpleName() + "] " + Integer.toHexString(F.class.getModifiers())
+            + " [" + A.class.getSimpleName() + "] " + Integer.toHexString(A.class.getModifiers())
+        );
+    }
+}
