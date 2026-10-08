@@ -204,6 +204,40 @@ class ClassFile implements Annotatable {
     }
 
     /**
+     * Adds an {@code EnclosingMethod} attribute to this class file (JVMS 4.7.7), which a local or an anonymous class
+     * must have. (Does not check whether one exists already.)
+     *
+     * @param classFd    The field descriptor of the innermost class that encloses this class
+     * @param methodName The name of the method or constructor ({@code "<init>"}) that immediately encloses this class,
+     *                   or {@code null} if the class is not immediately enclosed by a method or constructor, e.g.
+     *                   in an initializer
+     * @param methodMd   The method descriptor of that method or constructor, as written to the class file, or {@code
+     *                   null}
+     */
+    public void
+    addEnclosingMethodAttribute(String classFd, @Nullable String methodName, @Nullable String methodMd) {
+        this.attributes.add(new EnclosingMethodAttribute(
+            this.addConstantUtf8Info("EnclosingMethod"),                     // attributeNameIndex
+            this.addConstantClassInfo(classFd),                              // classIndex
+            (                                                                // methodIndex
+                methodName == null || methodMd == null
+                ? (short) 0
+                : this.addConstantNameAndTypeInfo(methodName, methodMd)
+            )
+        ));
+    }
+
+    /**
+     * Finds the {@code EnclosingMethod} attribute of this class file.
+     *
+     * @return {@code null} if this class has no "EnclosingMethod" attribute
+     */
+    @Nullable public EnclosingMethodAttribute
+    getEnclosingMethodAttribute() {
+        return (EnclosingMethodAttribute) this.findAttribute(this.attributes, "EnclosingMethod");
+    }
+
+    /**
      * Finds the {@code Runtime[In]visibleAnnotations} attribute in the <var>attributes</var>.
      *
      * @return {@code null} if <var>attributes</var> constains no such attribute
@@ -2113,6 +2147,9 @@ class ClassFile implements Annotatable {
         if ("SourceFile".equals(attributeName)) {
             result = SourceFileAttribute.loadBody(attributeNameIndex, bdis);
         } else
+        if ("EnclosingMethod".equals(attributeName)) {
+            result = EnclosingMethodAttribute.loadBody(attributeNameIndex, bdis);
+        } else
         if ("StackMapTable".equals(attributeName)) {
             result = StackMapTableAttribute.loadBody(attributeNameIndex, bdis, this);
         } else
@@ -2496,6 +2533,57 @@ class ClassFile implements Annotatable {
         // Implement "AttributeInfo".
         @Override protected void
         storeBody(DataOutputStream dos) throws IOException { dos.writeShort(this.signatureIndex); }
+    }
+
+    /**
+     * Representation of an {@code EnclosingMethod} attribute (see JVMS 4.7.7).
+     */
+    public static
+    class EnclosingMethodAttribute extends AttributeInfo {
+
+        private final short classIndex;
+        private final short methodIndex;
+
+        /**
+         * @param classIndex  The index of the {@code CONSTANT_Class_info} of the innermost enclosing class
+         * @param methodIndex The index of the {@code CONSTANT_NameAndType_info} of the immediately enclosing method or
+         *                    constructor, or 0
+         */
+        public
+        EnclosingMethodAttribute(short attributeNameIndex, short classIndex, short methodIndex) {
+            super(attributeNameIndex);
+            this.classIndex  = classIndex;
+            this.methodIndex = methodIndex;
+        }
+
+        /**
+         * @return The index of the {@code CONSTANT_Class_info} of the innermost enclosing class
+         */
+        public short
+        getClassIndex() { return this.classIndex; }
+
+        /**
+         * @return The index of the {@code CONSTANT_NameAndType_info} of the immediately enclosing method or
+         *         constructor, or 0
+         */
+        public short
+        getMethodIndex() { return this.methodIndex; }
+
+        private static AttributeInfo
+        loadBody(short attributeNameIndex, DataInputStream dis) throws IOException {
+            return new EnclosingMethodAttribute(
+                attributeNameIndex, // attributeNameIndex
+                dis.readShort(),    // classIndex
+                dis.readShort()     // methodIndex
+            );
+        }
+
+        // Implement "AttributeInfo".
+        @Override protected void
+        storeBody(DataOutputStream dos) throws IOException {
+            dos.writeShort(this.classIndex);
+            dos.writeShort(this.methodIndex);
+        }
     }
 
     /**

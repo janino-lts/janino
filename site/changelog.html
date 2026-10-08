@@ -49,6 +49,39 @@ h5 {
 
     <a href="index.html">Back to the JANINO home page</a>
 
+    <h4>Development line (not released)</h4>
+    <p>
+      Changes on the development line (the branch "master") that do not fit the rules of the 3.1.x maintenance line
+      (see "Release lines" in
+      <a href="https://github.com/janino-lts/janino/blob/HEAD/COMPATIBILITY.md">Compatibility</a>); when and as which
+      version they are released is open. What they mean for a project that moves from a 3.1.x release is described
+      in <a href="https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md">Development line</a>.
+    </p>
+    <ul>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/73">issue #73</a>: The class files of local and
+        anonymous classes had no <code>InnerClasses</code> entry and no <code>EnclosingMethod</code> attribute, so
+        that the reflection API did not recognize them: for <code>class L {}</code> and <code>new Object() {}</code>
+        in a method of <code>P</code>, <code>getSimpleName()</code> returned <code>"P$L"</code> and
+        <code>"P$1"</code> instead of <code>"L"</code> and <code>""</code>, <code>isLocalClass()</code> and
+        <code>isAnonymousClass()</code> returned <code>false</code>, and <code>getEnclosingClass()</code>,
+        <code>getEnclosingMethod()</code> and <code>getEnclosingConstructor()</code> returned <code>null</code>. Like
+        JAVAC, JANINO now writes the entry into the class file of the local or anonymous class and into that of the
+        enclosing class, and the <code>EnclosingMethod</code> attribute; the class flags are <code>ACC_SUPER</code>,
+        like with JAVAC, without the bit <code>0x0002</code>, which is not a class flag. Unlike JAVAC, an anonymous
+        class keeps the flag <code>ACC_FINAL</code>, so that <code>getModifiers()</code> still returns
+        <code>final</code> and the default <code>serialVersionUID</code> of a serializable anonymous class is the
+        same as with earlier versions. The binary names of local classes are unchanged (<code>P$L</code>, where JAVAC
+        writes <code>P$1L</code>). The class files of local and anonymous classes and of the classes that enclose them
+        change accordingly; the instructions are unchanged.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/74">issue #74</a>: The class file of a
+        <code>strictfp</code> class had the bit <code>0x0800</code> (<code>ACC_STRICT</code>, a method flag) in its
+        flags; it is clear now, like with JAVAC. The JVM ignored the bit, so the behavior is unchanged.
+      </li>
+    </ul>
+
     <h4>Version 3.1.18 2026-10-08</h4>
     <p>
       The first release of the 3.1.x maintenance line (see "Release lines" in

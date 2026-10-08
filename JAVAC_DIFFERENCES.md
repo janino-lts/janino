@@ -29,7 +29,8 @@ below remain for that reason, or because they have not been fixed yet.
 | `Boolean Z = null; boolean x = Z \|\| true;` (also `Z && false`) | `NullPointerException` | `x == true`, no exception | [#40](https://github.com/janino-lts/janino/issues/40) |
 | `Byte B = 1; Object x = z ? B : 5;` | `x` is a `Byte` | `x` is an `Integer` | [#38](https://github.com/janino-lts/janino/issues/38) |
 | `char c = 'a'; Object x = false ? c : (short) 66;` | `x` is an `Integer` | `x` is a `Character` | [#38](https://github.com/janino-lts/janino/issues/38) |
-| `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`) | [#73](https://github.com/janino-lts/janino/issues/73) |
+| `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`), kept for the default `serialVersionUID` | [#73](https://github.com/janino-lts/janino/issues/73) |
+| `getEnclosingMethod()` of a class declared in a `private` instance method `p()` | `p` | `p$` (Janino compiles the method as a static method `p$`) | |
 
 **Constant expressions that are not folded** ([#47](https://github.com/janino-lts/janino/issues/47)): Janino does not
 evaluate shifts, relational operators, `~`, operations with `char` operands and casts to and from `char` at compile
