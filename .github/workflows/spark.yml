@@ -17,7 +17,9 @@
 # and names the suite, or the cause): add such a suite to "excludes".
 #
 # The workflow runs when started manually ("Actions" > "Spark" > "Run workflow") and once a week with the default
-# values. It does NOT run for pull requests. Before a release, start it manually for the release branch.
+# values, on "master" and on "3.1.x": the workflow "Weekly" starts it on both branches, because a scheduled workflow
+# would run only on the default branch. It does NOT run for pull requests. Before a release, start it manually for
+# the release branch.
 
 name: Spark
 
@@ -44,8 +46,6 @@ on:
         description: Regular expression of excluded suite names
         type: string
         default: SparkSubmit|SubExprEvaluationRuntimeSuite|SQLKeywordSuite|TableIdentifierParserSuite
-  schedule:
-    - cron: '47 3 * * 1'   # Mondays, 03:47 UTC
 
 permissions:
   contents: read
