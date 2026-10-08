@@ -749,6 +749,12 @@ class ExpressionEvaluator extends MultiCookable implements IExpressionEvaluator 
         final Set<String> parameterNames = new HashSet<>();
         new AbstractTraverser<RuntimeException>() {
 
+            // A name in an enum constant cannot denote a parameter (an enum is a static context); before issue #88,
+            // the base class did not visit enum constants. So that the guessed names stay the same, this traverser
+            // does not look into them.
+            @Override public void
+            traverseEnumConstant(Java.EnumConstant ec) {}
+
             @Override public void
             traverseAmbiguousName(Java.AmbiguousName an) {
 

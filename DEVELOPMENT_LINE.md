@@ -24,6 +24,7 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#74](https://github.com/janino-lts/janino/issues/74) | No `ACC_STRICT` in the flags of `strictfp` classes | changed | unchanged |
 | [#76](https://github.com/janino-lts/janino/issues/76) | `AbstractTraverser` descends into initializers | unchanged | subclasses of `AbstractTraverser` |
 | [#87](https://github.com/janino-lts/janino/issues/87) | Class flags of member types as `javac` writes them | changed | unchanged |
+| [#88](https://github.com/janino-lts/janino/issues/88) | `AbstractTraverser` visits enum constants | unchanged | subclasses of `AbstractTraverser` |
 
 ### Local and anonymous classes (#73)
 
@@ -107,3 +108,20 @@ as before.
 (`javac`: `ACC_PUBLIC` only), like in 3.1.x: Janino determines the accessibility of a type that it reads from a class
 file from these flags, and with both bits it still sees a `protected` type. See
 [Differences between Janino and javac](JAVAC_DIFFERENCES.md), section 1.
+
+### `AbstractTraverser` visits enum constants (#88)
+
+**Behavior.** `org.codehaus.janino.util.AbstractTraverser` (public API) now visits the constants of an enum
+declaration: it invokes `traverseEnumConstant()`, which 3.1.x never invokes, and descends into the arguments of a
+constant, its class body (including its fields and initializers) and its annotations. For
+`enum E { @Deprecated A(f(x)) { void m() { int y = z; } }, B; ... }`, a subclass sees `A`, `B`, `@Deprecated`, `x`,
+`m` and `z` on `master`, and none of them in 3.1.x. A subclass that counts or collects nodes sees more of them; the
+sample `DeclarationCounter` counts the class bodies of enum constants and their fields and local variables.
+
+**Class files.** Unchanged.
+
+**What stays the same.** Janino's own traversers do not look into enum constants, so that their results are the
+same as before: the effectively final analysis (an assignment to a field in the class body of an enum constant
+would otherwise count against a local variable of the same name, and code that compiles in 3.1.x would be rejected),
+and `ExpressionEvaluator.guessParameterNames()` and `ScriptEvaluator.guessParameterNames()` (a name in an enum
+constant cannot denote a parameter).

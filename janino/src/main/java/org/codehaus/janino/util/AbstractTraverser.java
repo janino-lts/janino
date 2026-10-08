@@ -1089,22 +1089,22 @@ class AbstractTraverser<EX extends Throwable> implements Traverser<EX> {
     @Override public void
     traverseEnumConstant(EnumConstant ec) throws EX {
 
-        for (ConstructorDeclarator cd : ec.constructors) this.traverseConstructorDeclarator(cd);
-
         if (ec.arguments != null) {
-            for (Rvalue a : ec.arguments) this.traverseRvalue(a);
+            for (Rvalue a : ec.arguments) a.accept(this.rvalueTraverser);
         }
 
-        this.traverseAbstractTypeDeclaration(ec);
+        this.traverseClassDeclaration(ec);
     }
 
     @Override public void
     traversePackageMemberEnumDeclaration(PackageMemberEnumDeclaration pmed) throws EX {
+        for (EnumConstant ec : pmed.getConstants()) ec.accept(this.typeDeclarationTraverser);
         this.traversePackageMemberClassDeclaration(pmed);
     }
 
     @Override public void
     traverseMemberEnumDeclaration(MemberEnumDeclaration med) throws EX {
+        for (EnumConstant ec : med.getConstants()) ec.accept(this.typeDeclarationTraverser);
         this.traverseMemberClassDeclaration(med);
     }
 

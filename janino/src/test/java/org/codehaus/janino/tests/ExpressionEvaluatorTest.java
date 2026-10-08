@@ -26,8 +26,11 @@
 package org.codehaus.janino.tests;
 
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.codehaus.janino.ExpressionEvaluator;
@@ -35,6 +38,7 @@ import org.codehaus.janino.Java;
 import org.codehaus.janino.Parser;
 import org.codehaus.janino.Scanner;
 import org.codehaus.janino.ScriptEvaluator;
+import org.codehaus.janino.SimpleCompiler;
 import org.codehaus.janino.util.AbstractTraverser;
 import org.junit.Assert;
 import org.junit.Test;
@@ -120,6 +124,68 @@ class ExpressionEvaluatorTest {
     }
 
     /**
+     * {@link AbstractTraverser} visits the constants of an enum: their arguments, class bodies and annotations, each
+     * node once (issue #88).
+     */
+    @Test public void
+    testAbstractTraverserEnumConstants() throws Exception {
+        String enumBody = (
+            "{\n"
+            + "    @Deprecated A(f(x)) { int g = h; void m() { int y = z; } },\n"
+            + "    B;\n"
+            + "    E() { }\n"
+            + "    E(int i) { }\n"
+            + "    static int f(int i) { return i; }\n"
+            + "}\n"
+        );
+        String[] expected = {
+            "annotation @Deprecated", "constant A", "constant B", "method f", "method m", "name h", "name i",
+            "name x", "name z",
+        };
+        Assert.assertEquals(
+            Arrays.asList(expected),
+            ExpressionEvaluatorTest.enumNodes("enum E " + enumBody)
+        );
+        Assert.assertEquals(
+            Arrays.asList(expected),
+            ExpressionEvaluatorTest.enumNodes("class P { enum E " + enumBody + "}")
+        );
+    }
+
+    /**
+     * {@code guessParameterNames()} does not look into enum constants, so that its results are the same as before
+     * issue #88: a name in an enum constant cannot denote a parameter.
+     */
+    @Test public void
+    testGuessParameterNamesEnumConstants() throws Exception {
+        Assert.assertEquals(ExpressionEvaluatorTest.set("d"), ExpressionEvaluatorTest.guessExpression(
+            "new Object() { enum E { A(q) { int g = r; }; E(int i) { } } }.hashCode() + d"
+        ));
+        Assert.assertEquals(ExpressionEvaluatorTest.set("d"), ExpressionEvaluatorTest.guessScript(
+            "Object o = new Object() { enum E { A(q) { int g = r; }; E(int i) { } } }; return o.hashCode() + d;"
+        ));
+    }
+
+    /**
+     * The effectively final analysis (issue #24) does not look into enum constants, so that it accepts the same code
+     * as before issue #88: the assignment to the field {@code x} in the class body of the constant {@code A} does not
+     * count against the local variable {@code x}.
+     */
+    @Test public void
+    testEffectivelyFinalEnumConstants() throws Exception {
+        new SimpleCompiler().cook(
+            ""
+            + "public class P {\n"
+            + "    public static Object f() {\n"
+            + "        int x = 1;\n"
+            + "        Object o = new Object() { enum E { A { int x; void m() { x = 2; } } } };\n"
+            + "        return new Object() { public String toString() { return \"\" + x; } };\n"
+            + "    }\n"
+            + "}\n"
+        );
+    }
+
+    /**
      * @return The first identifiers of the {@link Java.AmbiguousName}s that {@link AbstractTraverser} visits in the
      *         <var>compilationUnit</var>
      */
@@ -133,6 +199,37 @@ class ExpressionEvaluatorTest {
             @Override public void traverseAmbiguousName(Java.AmbiguousName an) { names.add(an.identifiers[0]); }
         }.visitAbstractCompilationUnit(cu);
         return names;
+    }
+
+    /**
+     * @return What {@link AbstractTraverser} visits in the <var>compilationUnit</var>: enum constants, annotations,
+     *         methods, and the first identifiers of ambiguous names, sorted
+     */
+    private static List<String>
+    enumNodes(String compilationUnit) throws Exception {
+        Java.AbstractCompilationUnit cu = new Parser(new Scanner(null, new StringReader(compilationUnit)))
+            .parseAbstractCompilationUnit();
+
+        final List<String> result = new ArrayList<>();
+        new AbstractTraverser<RuntimeException>() {
+            @Override public void traverseEnumConstant(Java.EnumConstant ec) {
+                result.add("constant " + ec.name);
+                super.traverseEnumConstant(ec);
+            }
+            @Override public void traverseAnnotation(Java.Annotation a) {
+                result.add("annotation " + a);
+                super.traverseAnnotation(a);
+            }
+            @Override public void traverseMethodDeclarator(Java.MethodDeclarator md) {
+                result.add("method " + md.name);
+                super.traverseMethodDeclarator(md);
+            }
+            @Override public void traverseAmbiguousName(Java.AmbiguousName an) {
+                result.add("name " + an.identifiers[0]);
+            }
+        }.visitAbstractCompilationUnit(cu);
+        Collections.sort(result);
+        return result;
     }
 
     private static Set<String>
