@@ -1,6 +1,7 @@
 # Janino and javac: the compatibility mode and the compliance mode
 
-Status: draft, 2026-10-06. Revision 2 of the concept; the open points are listed at the end.
+Status: draft, 2026-10-06; the plan (section 9) updated on 2026-10-09. Revision 2 of the concept; the open points
+are listed at the end.
 
 ## Summary
 
@@ -128,8 +129,8 @@ Every deviation from `javac` belongs to exactly one class. The class determines 
 the 3.1.12 behavior, also when the code fails at run time (e.g. an assignment to a `static final` field of another
 class, which throws an `IllegalAccessError`). The compliance mode rejects it.
 
-Today: the cases recorded as `ACCEPTED` in `InvalidCodeTest` (#33, the comment on #33, and the findings of the
-3.1.16 work), except for the generics cases among them (class G).
+Today: the cases recorded as `ACCEPTED` in `InvalidCodeTest` (#33 and its comments, and the findings of the work
+since 3.1.16), except for the generics cases among them (class G).
 
 ### 4.2 Class S: valid legacy code with a consistent, non-`javac` rule
 
@@ -366,15 +367,34 @@ target version. The class files of code that compiled before are unchanged, exce
 instruction where the clone of an array was used as an `Object` (#58) and for the `Exceptions` attribute of a
 method with an all-uppercase exception type (#65).
 
-**Backlog without a target version:** #23 (above); #74, the `ACC_STRICT` bit of `strictfp` classes, a one-line
-fix that waits for the next release that changes the class files of existing code anyway (#73); #76, the
-`AbstractTraverser` does not descend into the initializers of array initializers and variable declarators, which
-affects `guessParameterNames()` (D, small; probably in 3.1.18).
+**3.1.18 (released): no change of the compiler.** #76, in part: `guessParameterNames()` of the expression and
+script evaluators did not find the names in the initializers of variables and fields and in array initializers (D).
+Since 3.1.18, the 3.1.x line is a maintenance line (see "Release lines" in [Compatibility](COMPATIBILITY.md)): it
+takes fixes of classes D and V that leave the class files of all other code byte for byte identical. Fixes that
+change the class files of correct code, or the behavior of public API such as `AbstractTraverser`, go to the
+development line.
 
-Not in 3.1.17: #38, #40 and #47 (class S), #31 (messages), #33 (class L): they belong to the compliance mode of
-3.2.0. The gates are those of 3.1.16.
+**3.1.19 (in development):** #87, part 1: a `protected` member type could not be used from a subclass of the
+enclosing type in another package; the JVM threw an `IllegalAccessError` (V4 and D, like #59). Its class file now
+has the flag `ACC_PUBLIC`; the class files of all other code are unchanged. A new case of class L for #33: a
+`private` member type of a class in another package, which compiles into a class that fails when it resolves the
+reference.
 
-**3.2.0: the foundation.**
+**The development line (`master`, not released)**, see
+[Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`
+entries and the `EnclosingMethod` attribute of local and anonymous classes, so that the reflection API recognizes
+them (V4; it changes the class files of correct code); #74, the `ACC_STRICT` bit of `strictfp` classes, and #87,
+part 2, the other class flags of member types (class file defects without behavior); #76, completely, and #88:
+`AbstractTraverser` descends into initializers and visits enum constants (public API, not the compiler).
+
+**Backlog without a target version:** #23 (above).
+
+Open: #38, #40 and #47 (class S) and #33 (class L) belong to the compliance mode. #31, misleading error messages, is
+not a change of behavior in the sense of section 3.1, but applications and their tests match message texts (the
+tests of Apache Spark expect `Cannot determine simple type name "..."`); an improved message therefore keeps the old
+text and adds to it. The gates are those of 3.1.16.
+
+**The compliance mode: the foundation** (on the development line; the version is open).
 
 1. The contract, as a section of `JAVAC_DIFFERENCES.md`.
 2. The option, the system property, `compliant()`.
@@ -401,7 +421,8 @@ this happens depends on the number of open IDs, not on the calendar.
 
 - the classification per section 5 in the issue;
 - compatibility mode: all `compat:` records unchanged, except those that a fix of class D or V changes deliberately;
-  `CodeSizeReport` against the last release byte for byte identical, except where such a fix explains it;
+  `CodeSizeReport` against the last release byte for byte identical, except where such a fix explains it (on the
+  development line also where `DEVELOPMENT_LINE.md` lists the change);
 - compliance mode: the affected `compliant:` records agree with `javac` (the JDK-based implementation runs the same
   cases);
 - newly compilable code: like `javac` in every context, and its invalid neighbors stay rejected (section 5);
@@ -416,5 +437,5 @@ this happens depends on the number of open IDs, not on the calendar.
 | P3 | the names | `JAVAC_COMPLIANCE`, `org.codehaus.janino.javacCompliance` |
 | P4 | precedence of the system property and explicit options | the property sets the initial options of every compiler; an explicit `options(...)` call replaces them, so that a library keeps control of its own compilers |
 | P5 | the `javac` reference: all JDKs of the test matrix must agree, `--release` equals the target version | accept |
-| P6 | the version of the foundation | 3.2.0, because of the new API |
+| P6 | the line of the foundation | the development line, because of the new API; the version is open |
 | P7 | the order of the first checks of the compliance mode | S-01 to S-03 together with the areas of class L |
