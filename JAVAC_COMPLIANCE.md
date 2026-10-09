@@ -147,6 +147,7 @@ behavior. The compliance mode behaves like `javac`.
 | S-04 | the type of a conditional expression with operands of different primitive or wrapper types, where the code compiles today: `z ? B : 5` is an `Integer`; `false ? c : (short) 66` is a `Character` | #38 |
 | S-05 | the consequences of the incomplete constant folding: which fields are constant variables (`ConstantValue` attribute, class initialization), and the reachability analysis | #47 |
 | S-06 | `private` members are compiled without the `private` flag, `private` instance methods as static methods `m$(P, ...)` | |
+| S-11 | in an inner class `Q extends P` declared in `P`, `P.this` and the simple name of a `private` member of `P` denote `this` instead of the enclosing instance | #101 |
 
 ### 4.3 Class V: valid legacy code that is miscompiled
 
@@ -278,7 +279,7 @@ logic has no error path, but silently does something else, the finding is of cla
 - Every mode-dependent place carries a comment with the ID of the deviation (`// Compliance S-01: ...`), so that each
   ID can be found in the code.
 - IDs are stable: a number is never reused or reassigned; new cases get the next number of their class.
-- Implemented so far: S-01, S-02 and S-03 (the development line); see
+- Implemented so far: S-01, S-02, S-03 and S-11, which also rejects L-20, L-45 and L-46 (the development line); see
   [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md) for what they do.
 
 ### 7.4 The system property
@@ -311,7 +312,7 @@ register is the public list; a deviation that is not in it is an unknown defect,
   its own (as `janino-benchmarks` loads its baseline), and compares its behavior with the recorded behavior of the
   compatibility mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction
   that explains the difference (`id:`); an unrecorded difference fails the test. This is the test that makes "legacy"
-  machine-checkable; without it, the records only protect against accidental changes. Today, 372 of the 925 recorded
+  machine-checkable; without it, the records only protect against accidental changes. Today, 372 of the 943 recorded
   cases differ from 3.1.12.
 - Open: every other test class that compiles with Janino runs in the compatibility mode only; a second run of the
   whole suite in the compliance mode needs the mode-dependent expectations of those tests first.
@@ -323,9 +324,9 @@ register is the public list; a deviation that is not in it is an unknown defect,
 The primary measure is the number of open IDs in the register, per class. The secondary measure is the share of the
 recorded cases on which the compliance mode agrees with `javac`. Both are stated in the change log of every release.
 
-The development line, 2026-10-09: S, 10 IDs, 3 corrected in the compliance mode; L, 44 open; D, 6 open; G, 9 and F,
-11 (outside the scope); A, 8. Of the 925 recorded cases, the compliance mode agrees with `javac` on 781 (the
-compatibility mode on 771).
+The development line, 2026-10-09: S, 11 IDs, 4 corrected in the compliance mode; L, 46 IDs, 3 rejected in the
+compliance mode, 43 open; D, 6 open; G, 9 and F, 11 (outside the scope); A, 8. Of the 943 recorded cases, the
+compliance mode agrees with `javac` on 800 (the compatibility mode on 773).
 
 ## 8. Registered exceptions
 

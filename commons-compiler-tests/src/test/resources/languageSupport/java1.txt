@@ -752,3 +752,224 @@ public class P {
         return null;
     }
 }
+
+=== inner class that extends the enclosing class: qualified this
+jls: outer
+janino: WRONG q
+compliant: OK
+id: S-11
+public class P {
+    final String name;
+    P(String name) { this.name = name; }
+    class Q extends P {
+        Q(String n) { super(n); }
+        String g() { return P.this.name; }
+    }
+    public static Object run() { return new P("outer").new Q("q").g(); }
+}
+
+=== inner class that extends the enclosing class: qualified this as a value
+jls: outer
+janino: WRONG this
+compliant: OK
+id: S-11
+public class P {
+    class Q extends P {
+        Object outer() { return P.this; }
+    }
+    public static Object run() {
+        P p = new P();
+        Q q = p.new Q();
+        Object o = q.outer();
+        return o == q ? "this" : o == p ? "outer" : "?";
+    }
+}
+
+=== inner class that extends the enclosing class: simple name of a private field of the enclosing class
+jls: secret of outer
+janino: WRONG secret of q
+compliant: OK
+id: S-11
+public class P {
+    private final String secret;
+    P(String name) { this.secret = "secret of " + name; }
+    class Q extends P {
+        Q(String n) { super(n); }
+        String g() { return secret; }
+    }
+    public static Object run() { return new P("outer").new Q("q").g(); }
+}
+
+=== inner class that extends the enclosing class: simple name of a private method of the enclosing class
+jls: sec of outer
+janino: WRONG sec of q
+compliant: OK
+id: S-11
+public class P {
+    final String name;
+    P(String name) { this.name = name; }
+    private String sec() { return "sec of " + name; }
+    class Q extends P {
+        Q(String n) { super(n); }
+        String g() { return sec(); }
+    }
+    public static Object run() { return new P("outer").new Q("q").g(); }
+}
+
+=== inner class that extends the enclosing class: private field through the qualified this
+jls: secret of outer
+janino: WRONG secret of q
+compliant: OK
+id: S-11
+public class P {
+    private final String secret;
+    P(String name) { this.secret = "secret of " + name; }
+    class Q extends P {
+        Q(String n) { super(n); }
+        String g() { return P.this.secret; }
+    }
+    public static Object run() { return new P("outer").new Q("q").g(); }
+}
+
+=== inner class that extends the enclosing class: method invocation on the qualified this
+jls: who outer
+janino: WRONG who q
+compliant: OK
+id: S-11
+public class P {
+    final String name;
+    P(String name) { this.name = name; }
+    String who() { return "who " + name; }
+    class Q extends P {
+        Q(String n) { super(n); }
+        String g() { return P.this.who(); }
+    }
+    public static Object run() { return new P("outer").new Q("q").g(); }
+}
+
+=== inner class that extends the enclosing class: field of the superclass through a qualified super
+jls: f of outer
+janino: WRONG f of q
+compliant: OK
+id: S-11
+class B { String f; }
+public class P extends B {
+    P(String name) { this.f = "f of " + name; }
+    class Q extends P {
+        Q(String n) { super(n); }
+        String g() { return P.super.f; }
+    }
+    public static Object run() { return new P("outer").new Q("q").g(); }
+}
+
+=== inner class in an inner class that extends the enclosing class: qualified this
+jls: outer
+janino: WRONG q
+compliant: OK
+id: S-11
+public class P {
+    final String name;
+    P(String name) { this.name = name; }
+    class Q extends P {
+        Q(String n) { super(n); }
+        class R { String g() { return P.this.name; } }
+    }
+    public static Object run() { return new P("outer").new Q("q").new R().g(); }
+}
+
+=== anonymous subclass of the enclosing class: qualified this
+jls: outer
+janino: WRONG a
+compliant: OK
+id: S-11
+public class P {
+    final String name;
+    P(String name) { this.name = name; }
+    String g() { return "P"; }
+    P anon() { return new P("a") { String g() { return P.this.name; } }; }
+    public static Object run() { return new P("outer").anon().g(); }
+}
+
+=== anonymous subclass of the enclosing class: simple name of a private field of the enclosing class
+jls: secret of outer
+janino: WRONG secret of a
+compliant: OK
+id: S-11
+public class P {
+    private final String secret;
+    P(String name) { this.secret = "secret of " + name; }
+    String g() { return "P"; }
+    P anon() { return new P("a") { String g() { return secret; } }; }
+    public static Object run() { return new P("outer").anon().g(); }
+}
+
+=== anonymous subclass of the enclosing class: simple name of a private method of the enclosing class
+jls: sec of outer
+janino: WRONG sec of a
+compliant: OK
+id: S-11
+public class P {
+    final String name;
+    P(String name) { this.name = name; }
+    private String sec() { return "sec of " + name; }
+    String g() { return "P"; }
+    P anon() { return new P("a") { String g() { return sec(); } }; }
+    public static Object run() { return new P("outer").anon().g(); }
+}
+
+=== local subclass of the enclosing class: qualified this
+jls: outer
+janino: WRONG l
+compliant: OK
+id: S-11
+public class P {
+    final String name;
+    P(String name) { this.name = name; }
+    String local() {
+        class L extends P {
+            L() { super("l"); }
+            String g() { return P.this.name; }
+        }
+        return new L().g();
+    }
+    public static Object run() { return new P("outer").local(); }
+}
+
+=== inner class that extends the enclosing class: inherited members and cast to the enclosing class
+jls: who q, secret of q, who q
+janino: OK
+public class P {
+    final String name;
+    private final String secret;
+    P(String name) { this.name = name; this.secret = "secret of " + name; }
+    String who() { return "who " + name; }
+    class Q extends P {
+        Q(String n) { super(n); }
+        String g() {
+            String anon = new Object() { public String toString() { return who(); } }.toString();
+            return who() + ", " + ((P) this).secret + ", " + anon;
+        }
+    }
+    public static Object run() { return new P("outer").new Q("q").g(); }
+}
+
+=== inner class that extends the enclosing class: enclosing instance of a member class instance creation
+jls: q
+janino: OK
+public class P {
+    final String name;
+    private int mark;
+    P(String name) { this.name = name; }
+    class Q extends P {
+        Q(String n) { super(n); }
+        int outerMark() { return mark; } // So that JAVAC keeps the field "this$0".
+        Object g() throws Exception { return P.outerOf(new Q("n")); }
+    }
+    static Object outerOf(Object q) throws Exception {
+        for (java.lang.reflect.Field f : Q.class.getDeclaredFields()) {
+            if (f.getName().startsWith("this$")) { f.setAccessible(true); return ((P) f.get(q)).name; }
+        }
+        return null;
+    }
+    public static Object run() throws Exception { return new P("outer").new Q("q").g(); }
+}

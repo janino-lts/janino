@@ -5363,6 +5363,19 @@ class UnitCompiler {
      */
     private final Set<QualifiedThisReference> superclassConstructorEnclosingInstances = new HashSet<>();
 
+    /**
+     * The "{@code O.this}" that the compiler generates as the enclosing instance of an unqualified class instance
+     * creation, where {@code O} is the class that immediately encloses the created class; see {@link
+     * EnclosingInstanceSearch#ASSIGNABLE}.
+     */
+    private final Set<QualifiedThisReference> classInstanceCreationEnclosingInstances = new HashSet<>();
+
+    /**
+     * In the compliance mode: the enclosing type declaration in which {@link #findIMethod(MethodInvocation)} found
+     * the method of an invocation by a simple method name; see {@link #compileGet2(MethodInvocation)}.
+     */
+    private final Map<MethodInvocation, TypeDeclaration> implicitMethodInvocationTypes = new HashMap<>();
+
     private boolean
     compile2(SuperConstructorInvocation sci) throws CompileException {
         ConstructorDeclarator    declaringConstructor = (ConstructorDeclarator) sci.getEnclosingScope();
@@ -6035,14 +6048,30 @@ class UnitCompiler {
 
     private IType
     compileGet2(QualifiedThisReference qtr) throws CompileException {
-        this.referenceThis(
-            qtr,                                                        // locatable
-            this.getDeclaringClass(qtr),                                // declaringClass
-            this.getDeclaringTypeBodyDeclaration(qtr),                  // declaringTypeBodyDeclaration
-            this.getTargetIType(qtr),                                   // targetIClass
-            this.superclassConstructorEnclosingInstances.contains(qtr) // enclosingClassesFirst
+        EnclosingInstanceSearch search;
+        if (this.superclassConstructorEnclosingInstances.contains(qtr)) {
+            search = EnclosingInstanceSearch.ENCLOSING_CLASSES_FIRST;
+        } else
+        if (this.classInstanceCreationEnclosingInstances.contains(qtr)) {
+            search = EnclosingInstanceSearch.ASSIGNABLE;
+        } else
+        {
+
+            // Compliance S-11: "T.this" is the lexically enclosing instance of class "T" (JLS8 15.8.4).
+            search = this.compliant() ? EnclosingInstanceSearch.LEXICAL : EnclosingInstanceSearch.ASSIGNABLE;
+        }
+
+        IClass result = this.referenceThis(
+            qtr,                                       // locatable
+            this.getDeclaringClass(qtr),               // declaringClass
+            this.getDeclaringTypeBodyDeclaration(qtr), // declaringTypeBodyDeclaration
+            this.getTargetIType(qtr),                  // targetIClass
+            search                                     // search
         );
-        return this.getTargetIType(qtr);
+
+        // The loaded instance may be of a subclass of the target type (see "EnclosingInstanceSearch.ASSIGNABLE"),
+        // and its type is what the operand stack holds.
+        return result != null ? result : this.getTargetIType(qtr);
     }
 
     private IClass
@@ -6548,12 +6577,27 @@ class UnitCompiler {
                     );
                 }
 
-                receiverType = this.referenceThis(
-                    mi,                          // locatable
-                    scopeTypeDeclaration,        // declaringType
-                    scopeTbd,                    // declaringTypeBodyDeclaration
-                    iMethod.getDeclaringIClass() // targetIClass
-                );
+                TypeDeclaration td = (TypeDeclaration) this.implicitMethodInvocationTypes.get(mi);
+                if (td != null) {
+
+                    // Compliance S-11: The instance is that of the innermost enclosing type declaration of which the
+                    // method is a member (JLS8 15.12.1, 15.12.4.1), not an enclosing instance that is a subclass of
+                    // the class that declares the method.
+                    receiverType = this.referenceThis(
+                        mi,                             // locatable
+                        scopeTypeDeclaration,           // declaringType
+                        scopeTbd,                       // declaringTypeBodyDeclaration
+                        this.resolve(td),               // targetIClass
+                        EnclosingInstanceSearch.LEXICAL // search
+                    );
+                } else {
+                    receiverType = this.referenceThis(
+                        mi,                          // locatable
+                        scopeTypeDeclaration,        // declaringType
+                        scopeTbd,                    // declaringTypeBodyDeclaration
+                        iMethod.getDeclaringIClass() // targetIClass
+                    );
+                }
             }
         } else {
 
@@ -7203,14 +7247,16 @@ class UnitCompiler {
 
                     // Find an appropriate enclosing instance for the new inner class object among the enclosing
                     // instances of the current object (JLS7 15.9.2.BL1.B3.B1.B2).
-                    enclosingInstance = new QualifiedThisReference(
+                    QualifiedThisReference qtr = new QualifiedThisReference(
                         nci.getLocation(), // location
                         new SimpleType(    // qualification
                             nci.getLocation(),
                             outerIClass
                         )
                     );
-                    enclosingInstance.setEnclosingScope(nci.getEnclosingScope());
+                    qtr.setEnclosingScope(nci.getEnclosingScope());
+                    this.classInstanceCreationEnclosingInstances.add(qtr);
+                    enclosingInstance = qtr;
                 }
             }
         }
@@ -11783,7 +11829,10 @@ class UnitCompiler {
                             this.resolve(td),  // targetType
                             mi                 // invocation
                         );
-                        if (iMethod != null) break FIND_METHOD;
+                        if (iMethod != null) {
+                            if (this.compliant()) this.implicitMethodInvocationTypes.put(mi, td);
+                            break FIND_METHOD;
+                        }
                     }
                 }
             } else
@@ -11862,7 +11911,14 @@ class UnitCompiler {
 
         // Get all methods.
         List<IClass.IMethod> ms = new ArrayList<>();
-        this.getIMethods(rawTargetType, invocation.methodName, ms);
+        if (this.compliant()) {
+
+            // Compliance S-11: The private methods of the supertypes are not members of the target type (JLS8
+            // 8.4.8), so that a simple method name finds them only in the declaring class.
+            this.getMemberIMethods(rawTargetType, invocation.methodName, false, ms);
+        } else {
+            this.getIMethods(rawTargetType, invocation.methodName, ms);
+        }
 
         // Interfaces inherit the methods declared in 'Object'.
         if (rawTargetType.isInterface()) {
@@ -11922,6 +11978,28 @@ class UnitCompiler {
         // Check superinterfaces.
         IClass[] interfaces = type.getInterfaces();
         for (IClass interfacE : interfaces) this.getIMethods(interfacE, methodName, v);
+    }
+
+    /**
+     * Like {@link #getIMethods(IClass, String, List)}, but without the private methods of the superclasses and
+     * superinterfaces, which are not inherited (JLS8 8.4.8).
+     *
+     * @param inherited Whether <var>type</var> is a supertype of the type whose methods are requested
+     */
+    private void
+    getMemberIMethods(IClass type, String methodName, boolean inherited, List<IMethod> v) throws CompileException {
+
+        // Check methods declared by this type.
+        for (IMethod im : type.getDeclaredIMethods(methodName)) {
+            if (!inherited || im.getAccess() != Access.PRIVATE) v.add(im);
+        }
+
+        // Check superclass.
+        IClass superclass = type.getSuperclass();
+        if (superclass != null) this.getMemberIMethods(superclass, methodName, true, v);
+
+        // Check superinterfaces.
+        for (IClass interfacE : type.getInterfaces()) this.getMemberIMethods(interfacE, methodName, true, v);
     }
 
     /**
@@ -13018,6 +13096,37 @@ class UnitCompiler {
     }
 
     /**
+     * How {@link #referenceThis(Locatable, AbstractTypeDeclaration, TypeBodyDeclaration, IType,
+     * EnclosingInstanceSearch)} determines the instance to load among the <var>declaringType</var> and its enclosing
+     * classes.
+     */
+    private
+    enum EnclosingInstanceSearch {
+
+        /**
+         * The innermost class, starting with the <var>declaringType</var> itself, that is a subtype of the
+         * <var>targetIType</var>. This is the enclosing instance of a class instance creation (JLS8 15.9.2: "the
+         * innermost enclosing class of which C is a member"), and, in the compatibility mode, the value of
+         * "{@code T.this}".
+         */
+        ASSIGNABLE,
+
+        /**
+         * Like {@link #ASSIGNABLE}, but prefers the enclosing classes of the <var>declaringType</var> to the
+         * <var>declaringType</var> itself; for the enclosing instance of a superclass constructor invocation.
+         */
+        ENCLOSING_CLASSES_FIRST,
+
+        /**
+         * The innermost class, starting with the <var>declaringType</var> itself, that <em>is</em> the
+         * <var>targetIType</var> (JLS8 15.8.4: "the n'th lexically enclosing type declaration"); in the compliance
+         * mode, for "{@code T.this}" and for the implicit "{@code T.this}" of a member that is accessed through its
+         * simple name.
+         */
+        LEXICAL,
+    }
+
+    /**
      * Loads the instance of the <var>declaringType</var>, or of its innermost enclosing class that is a subtype of
      * the <var>targetIType</var>.
      *
@@ -13030,12 +13139,20 @@ class UnitCompiler {
         TypeBodyDeclaration     declaringTypeBodyDeclaration,
         IType                   targetIType
     ) throws CompileException {
-        return this.referenceThis(locatable, declaringType, declaringTypeBodyDeclaration, targetIType, false);
+        return this.referenceThis(
+            locatable,
+            declaringType,
+            declaringTypeBodyDeclaration,
+            targetIType,
+            EnclosingInstanceSearch.ASSIGNABLE
+        );
     }
 
     /**
-     * @param enclosingClassesFirst Whether to prefer the innermost enclosing class that is a subtype of the
-     *                              <var>targetIType</var> to the <var>declaringType</var> itself; see below
+     * Loads the instance of the <var>declaringType</var>, or of one of its enclosing classes, as the
+     * <var>search</var> determines.
+     *
+     * @return The class of the loaded instance, or {@code null} iff a compile error was reported
      */
     @Nullable private IClass
     referenceThis(
@@ -13043,7 +13160,7 @@ class UnitCompiler {
         AbstractTypeDeclaration declaringType,
         TypeBodyDeclaration     declaringTypeBodyDeclaration,
         IType                   targetIType,
-        boolean                 enclosingClassesFirst
+        EnclosingInstanceSearch search
     ) throws CompileException {
         List<TypeDeclaration> path = UnitCompiler.getOuterClasses(declaringType);
 
@@ -13062,7 +13179,7 @@ class UnitCompiler {
             // with the declaring type, which yields "this" when the declaring type is a subtype of the target type,
             // e.g. "class R extends Q" in "class P { class Q extends P {} ... }". Without such an enclosing class
             // (e.g. in a static method), the search below yields the same as before.
-            if (enclosingClassesFirst) {
+            if (search == EnclosingInstanceSearch.ENCLOSING_CLASSES_FIRST) {
                 for (j = 1; j < path.size(); ++j) {
                     if (UnitCompiler.isAssignableFrom(targetIType, this.resolve((TypeDeclaration) path.get(j)))) {
                         break TARGET_FOUND;
@@ -13070,20 +13187,26 @@ class UnitCompiler {
                 }
             }
 
-            for (j = 0; j < path.size(); ++j) {
+            // Compliance S-11: "T.this" denotes the n'th lexically enclosing instance whose class is "T" (JLS8
+            // 15.8.4), even if an inner class (e.g. "class Q extends T") is itself a subclass of "T"; see below.
+            if (search == EnclosingInstanceSearch.LEXICAL) {
+                IClass targetIClass = UnitCompiler.rawTypeOf(targetIType);
+                for (j = 0; j < path.size(); ++j) {
+                    if (this.resolve((TypeDeclaration) path.get(j)) == targetIClass) break TARGET_FOUND;
+                }
+            } else {
+                for (j = 0; j < path.size(); ++j) {
 
-                // Notice: JLS7 15.9.2.BL1.B3.B1.B2 seems to be wrong: Obviously, JAVAC does not only allow
-                //
-                //    O is the nth lexically enclosing class
-                //
-                // , but also
-                //
-                //    O is assignable from the nth lexically enclosing class
-                //
-                // However, this strategy bears the risk of ambiguities, because "O" may be assignable from more than
-                // one enclosing class.
-                if (UnitCompiler.isAssignableFrom(targetIType, this.resolve((TypeDeclaration) path.get(j)))) {
-                    break TARGET_FOUND;
+                    // The enclosing instance of a class instance creation is the instance of the innermost enclosing
+                    // class of which the created class is a member (JLS8 15.9.2), which includes the members that
+                    // the enclosing class inherits; therefore the search tests "O is assignable from the nth
+                    // lexically enclosing class", not "O is the nth lexically enclosing class". In the
+                    // compatibility mode, "O.this" is resolved the same way, although JLS8 15.8.4 requires the
+                    // latter (S-11 in "JAVAC_DIFFERENCES.md"). This strategy bears the risk of ambiguities, because
+                    // "O" may be assignable from more than one enclosing class.
+                    if (UnitCompiler.isAssignableFrom(targetIType, this.resolve((TypeDeclaration) path.get(j)))) {
+                        break TARGET_FOUND;
+                    }
                 }
             }
             this.compileError(
@@ -15669,21 +15792,37 @@ class UnitCompiler {
      */
     @Nullable private IClass.IField
     findIField(IClass iClass, String name, Location location) throws CompileException {
+        return this.findIField(iClass, name, false, location);
+    }
+
+    /**
+     * @param inherited Whether <var>iClass</var> is a supertype of the class in which the field is looked up
+     */
+    @Nullable private IClass.IField
+    findIField(IClass iClass, String name, boolean inherited, Location location) throws CompileException {
 
         // Search for a field with the given name in the current class.
         IClass.IField f = iClass.getDeclaredIField(name);
-        if (f != null) return f;
+        if (f != null) {
+
+            // Compliance S-11: A private field of a supertype is not inherited (JLS8 8.2, 8.3), and it hides the
+            // fields with the same name that the supertype inherits; so a simple field name finds it only in the
+            // declaring class.
+            if (inherited && f.getAccess() == Access.PRIVATE && this.compliant()) return null;
+
+            return f;
+        }
 
         // Examine superclass.
         {
             IClass superclass = iClass.getSuperclass();
-            if (superclass != null) f = this.findIField(superclass, name, location);
+            if (superclass != null) f = this.findIField(superclass, name, true, location);
         }
 
         // Examine interfaces.
         IClass[] ifs = iClass.getInterfaces();
         for (IClass iF : ifs) {
-            IClass.IField f2 = this.findIField(iF, name, location);
+            IClass.IField f2 = this.findIField(iF, name, true, location);
             if (f2 != null) {
                 if (f != null) {
                     throw new CompileException((
