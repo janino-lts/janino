@@ -9,6 +9,8 @@ public class P { public static Object run() { List<String> l = new ArrayList<>()
 === multi-catch
 janino: OK
 jls: caught
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     public static Object run() {
         try { if (true) throw new IllegalStateException(); return "no"; }
@@ -28,6 +30,8 @@ public class P {
 === try-with-resources records suppressed exceptions
 jls: 1
 janino: OK
+legacy: WRONG 0
+id: #4
 public class P {
     static class R implements AutoCloseable { public void close() { throw new IllegalStateException("c"); } }
     public static Object run() {
@@ -39,6 +43,8 @@ public class P {
 === try-with-resources closes the resource when the block completes by return
 jls: r/closed
 janino: OK
+legacy: WRONG r/
+id: #4
 public class P {
     static String s = "";
     static class R implements AutoCloseable { public void close() { s += "closed"; } }
@@ -49,6 +55,8 @@ public class P {
 === try-with-resources closes the resource when the block completes by break
 jls: [closed]
 janino: OK
+legacy: WRONG []
+id: #4
 public class P {
     static String s = "";
     static class R implements AutoCloseable { public void close() { s += "closed"; } }
@@ -58,6 +66,8 @@ public class P {
 === try-with-resources closes the resource when the block completes by continue
 jls: [cc]
 janino: OK
+legacy: WRONG []
+id: #4
 public class P {
     static String s = "";
     static class R implements AutoCloseable { public void close() { s += "c"; } }
@@ -105,6 +115,8 @@ public class P {
 === try-with-resources closes the resource before the catch clause and the finally block
 jls: o1Bx1CF
 janino: OK
+legacy: WRONG o1BCFFx1
+id: #4
 public class P {
     static StringBuilder t = new StringBuilder();
     static class R implements AutoCloseable {
@@ -122,6 +134,8 @@ public class P {
 === try-with-resources closes the resource before the finally block
 jls: o1Bx1F
 janino: OK
+legacy: WRONG o1BFx1
+id: #4
 public class P {
     static StringBuilder t = new StringBuilder();
     static class R implements AutoCloseable {
@@ -139,6 +153,8 @@ public class P {
 === try-with-resources with two resources closes both before the finally block
 jls: o1o2Bx2x1F
 janino: OK
+legacy: WRONG o1o2BFx2x1
+id: #4
 public class P {
     static StringBuilder t = new StringBuilder();
     static class R implements AutoCloseable {
@@ -156,6 +172,8 @@ public class P {
 === try-with-resources with two resources closes both before the catch clause
 jls: o1o2Bx2x1C
 janino: OK
+legacy: WRONG o1o2BCx2x1
+id: #4
 public class P {
     static StringBuilder t = new StringBuilder();
     static class R implements AutoCloseable {
@@ -173,6 +191,8 @@ public class P {
 === try-with-resources: close() throws after the block completes by return
 jls: o1o2x2x1!c2[]
 janino: OK
+legacy: WRONG r
+id: #4
 public class P {
     static StringBuilder t = new StringBuilder();
     static class R implements AutoCloseable {
@@ -192,6 +212,8 @@ public class P {
 === try-with-resources: close() of both resources throws after the block throws
 jls: o1o2x2x1!b[java.lang.IllegalStateException: c2, java.lang.IllegalStateException: c1]
 janino: OK
+legacy: WRONG o1o2!b[]
+id: #4
 public class P {
     static StringBuilder t = new StringBuilder();
     static class R implements AutoCloseable {
@@ -226,6 +248,8 @@ public class P {
 === try-with-resources: the initialization of the second resource fails
 jls: o1x1C
 janino: OK
+legacy: WRONG o1Cx1
+id: #4
 public class P {
     static StringBuilder t = new StringBuilder();
     static class R implements AutoCloseable {
@@ -244,6 +268,8 @@ public class P {
 === multi-catch: the second alternative is thrown
 jls: caught a
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     public static Object run() {
         try { if (true) throw new IllegalArgumentException("a"); return "no"; }
@@ -254,6 +280,8 @@ public class P {
 === multi-catch: the parameter has the type of the common superclass
 jls: s
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     public static Object run() {
         try { throw new IllegalStateException("s"); }
@@ -264,6 +292,8 @@ public class P {
 === multi-catch: the parameter is an instance of the thrown class
 jls: IllegalArgumentException IllegalArgumentException
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     public static Object run() {
         try { throw new IllegalArgumentException("a"); }
@@ -277,6 +307,8 @@ public class P {
 === multi-catch: precise rethrow of the alternatives
 jls: -IS
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 import java.io.*;
 import java.sql.*;
 public class P {
@@ -296,6 +328,8 @@ public class P {
 === multi-catch with a finally block
 jls: aCF
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     static StringBuilder t = new StringBuilder();
     public static Object run() {
@@ -309,6 +343,8 @@ public class P {
 === multi-catch in a try-with-resources statement
 jls: acCF
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     static StringBuilder t = new StringBuilder();
     static class R implements AutoCloseable { public void close() { t.append('c'); } }
@@ -323,6 +359,8 @@ public class P {
 === multi-catch: two multi-catch clauses and a single-type clause
 jls: -11223
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     static String f(int i) {
         try {
@@ -343,6 +381,8 @@ public class P {
 === multi-catch of the checked exceptions of a method
 jls: -IOExceptionClassNotFoundException
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 import java.io.*;
 public class P {
     static void m(int i) throws IOException, ClassNotFoundException {
@@ -359,6 +399,8 @@ public class P {
 === multi-catch of checked exceptions declared in the compilation unit
 jls: ExAExB
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     static class ExA extends Exception { }
     static class ExB extends Exception { }
@@ -372,6 +414,8 @@ public class P {
 === multi-catch: an anonymous class accesses the parameter
 jls: ok x
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     public static Object run() {
         try { throw new IllegalStateException("x"); }
@@ -386,6 +430,8 @@ public class P {
 === multi-catch: a local class accesses the parameter
 jls: x
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     public static Object run() {
         try { throw new IllegalStateException("x"); }
@@ -399,6 +445,8 @@ public class P {
 === multi-catch with the final modifier
 jls: f
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     public static Object run() {
         try { throw new IllegalArgumentException("f"); }
@@ -409,6 +457,8 @@ public class P {
 === multi-catch with three alternatives
 jls: -IlIlAr
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     static String f(int i) {
         try {
@@ -426,6 +476,8 @@ public class P {
 === multi-catch in a loop with break and continue, with a finally block
 jls: 0F.CFCF
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     static StringBuilder t = new StringBuilder();
     public static Object run() {
@@ -450,6 +502,8 @@ public class P {
 === multi-catch: string concatenation with the parameter
 jls: java.lang.IllegalStateException: m
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     public static Object run() {
         try { throw new IllegalStateException("m"); }
@@ -460,6 +514,8 @@ public class P {
 === multi-catch in a static initializer and in a constructor
 jls: ic
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     static String s;
     static {
@@ -477,6 +533,8 @@ public class P {
 === multi-catch: the common superclass is Throwable
 jls: IllegalStateException true
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     public static Object run() {
         try { throw new IllegalStateException(); }
@@ -490,6 +548,8 @@ public class P {
 === multi-catch: the common superclass is Exception
 jls: x
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 import java.io.*;
 public class P {
     static void m() throws IOException { throw new IOException("x"); }
@@ -501,6 +561,8 @@ public class P {
 === multi-catch: the parameter as a method argument
 jls: E:q
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 import java.io.*;
 import java.sql.*;
 public class P {
@@ -514,6 +576,8 @@ public class P {
 === multi-catch in a synchronized block
 jls: y
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     public static Object run() {
         synchronized (P.class) {
@@ -526,6 +590,8 @@ public class P {
 === multi-catch: instanceof with the parameter
 jls: true false
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     public static Object run() {
         try { throw new IllegalArgumentException(); }
@@ -538,6 +604,8 @@ public class P {
 === multi-catch: the rethrown parameter is caught by an enclosing try statement
 jls: outer n
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     public static Object run() {
         try {
@@ -552,6 +620,8 @@ public class P {
 === multi-catch: nested try statements with multi-catch clauses
 jls: IllegalStateException in
 janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
 public class P {
     public static Object run() {
         try { throw new IllegalStateException(); }
@@ -580,6 +650,8 @@ public class P {
 === try-with-resources: an anonymous class accesses the resource variable
 janino: OK
 jls: ok
+legacy: REJECTED Unknown variable or type "r"
+id: #64
 public class P {
     static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
     public static Object run() {
@@ -594,6 +666,8 @@ public class P {
 === try-with-resources: the block accesses the resource variable
 janino: OK
 jls: r
+legacy: REJECTED Unknown variable or type "r"
+id: #64
 public class P {
     static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
     public static Object run() { try (R r = new R()) { return r.n(); } }
@@ -602,6 +676,8 @@ public class P {
 === try-with-resources: the second resource is initialized with the first
 janino: OK
 jls: aab
+legacy: REJECTED Unknown variable or type "a.n"
+id: #64
 public class P {
     static String s = "";
     static class R implements AutoCloseable {
@@ -615,6 +691,8 @@ public class P {
 === try-with-resources: a local class accesses the resource variable
 janino: OK
 jls: ok
+legacy: REJECTED Unknown variable or type "r"
+id: #64
 public class P {
     static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
     public static Object run() {
@@ -629,6 +707,8 @@ public class P {
 === try-with-resources: three resources, each initialized with the previous one
 jls: abc
 janino: OK
+legacy: REJECTED Unknown variable or type "a.n"
+id: #64
 public class P {
     static class R implements AutoCloseable {
         final String n;
@@ -643,6 +723,8 @@ public class P {
 === try-with-resources: the resource variable is used in a nested try-with-resources statement
 jls: ab
 janino: OK
+legacy: REJECTED Unknown variable or type "a.n"
+id: #64
 public class P {
     static class R implements AutoCloseable {
         final String n;
@@ -659,6 +741,8 @@ public class P {
 === try-with-resources: an anonymous class in the block accesses two resource variables
 jls: ab
 janino: OK
+legacy: REJECTED Expression "a.n" is not an rvalue
+id: #64
 public class P {
     static class R implements AutoCloseable {
         final String n;
@@ -676,6 +760,8 @@ public class P {
 === try-with-resources: the resource variable is accessed from the catch clause of a nested try statement
 jls: r
 janino: OK
+legacy: REJECTED Unknown variable or type "r"
+id: #64
 public class P {
     static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
     public static Object run() {
@@ -688,6 +774,8 @@ public class P {
 === try-with-resources: the resource variable shadows a field
 jls: r
 janino: OK
+legacy: REJECTED A method named "n" is not declared in any enclosing class nor any supertype
+id: #64
 public class P {
     static String r = "field";
     static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
@@ -708,6 +796,8 @@ public class P {
 === try-with-resources: the finally block declares a local variable with the name of the resource variable
 jls: rf
 janino: OK
+legacy: REJECTED Unknown variable or type "r"
+id: #64
 public class P {
     static String s = "";
     static class R implements AutoCloseable { public void close() { } String n() { return "r"; } }
@@ -732,6 +822,8 @@ public class P {
 === try-with-resources: a resource variable declared in a loop
 jls: 012
 janino: OK
+legacy: REJECTED Expression "r.n" is not an rvalue
+id: #64
 public class P {
     static class R implements AutoCloseable {
         final String n;

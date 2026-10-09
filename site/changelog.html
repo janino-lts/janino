@@ -76,6 +76,15 @@ h5 {
         differential tests run in both modes. The class files of the compatibility mode are unchanged.
       </li>
       <li>
+        <a href="https://github.com/janino-lts/janino/issues/103">Issue #103</a>: Added
+        <code>LegacyDifferentialTest</code>, which compiles every recorded case of <code>InvalidCodeTest</code> and
+        <code>LanguageSupportTest</code> with JANINO 3.1.12, the reference of the compatibility mode, and compares the
+        behavior: where the compatibility mode differs from 3.1.12, the record states the behavior of 3.1.12
+        (<code>legacy:</code>) and the issue or deviation ID that explains the difference (<code>id:</code>), so that
+        an unrecorded difference, e.g. a regression, fails the test. 372 of the 925 recorded cases differ, each with
+        its correction. No change of the compiler.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/31">issue #31</a>: Some compile error messages
         pointed in the wrong direction; now they explain the error. Each message keeps the text that it had before,
         and the explanation is appended, because applications and their tests match message texts:

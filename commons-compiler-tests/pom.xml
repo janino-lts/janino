@@ -17,6 +17,10 @@
 
   <properties>
     <automaticModuleName>org.codehaus.commons.compiler.tests</automaticModuleName>
+
+    <!-- The JANINO version that "LegacyDifferentialTest" compares with: the reference of the compatibility mode. -->
+    <janino.legacy.groupId>org.codehaus.janino</janino.legacy.groupId>
+    <janino.legacy.version>3.1.12</janino.legacy.version>
   </properties>
 
   <dependencies>
@@ -104,6 +108,38 @@
 
   <build>
     <plugins>
+
+      <!-- Copies the JAR files of the legacy JANINO version to "target/legacy" for "LegacyDifferentialTest". -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.11.0</version>
+        <executions>
+          <execution>
+            <id>janino-legacy</id>
+            <phase>generate-test-resources</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>${janino.legacy.groupId}</groupId>
+                  <artifactId>janino</artifactId>
+                  <version>${janino.legacy.version}</version>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>${janino.legacy.groupId}</groupId>
+                  <artifactId>commons-compiler</artifactId>
+                  <version>${janino.legacy.version}</version>
+                </artifactItem>
+              </artifactItems>
+              <outputDirectory>${project.build.directory}/legacy</outputDirectory>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>

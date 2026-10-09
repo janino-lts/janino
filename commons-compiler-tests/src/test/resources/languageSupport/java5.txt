@@ -278,6 +278,8 @@ public class P {
 === enum: constants with class bodies implementing an abstract method
 janino: OK
 jls: b
+legacy: REJECTED Non-abstract class "P$E" must implement method "default abstract java.lang.String P$E.n()"
+id: #44
 public class P {
     enum E { A { String n() { return "a"; } }, B { String n() { return "b"; } }; abstract String n(); }
     public static Object run() { return E.B.n(); }
@@ -286,6 +288,8 @@ public class P {
 === enum: constant with class body overriding a concrete method
 janino: OK
 jls: b
+legacy: WRONG a
+id: #44
 public class P {
     enum E { A, B { String n() { return "b"; } }; String n() { return "a"; } }
     public static Object run() { return E.B.n(); }
@@ -345,6 +349,8 @@ public class P {
 === enum: constant class body with a field and an instance initializer
 jls: 2
 janino: OK
+legacy: WRONG 0
+id: #44
 public class P {
     enum E { A { int x = 1; { x++; } int get() { return x; } }; int get() { return 0; } }
     public static Object run() { return String.valueOf(E.A.get()); }
@@ -353,6 +359,8 @@ public class P {
 === enum: constant class body with constructor arguments
 jls: 10
 janino: OK
+legacy: WRONG 5
+id: #44
 public class P {
     enum E { A(5) { int g() { return v * 2; } }; final int v; E(int v) { this.v = v; } int g() { return v; } }
     public static Object run() { return String.valueOf(E.A.g()); }
@@ -361,6 +369,8 @@ public class P {
 === enum: constant with class body is an instance of an anonymous subclass
 jls: true true true P$E$1
 janino: OK
+legacy: WRONG false true true P$E
+id: #44
 public class P {
     enum E { A, B { } }
     public static Object run() {
@@ -372,6 +382,8 @@ public class P {
 === enum: values() and valueOf() with constant class bodies
 jls: 2 b
 janino: OK
+legacy: REJECTED Non-abstract class "P$E" must implement method "default abstract java.lang.String P$E.n()"
+id: #44
 public class P {
     enum E { A { String n() { return "a"; } }, B { String n() { return "b"; } }; abstract String n(); }
     public static Object run() { return E.values().length + " " + E.valueOf("B").n(); }
@@ -402,6 +414,8 @@ public class P {
 === enum: interface method implemented only in the constant class bodies
 jls: a
 janino: OK
+legacy: REJECTED Non-abstract class "P$E" must implement method "public abstract java.lang.String P$I.f()"
+id: #44
 public class P {
     interface I { String f(); }
     enum E implements I { A { public String f() { return "a"; } } }
@@ -411,6 +425,8 @@ public class P {
 === enum: implicitly final unless a constant has a class body, abstract with abstract methods
 jls: true false false true
 janino: OK
+legacy: REJECTED Non-abstract class "P$G" must implement method "default abstract void P$G.f()"
+id: #44
 import java.lang.reflect.*;
 public class P {
     enum E { A }
@@ -426,6 +442,8 @@ public class P {
 jls: 4008 4408 4010
 janino: OK
 minJava: 9
+legacy: REJECTED Non-abstract class "P$F" must implement method "default abstract void P$F.f()"
+id: #44
 public class P {
     enum E { A { } }
     enum F { A { void f() {} }; abstract void f(); }
@@ -438,6 +456,8 @@ public class P {
 === enum: constant class body reads a static field of the enclosing class
 jls: 7
 janino: OK
+legacy: WRONG 0
+id: #44
 public class P {
     static int X = 7;
     enum E { A { int g() { return X; } }; int g() { return 0; } }
@@ -447,6 +467,8 @@ public class P {
 === enum: constant class body overrides toString()
 jls: xBA
 janino: OK
+legacy: WRONG ABA
+id: #44
 public class P {
     enum E { A { public String toString() { return "x"; } }, B }
     public static Object run() { return E.A.toString() + E.B.toString() + E.A.name(); }
@@ -455,6 +477,8 @@ public class P {
 === enum: two constants with class bodies
 jls: P$E$1 P$E$2 01
 janino: OK
+legacy: WRONG P$E P$E 01
+id: #44
 public class P {
     enum E { A { }, B { } }
     public static Object run() {
@@ -465,6 +489,8 @@ public class P {
 === enum: constant class body reads a field of the enum
 jls: 4
 janino: OK
+legacy: WRONG 3
+id: #44
 public class P {
     enum E { A(3) { int d() { return v + 1; } }; final int v; E(int v) { this.v = v; } int d() { return v; } }
     public static Object run() { return String.valueOf(E.A.d()); }
@@ -473,6 +499,8 @@ public class P {
 === enum: declared in an interface, with constant class bodies
 jls: a
 janino: OK
+legacy: REJECTED IDENTIFIER expected instead of '{'
+id: #44
 interface I { enum E { A { String n() { return "a"; } }; abstract String n(); } }
 public class P {
     public static Object run() { return I.E.A.n(); }
@@ -481,6 +509,8 @@ public class P {
 === enum: constant class body invokes the overridden method with super
 jls: ab
 janino: OK
+legacy: WRONG a
+id: #44
 public class P {
     enum E { A { String n() { return super.n() + "b"; } }; String n() { return "a"; } }
     public static Object run() { return E.A.n(); }
@@ -489,6 +519,8 @@ public class P {
 === enum: switch in a constant class body
 jls: x
 janino: OK
+legacy: REJECTED Non-abstract class "P$E" must implement method "default abstract java.lang.String P$E.n()"
+id: #44
 public class P {
     enum E { A { String n() { switch ((E) this) { case A: return "x"; default: return "y"; } } }; abstract String n(); }
     public static Object run() { return E.A.n(); }
@@ -497,6 +529,8 @@ public class P {
 === enum: constant class body invokes a method of the enum
 jls: 9
 janino: OK
+legacy: WRONG 0
+id: #44
 public class P {
     enum E { A { int f() { return g(); } }; int f() { return 0; } int g() { return 9; } }
     public static Object run() { return String.valueOf(E.A.f()); }
@@ -505,6 +539,8 @@ public class P {
 === enum: member class in a constant class body
 jls: 4
 janino: OK
+legacy: WRONG 0
+id: #44
 public class P {
     enum E { A { class Q { int q() { return 4; } } int f() { return new Q().q(); } }; int f() { return 0; } }
     public static Object run() { return String.valueOf(E.A.f()); }
@@ -513,6 +549,8 @@ public class P {
 === enum: anonymous class in a constant class body
 jls: P$E$1$1
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #44
 public class P {
     enum E { A { Runnable r() { return new Runnable() { public void run() {} }; } }; Runnable r() { return null; } }
     public static Object run() { return E.A.r().getClass().getName(); }
@@ -521,6 +559,8 @@ public class P {
 === enum: constant class body accesses another constant
 jls: 5
 janino: OK
+legacy: WRONG 0
+id: #44
 public class P {
     enum E { A { int f() { return E.B.g(); } }, B; int f() { return 0; } int g() { return 5; } }
     public static Object run() { return String.valueOf(E.A.f()); }
@@ -529,6 +569,8 @@ public class P {
 === enum: method of a constant class body invoked through reflection
 jls: 1
 janino: OK
+legacy: WRONG 0
+id: #44
 public class P {
     public enum E { A { public int f() { return 1; } }; public int f() { return 0; } }
     public static Object run() throws Exception { return E.A.getClass().getMethod("f").invoke(E.A); }
@@ -537,6 +579,8 @@ public class P {
 === enum: modifiers of an enum without constant class bodies (final)
 jls: 4018 4010
 janino: OK
+legacy: WRONG 4000 4000
+id: #44
 enum F { A, B }
 public class P {
     enum E { A, B }

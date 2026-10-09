@@ -5,6 +5,8 @@
 === member interface: modifiers (static, interface, abstract)
 jls: 608
 janino: OK
+legacy: WRONG 600
+id: #43
 public class P {
     interface I {}
     public static Object run() { return Integer.toHexString(I.class.getModifiers()); }
@@ -13,6 +15,8 @@ public class P {
 === member interface: declaring class, simple name, isMemberClass()
 jls: J Q true
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #43
 public class P {
     static class Q { interface J {} }
     public static Object run() {
@@ -26,6 +30,8 @@ public class P {
 === strictfp member interface: modifiers
 jls: 608
 janino: OK
+legacy: WRONG 600
+id: #43
 public class P {
     strictfp interface J {}
     public static Object run() { return Integer.toHexString(J.class.getModifiers()); }
@@ -34,6 +40,8 @@ public class P {
 === member enum: modifiers (static, final, enum)
 jls: 4018
 janino: OK
+legacy: WRONG 4000
+id: #43
 public class P {
     enum E { X }
     public static Object run() { return Integer.toHexString(E.class.getModifiers()); }
@@ -42,6 +50,8 @@ public class P {
 === member enum: isStatic()
 jls: true
 janino: OK
+legacy: WRONG false
+id: #43
 public class P {
     enum E { X }
     public static Object run() { return String.valueOf(java.lang.reflect.Modifier.isStatic(E.class.getModifiers())); }
@@ -50,6 +60,8 @@ public class P {
 === member enum nested in a static member class: modifiers
 jls: 4018 8
 janino: OK
+legacy: WRONG 4000 8
+id: #43
 public class P {
     static class Q { enum E { X } }
     public static Object run() {
@@ -100,6 +112,8 @@ public class P {
 === member class of an interface: modifiers (public, static)
 jls: 9
 janino: OK
+legacy: WRONG 0
+id: #43
 interface I { class Q {} }
 public class P {
     public static Object run() { return Integer.toHexString(I.Q.class.getModifiers()); }
@@ -108,6 +122,8 @@ public class P {
 === member class of an interface: instantiation
 jls: true
 janino: OK
+legacy: REJECTED No current instance available in static method
+id: #43
 interface I { class Q {} }
 public class P {
     public static Object run() { return String.valueOf(new I.Q() != null); }
@@ -116,6 +132,8 @@ public class P {
 === member interface of an interface: modifiers
 jls: 609
 janino: OK
+legacy: WRONG 600
+id: #43
 interface I { interface J {} }
 public class P {
     public static Object run() { return Integer.toHexString(I.J.class.getModifiers()); }
@@ -124,6 +142,8 @@ public class P {
 === member enum of an interface: modifiers
 jls: 4019
 janino: OK
+legacy: REJECTED IDENTIFIER expected instead of '}'
+id: #43
 interface I { enum E { X } }
 public class P {
     public static Object run() { return Integer.toHexString(I.E.class.getModifiers()); }
@@ -132,6 +152,8 @@ public class P {
 === member enum of an interface: constants
 jls: X 1
 janino: OK
+legacy: REJECTED IDENTIFIER expected instead of '}'
+id: #43
 interface I { enum E { X } }
 public class P {
     public static Object run() { return I.E.X.name() + " " + I.E.values().length; }
@@ -140,6 +162,8 @@ public class P {
 === member enum of an interface: switch
 jls: 1
 janino: OK
+legacy: REJECTED IDENTIFIER expected instead of ','
+id: #43
 interface I { enum E { X, Y } }
 public class P {
     static int f(I.E e) { switch (e) { case X: return 1; default: return 2; } }
@@ -156,6 +180,8 @@ public class P {
 === final local class: modifiers
 janino: OK
 jls: 10
+legacy: REJECTED IDENTIFIER expected instead of 'class'
+id: #60
 public class P {
     public static Object run() { final class L {} return Integer.toHexString(L.class.getModifiers()); }
 }
@@ -171,6 +197,8 @@ public class P {
 === abstract local class: modifiers, and a subclass
 jls: 400/7
 janino: OK
+legacy: REJECTED Unexpected token "abstract" in primary
+id: #60
 public class P {
     public static Object run() {
         abstract class L { abstract int f(); }
@@ -182,6 +210,8 @@ public class P {
 === strictfp local class: modifiers
 jls: 0
 janino: OK
+legacy: REJECTED Unexpected token "strictfp" in primary
+id: #60
 public class P {
     public static Object run() { strictfp class L {} return Integer.toHexString(L.class.getModifiers()); }
 }
@@ -189,6 +219,8 @@ public class P {
 === local class with a doc comment and a modifier
 jls: 1
 janino: OK
+legacy: REJECTED IDENTIFIER expected instead of 'class'
+id: #60
 public class P {
     public static Object run() {
         /** A local class. */
@@ -200,6 +232,8 @@ public class P {
 === local class: reflection
 jls: [L] true false false P run null null
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #73
 public class P {
     public static Object run() {
         class L { }
@@ -215,6 +249,8 @@ public class P {
 === anonymous class: reflection
 jls: [] false true false P run null null
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #73
 public class P {
     public static Object run() {
         Class c = new Object() { }.getClass();
@@ -229,6 +265,8 @@ public class P {
 === local class in a constructor: enclosing constructor
 jls: P null
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #73
 public class P {
     Class c;
     P() { class C { } c = C.class; }
@@ -241,6 +279,8 @@ public class P {
 === anonymous class in a constructor of an inner class: enclosing constructor
 jls: P$I 2
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #73
 public class P {
     class I { Object o; I(int a) { o = new Object() { }; } }
     public static Object run() {
@@ -255,6 +295,8 @@ public class P {
 === anonymous class in a field initializer: no enclosing method
 jls: P null null true
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #73
 public class P {
     static Object o = new Object() { };
     public static Object run() {
@@ -269,6 +311,8 @@ public class P {
 === anonymous class in a static initializer: no enclosing method
 jls: P null null true
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #73
 public class P {
     static Object o;
     static { o = new Object() { }; }
@@ -284,6 +328,8 @@ public class P {
 === local class in an anonymous class
 jls: K true true h
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #73
 public class P {
     public static Object run() {
         Class c = new Object() { Object h() { class K { } return new K(); } }.h().getClass();
@@ -297,6 +343,8 @@ public class P {
 === anonymous class in a local class
 jls: L g true
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #73
 public class P {
     public static Object run() {
         class L { Object g() { return new Object() { }; } }
@@ -310,6 +358,8 @@ public class P {
 === anonymous class in a private method: enclosing method
 jls: p
 janino: WRONG p$
+legacy: WRONG throws java.lang.NullPointerException
+id: #73
 public class P {
     private Object p() { return new Object() { }; }
     public static Object run() { return new P().p().getClass().getEnclosingMethod().getName(); }
@@ -319,6 +369,8 @@ public class P {
 jls: true E 4010
 janino: OK
 minJava: 9
+legacy: WRONG false P 4000
+id: #73
 public class P {
     enum E { A { }, B }
     public static Object run() {
@@ -333,6 +385,8 @@ public class P {
 === anonymous class in an interface constant
 jls: I null true
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #73
 public class P {
     interface I { Object X = new Object() { }; }
     public static Object run() {
@@ -344,6 +398,8 @@ public class P {
 === local classes with modifiers: reflection
 jls: [F] 10 [A] 400
 janino: OK
+legacy: REJECTED IDENTIFIER expected instead of 'class'
+id: #60, #73
 public class P {
     public static Object run() {
         final class F { }

@@ -3,6 +3,8 @@
 === finally block that returns overrides the return value of the try block
 jls: f
 janino: OK
+legacy: INVALID VerifyError
+id: #2
 public class P {
     static String m() { try { return "t"; } finally { return "f"; } }
     public static Object run() { return m(); }
@@ -19,6 +21,8 @@ public class P {
 === finally block that returns overrides the return value of a catch clause
 jls: f
 janino: OK
+legacy: INVALID VerifyError
+id: #2
 public class P {
     static String m() { try { throw new RuntimeException(); } catch (RuntimeException e) { return "c"; } finally { return "f"; } }
     public static Object run() { return m(); }
@@ -36,6 +40,8 @@ public class P {
 === finally block that returns, in a void method, after a return in the try block
 jls: ok
 janino: OK
+legacy: INVALID VerifyError
+id: #2
 public class P {
     static String s = "ok";
     static void m() { try { return; } finally { return; } }
@@ -53,6 +59,8 @@ public class P {
 === finally block that throws unconditionally after a return in the try block
 jls: t
 janino: OK
+legacy: INVALID VerifyError
+id: #2
 public class P {
     static String m() { try { return "r"; } finally { throw new RuntimeException("t"); } }
     public static Object run() { try { return m(); } catch (RuntimeException e) { return e.getMessage(); } }
@@ -69,6 +77,8 @@ public class P {
 === nested try blocks: the inner finally block returns
 jls: inner
 janino: OK
+legacy: INVALID VerifyError
+id: #2
 public class P {
     static String m() { try { try { return "t"; } finally { return "inner"; } } finally { } }
     public static Object run() { return m(); }
@@ -86,6 +96,8 @@ public class P {
 === synchronized in the try block, and a finally block that returns
 jls: f
 janino: OK
+legacy: INVALID VerifyError
+id: #2
 public class P {
     static String m() { try { synchronized (P.class) { return "s"; } } finally { return "f"; } }
     public static Object run() { return m(); }
@@ -94,6 +106,8 @@ public class P {
 === try-with-resources in the try block, and a finally block that returns
 jls: f
 janino: OK
+legacy: INVALID VerifyError
+id: #2
 public class P {
     static class R implements AutoCloseable { public void close() {} }
     static String m() { try { try (R r = new R()) { return "r"; } } finally { return "f"; } }
@@ -103,6 +117,8 @@ public class P {
 === try/catch in the finally block after a return in the try block
 jls: t
 janino: OK
+legacy: INVALID VerifyError
+id: #2
 public class P {
     static void x() { throw new IllegalStateException(); }
     public static Object run() { try { return "t"; } finally { try { x(); } catch (Exception e) { } } }
@@ -111,6 +127,8 @@ public class P {
 === try/finally in the finally block after a return in the try block
 jls: t1
 janino: OK
+legacy: INVALID VerifyError
+id: #2
 public class P {
     static String s = "";
     static String m() { try { return "t"; } finally { try { s += "1"; } finally { s += ""; } } }
@@ -127,6 +145,8 @@ public class P {
 === synchronized in the finally block after a return in the try block
 jls: t
 janino: OK
+legacy: INVALID VerifyError
+id: #2
 public class P {
     public static Object run() { try { return "t"; } finally { synchronized (P.class) { int k = 1; } } }
 }
@@ -155,6 +175,8 @@ public class P {
 === continue in the finally block of a loop
 jls: 5
 janino: OK
+legacy: INVALID VerifyError
+id: #2
 public class P {
     public static Object run() {
         int n = 0;
@@ -166,6 +188,8 @@ public class P {
 === continue in the finally block, after a return in the try block
 jls: 5
 janino: OK
+legacy: INVALID InternalCompilerException
+id: #2
 public class P {
     public static Object run() {
         int n = 0;
@@ -177,6 +201,8 @@ public class P {
 === break in the finally block, after a return in the try block
 jls: after
 janino: OK
+legacy: INVALID InternalCompilerException
+id: #2
 public class P {
     static String m() { for (;;) { try { return "t"; } finally { break; } } return "after"; }
     public static Object run() { return m(); }
@@ -254,6 +280,8 @@ public class P {
 === catch clause handles an exception, with a finally block
 jls: CF
 janino: OK
+legacy: WRONG CFF
+id: #3
 public class P {
     static StringBuilder t = new StringBuilder();
     public static Object run() {
@@ -279,6 +307,8 @@ public class P {
 === second of several catch clauses handles an exception, with a finally block
 jls: 2F
 janino: OK
+legacy: WRONG 2FF
+id: #3
 public class P {
     static StringBuilder t = new StringBuilder();
     public static Object run() {
@@ -300,6 +330,8 @@ public class P {
 === nested try statements whose catch clauses handle exceptions, with finally blocks
 jls: ciFCF
 janino: OK
+legacy: WRONG ciFFCFF
+id: #3
 public class P {
     static StringBuilder t = new StringBuilder();
     public static Object run() {
@@ -318,6 +350,8 @@ public class P {
 === catch clause with a long local variable handles an exception, with a finally block
 jls: C6F
 janino: OK
+legacy: WRONG C6FF
+id: #3
 public class P {
     static StringBuilder t = new StringBuilder();
     public static Object run() {
@@ -335,6 +369,8 @@ public class P {
 === lock and unlock in a try statement whose catch clause handles an exception
 jls: 0
 janino: OK
+legacy: WRONG -1
+id: #3
 public class P {
     static int locks;
     public static Object run() {
@@ -353,6 +389,8 @@ public class P {
 === exception from an inlined finally block after a return in the try block
 jls: F!
 janino: OK
+legacy: WRONG FF!
+id: #3
 public class P {
     static StringBuilder t = new StringBuilder();
     static String m() { try { return "r"; } finally { t.append('F'); if (t.length() > 0) throw new RuntimeException("f"); } }
@@ -362,6 +400,8 @@ public class P {
 === exception from an inlined finally block after a break in the try block
 jls: F!
 janino: OK
+legacy: WRONG FF!
+id: #3
 public class P {
     static StringBuilder t = new StringBuilder();
     public static Object run() {
@@ -375,6 +415,8 @@ public class P {
 === exception from an inlined finally block is not caught by the catch clause of the same try statement
 jls: !F
 janino: OK
+legacy: WRONG cFCF
+id: #3
 public class P {
     static StringBuilder t = new StringBuilder();
     static String m() {
@@ -386,6 +428,8 @@ public class P {
 === exception from an inlined outer finally block is not caught by an inner catch clause
 jls: !F
 janino: OK
+legacy: WRONG cFCF
+id: #3
 public class P {
     static StringBuilder t = new StringBuilder();
     static String m() {
@@ -401,6 +445,8 @@ public class P {
 === exception from an inlined finally block after a return in a synchronized statement
 jls: F!
 janino: OK
+legacy: WRONG FF!
+id: #5
 public class P {
     static StringBuilder t = new StringBuilder();
     static String m() { try { synchronized (P.class) { return "r"; } } finally { t.append('F'); if (t.length() > 0) throw new RuntimeException("f"); } }

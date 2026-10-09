@@ -59,10 +59,16 @@ import util.TestUtil;
  *     The behavior of JANINO in the compliance mode ({@code JaninoOption.JAVAC_COMPLIANCE}), in the format of the
  *     {@code janino} line (optional, default: the {@code janino} line)
  *   </dd>
+ *   <dt>{@code legacy}</dt>
+ *   <dd>
+ *     The behavior of JANINO 3.1.12 (the reference of the compatibility mode), in the format of the {@code janino}
+ *     line, iff it differs from the {@code janino} line (see {@link LegacyDifferentialTest}); the message of a
+ *     {@code REJECTED} may be omitted
+ *   </dd>
  *   <dt>{@code id}</dt>
  *   <dd>
  *     The ID of the deviation from JAVAC in {@code JAVAC_DIFFERENCES.md} (e.g. "S-01"), or the number of the issue
- *     (e.g. "#97"); required iff {@code compliant} is present
+ *     (e.g. "#97"); required iff {@code compliant} or {@code legacy} is present
  *   </dd>
  *   <dt>{@code minJava}</dt>
  *   <dd>The minimum JVM version for the JDK-based compiler (optional, default 8)</dd>
@@ -81,6 +87,9 @@ class Records {
 
     /** The key of the behavior in the compliance mode. */
     static final String COMPLIANT = "compliant";
+
+    /** The key of the behavior of JANINO 3.1.12. */
+    static final String LEGACY = "legacy";
 
     /** The key of the ID of the deviation. */
     static final String ID = "id";
@@ -103,7 +112,7 @@ class Records {
 
         Set<String> known = new HashSet<>(required);
         known.addAll(Arrays.asList(optionalKeys));
-        known.addAll(Arrays.asList(Records.COMPLIANT, Records.ID, Records.MIN_JAVA));
+        known.addAll(Arrays.asList(Records.COMPLIANT, Records.LEGACY, Records.ID, Records.MIN_JAVA));
 
         List<Case> result = new ArrayList<>();
         for (String fileName : fileNames) {
@@ -165,11 +174,34 @@ class Records {
         for (String key : required) {
             if (!keys.containsKey(key)) throw new IOException(file + ": Case \"" + id + "\" lacks \"" + key + "\"");
         }
-        if (keys.containsKey(Records.COMPLIANT) && !keys.containsKey(Records.ID)) {
-            throw new IOException(file + ": Case \"" + id + "\" has \"compliant\", but lacks \"id\"");
+        for (String key : new String[] { Records.COMPLIANT, Records.LEGACY }) {
+            if (keys.containsKey(key) && !keys.containsKey(Records.ID)) {
+                throw new IOException(file + ": Case \"" + id + "\" has \"" + key + "\", but lacks \"id\"");
+            }
         }
 
         return new Case(file.getName(), id, keys, source);
+    }
+
+    /**
+     * @return The kind of a behavior (in the format of the "janino" lines): {@code "REJECTED"} for a {@code REJECTED}
+     *         with any message (the message is not behavior: it differs between versions where the behavior is the
+     *         same), otherwise the behavior itself
+     */
+    static String
+    kind(String behavior) { return behavior.startsWith("REJECTED") ? "REJECTED" : behavior; }
+
+    /**
+     * Whether the <var>actual</var> behavior matches the <var>expected</var> one (both in the format of the "janino"
+     * lines): they are of the same {@link #kind(String)}, and if <var>expected</var> is a {@code REJECTED} with a
+     * message, the actual message contains it.
+     */
+    static boolean
+    matches(String expected, String actual) {
+        if (expected.startsWith("REJECTED")) {
+            return actual.startsWith("REJECTED") && actual.contains(expected.substring("REJECTED".length()).trim());
+        }
+        return expected.equals(actual);
     }
 
     /**

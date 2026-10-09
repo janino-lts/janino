@@ -48,6 +48,8 @@ public class P {
 === invocation of a superinterface default method (I.super.m())
 janino: OK
 jls: i
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     interface I { default String m() { return "i"; } }
     static class C implements I { public String m() { return I.super.m(); } }
@@ -57,6 +59,8 @@ public class P {
 === effectively final local variable captured by an anonymous class
 janino: OK
 jls: 5
+legacy: REJECTED Cannot access non-final local variable "x" from inner class
+id: #24
 public class P {
     public static Object run() {
         int x = 5;
@@ -68,6 +72,8 @@ public class P {
 === static interface method: a class implements the interface, both declared in source code
 jls: ok
 janino: OK
+legacy: REJECTED Non-abstract class "P" must implement method "public static abstract void I.s()"
+id: #53
 interface I { static void s() {} }
 public class P implements I {
     public static Object run() { return "ok"; }
@@ -76,6 +82,8 @@ public class P implements I {
 === I.super.m(): with arguments
 jls: n2a!
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     interface I { default String n(int x, String s) { return "n" + x + s; } }
     static class C implements I { public String n(int x, String s) { return I.super.n(x + 1, s + "!"); } }
@@ -85,6 +93,8 @@ public class P {
 === I.super.m(): from the default method of a subinterface
 jls: ji
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     interface I { default String m() { return "i"; } }
     interface J extends I { default String m() { return "j" + I.super.m(); } }
@@ -95,6 +105,8 @@ public class P {
 === I.super.m(): the default method is inherited from a superinterface of I
 jls: ch
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     interface H { default String m() { return "h"; } }
     interface I extends H { }
@@ -105,6 +117,8 @@ public class P {
 === I.super.m(): two direct superinterfaces with the same default method
 jls: ij
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     interface I { default String m() { return "i"; } }
     interface J { default String m() { return "j"; } }
@@ -115,6 +129,8 @@ public class P {
 === I.super.m(): in a constructor
 jls: i!
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     interface I { default String m() { return "i"; } }
     static class C implements I { String s; C() { s = I.super.m() + "!"; } public String m() { return "c"; } }
@@ -124,6 +140,8 @@ public class P {
 === I.super.m(): in an anonymous class
 jls: ai
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     interface I { default String m() { return "i"; } }
     public static Object run() {
@@ -135,6 +153,8 @@ public class P {
 === I.super.m(): a void method
 jls: ci
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     interface I { default void m(StringBuilder sb) { sb.append("i"); } }
     static class C implements I { public void m(StringBuilder sb) { sb.append("c"); I.super.m(sb); } }
@@ -144,6 +164,8 @@ public class P {
 === I.super.m(): the default method throws a checked exception
 jls: caught x
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     interface I { default String m() throws java.io.IOException { throw new java.io.IOException("x"); } }
     static class C implements I {
@@ -157,6 +179,8 @@ public class P {
 === I.super.m(): a default method of a JDK interface
 jls: 1
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 import java.util.*;
 public class P {
     static class C implements Comparator {
@@ -169,6 +193,8 @@ public class P {
 === effectively final parameters captured by an anonymous class
 jls: v5
 janino: OK
+legacy: REJECTED Cannot access non-final local variable "s" from inner class
+id: #24
 public class P {
     static String f(int x, String s) {
         return new Object() { public String toString() { return s + x; } }.toString();
@@ -179,6 +205,8 @@ public class P {
 === effectively final catch parameter captured by an anonymous class
 jls: boom
 janino: OK
+legacy: REJECTED Cannot access non-final local variable "e" from inner class
+id: #24
 public class P {
     public static Object run() {
         try {
@@ -192,6 +220,8 @@ public class P {
 === effectively final variable of an enhanced for statement over an array captured by an anonymous class
 jls: ab
 janino: OK
+legacy: REJECTED Cannot access non-final local variable "s" from inner class
+id: #24
 public class P {
     public static Object run() {
         StringBuilder sb = new StringBuilder();
@@ -205,6 +235,8 @@ public class P {
 === effectively final variable of an enhanced for statement over an Iterable captured by an anonymous class
 jls: ab
 janino: OK
+legacy: REJECTED Cannot access non-final local variable "s" from inner class
+id: #24
 public class P {
     public static Object run() {
         StringBuilder sb = new StringBuilder();
@@ -218,6 +250,8 @@ public class P {
 === effectively final local variables of several types captured by an anonymous class
 jls: 1-2-3.5-s
 janino: OK
+legacy: REJECTED Cannot access non-final local variable "i" from inner class
+id: #24
 public class P {
     public static Object run() {
         int i = 1; long l = 2L; double d = 3.5; String s = "s";
@@ -228,6 +262,8 @@ public class P {
 === assignment to an element of an effectively final array captured by an anonymous class
 jls: 5
 janino: OK
+legacy: REJECTED Cannot access non-final local variable "a" from inner class
+id: #24
 public class P {
     public static Object run() {
         int[] a = { 4 };
@@ -239,6 +275,8 @@ public class P {
 === effectively final local variable captured by a local class
 jls: 7
 janino: OK
+legacy: REJECTED Cannot access non-final local variable "x" from inner class
+id: #24
 public class P {
     public static Object run() {
         int x = 7;
@@ -250,6 +288,8 @@ public class P {
 === effectively final local variable captured by an anonymous class in an instance initializer
 jls: 8
 janino: OK
+legacy: REJECTED Cannot access non-final local variable "x" from inner class
+id: #24
 public class P {
     String v;
     { int x = 8; v = new Object() { public String toString() { return "" + x; } }.toString(); }
@@ -259,6 +299,8 @@ public class P {
 === effectively final local variable captured by an anonymous class in a constructor
 jls: 9
 janino: OK
+legacy: REJECTED Cannot access non-final local variable "x" from inner class
+id: #24
 public class P {
     String v;
     P(int p) { int x = p + 1; v = new Object() { public String toString() { return "" + x; } }.toString(); }
@@ -268,6 +310,8 @@ public class P {
 === effectively final local variable captured by a nested anonymous class
 jls: 10
 janino: OK
+legacy: REJECTED Cannot access non-final local variable "x" from inner class
+id: #24
 public class P {
     public static Object run() {
         int x = 10;
@@ -280,6 +324,8 @@ public class P {
 === effectively final local variable declared in a loop body and captured by an anonymous class
 jls: 024
 janino: OK
+legacy: REJECTED Cannot access non-final local variable "x" from inner class
+id: #24
 public class P {
     public static Object run() {
         StringBuilder sb = new StringBuilder();
@@ -294,6 +340,8 @@ public class P {
 === effectively final local variable read by the method after an anonymous class captured it
 jls: 1111
 janino: OK
+legacy: REJECTED Cannot access non-final local variable "x" from inner class
+id: #24
 public class P {
     public static Object run() {
         int x = 11;
@@ -305,6 +353,8 @@ public class P {
 === effectively final local variable captured by an anonymous class that declares a variable with the same name
 jls: 122
 janino: OK
+legacy: REJECTED Cannot access non-final local variable "x" from inner class
+id: #24
 public class P {
     public static Object run() {
         int x = 12;
@@ -352,6 +402,8 @@ public class P {
 === effectively final loop variable of a basic for statement captured by an anonymous class
 janino: OK
 jls: 7
+legacy: REJECTED Cannot access non-final local variable "i" from inner class
+id: #75
 public class P {
     public static Object run() {
         for (int i = 7; i < 9; ) {
