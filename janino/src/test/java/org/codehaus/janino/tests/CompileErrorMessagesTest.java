@@ -24,7 +24,14 @@
 
 package org.codehaus.janino.tests;
 
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.codehaus.commons.compiler.CompileException;
+import org.codehaus.commons.compiler.util.resource.MapResourceFinder;
+import org.codehaus.janino.ClassBodyEvaluator;
+import org.codehaus.janino.JavaSourceClassLoader;
 import org.codehaus.janino.SimpleCompiler;
 import org.junit.Assert;
 import org.junit.Test;
@@ -32,8 +39,8 @@ import org.junit.Test;
 /**
  * The compile error messages that issue #31 improves. Applications and their tests match message texts, so each
  * message keeps the text that it had before, at its beginning, and an explanation is appended; the location is
- * unchanged. The only exception is the typo "Duplication access modifier". The negative tests ({@code
- * InvalidCodeTest}) still expect the old texts.
+ * unchanged. The exceptions are the typo "Duplication access modifier" and cyclic inheritance, which JANINO reported as
+ * "Compilation unit is nested too deeply". The negative tests ({@code InvalidCodeTest}) still expect the old texts.
  */
 public
 class CompileErrorMessagesTest {
@@ -182,6 +189,60 @@ class CompileErrorMessagesTest {
             ),
             "public class P {\n    java.util.Mapx.Entry x;\n}"
         );
+    }
+
+    /**
+     * Before, the check for a circularity recursed until a {@link StackOverflowError}, which JANINO reported as
+     * "Compilation unit is nested too deeply" ("Script is nested too deeply" in the evaluators).
+     */
+    @Test public void
+    testCyclicInheritance() throws Exception {
+        CompileErrorMessagesTest.assertMessage(
+            "Class circularity detected for \"A\"",
+            "class A extends B {}\nclass B extends A {}"
+        );
+        CompileErrorMessagesTest.assertMessage("Class circularity detected for \"A\"", "class A extends A {}");
+        CompileErrorMessagesTest.assertMessage(
+            "Class circularity detected for \"A$B\"",
+            "class A { static class B extends B {} }"
+        );
+        CompileErrorMessagesTest.assertMessage(
+            "Interface circularity detected for \"I\"",
+            "interface I extends J { void f(); }\ninterface J extends I {}"
+        );
+
+        try {
+            new ClassBodyEvaluator().cook("static class A extends B {}\nstatic class B extends A {}");
+            Assert.fail();
+        } catch (CompileException ce) {
+            Assert.assertEquals("Class circularity detected for \"SC$A\"", ce.getMessage());
+        }
+
+        // The "JavaSourceClassLoader" did not catch the StackOverflowError.
+        Map<String, byte[]> sources = new HashMap<>();
+        sources.put("pkg/A.java", "package pkg; public class A extends B {}".getBytes(StandardCharsets.UTF_8));
+        sources.put("pkg/B.java", "package pkg; public class B extends A {}".getBytes(StandardCharsets.UTF_8));
+        JavaSourceClassLoader jscl = new JavaSourceClassLoader(CompileErrorMessagesTest.class.getClassLoader());
+        jscl.setSourceFinder(new MapResourceFinder(sources));
+        try {
+            jscl.loadClass("pkg.A");
+            Assert.fail();
+        } catch (ClassNotFoundException cnfe) {
+            Assert.assertEquals("Class circularity detected for \"pkg.A\"", cnfe.getMessage());
+        }
+    }
+
+    /**
+     * Cycles that JANINO does not detect are compiled as before (JAVAC reports "cyclic inheritance").
+     */
+    @Test public void
+    testUndetectedCycles() throws Exception {
+
+        // An empty cycle of interfaces; the JVM rejects the class files.
+        new SimpleCompiler().cook("interface I extends J {}\ninterface J extends I {}");
+
+        // The superclass is a member type of the class.
+        new SimpleCompiler().cook("class A extends A.B { static class B {} }");
     }
 
     /**

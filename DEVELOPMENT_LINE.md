@@ -20,7 +20,7 @@ changes in behavior and what stays the same; the class file comparison of the
 
 | Issue | Change | Class files | Behavior |
 |---|---|---|---|
-| [#31](https://github.com/janino-lts/janino/issues/31) | Compile error messages explain the error (in part) | unchanged | message texts |
+| [#31](https://github.com/janino-lts/janino/issues/31) | Compile error messages explain the error | unchanged | message texts |
 | [#73](https://github.com/janino-lts/janino/issues/73) | Local and anonymous classes as `javac` describes them | changed | reflection results |
 | [#74](https://github.com/janino-lts/janino/issues/74) | No `ACC_STRICT` in the flags of `strictfp` classes | changed | unchanged |
 | [#76](https://github.com/janino-lts/janino/issues/76) | `AbstractTraverser` descends into initializers | unchanged | subclasses of `AbstractTraverser` |
@@ -32,7 +32,7 @@ changes in behavior and what stays the same; the class file comparison of the
 **Behavior.** Some compile error messages pointed in the wrong direction; now they explain the error. Janino rejects
 the same code as before, at the same locations. Applications and their tests match message texts, so each message
 keeps the text that it had in 3.1.x, at its beginning, and the explanation is appended (`...` in the table); a check
-with `contains()` or `startsWith()` still matches. The only exception is a typo.
+with `contains()` or `startsWith()` still matches. The exceptions are a typo and cyclic inheritance (see below).
 
 | Code | 3.1.x | `master` |
 |---|---|---|
@@ -42,8 +42,18 @@ with `contains()` or `startsWith()` still matches. The only exception is a typo.
 | `this(1);` or `super(1);` not as the first statement of a constructor | `Expression "this()" is not an rvalue` | `...; an explicit constructor invocation is only allowed as the first statement of a constructor body` |
 | `int x; static int f() { return x; }` | `Expression "P" is not an rvalue` | `...; non-static field "x" cannot be referenced from a static context` |
 | `java.foo.Bar x;` | `Cannot determine simple type name "java"` | `...; no type "java.foo.Bar" found` |
+| `class A extends B {} class B extends A {}` | `Compilation unit is nested too deeply` | `Class circularity detected for "A"` |
 
 The message about a simple name that denotes no type, e.g. `Cannot determine simple type name "Foo"`, is unchanged.
+
+For cyclic inheritance, the check for a circularity used to recurse until a `StackOverflowError`, which Janino
+reported as `Compilation unit is nested too deeply` (`ClassBodyEvaluator` and `ScriptEvaluator`: `Script is nested
+too deeply`; `JavaSourceClassLoader` threw the `StackOverflowError`). Now the check detects the cycle and reports the
+message that Janino already had for it, `Class circularity detected for "A"` (for interfaces: `Interface circularity
+detected for "I"`), without a location, like the old message; `JavaSourceClassLoader` throws a
+`ClassNotFoundException` with this message. The old text is not kept, because it described the stack overflow and
+depended on the entry point. Cycles that Janino did not detect before are compiled as before: an empty cycle of
+interfaces (the JVM rejects the class files) and a class that extends its own member type.
 
 **Class files.** Unchanged.
 

@@ -58,7 +58,7 @@ final class A {}
 public class P extends A {}
 
 === cyclic inheritance
-janino: REJECTED Compilation unit is nested too deeply
+janino: REJECTED Class circularity detected for "A"
 class A extends B {}
 class B extends A {}
 

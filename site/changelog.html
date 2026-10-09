@@ -59,7 +59,7 @@ h5 {
     </p>
     <ul>
       <li>
-        <a href="https://github.com/janino-lts/janino/issues/31">Issue #31</a>, in part: Some compile error messages
+        Fixed <a href="https://github.com/janino-lts/janino/issues/31">issue #31</a>: Some compile error messages
         pointed in the wrong direction; now they explain the error. Each message keeps the text that it had before,
         and the explanation is appended, because applications and their tests match message texts:
         <code>int i = 09;</code> ("...; digit '9' not allowed in octal literal"), an initializer in an interface
@@ -68,8 +68,11 @@ h5 {
         first statement of a constructor body"), a non-static field referenced from a static context ("...;
         non-static field "x" cannot be referenced from a static context"), and a qualified type name like
         <code>java.foo.Bar</code> that denotes no type ("...; no type "java.foo.Bar" found"). The typo in
-        "Duplication access modifier" is fixed ("Duplicate access modifier"). The same code is rejected as before,
-        and the class files are unchanged.
+        "Duplication access modifier" is fixed ("Duplicate access modifier"). For cyclic inheritance, the check for a
+        circularity recursed until a <code>StackOverflowError</code>, which was reported as "Compilation unit is
+        nested too deeply" (<code>JavaSourceClassLoader</code> threw the <code>StackOverflowError</code>); now the
+        cycle is detected and reported as "Class circularity detected for "A"" (or "Interface circularity detected for
+        "I""). The same code is rejected as before, and the class files are unchanged.
       </li>
       <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/73">issue #73</a>: The class files of local and
