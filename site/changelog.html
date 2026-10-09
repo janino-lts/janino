@@ -52,6 +52,17 @@ h5 {
     <h4>Version 3.1.19 (unreleased)</h4>
     <ul>
       <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/97">issue #97</a>: An inner class whose superclass
+        is an inner class that extends the enclosing class, e.g. <code>class R extends Q</code> with
+        <code>class Q extends P</code> in <code>class P</code>, compiled into a class that the JVM rejected
+        (<code>VerifyError</code>): the constructor of <code>R</code> passed its own, still uninitialized instance
+        instead of the enclosing instance of <code>R</code> to the constructor of <code>Q</code>, because JANINO
+        searched for the enclosing instance of the superclass starting with <code>R</code> itself, which is a
+        subclass of <code>P</code>. The same held for anonymous and local subclasses of <code>Q</code> in a method
+        of <code>R</code>. Now the search starts with the class that encloses <code>R</code>, like with JAVAC. Only
+        the class files of such constructors change; the class files of all other code are unchanged.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/87">issue #87</a>: A <code>protected</code> member
         type (class, interface or enum) could not be used from a subclass of the enclosing type in another package,
         although JANINO compiled the code: the JVM threw an <code>IllegalAccessError</code>, e.g. for
@@ -68,6 +79,11 @@ h5 {
         (<a href="https://github.com/janino-lts/janino/issues/33">issue #33</a>): a <code>private</code> member type
         of a class in another package, e.g. <code>java.util.ArrayList.Itr.class</code>; JANINO compiles it, and the
         JVM throws an <code>IllegalAccessError</code> when it resolves the reference. The behavior is unchanged.
+      </li>
+      <li>
+        New test cases: seven cases of valid code with inner classes that extend inner classes of their enclosing
+        class (#97), and three cases of invalid code of this kind in static contexts, which JANINO compiles into
+        classes that the JVM rejects, as before.
       </li>
     </ul>
 

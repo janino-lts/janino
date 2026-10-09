@@ -4404,6 +4404,7 @@ class UnitCompiler {
                             cd.getLocation(),                                        // location
                             new SimpleType(cd.getLocation(), outerClassOfSuperclass) // qualification
                         );
+                        this.superclassConstructorEnclosingInstances.add(qualification);
                     }
 
                     // Initialize "this.this$0" and friends.
@@ -5060,6 +5061,13 @@ class UnitCompiler {
         return true;
     }
 
+    /**
+     * The "{@code O.this}" that the compiler generates as the enclosing instance of an unqualified superclass
+     * constructor invocation, where {@code O} is the class that immediately encloses the superclass; see {@link
+     * #referenceThis(Locatable, AbstractTypeDeclaration, TypeBodyDeclaration, IType, boolean)}.
+     */
+    private final Set<QualifiedThisReference> superclassConstructorEnclosingInstances = new HashSet<>();
+
     private boolean
     compile2(SuperConstructorInvocation sci) throws CompileException {
         ConstructorDeclarator    declaringConstructor = (ConstructorDeclarator) sci.getEnclosingScope();
@@ -5083,11 +5091,13 @@ class UnitCompiler {
             if (outerIClassOfSuperclass == null) {
                 enclosingInstance = null;
             } else {
-                enclosingInstance = new QualifiedThisReference(
+                QualifiedThisReference qtr = new QualifiedThisReference(
                     sci.getLocation(),                                         // location
                     new SimpleType(sci.getLocation(), outerIClassOfSuperclass) // qualification
                 );
-                enclosingInstance.setEnclosingScope(sci);
+                qtr.setEnclosingScope(sci);
+                this.superclassConstructorEnclosingInstances.add(qtr);
+                enclosingInstance = qtr;
             }
         }
         this.invokeConstructor(
@@ -5728,10 +5738,11 @@ class UnitCompiler {
     private IType
     compileGet2(QualifiedThisReference qtr) throws CompileException {
         this.referenceThis(
-            qtr,                                       // locatable
-            this.getDeclaringClass(qtr),               // declaringClass
-            this.getDeclaringTypeBodyDeclaration(qtr), // declaringTypeBodyDeclaration
-            this.getTargetIType(qtr)                   // targetIClass
+            qtr,                                                        // locatable
+            this.getDeclaringClass(qtr),                                // declaringClass
+            this.getDeclaringTypeBodyDeclaration(qtr),                  // declaringTypeBodyDeclaration
+            this.getTargetIType(qtr),                                   // targetIClass
+            this.superclassConstructorEnclosingInstances.contains(qtr) // enclosingClassesFirst
         );
         return this.getTargetIType(qtr);
     }
@@ -12679,6 +12690,21 @@ class UnitCompiler {
         TypeBodyDeclaration     declaringTypeBodyDeclaration,
         IType                   targetIType
     ) throws CompileException {
+        return this.referenceThis(locatable, declaringType, declaringTypeBodyDeclaration, targetIType, false);
+    }
+
+    /**
+     * @param enclosingClassesFirst Whether to prefer the innermost enclosing class that is a subtype of the
+     *                              <var>targetIType</var> to the <var>declaringType</var> itself; see below
+     */
+    @Nullable private IClass
+    referenceThis(
+        Locatable               locatable,
+        AbstractTypeDeclaration declaringType,
+        TypeBodyDeclaration     declaringTypeBodyDeclaration,
+        IType                   targetIType,
+        boolean                 enclosingClassesFirst
+    ) throws CompileException {
         List<TypeDeclaration> path = UnitCompiler.getOuterClasses(declaringType);
 
         if (UnitCompiler.isStaticContext(declaringTypeBodyDeclaration)) {
@@ -12689,6 +12715,21 @@ class UnitCompiler {
 
         int j;
         TARGET_FOUND: {
+
+            // The enclosing instance of a superclass constructor invocation is a lexically enclosing instance (JLS8
+            // 8.8.7.1), never the instance that the constructor initializes: before the invocation, "this" is
+            // uninitialized, and the JVM rejects it as an argument. Before issue #97 was fixed, the search started
+            // with the declaring type, which yields "this" when the declaring type is a subtype of the target type,
+            // e.g. "class R extends Q" in "class P { class Q extends P {} ... }". Without such an enclosing class
+            // (e.g. in a static method), the search below yields the same as before.
+            if (enclosingClassesFirst) {
+                for (j = 1; j < path.size(); ++j) {
+                    if (UnitCompiler.isAssignableFrom(targetIType, this.resolve((TypeDeclaration) path.get(j)))) {
+                        break TARGET_FOUND;
+                    }
+                }
+            }
+
             for (j = 0; j < path.size(); ++j) {
 
                 // Notice: JLS7 15.9.2.BL1.B3.B1.B2 seems to be wrong: Obviously, JAVAC does not only allow
