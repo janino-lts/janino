@@ -85,6 +85,17 @@ h5 {
         its correction. No change of the compiler.
       </li>
       <li>
+        <a href="https://github.com/janino-lts/janino/issues/103">Issue #103</a>:
+        <a href="https://github.com/janino-lts/janino/blob/master/JAVAC_DIFFERENCES.md">Differences between Janino
+        and javac</a> is now the register of deviations: it states the contract of the two modes, and every deviation
+        has a stable ID with its class (S, D, L, G, F or A) and what each mode does with it; every test record that
+        documents a deviation names its ID. Two released corrections that also reject a form of invalid code which
+        JANINO 3.1.12 compiled, found by <code>LegacyDifferentialTest</code>, are registered as the exceptions A-07
+        (a cast of the clone of an array to an unrelated array type, <a
+        href="https://github.com/janino-lts/janino/issues/58">issue #58</a>) and A-08 (a duplicate annotation on a
+        parameter, <a href="https://github.com/janino-lts/janino/issues/61">issue #61</a>). No change of the compiler.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/31">issue #31</a>: Some compile error messages
         pointed in the wrong direction; now they explain the error. Each message keeps the text that it had before,
         and the explanation is appended, because applications and their tests match message texts:

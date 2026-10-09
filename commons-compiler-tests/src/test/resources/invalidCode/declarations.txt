@@ -39,18 +39,21 @@ public class P extends A { void f() {} }
 === override with weaker access
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-08
 class A { public void f() {} }
 public class P extends A { void f() {} }
 
 === static method hides instance method
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-09
 class A { void f() {} }
 public class P extends A { static void f() {} }
 
 === instance method overrides static method
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-09
 class A { static void f() {} }
 public class P extends A { void f() {} }
 
@@ -181,6 +184,7 @@ public class P {
 === static default interface method
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-16
 interface I {
     static default void f() {}
 }
@@ -194,6 +198,7 @@ interface I {
 === interface field without initializer
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-16
 interface I {
     int X;
 }
@@ -237,6 +242,7 @@ id: #32
 === enum constructor is public
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-19
 enum E {
     X;
     public E() {}
@@ -288,18 +294,21 @@ id: #32
 === private method with the signature of a final method of the superclass
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-10
 class A { public final void f() {} }
 public class P extends A { private void f() {} }
 
 === static method hides static final method
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-09
 class A { static final void f() {} }
 public class P extends A { static void f() {} }
 
 === duplicate field with different types
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-13
 public class P {
     int x;
     long x;
@@ -308,6 +317,7 @@ public class P {
 === blank final field never assigned
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-03
 public class P {
     final int x;
 }
@@ -315,6 +325,7 @@ public class P {
 === blank static final field never assigned
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-03
 public class P {
     static final int X;
 }
@@ -322,18 +333,21 @@ public class P {
 === override throws a broader checked exception
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-11
 class A { void f() throws java.io.IOException {} }
 public class P extends A { void f() throws Exception {} }
 
 === override adds a checked exception
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-11
 class A { void f() {} }
 public class P extends A { void f() throws Exception {} }
 
 === throws clause with a type that is not a Throwable
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-12
 public class P {
     void f() throws String {}
 }
@@ -341,6 +355,7 @@ public class P {
 === interface method implemented with weaker access
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-08
 public class P implements Runnable {
     void run() {}
 }
@@ -348,24 +363,28 @@ public class P implements Runnable {
 === default method overrides a method of Object
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-17
 interface I { default boolean equals(Object o) { return true; } }
 public class P {}
 
 === annotation element with a parameter
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-21
 @interface X { int value(int i); }
 public class P {}
 
 === annotation element of type Object
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-21
 @interface X { Object value(); }
 public class P {}
 
 === two default methods with the same signature inherited from two interfaces
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-18
 interface A { default void f() {} }
 interface B { default void f() {} }
 public class P implements A, B {}
@@ -373,23 +392,27 @@ public class P implements A, B {}
 === annotation without a value for an element without a default
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-23
 @interface X { int value(); }
 @X public class P {}
 
 === @Override on a class
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-24
 @Override public class P {}
 
 === @FunctionalInterface on an interface with two abstract methods
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-25
 @FunctionalInterface interface I { void f(); void g(); }
 public class P {}
 
 === @SafeVarargs on a non-final instance method
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-26
 public class P {
     @SafeVarargs void f(String... s) {}
 }
@@ -397,6 +420,7 @@ public class P {
 === annotation with @Target(METHOD) on a field
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-24
 import java.lang.annotation.*;
 @Target(ElementType.METHOD) @interface X {}
 public class P { @X int f; }
@@ -478,6 +502,7 @@ public class P {
 === native strictfp method
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-15
 public class P {
     native strictfp void f();
 }
@@ -509,7 +534,7 @@ public class P implements J {
 === member annotation type with type parameters
 janino: REJECTED '{' expected instead of '<'
 legacy: ACCEPTED
-id: #43
+id: A-06, #43
 public class P {
     @interface A<T> {}
 }
@@ -517,7 +542,7 @@ public class P {
 === member annotation type with an extends clause
 janino: REJECTED '{' expected instead of 'extends'
 legacy: ACCEPTED
-id: #43
+id: A-06, #43
 public class P {
     @interface A extends Runnable {}
 }
@@ -525,7 +550,7 @@ public class P {
 === class implements a member annotation type without annotationType()
 janino: REJECTED Non-abstract class "P$Impl" must implement method
 legacy: ACCEPTED
-id: #43
+id: A-06, #43
 public class P {
     @interface A {}
     static class Impl implements A {}
@@ -534,7 +559,7 @@ public class P {
 === default method in a member annotation type
 janino: REJECTED Access modifier(s) default not allowed in this context
 legacy: ACCEPTED
-id: #43
+id: A-06, #43
 public class P {
     @interface A { default int f() { return 1; } }
 }
@@ -542,7 +567,7 @@ public class P {
 === static method in a member annotation type
 janino: REJECTED Access modifier(s) static not allowed in this context
 legacy: ACCEPTED
-id: #43
+id: A-06, #43
 public class P {
     @interface A { static int f() { return 1; } }
 }
@@ -550,6 +575,7 @@ public class P {
 === member annotation element with a parameter
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-21
 public class P {
     @interface A { int f(int i); }
 }
@@ -557,6 +583,7 @@ public class P {
 === member annotation element of type void
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-21
 public class P {
     @interface A { void f(); }
 }
@@ -564,6 +591,7 @@ public class P {
 === member annotation element of its own type
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-21
 public class P {
     @interface A { A[] value(); }
 }
@@ -578,13 +606,14 @@ id: #43
 === annotation element value of the wrong type
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-23
 @interface X { int value(); }
 @X("x") public class P {}
 
 === duplicate annotation on a parameter
 janino: REJECTED Duplicate annotation "X"
 legacy: ACCEPTED
-id: #43
+id: A-08, #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface X {}
 public class P {
@@ -594,6 +623,7 @@ public class P {
 === annotation with @Target(METHOD) on a parameter
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-24
 import java.lang.annotation.*;
 @Target(ElementType.METHOD) @interface X {}
 public class P {
@@ -633,6 +663,7 @@ public class P {
 === final enum
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-19
 public class P {
     final enum E { A }
 }
@@ -641,7 +672,7 @@ public class P {
 janino: ACCEPTED
 recovery: ACCEPTED
 legacy: REJECTED Non-abstract class "P$E" must implement method "default abstract java.lang.String P$E.n()"
-id: #44
+id: L-20, #44
 public class P {
     enum E { A { String n() { return p(); } }; private String p() { return "p"; } abstract String n(); }
 }
@@ -681,6 +712,7 @@ public class P { void f() { strictfp int x = 1; } }
 === anonymous subclass of an inner class that extends the enclosing class, in a static method
 janino: INVALID LinkageError
 recovery: ACCEPTED
+id: D-06
 public class P {
     class Q extends P { }
     static Object f() { return new Q() { }; }
@@ -689,6 +721,7 @@ public class P {
 === local subclass of an inner class that extends the enclosing class, in a static method
 janino: INVALID LinkageError
 recovery: ACCEPTED
+id: D-06
 public class P {
     class Q extends P { }
     static Object f() {
@@ -700,6 +733,7 @@ public class P {
 === static member class that extends an inner class that extends the enclosing class
 janino: INVALID LinkageError
 recovery: ACCEPTED
+id: D-06
 public class P {
     class Q extends P { }
     static class S extends Q { }

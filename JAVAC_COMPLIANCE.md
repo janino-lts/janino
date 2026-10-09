@@ -1,7 +1,7 @@
 # Janino and javac: the compatibility mode and the compliance mode
 
-Status: draft, 2026-10-06; the plan (section 9) updated on 2026-10-09. Revision 2 of the concept; the open points
-are listed at the end.
+Status: revision 3, 2026-10-09. The foundation of the compliance mode (section 9) is implemented on the development
+line; the open points of revision 2 are decided (section 10).
 
 ## Summary
 
@@ -13,7 +13,8 @@ base with two modes:
 
 - **Compatibility mode** (the default in 3.x): code that Janino 3.1.12 compiled into loadable classes keeps its
   3.1.12 behavior, except where 3.1.12 miscompiled it; everything else behaves like `javac`, or is rejected.
-- **Compliance mode** (an option in a future 3.x; the default in a far away 4.0): Janino behaves like `javac`.
+- **Compliance mode** (an option on the development line, incomplete by design; the default in a far away 4.0):
+  Janino behaves like `javac`.
 
 This document defines what each mode would promise (the contract), how every deviation is classified, how the
 promises are verified, and in which order the work would be done. It replaces decisions made case by case.
@@ -246,8 +247,9 @@ The compliance mode promises `javac` behavior only within the language that Jani
 
 ### 7.1 The option
 
-`JaninoOption.JAVAC_COMPLIANCE`, opt-in. The alternative, lenient options with a non-empty default set, is ruled out:
-an application that calls `options(EnumSet.of(...))` today would silently lose the leniency.
+`JaninoOption.JAVAC_COMPLIANCE`, opt-in (implemented on the development line). The alternative, lenient options
+with a non-empty default set, is ruled out: an application that calls `options(EnumSet.of(...))` today would
+silently lose the leniency.
 
 The documentation of the option states that the compliance mode is incomplete by design, and that the register
 (section 7.5) is authoritative: "compiles in the compliance mode" does not mean "is valid Java".
@@ -273,9 +275,11 @@ logic has no error path, but silently does something else, the finding is of cla
 
 - One method `compliant()` in `UnitCompiler`; every mode-dependent place is guarded by it, so that the compatibility
   mode does not spend time on checks of the compliance mode.
-- Every mode-dependent place carries a comment with the ID of the deviation (`// Compliance L-07: ...`), so that each
+- Every mode-dependent place carries a comment with the ID of the deviation (`// Compliance S-01: ...`), so that each
   ID can be found in the code.
 - IDs are stable: a number is never reused or reassigned; new cases get the next number of their class.
+- Implemented so far: S-01, S-02 and S-03 (the development line); see
+  [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md) for what they do.
 
 ### 7.4 The system property
 
@@ -283,25 +287,34 @@ logic has no error path, but silently does something else, the finding is of cla
 `org.codehaus.janino.UnitCompiler.defaultTargetVersion` sets the target version. It allows a whole application to be
 checked without code changes, and it is the only way for users of the generic `commons-compiler` API, which has no
 Janino-specific options. It is global, and therefore coarse: in one JVM, a library that depends on the leniency and
-the application's own code share it. The precedence between the property and explicit options is an open point.
+the application's own code share it. Precedence (P4): the property determines the initial options of every compiler
+that is created afterwards (`JaninoOption.defaultOptions()`, read when the compiler is created); an explicit
+`options(...)` call replaces them, so that a library keeps control of its own compilers.
 
 ### 7.5 The register
 
-`JAVAC_DIFFERENCES.md` becomes the register: every deviation with its ID, its class, its behavior in each mode, the
-version since which it applies, and its tests. The register is the public list; a deviation that is not in it is an
-unknown defect, to be reported as an issue.
+`JAVAC_DIFFERENCES.md` is the register: every deviation with its ID, its class, its behavior in each mode, and, where
+the compliance mode already corrects it, the version since which it does. The test records refer to the IDs. The
+register is the public list; a deviation that is not in it is an unknown defect, to be reported as an issue.
 
 ### 7.6 Tests
 
-- `InvalidCodeTest` and `LanguageSupportTest` record, per case, the expected behavior of each mode: `compat:` and
-  `compliant:` (if `compliant:` is missing, it equals `compat:`), and an optional `id:`.
-- Every test class that compiles with Janino runs in both modes (parameterized).
-- `ExpressionDifferentialTest` and `ControlFlowDifferentialTest` run in the compliance mode without the exclusions of
-  known defects (`Defect`), i.e. against `javac` without exceptions.
-- A differential test against 3.1.12 runs the recorded cases through 3.1.12, loaded in an isolated class loader (as
-  `janino-benchmarks` loads its baseline), and compares the acceptance and the results with the compatibility mode.
-  Every difference must be covered by a registered ID or an issue number in the record. This is the test that makes
-  "legacy" machine-checkable; without it, the records only protect against accidental changes.
+- `InvalidCodeTest` and `LanguageSupportTest` record, per case, the expected behavior of each mode: `janino:` (the
+  compatibility mode, the default) and `compliant:` (if `compliant:` is missing, it equals `janino:`), and `id:`, the
+  ID of the deviation that the case documents (or the issue number of a correction); both modes run for every case.
+  The module `commons-compiler-tests` compiles only against the `commons-compiler` API, so it sets the option
+  through reflection (`TestUtil.setJavacCompliance()`).
+- `ExpressionDifferentialTest` and `ControlFlowDifferentialTest` run in both modes; in the compliance mode, the
+  generator does not avoid the constructs of the defects that the mode corrects (`Defect`), and each mode has its own
+  file of known differences.
+- `LegacyDifferentialTest` runs the recorded cases through 3.1.12, loaded from Maven Central into a class loader of
+  its own (as `janino-benchmarks` loads its baseline), and compares its behavior with the recorded behavior of the
+  compatibility mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction
+  that explains the difference (`id:`); an unrecorded difference fails the test. This is the test that makes "legacy"
+  machine-checkable; without it, the records only protect against accidental changes. Today, 372 of the 925 recorded
+  cases differ from 3.1.12.
+- Open: every other test class that compiles with Janino runs in the compatibility mode only; a second run of the
+  whole suite in the compliance mode needs the mode-dependent expectations of those tests first.
 - `CodeSizeReport` (`janino-benchmarks`): in the compatibility mode, the class files of all workloads are byte for
   byte identical to those of the last release, except where a fix of class V or D explains the difference.
 
@@ -309,6 +322,10 @@ unknown defect, to be reported as an issue.
 
 The primary measure is the number of open IDs in the register, per class. The secondary measure is the share of the
 recorded cases on which the compliance mode agrees with `javac`. Both are stated in the change log of every release.
+
+The development line, 2026-10-09: S, 10 IDs, 3 corrected in the compliance mode; L, 44 open; D, 6 open; G, 9 and F,
+11 (outside the scope); A, 8. Of the 925 recorded cases, the compliance mode agrees with `javac` on 781 (the
+compatibility mode on 771).
 
 ## 8. Registered exceptions
 
@@ -320,6 +337,8 @@ recorded cases on which the compliance mode agrees with `javac`. Both are stated
 | A-04 | a constant conditional expression of type `long`, `float` or `double` is rejected where a `byte`, `short` or `char` value is required: `byte b = true ? 1 : 2L;` (#55); 3.1.12 accepted it with the value of the selected operand | 3.1.16 | accepted, with that value |
 | A-05 | the access to a `protected` instance member of a class in another package through an expression whose static type is neither the accessing class (or an enclosing class) nor a subclass of it is rejected (#54): `((Object) this).clone()`, `Object o = new P(); o.clone()`, `FilterInputStream s = new P(); s.in`; 3.1.12 accepted it, and the JVM loads the class iff its verifier infers a subclass type from the bytecode (it does not for a parameter, a field or a method result) | 3.1.16 | accepted where the JVM loads the class |
 | A-06 | a member annotation type is parsed like a top-level one (#43): type parameters (`class P { @interface A<T> {} }`), an `extends` clause, and `default` or `static` methods are rejected, and a class that implements a member annotation type must implement `annotationType()`; 3.1.12 compiled these declarations as ordinary interfaces | 3.1.16 | accepted, as an ordinary interface |
+| A-07 | a cast of the clone of an array to an unrelated array type, `(String[]) intArray.clone()`, is rejected (#58); 3.1.12 compiled it (the clone had the type `Object`) into code that throws a `ClassCastException` | 3.1.17 | accepted, throwing at run time |
+| A-08 | a duplicate annotation on a parameter is rejected (#61); 3.1.12 did not write parameter annotations at all, so it accepted the duplicate | 3.1.16 | accepted |
 
 Justification for keeping them: A-01 and A-02 are released; they correspond to `javac`; reverting them would itself
 change the behavior of 3.1.15. A-03 concerns an expression that no code generator produces (a constant condition
@@ -339,6 +358,10 @@ A-06: the member annotation type was not an annotation type at all (an ordinary 
 `ACC_ANNOTATION` flag and without the superinterface `Annotation`), which is the V3 defect of #43; the fix cannot
 keep the forms that only an ordinary interface permits. None of them is Java (`javac` rejects all of them), and
 top-level annotation types rejected them in all versions.
+A-07 and A-08 were found by `LegacyDifferentialTest` when the register was created (2026-10-09): both are released
+corrections of class D (#58, the type of `a.clone()`; #61, parameter annotations) that also reject a form of invalid
+legacy code which could only fail, or be ignored, at run time. They are registered like A-01 to A-03: reverting them
+would change the behavior of a released version. (A-05 also covers the forms of #59, the access from an inner class.)
 
 ## 9. The plan
 
@@ -400,20 +423,21 @@ change of behavior in the sense of section 3.1, but applications and their tests
 Apache Spark expect `Cannot determine simple type name "..."`); an improved message therefore keeps the old text and
 adds to it, as with #31 on the development line. The gates are those of 3.1.16.
 
-**The compliance mode: the foundation** (on the development line; the version is open).
+**The compliance mode: the foundation** (done on the development line, 2026-10-09, #103; the version is open):
 
-1. The contract, as a section of `JAVAC_DIFFERENCES.md`.
+1. The contract, as the section "The two modes" of `JAVAC_DIFFERENCES.md`.
 2. The option, the system property, `compliant()`.
-3. The test infrastructure for two modes: the record format, the parameterized test classes, the differential test
-   against 3.1.12.
-4. The register: every known deviation with its ID and class.
-5. The first checks of the compliance mode, in parallel: S-01, S-02 and S-03 (each is one place in the compiler, and
-   they are what users of the compliance mode notice first: the behavior of generated code), and the cases of class L
-   that need no data flow analysis, by area, one branch each: modifiers, declarations and annotations; overrides,
-   hiding and `throws` clauses; `catch` clauses; imports and access; statements. In each branch, the `compliant:`
-   entries of the area change from `ACCEPTED` to `REJECTED`.
+3. The test infrastructure for two modes: the record format (`janino:`, `compliant:`, `legacy:`, `id:`), the
+   parameterized record and differential tests, `LegacyDifferentialTest` against 3.1.12.
+4. The register: every known deviation with its ID and class (S-01 to S-10, D-01 to D-06, L-01 to L-44, G-01 to
+   G-09, F-01 to F-11, A-01 to A-08), and the IDs in the records.
+5. The first checks of the compliance mode: S-01, S-02 and S-03 (each is one place in the compiler, and they are
+   what users of the compliance mode notice first: the behavior of generated code).
 
-**Then:** S-04 and S-05 in the compliance mode; the remaining areas of class L.
+**Then:** the cases of class L that need no data flow analysis, by area, one branch each: modifiers, declarations and
+annotations; overrides, hiding and `throws` clauses; `catch` clauses; imports and access; statements. In each branch,
+the `compliant:` entries of the area change from `ACCEPTED` to `REJECTED`. Then S-04 and S-05 in the compliance mode;
+the remaining areas of class L.
 
 **Definite assignment and definite unassignment** (JLS 16) for the `final` cases of class L: the largest single piece
 of work. Definite assignment analysis might not be implemented at all.
@@ -440,8 +464,9 @@ this happens depends on the number of open IDs, not on the calendar.
 |---|---|---|
 | P1 | the contract (sections 3 and 4), including the reference 3.1.12 with target version 8 and the four forms of V | accept |
 | P2 | the exceptions A-01 to A-03 | keep, as registered |
-| P3 | the names | `JAVAC_COMPLIANCE`, `org.codehaus.janino.javacCompliance` |
-| P4 | precedence of the system property and explicit options | the property sets the initial options of every compiler; an explicit `options(...)` call replaces them, so that a library keeps control of its own compilers |
+| P3 | the names | `JAVAC_COMPLIANCE`, `org.codehaus.janino.javacCompliance` (decided, implemented) |
+| P4 | precedence of the system property and explicit options | the property sets the initial options of every compiler; an explicit `options(...)` call replaces them, so that a library keeps control of its own compilers (decided, implemented) |
 | P5 | the `javac` reference: all JDKs of the test matrix must agree, `--release` equals the target version | accept |
-| P6 | the line of the foundation | the development line, because of the new API; the version is open |
-| P7 | the order of the first checks of the compliance mode | S-01 to S-03 together with the areas of class L |
+| P6 | the line of the foundation | the development line, because of the new API; the version is open (decided) |
+| P7 | the order of the first checks of the compliance mode | S-01 to S-03 first (done), then the areas of class L (decided) |
+| P8 | the record key of the compatibility mode | `janino:` keeps its name (it is the default mode; 895 records stay unchanged) instead of `compat:` (decided) |

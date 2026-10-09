@@ -27,9 +27,12 @@ Janino compiles Java source code like `javac`, but not in every respect: it acce
 valid code, and some valid code behaves differently. All known deviations are listed in
 [Differences between Janino and javac](JAVAC_DIFFERENCES.md).
 
-[Janino and javac: the compatibility mode and the compliance mode](JAVAC_COMPLIANCE.md) sketches how these
-deviations could be handled in the long run. It is no more than a non-binding idea of a possible roadmap, not a
-plan and not a commitment.
+[Janino and javac: the compatibility mode and the compliance mode](JAVAC_COMPLIANCE.md) defines two modes: the
+compatibility mode (the default), in which code that Janino has always accepted keeps compiling with its
+established behavior, and the compliance mode, in which Janino behaves like `javac`. The development line has the
+foundation of the compliance mode (an option, incomplete by design; see
+[Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md)). When and as which version
+it is released is open; the document is a roadmap, not a commitment.
 
 To restrict what untrusted code that is compiled at runtime may do, see
 [Restricting Untrusted Code with a Sandbox Policy](SANDBOX.md).

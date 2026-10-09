@@ -190,6 +190,7 @@ public class P {
 jls: 0
 janino: WRONG 10
 minJava: 9
+id: S-07
 public class P {
     public static Object run() { return Integer.toHexString(new Object() {}.getClass().getModifiers()); }
 }
@@ -359,7 +360,7 @@ public class P {
 jls: p
 janino: WRONG p$
 legacy: WRONG throws java.lang.NullPointerException
-id: #73
+id: S-06, #73
 public class P {
     private Object p() { return new Object() { }; }
     public static Object run() { return new P().p().getClass().getEnclosingMethod().getName(); }

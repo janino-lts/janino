@@ -4,6 +4,7 @@
 jls: p
 janino: REJECTED Private interface methods only available for target version 9+
 minJava: 9
+id: F-10
 public class P {
     interface I { private String h() { return "p"; } default String m() { return h(); } }
     static class C implements I {}
@@ -24,6 +25,7 @@ public class P {
 jls: x
 janino: REJECTED Non-abstract class "P$1" must implement method "public abstract int java.util.Comparator.compare(java.lang.Object, java.lang.Object)"
 minJava: 9
+id: F-11
 import java.util.*;
 public class P {
     public static Object run() {
@@ -36,12 +38,14 @@ public class P {
 jls: abc
 janino: REJECTED Local variable type inference NYI
 minJava: 10
+id: F-06
 public class P { public static Object run() { var s = "abc"; return s; } }
 
 === local variable type inference with a generic type (Java 10)
 jls: abc
 janino: REJECTED Local variable type inference NYI
 minJava: 10
+id: F-06
 import java.util.*;
 public class P { public static Object run() { var l = new ArrayList<String>(); l.add("abc"); return l.get(0); } }
 
@@ -49,6 +53,7 @@ public class P { public static Object run() { var l = new ArrayList<String>(); l
 jls: 3
 janino: REJECTED Compilation of lambda expression NYI
 minJava: 11
+id: F-01
 import java.util.function.*;
 public class P {
     public static Object run() { BinaryOperator<Integer> f = (var a, var b) -> a + b; return String.valueOf(f.apply(1, 2)); }

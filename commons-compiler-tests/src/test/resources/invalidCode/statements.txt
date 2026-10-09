@@ -67,6 +67,7 @@ public class P {
 === duplicate label
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-27
 public class P {
     void f() { L: while (true) { L: while (true) { break L; } } }
 }
@@ -136,6 +137,7 @@ public class P {
 === synchronized on null
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-29
 public class P {
     void f() { synchronized (null) {} }
 }
@@ -143,6 +145,7 @@ public class P {
 === catch of checked exception that is never thrown
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-30
 public class P {
     void f() { try { } catch (java.io.IOException e) { } }
 }
@@ -150,6 +153,7 @@ public class P {
 === catch clause is unreachable after catch of superclass
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-31
 public class P {
     void f() throws Exception {
         try { throw new Exception(); } catch (Exception e) { } catch (RuntimeException e) { }
@@ -159,6 +163,7 @@ public class P {
 === catch of non-throwable type
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-32
 public class P {
     void f() { try { } catch (String e) { } }
 }
@@ -203,6 +208,7 @@ public class P {
 === catch parameter redeclares local variable
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-14
 public class P {
     void f() { int e = 0; try { } catch (RuntimeException e) { } }
 }
@@ -218,6 +224,7 @@ public class P {
 === final local variable is assigned twice
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-04
 public class P {
     void f() { final int x = 1; x = 2; }
 }
@@ -225,6 +232,7 @@ public class P {
 === final parameter is assigned
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-06
 public class P {
     void f(final int x) { x = 2; }
 }
@@ -274,6 +282,7 @@ public class P {
 === case label out of range of the switch type
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-35
 public class P {
     void f(byte b) { switch (b) { case 1000: } }
 }
@@ -335,6 +344,7 @@ public class P {
 === recursive constructor invocation
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-37
 public class P {
     P() { this(); }
 }
@@ -410,6 +420,7 @@ public class P {
 === blank final local variable assigned twice
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-04
 public class P {
     void f() { final int x; x = 1; x = 2; }
 }
@@ -417,6 +428,7 @@ public class P {
 === blank final local variable assigned in a loop
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-05
 public class P {
     void f() { final int x; for (;;) { x = 1; } }
 }
@@ -424,6 +436,7 @@ public class P {
 === final variable of an enhanced for statement is assigned
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-06
 public class P {
     void f(int[] a) { for (final int s : a) { s = 1; } }
 }
@@ -431,6 +444,7 @@ public class P {
 === body of while (false) is unreachable
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-28
 public class P {
     void f() { while (false) { int x = 1; } }
 }
@@ -438,6 +452,7 @@ public class P {
 === body of for (; false; ) is unreachable
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-28
 public class P {
     void f() { for (; false; ) { int x = 1; } }
 }
@@ -453,6 +468,7 @@ public class P {
 === case label of type long
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-36
 public class P {
     void f(int i) { switch (i) { case 1L: } }
 }
@@ -460,6 +476,7 @@ public class P {
 === case label of type long, value out of the range of int
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-36
 public class P {
     void f(int i) { switch (i) { case 4294967297L: } }
 }
@@ -467,6 +484,7 @@ public class P {
 === case label of type double
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-36
 public class P {
     void f(int i) { switch (i) { case 1.0: } }
 }
@@ -650,7 +668,7 @@ public class P {
 janino: ACCEPTED
 recovery: ACCEPTED
 legacy: REJECTED Multi-type CATCH parameters NYI
-id: #21
+id: L-31, #21
 public class P {
     void f() {
         try { throw new IllegalStateException(); }
@@ -663,7 +681,7 @@ public class P {
 janino: ACCEPTED
 recovery: ACCEPTED
 legacy: REJECTED Multi-type CATCH parameters NYI
-id: #21
+id: L-30, #21
 public class P {
     void m() throws java.io.IOException { }
     void f() { try { m(); } catch (java.io.IOException | java.sql.SQLException e) { } }
@@ -673,7 +691,7 @@ public class P {
 janino: ACCEPTED
 recovery: ACCEPTED
 legacy: REJECTED Multi-type CATCH parameters NYI
-id: #21
+id: L-33, #21
 public class P {
     void g() throws java.io.IOException, java.sql.SQLException { }
     void f() { try { g(); } catch (java.io.IOException | java.sql.SQLException e) { throw e; } }
@@ -682,6 +700,7 @@ public class P {
 === exception thrown in a catch clause is caught by the same try statement
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-33
 public class P {
     void f() { try { } catch (Exception e) { throw new java.io.IOException(); } }
 }
@@ -689,6 +708,7 @@ public class P {
 === rethrow of a catch parameter whose type is not declared
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-33
 public class P {
     void f() { try { if (false) throw new java.io.IOException(); } catch (Exception e) { throw e; } }
 }
@@ -697,7 +717,7 @@ public class P {
 janino: ACCEPTED
 recovery: ACCEPTED
 legacy: REJECTED Multi-type CATCH parameters NYI
-id: #21
+id: L-14, #21
 public class P {
     void f() {
         int e = 0;
@@ -717,6 +737,7 @@ public class P {
 === checked exception with an all-uppercase class name is neither caught nor declared
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-34
 public class P {
     static class X extends Exception { }
     static void m() throws X { throw new X(); }
@@ -727,7 +748,7 @@ public class P {
 janino: ACCEPTED
 recovery: ACCEPTED
 legacy: REJECTED Expression "r" is not an rvalue
-id: #64
+id: L-06, #64
 public class P {
     static class R implements AutoCloseable { public void close() { } }
     void f() { try (R r = new R()) { r = null; } }
@@ -750,6 +771,7 @@ public class P {
 === resource variable with the name of a local variable
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-14
 public class P {
     static class R implements AutoCloseable { public void close() { } }
     void f() { R r = null; try (R r = new R()) { } }
@@ -758,6 +780,7 @@ public class P {
 === two resources with the same name
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-14
 public class P {
     static class R implements AutoCloseable { public void close() { } }
     void f() { try (R a = new R(); R a = new R()) { } }
@@ -766,6 +789,7 @@ public class P {
 === resource variable with the name of a parameter
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-14
 public class P {
     static class R implements AutoCloseable { public void close() { } }
     void f(R r) { try (R r = new R()) { } }
@@ -774,6 +798,7 @@ public class P {
 === local variable in the block with the name of the resource variable
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-14
 public class P {
     static class R implements AutoCloseable { public void close() { } }
     void f() { try (R r = new R()) { R r = null; } }
@@ -803,6 +828,7 @@ public class P {
 === catch parameter with the name of a local variable
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-14
 public class P {
     void f() { int e = 1; try { } catch (Exception e) { } }
 }
@@ -810,6 +836,7 @@ public class P {
 === variable of an enhanced for statement with the name of a local variable
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-14
 public class P {
     void f() { int x = 1; for (int x : new int[0]) { } }
 }
@@ -817,6 +844,7 @@ public class P {
 === throws clause with an undeclared all-uppercase type name
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-34
 public class P {
     void m() throws T { }
 }
@@ -824,6 +852,7 @@ public class P {
 === throws clause with an undeclared all-uppercase type name in an interface
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-34
 public class P {
     interface I { void m() throws EX; }
 }
@@ -853,6 +882,7 @@ public class P {
 === checked exception with an all-uppercase class name of a method invoked through a variable is not handled
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-34
 public class P {
     static class X extends Exception { }
     void m() throws X { }
@@ -862,6 +892,7 @@ public class P {
 === final local array variable is assigned after its declaration
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-04
 public class P {
     int f() { final int[] arr = null; arr = new int[3]; return arr.length; }
 }

@@ -68,7 +68,8 @@ import util.TestUtil;
  *   <dt>{@code id}</dt>
  *   <dd>
  *     The ID of the deviation from JAVAC in {@code JAVAC_DIFFERENCES.md} (e.g. "S-01"), or the number of the issue
- *     (e.g. "#97"); required iff {@code compliant} or {@code legacy} is present
+ *     that explains a difference from 3.1.12 (e.g. "#97"), or several, comma-separated; required iff {@code
+ *     compliant} or {@code legacy} is present, or the case documents a deviation
  *   </dd>
  *   <dt>{@code minJava}</dt>
  *   <dd>The minimum JVM version for the JDK-based compiler (optional, default 8)</dd>
@@ -97,6 +98,12 @@ class Records {
     private static final String MIN_JAVA = "minJava";
 
     private static final Pattern HEADER_LINE = Pattern.compile("([a-zA-Z][a-zA-Z0-9]*): ?(.*)");
+
+    /**
+     * The form of one ID in an "id" line: an ID of the register ("S-01", "L-07", ...; the classes are those of
+     * {@code JAVAC_DIFFERENCES.md}) or an issue number ("#97"); an "id" line holds one or more, comma-separated.
+     */
+    private static final Pattern ID_FORM = Pattern.compile("[SVDLAGF]-\\d\\d|#\\d+");
 
     /**
      * Reads all cases from the given files.
@@ -177,6 +184,15 @@ class Records {
         for (String key : new String[] { Records.COMPLIANT, Records.LEGACY }) {
             if (keys.containsKey(key) && !keys.containsKey(Records.ID)) {
                 throw new IOException(file + ": Case \"" + id + "\" has \"" + key + "\", but lacks \"id\"");
+            }
+        }
+
+        String ids = keys.get(Records.ID);
+        if (ids != null) {
+            for (String i : ids.split(",")) {
+                if (!Records.ID_FORM.matcher(i.trim()).matches()) {
+                    throw new IOException(file + ": Case \"" + id + "\": Invalid ID \"" + i.trim() + "\"");
+                }
             }
         }
 
