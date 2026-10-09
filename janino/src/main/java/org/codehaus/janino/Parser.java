@@ -654,7 +654,7 @@ class Parser {
     parseElementValue() throws CompileException, IOException {
         if (this.peek("@")) return this.parseAnnotation();
         if (this.peek("{")) return this.parseElementValueArrayInitializer();
-        return this.parseConditionalAndExpression().toRvalueOrCompileException();
+        return this.parseConditionalExpression().toRvalueOrCompileException();
     }
 
     /**

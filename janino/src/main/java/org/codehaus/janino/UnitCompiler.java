@@ -5173,6 +5173,25 @@ class UnitCompiler {
     private void
     fakeCompile(Rvalue rv) throws CompileException {
 
+        // Outside of a method body, e.g. for the operand that a conditional expression with a constant condition does
+        // not select, in the initializer of a "static final" field or in an annotation element value, there is no code
+        // context; then the rvalue is compiled into a temporary one, only to check it (issue #113).
+        if (this.codeContext == null) {
+            CodeContext savedCodeContext = this.replaceCodeContext(new CodeContext(new ClassFile(
+                (short) 0,            // accessFlags
+                "Ljava/lang/Object;", // thisClassFd
+                null,                 // superclassFd
+                new String[0]         // interfaceFds
+            )));
+            try {
+                this.getCodeContext().saveLocalVariables();
+                this.fakeCompile(rv);
+            } finally {
+                this.replaceCodeContext(savedCodeContext);
+            }
+            return;
+        }
+
         final Offset from = this.getCodeContext().newOffset();
         StackMap savedStackMap = this.getCodeContext().currentInserter().getStackMap();
 

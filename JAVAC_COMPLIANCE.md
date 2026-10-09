@@ -314,7 +314,7 @@ register is the public list; a deviation that is not in it is an unknown defect,
   its own (as `janino-benchmarks` loads its baseline), and compares its behavior with the recorded behavior of the
   compatibility mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction
   that explains the difference (`id:`); an unrecorded difference fails the test. This is the test that makes "legacy"
-  machine-checkable; without it, the records only protect against accidental changes. Today, 379 of the 980 recorded
+  machine-checkable; without it, the records only protect against accidental changes. Today, 392 of the 995 recorded
   cases differ from 3.1.12.
 - Open: every other test class that compiles with Janino runs in the compatibility mode only; a second run of the
   whole suite in the compliance mode needs the mode-dependent expectations of those tests first.
@@ -328,8 +328,8 @@ recorded cases on which the compliance mode agrees with `javac`. Both are stated
 
 The development line, 2026-10-09: S, 12 IDs, 6 corrected in the compliance mode; L, 48 IDs, 5 rejected in the
 compliance mode, 43 open; D, 7 IDs, 1 corrected in the compliance mode only (D-07, see S-04), 6 open; G, 9 and F, 11
-(outside the scope); A, 8. Of the 980 recorded cases, the compliance mode agrees with `javac` on 841 (the
-compatibility mode on 782).
+(outside the scope); A, 8. Of the 995 recorded cases, the compliance mode agrees with `javac` on 856 (the
+compatibility mode on 797).
 
 ## 8. Registered exceptions
 
