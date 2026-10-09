@@ -52,6 +52,19 @@ h5 {
     <h4>Version 3.1.19 (unreleased)</h4>
     <ul>
       <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/113">issue #113</a>: A conditional expression
+        with a constant condition in the initializer of a <code>static final</code> field of a class, e.g.
+        <code>static final int K = DEBUG ? 1 : 2;</code> with <code>static final boolean DEBUG = false;</code>,
+        made the compilation fail with an <code>InternalCompilerException</code> (with the compiler's assertions
+        enabled, an <code>AssertionError</code>): JANINO checks that the operand which the condition does not select
+        compiles, and did that without the code context of a method. The same held for such an expression as the
+        value of an annotation element in parentheses, <code>@A((true ? 1 : 2))</code>; without parentheses,
+        <code>@A(true ? 1 : 2)</code>, and with the operator <code>||</code>, <code>@B(X || Y)</code>, the parser
+        rejected the element value, because it accepted only a conditional-and expression there. Now these
+        declarations compile like with JAVAC, and the field is a constant variable; an operand that does not
+        compile is still reported. The class files of all other code are unchanged.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/110">issue #110</a>: A qualified superclass method
         invocation <code>P.super.m()</code> (<a href="https://github.com/janino-lts/janino/issues/22">issue #22</a>,
         since 3.1.16) in an inner class of <code>P</code> that is itself a subclass of <code>P</code>, e.g.

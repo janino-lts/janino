@@ -400,6 +400,25 @@ public class P {
     void f(int i) { switch (i) { case true ? 1 : 2L: } }
 }
 
+=== constant conditional expression with an undefined operand in the initializer of a static final field
+janino: REJECTED Unknown variable or type "undefined"
+public class P {
+    static final int K = true ? 1 : undefined;
+}
+
+=== constant conditional expression with "this" in the initializer of a static final field
+janino: REJECTED No current instance available in static field initializer
+public class P {
+    static final int K = true ? 1 : this.hashCode();
+}
+
+=== constant conditional expression with an undefined operand as an annotation element value
+janino: REJECTED Unknown variable or type "undefined"
+public class P {
+    @interface A { int value(); }
+    @A(true ? 1 : undefined) static class X { }
+}
+
 === static interface method invoked unqualified from an implementing class
 janino: ACCEPTED
 recovery: ACCEPTED

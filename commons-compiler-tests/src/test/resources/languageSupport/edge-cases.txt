@@ -140,6 +140,63 @@ public class P {
     public static Object run() { return (true ? 1 : 2L) == 1L; }
 }
 
+=== constant conditional expression in the initializer of a static final field
+jls: 1
+janino: OK
+public class P {
+    static final int K = true ? 1 : 2;
+    public static Object run() { return K; }
+}
+
+=== conditional expression with a static final boolean condition in the initializer of a static final field
+jls: 2
+janino: OK
+public class P {
+    static final boolean DEBUG = false;
+    static final int K = DEBUG ? 1 : 2;
+    public static Object run() { return K; }
+}
+
+=== constant conditional expression of type String in the initializer of a static final field
+jls: a
+janino: OK
+public class P {
+    static final String K = true ? "a" : "b";
+    public static Object run() { return K; }
+}
+
+=== constant conditional expression in a string concatenation in the initializer of a static final field
+jls: 1
+janino: OK
+public class P {
+    static final String K = "" + (true ? 1 : 2);
+    public static Object run() { return K; }
+}
+
+=== constant conditional expression as an operand in the initializer of a static final field
+jls: 2
+janino: OK
+public class P {
+    static final int K = (true ? 1 : 2) + 1;
+    public static Object run() { return K; }
+}
+
+=== constant conditional expression of type long in the initializer of a static final field
+jls: 1
+janino: OK
+public class P {
+    static final long K = true ? 1 : 2L;
+    public static Object run() { return K; }
+}
+
+=== static final field with a constant conditional expression as a case label
+jls: one
+janino: OK
+public class P {
+    static final int K = true ? 1 : 2;
+    public static Object run() { switch (1) { case K: return "one"; default: return "default"; } }
+}
+
 
 === conditional expression: Byte operand and int constant
 jls: Byte 5

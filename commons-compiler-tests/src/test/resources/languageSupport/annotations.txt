@@ -628,3 +628,58 @@ public class P {
         return String.valueOf(((A) L.class.getAnnotation(A.class)).value());
     }
 }
+
+=== constant conditional expression as an annotation element value
+jls: 1
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A { int value(); }
+    @A(true ? 1 : 2) static class X { }
+    public static Object run() { return ((A) X.class.getAnnotation(A.class)).value(); }
+}
+
+=== constant conditional expression as the value of a named annotation element
+jls: 2
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A { int value(); }
+    static final boolean F = false;
+    @A(value = F ? 1 : 2) static class X { }
+    public static Object run() { return ((A) X.class.getAnnotation(A.class)).value(); }
+}
+
+=== constant conditional expression in an annotation element value array
+jls: 1,3
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface C { int[] value(); }
+    @C({ true ? 1 : 2, 3 }) static class X { }
+    public static Object run() {
+        int[] v = ((C) X.class.getAnnotation(C.class)).value();
+        return v[0] + "," + v[1];
+    }
+}
+
+=== conditional-or expression as an annotation element value
+jls: true
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface B { boolean value(); }
+    static final boolean T = true, F = false;
+    @B(T || F) static class X { }
+    public static Object run() { return ((B) X.class.getAnnotation(B.class)).value(); }
+}
+
+=== parenthesized constant conditional expression as an annotation element value
+jls: 1
+janino: OK
+import java.lang.annotation.*;
+public class P {
+    @Retention(RetentionPolicy.RUNTIME) @interface A { int value(); }
+    @A((true ? 1 : 2)) static class X { }
+    public static Object run() { return ((A) X.class.getAnnotation(A.class)).value(); }
+}
