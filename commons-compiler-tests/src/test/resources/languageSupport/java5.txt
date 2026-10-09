@@ -3,6 +3,7 @@
 === generics: return type of List<String>.get() without cast
 jls: abc
 janino: REJECTED Assignment conversion not possible from type "java.lang.Object" to type "java.lang.String"
+id: G-01
 import java.util.*;
 public class P {
     public static Object run() {
@@ -39,6 +40,7 @@ public class P {
 === generics: enhanced for over Map.Entry<String, Integer>
 jls: x1
 janino: REJECTED Binary numeric promotion not possible on types "java.lang.Object" and "java.lang.Object"
+id: G-01
 import java.util.*;
 public class P {
     public static Object run() {
@@ -51,6 +53,7 @@ public class P {
 === generics: Map<String, Integer>.get() with auto-unboxing
 jls: 42
 janino: REJECTED Binary numeric promotion not possible on types "java.lang.Object" and "int"
+id: G-01
 import java.util.*;
 public class P {
     public static Object run() {
@@ -63,6 +66,7 @@ public class P {
 === generics: method invocation on a generic return value (l.get(0).length())
 jls: 3
 janino: REJECTED A method named "length" is not declared in any enclosing class nor any supertype, nor through a static import
+id: G-01
 import java.util.*;
 public class P {
     public static Object run() {
@@ -74,6 +78,7 @@ public class P {
 === generics: wildcard List<? extends Number>.get()
 jls: 1
 janino: REJECTED Assignment conversion not possible from type "java.lang.Object" to type "java.lang.Number"
+id: G-01
 import java.util.*;
 public class P {
     public static Object run() {
@@ -86,6 +91,7 @@ public class P {
 === generics: own generic class Box<T>
 jls: x
 janino: REJECTED Assignment conversion not possible from type "java.lang.Object" to type "java.lang.String"
+id: G-01
 public class P {
     static class Box<T> { T v; Box(T v) { this.v = v; } T get() { return v; } }
     public static Object run() { Box<String> b = new Box<String>("x"); String s = b.get(); return s; }
@@ -94,6 +100,7 @@ public class P {
 === generics: generic method <T> T first(List<T>)
 jls: a
 janino: REJECTED Assignment conversion not possible from type "java.lang.Object" to type "java.lang.String"
+id: G-01
 import java.util.*;
 public class P {
     static <T> T first(List<T> l) { return l.get(0); }
@@ -112,6 +119,7 @@ public class P {
 === generics: inner class of a generic class (O<String>.I)
 jls: v
 janino: REJECTED IDENTIFIER expected instead of '.'
+id: D-05
 public class P {
     static class O<T> { T t; O(T t) { this.t = t; } class I { Object g() { return t; } } }
     public static Object run() { O<String> o = new O<String>("v"); O<String>.I i = o.new I(); return i.g(); }
@@ -145,6 +153,7 @@ public class P {
 === generics: bridge method for Comparable<Foo> (Collections.sort)
 jls: [1, 2, 3]
 janino: REJECTED Non-abstract class "P$Foo" must implement method "public abstract int java.lang.Comparable.compareTo(java.lang.Object)"
+id: G-03
 import java.util.*;
 public class P {
     static class Foo implements Comparable<Foo> {
@@ -162,6 +171,7 @@ public class P {
 === generics: bridge method for an anonymous Comparator<String>
 jls: [c, b, a]
 janino: REJECTED Non-abstract class "P$1" must implement method "public abstract int java.util.Comparator.compare(java.lang.Object, java.lang.Object)"
+id: G-03
 import java.util.*;
 public class P {
     public static Object run() {
@@ -174,6 +184,7 @@ public class P {
 === generics: bridge method for a generic subclass that overrides a method with parameter type T
 jls: s
 janino: WRONG x
+id: G-03
 public class P {
     static class A<T> { T m(T t) { return t; } }
     static class B extends A<String> { String m(String s) { return "s"; } }
@@ -183,6 +194,7 @@ public class P {
 === generics: overload resolution with a generic return value
 jls: String
 janino: WRONG Object
+id: G-02
 import java.util.*;
 public class P {
     static String f(Object o) { return "Object"; }
@@ -203,6 +215,7 @@ public class P {
 === generics: Signature attribute of a field
 jls: java.util.List<java.lang.String>
 janino: WRONG interface java.util.List
+id: G-04
 import java.util.*;
 public class P {
     public static List<String> field;

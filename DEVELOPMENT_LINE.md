@@ -206,5 +206,16 @@ loader of its own, with target version 8) and compares its behavior with the rec
 mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction that explains the
 difference (`id:`, an issue number or an ID of the register); a difference that no record states, e.g. a regression,
 fails the test. Today, 372 of the 925 recorded cases differ from 3.1.12, each with its correction: the fixes of
-classes D and V since 3.1.13, the registered exception A-04, and the language features that 3.1.12 did not compile
-(multi-catch, qualified superclass method invocations, effectively final variables, local classes with modifiers).
+classes D and V since 3.1.13, the registered exceptions A-04, A-05 and A-06, and the language features that 3.1.12
+did not compile (multi-catch, qualified superclass method invocations, effectively final variables, local classes
+with modifiers).
+
+**The register.** [Differences between Janino and javac](JAVAC_DIFFERENCES.md) states the contract of the two modes
+and lists every known deviation with a stable ID and its class: S (a consistent rule of Janino's, kept in the
+compatibility mode), D (not compiled by 3.1.12 either, fixed in both modes), L (invalid code that is accepted; the
+compliance mode will reject it), G and F (generics and unimplemented features, outside the scope of both modes), and
+A (registered exceptions, frozen). Every test record that documents a deviation names its ID (`id:`), so that the
+cases of an ID can be found. When the register was created, `LegacyDifferentialTest` showed two released corrections
+of 3.1.16 and 3.1.17 that also reject a form of invalid code which 3.1.12 compiled; they are registered as the
+exceptions A-07 (a cast of the clone of an array to an unrelated array type, #58) and A-08 (a duplicate annotation on
+a parameter, #61).

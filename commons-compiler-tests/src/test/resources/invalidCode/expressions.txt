@@ -74,6 +74,7 @@ public class P {
 === assignment to final field
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-01
 public class P {
     final int x = 1;
     void f() { x = 2; }
@@ -341,6 +342,7 @@ public class P {
 === blank final field assigned in a method
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-02
 public class P {
     final int x;
     P() { x = 1; }
@@ -350,6 +352,7 @@ public class P {
 === assignment to an interface field
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-07
 interface I { int X = 1; }
 public class P {
     void f() { I.X = 2; }
@@ -358,6 +361,7 @@ public class P {
 === assignment to an enum constant
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-07
 enum E { A }
 public class P {
     void f() { E.A = null; }
@@ -366,6 +370,7 @@ public class P {
 === instanceof with a final class and an interface that it does not implement
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-39
 public class P {
     boolean f() { return "x" instanceof Runnable; }
 }
@@ -373,6 +378,7 @@ public class P {
 === static interface method invoked through an instance
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-40
 public class P {
     Object f(java.util.Comparator<String> c) { return c.naturalOrder(); }
 }
@@ -406,6 +412,7 @@ public class P {
 === constant conditional expression of type long as a case label
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-36
 public class P {
     void f(int i) { switch (i) { case true ? 1 : 2L: } }
 }
@@ -414,7 +421,7 @@ public class P {
 janino: ACCEPTED
 recovery: ACCEPTED
 legacy: REJECTED Non-abstract class "P" must implement method "public static abstract java.lang.String I.s()"
-id: #53
+id: L-40, #53
 interface I { static String s() { return "s"; } }
 public class P implements I {
     String f() { return s(); }
@@ -424,7 +431,7 @@ public class P implements I {
 janino: ACCEPTED
 recovery: ACCEPTED
 legacy: REJECTED Non-abstract class "P" must implement method "public static abstract java.lang.String I.s()"
-id: #53
+id: L-40, #53
 interface I { static String s() { return "s"; } }
 public class P implements I {
     String f() { return P.s(); }
@@ -434,7 +441,7 @@ public class P implements I {
 janino: ACCEPTED
 recovery: ACCEPTED
 legacy: REJECTED Non-abstract class "P" must implement method "public static abstract java.lang.String I.s()"
-id: #53
+id: L-40, #53
 interface I { static String s() { return "s"; } }
 public class P implements I {
     String f() { return new P().s(); }
@@ -443,6 +450,7 @@ public class P implements I {
 === static interface method invoked through a subinterface
 janino: ACCEPTED
 recovery: ACCEPTED
+id: L-40
 interface I { static String s() { return "s"; } }
 interface J extends I {}
 public class P {
@@ -456,7 +464,7 @@ public class P { long[] f(int[] a) { return a.clone(); } }
 === clone() of an int array cast to a String array
 janino: REJECTED Cannot cast "int[]" to "java.lang.String[]"
 legacy: ACCEPTED
-id: #58
+id: A-07, #58
 public class P { String[] f(int[] a) { return (String[]) a.clone(); } }
 
 === clone() of an int array: element assigned to a String

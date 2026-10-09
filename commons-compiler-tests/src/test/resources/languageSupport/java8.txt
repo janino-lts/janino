@@ -3,6 +3,7 @@
 === lambda expression (Runnable)
 jls: ran
 janino: REJECTED Compilation of lambda expression NYI
+id: F-01
 public class P {
     static String s;
     public static Object run() { Runnable r = () -> { s = "ran"; }; r.run(); return s; }
@@ -11,6 +12,7 @@ public class P {
 === lambda expression with inferred parameter types (Comparator<String>)
 jls: [c, b, a]
 janino: REJECTED Compilation of lambda expression NYI
+id: F-01
 import java.util.*;
 public class P {
     public static Object run() {
@@ -23,6 +25,7 @@ public class P {
 === method reference
 jls: ABC
 janino: REJECTED Compilation of method reference NYI
+id: F-01
 import java.util.function.*;
 public class P {
     public static Object run() { Function<String, String> f = String::toUpperCase; return f.apply("abc"); }
@@ -367,6 +370,7 @@ public class P {
 === local variable without an initializer, assigned once, captured by an anonymous class
 jls: 13
 janino: REJECTED Cannot access non-final local variable "x" from inner class
+id: D-03
 public class P {
     public static Object run() {
         int x;
@@ -378,6 +382,7 @@ public class P {
 === captured local variable with the name of a variable that is assigned in another block
 jls: 14
 janino: REJECTED Cannot access non-final local variable "x" from inner class
+id: D-03
 public class P {
     public static Object run() {
         { int x = 1; x = 2; }
@@ -389,6 +394,7 @@ public class P {
 === captured local variable with the name of a variable that is assigned in a nested class
 jls: 151
 janino: REJECTED Cannot access non-final local variable "x" from inner class
+id: D-03
 public class P {
     public static Object run() {
         int x = 15;

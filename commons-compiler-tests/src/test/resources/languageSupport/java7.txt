@@ -637,6 +637,7 @@ public class P {
 === multi-catch: the alternatives implement an interface whose method is invoked on the parameter
 jls: x
 janino: REJECTED A method named "n" is not declared in any enclosing class nor any supertype
+id: D-02
 public class P {
     interface I { String n(); }
     static class ExA extends Exception implements I { public String n() { return "x"; } }

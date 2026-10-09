@@ -3,6 +3,7 @@
 === generics: annotation element read through the erased return type of getAnnotation(), without a cast
 jls: 7
 janino: REJECTED A method named "value" is not declared in any enclosing class nor any supertype, nor through a static import
+id: G-01
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A { int value(); }
@@ -185,6 +186,7 @@ public class P {
 === member of a JDK annotation (Retention.value())
 jls: RUNTIME
 janino: REJECTED Assignment conversion not possible from type "java.lang.annotation.Annotation" to type "java.lang.annotation.Retention"
+id: G-01
 import java.lang.annotation.*;
 public class P {
     public static Object run() { Retention r = Target.class.getAnnotation(Retention.class); return r.value().toString(); }
@@ -193,6 +195,7 @@ public class P {
 === repeatable annotations (Java 8)
 jls: 2
 janino: REJECTED Duplicate annotation "P$A"
+id: F-09
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface As { A[] value(); }
@@ -204,6 +207,7 @@ public class P {
 === type annotation (Java 8)
 jls: ok
 janino: REJECTED Unexpected token "@" in primary
+id: F-08
 import java.lang.annotation.*;
 import java.util.*;
 public class P {
@@ -560,7 +564,7 @@ public class P {
 jls: 1
 janino: WRONG 0 1
 legacy: WRONG 0 0
-id: #43
+id: S-10, #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface A {}
 public class P {
@@ -578,7 +582,7 @@ public class P {
 jls: 1
 janino: WRONG 0 1
 legacy: WRONG 0 0
-id: #43
+id: S-10, #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface A {}
 public class P {
