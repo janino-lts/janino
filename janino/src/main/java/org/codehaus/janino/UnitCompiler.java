@@ -5662,7 +5662,7 @@ class UnitCompiler {
             }
             return 0;
         } else {
-            Rvalue lhs = this.toRvalueOrCompileException(fa.lhs);
+            Rvalue lhs = this.nonStaticFieldAccessLhs(fa);
 
             // The accessor method takes the instance of "ClassName.super.f", not the cast to the superclass.
             if (this.protectedFieldAccessorClass(fa) != null) lhs = this.protectedFieldAccessReceiver(fa);
@@ -8529,7 +8529,14 @@ class UnitCompiler {
     ) throws CompileException {
 
         if (n == 1) {
-            return this.getReferenceType(location, identifiers[0], typeArguments, scope);
+
+            // For a qualified name, e.g. "java.foo.Bar", of which no prefix denotes a type, the error message about the
+            // first identifier also names the type (issue #31).
+            return this.getReferenceType(location, identifiers[0], typeArguments, scope, (
+                identifiers.length == 1
+                ? ""
+                : "; no type \"" + Java.join(identifiers, ".", 0, identifiers.length) + "\" found"
+            ));
         }
 
         // JLS7 6.5.5.1   Unnamed package member type name (one identifier).
@@ -8564,6 +8571,7 @@ class UnitCompiler {
      * JLS7 6.5.5.1 Simple type name (single identifier)
      *
      * @param typeArguments Zero-length array if type is not parameterized
+     * @param detail        Is appended to the error message if the type cannot be determined
      * @return              The resolved {@link IClass} or {@link IParameterizedType}
      */
     private IType
@@ -8571,7 +8579,8 @@ class UnitCompiler {
         Location                 location,
         String                   simpleTypeName,
         @Nullable TypeArgument[] typeArguments,
-        Scope                    scope
+        Scope                    scope,
+        String                   detail
     ) throws CompileException {
 
         if ("var".equals(simpleTypeName)) {
@@ -8616,7 +8625,7 @@ class UnitCompiler {
 //        }
 
         try {
-            return this.getRawReferenceType(location, simpleTypeName, scope)/*.parameterize(tas)*/;
+            return this.getRawReferenceType(location, simpleTypeName, scope, detail)/*.parameterize(tas)*/;
         } catch (CompileException ce) {
             throw new CompileException(ce.getMessage(), location, ce);
         }
@@ -8731,14 +8740,18 @@ class UnitCompiler {
         return identifiers.length == 1 && UnitCompiler.LOOKS_LIKE_TYPE_PARAMETER.matcher(identifiers[0]).matches();
     }
 
+    /**
+     * @param detail Is appended to the error message if the type cannot be determined
+     */
     private IClass
-    getRawReferenceType(Location location, String simpleTypeName, Scope scope) throws CompileException {
+    getRawReferenceType(Location location, String simpleTypeName, Scope scope, String detail)
+    throws CompileException {
 
         IClass result = this.findRawReferenceType(location, simpleTypeName, scope);
         if (result != null) return result;
 
         // 6.5.5.1.8 Give up.
-        this.compileError("Cannot determine simple type name \"" + simpleTypeName + "\"", location);
+        this.compileError("Cannot determine simple type name \"" + simpleTypeName + "\"" + detail, location);
         return this.iClassLoader.TYPE_java_lang_Object;
     }
 
@@ -9650,7 +9663,7 @@ class UnitCompiler {
     private Rvalue
     protectedFieldAccessReceiver(FieldAccess fa) throws CompileException {
 
-        Rvalue lhs = this.toRvalueOrCompileException(fa.lhs);
+        Rvalue lhs = this.nonStaticFieldAccessLhs(fa);
         if (lhs instanceof Cast) {
             Rvalue value = ((Cast) lhs).value;
             if (value instanceof ThisReference || value instanceof QualifiedThisReference) return value;
@@ -9825,12 +9838,35 @@ class UnitCompiler {
 
     private Rvalue
     toRvalueOrCompileException(final Atom a) throws CompileException {
+        return this.toRvalueOrCompileException(a, "");
+    }
+
+    /**
+     * @param detail Is appended to the error message
+     */
+    private Rvalue
+    toRvalueOrCompileException(final Atom a, String detail) throws CompileException {
         Rvalue result = a.toRvalue();
         if (result == null) {
-            this.compileError("Expression \"" + a.toString() + "\" is not an rvalue", a.getLocation());
+            this.compileError("Expression \"" + a.toString() + "\" is not an rvalue" + detail, a.getLocation());
             return new StringLiteral(a.getLocation(), "\"X\"");
         }
         return result;
+    }
+
+    /**
+     * @return The left-hand side of the access to the non-static field <var>fa</var>, as an rvalue
+     */
+    private Rvalue
+    nonStaticFieldAccessLhs(FieldAccess fa) throws CompileException {
+
+        // A type, e.g. for the simple name of a non-static field in a static method; the message keeps the text that
+        // it had before, "Expression "P" is not an rvalue" (issue #31).
+        return this.toRvalueOrCompileException(fa.lhs, (
+            fa.lhs.toType() != null
+            ? "; non-static field \"" + fa.field.getName() + "\" cannot be referenced from a static context"
+            : ""
+        ));
     }
 
     private Lvalue

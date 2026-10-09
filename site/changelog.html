@@ -59,6 +59,19 @@ h5 {
     </p>
     <ul>
       <li>
+        <a href="https://github.com/janino-lts/janino/issues/31">Issue #31</a>, in part: Some compile error messages
+        pointed in the wrong direction; now they explain the error. Each message keeps the text that it had before,
+        and the explanation is appended, because applications and their tests match message texts:
+        <code>int i = 09;</code> ("...; digit '9' not allowed in octal literal"), an initializer in an interface
+        ("...; an interface cannot declare an initializer"), <code>this(...)</code> or <code>super(...)</code> that is
+        not the first statement of a constructor ("...; an explicit constructor invocation is only allowed as the
+        first statement of a constructor body"), a non-static field referenced from a static context ("...;
+        non-static field "x" cannot be referenced from a static context"), and a qualified type name like
+        <code>java.foo.Bar</code> that denotes no type ("...; no type "java.foo.Bar" found"). The typo in
+        "Duplication access modifier" is fixed ("Duplicate access modifier"). The same code is rejected as before,
+        and the class files are unchanged.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/73">issue #73</a>: The class files of local and
         anonymous classes had no <code>InnerClasses</code> entry and no <code>EnclosingMethod</code> attribute, so
         that the reflection API did not recognize them: for <code>class L {}</code> and <code>new Object() {}</code>
