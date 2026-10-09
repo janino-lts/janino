@@ -65,12 +65,13 @@ the compliance mode follows `javac` (where the column says so; "open" means not 
 | S-01 | `Boolean Z = null; boolean x = Z \|\| true;` (also `Z && false`) | `NullPointerException` | `x == true`, no exception | [#40](https://github.com/janino-lts/janino/issues/40) | like `javac` (development line) |
 | S-02 | `f(Object o)` and `f(int... i)`; `f(1)` | invokes `f(Object)` | invokes `f(int...)` (variable arity methods before boxing) | | like `javac` (development line) |
 | S-03 | `assert false;` | throws only if assertions are enabled (`-ea`) | always throws | | like `javac` (development line) |
-| S-04 | `Byte B = 1; Object x = z ? B : 5;` | `x` is a `Byte` | `x` is an `Integer` | [#38](https://github.com/janino-lts/janino/issues/38) | open |
-| S-04 | `char c = 'a'; Object x = false ? c : (short) 66;` | `x` is an `Integer` | `x` is a `Character` | [#38](https://github.com/janino-lts/janino/issues/38) | open |
+| S-04 | `Byte B = 1; Object x = z ? B : 5;` (see below) | `x` is a `Byte` | `x` is an `Integer` | [#38](https://github.com/janino-lts/janino/issues/38) | like `javac` (development line) |
+| S-04 | `char c = 'a'; Object x = false ? c : (short) 66;` | `x` is an `Integer` | `x` is a `Character` | [#38](https://github.com/janino-lts/janino/issues/38) | like `javac` (development line) |
 | S-07 | `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`), kept for the default `serialVersionUID` | [#73](https://github.com/janino-lts/janino/issues/73) | open |
 | S-06 | `getEnclosingMethod()` of a class declared in a `private` instance method `p()` | `p` | `p$` (Janino compiles the method as a static method `p$`, see below) | | open |
 | S-08 | `getName()` of a local class `L` declared in a class `P` | `"P$1L"` | `"P$L"` | | open |
 | S-11 | `P.this`, and the simple name of a `private` member of `P`, in `class Q extends P` that is declared in `P` (see below) | the enclosing instance of `Q` | `this` | [#101](https://github.com/janino-lts/janino/issues/101) | like `javac` (development line) |
+| S-12 | `String s = "x"; boolean x = ("a" + (true ? "b" : s)) == "ab";` (see below) | `x == false` | `x == true` | | like `javac` (development line) |
 
 **S-05, constant expressions that are not folded** ([#47](https://github.com/janino-lts/janino/issues/47)): Janino
 does not evaluate shifts, relational operators, `~`, operations with `char` operands and casts to and from `char` at
@@ -79,6 +80,9 @@ compile time (see section 2). Their values are correct, but a `static final` fie
 
 - it has no `ConstantValue` attribute and is initialized in the static initializer;
 - reading it from another class initializes the declaring class, which `javac`'s code does not (JLS 12.4.1).
+
+Likewise, such an operand of a conditional expression is not a constant: `z ? b : (1 << 2)` with a `byte b` has the
+type `int` (JLS 15.25.2 gives it the type `byte`, see S-04).
 
 **Generics, class G** (type arguments are parsed, but otherwise ignored, see
 [Limitations](https://janino-lts.github.io/janino/#limitations); everything that depends on the typing of generics is
@@ -136,6 +140,27 @@ follows `javac`; as a consequence, it rejects the access to a `private` member o
 `P.this` as a value of type `P` (e.g. `Object o = P.this;`) failed with an `InternalCompilerException` when the
 compiler's assertions were enabled (`-ea`).
 
+**S-04, the type of a conditional expression with numeric operands of different types**
+([#38](https://github.com/janino-lts/janino/issues/38)):
+
+- Janino does not implement the rule of JLS 15.25.2 for an operand of type `Byte`, `Short` or `Character` and a
+  constant of type `int` that is representable in its unboxed type: `z ? B : 5` has the type `int` with Janino, the
+  type `byte` with `javac`;
+- with a constant condition, Janino gives the expression the type of its operand of type `byte`, `short` or `char`
+  where `javac` applies binary numeric promotion: `false ? c : (short) 66` has the type `char` with Janino, `int` with
+  `javac`; `false ? b : c` with `c = (char) 200` is the `byte` -56 with Janino, the `int` 200 with `javac`.
+
+The type determines the class of the boxed value, overload resolution (`f(z ? B : 5)` invokes `f(int)` instead of
+`f(byte)`) and string conversion (`"" + (true ? 'a' : (short) 1)` is `"a"` instead of `"97"`). The compliance mode
+follows `javac`; as a consequence, it rejects code that is valid only with Janino's type (L-47), and it accepts valid
+code that the compatibility mode rejects because of the type `int` (D-07).
+
+**S-12, conditional expressions as constant expressions**: Janino treats a conditional expression with a constant
+condition as a constant expression if the selected operand is constant, also when the other operand is not; JLS
+15.28 requires all three operands to be constant. `"a" + (true ? "b" : s)` with a variable `s` is therefore a
+constant, interned string with Janino (`== "ab"` is `true`), but not with `javac`. The compliance mode follows
+`javac`; as a consequence, it rejects such an expression where a constant expression is required (L-48).
+
 ## 2. Valid code that Janino rejects
 
 Class D: 3.1.12 did not compile the code into loadable classes either, so no program depends on it; a fix applies to
@@ -174,6 +199,13 @@ the digits after a leading `0` as an octal integer literal.
 **D-05, a member type of a parameterized type** ([#23](https://github.com/janino-lts/janino/issues/23)): `O<String>.I`
 is rejected (`IDENTIFIER expected instead of '.'`).
 
+**D-07, a conditional expression with a wrapper operand and an `int` constant** in a context that requires the
+unboxed type ([#38](https://github.com/janino-lts/janino/issues/38)): `byte x = z ? B : 5;` and `Byte x = z ? B : 5;`
+with a `Byte B`, `Character x = true ? C : 98;` with a `Character C`, and `h(z ? S : 5)` with a `Short S` and a method
+`h(short)` are rejected (`Assignment conversion not possible from type "int"`, `No applicable constructor/method
+found`), because the type of the expression is `int` (S-04). The compatibility mode cannot accept this code without
+giving up the type of S-04 that it keeps for legacy code; the compliance mode accepts it, like `javac`.
+
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions
 and method references; F-02 `switch` expressions, arrow labels and multiple labels in a `case`; F-03 pattern
@@ -187,12 +219,13 @@ Class L: `javac` rejects the following code, Janino compiles it, and the JVM loa
 behaves as the source suggests (e.g. an assignment to a `final` local variable assigns it). See
 [issue #33](https://github.com/janino-lts/janino/issues/33) for the compatibility considerations. The compatibility
 mode keeps accepting all of it; the compliance mode rejects it once the respective check is implemented (today, it
-rejects L-20, L-45 and L-46, see S-11; all other entries of this section are open). One exception, registered as
-A-05 (section 5): the access to a `protected` member of a class in another package through an expression whose type
-is neither the accessing class nor a subclass of it (`((Object) this).clone()`, `Object o = new P(); o.clone()`) is
-rejected since 3.1.16, like by `javac`, although the JVM loaded such classes when the verifier could infer the type
-`P` from the bytecode ([#54](https://github.com/janino-lts/janino/issues/54)); it rejected them for a parameter, a
-field or a method result of type `Object`.
+rejects L-20, L-45 and L-46, see S-11, L-47, see S-04, and L-48, see S-12; all other entries of this section are
+open). One exception, registered as A-05 (section 5): the access to a `protected` member of a class in another
+package through an expression whose type is neither the accessing class nor a subclass of it
+(`((Object) this).clone()`, `Object o = new P(); o.clone()`) is rejected since 3.1.16, like by `javac`, although the
+JVM loaded such classes when the verifier could infer the type `P` from the bytecode
+([#54](https://github.com/janino-lts/janino/issues/54)); it rejected them for a parameter, a field or a method result
+of type `Object`.
 
 Code generators rely on some of these leniencies. The code that Apache Spark generates for SQL queries, for
 example, assigns to a `final` local variable, names nested classes by their binary names, creates generic arrays
@@ -301,7 +334,14 @@ and assigns a parameterized type to a field with a different type argument
   ([#101](https://github.com/janino-lts/janino/issues/101); the compliance mode rejects it, see S-11);
 - L-46: `B.this` for a superclass `B` of an enclosing class `P`, which is not an enclosing class itself
   (`class P extends B { class Q { ... B.this.f ... } }`); Janino takes the instance of `P`
-  ([#101](https://github.com/janino-lts/janino/issues/101); the compliance mode rejects it, see S-11).
+  ([#101](https://github.com/janino-lts/janino/issues/101); the compliance mode rejects it, see S-11);
+- L-47: an assignment or a method argument that is valid only with the type that Janino gives a conditional
+  expression with a constant condition (S-04): `short x = true ? s : c;`, `Short x = true ? s : c;`,
+  `byte x = true ? b : c;`, `char x = true ? c : (byte) 1;`, `h(true ? s : c)` with a method `h(short)` (`javac`:
+  the type is `int`; [#38](https://github.com/janino-lts/janino/issues/38); the compliance mode rejects it, see S-04);
+- L-48: a conditional expression with a constant condition and an operand that is not constant, where a constant
+  expression is required: `byte x = false ? i : 5;` and `case false ? i : 5:` with an `int i` (the compliance mode
+  rejects it, see S-12).
 
 **Generics, class G** (type arguments are not checked; outside the scope of both modes):
 

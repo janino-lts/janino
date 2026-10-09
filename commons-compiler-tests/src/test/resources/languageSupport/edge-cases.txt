@@ -259,6 +259,7 @@ public class P {
 === conditional expression: Byte operand and int constant
 jls: Byte 5
 janino: WRONG Integer 5
+compliant: OK
 id: S-04
 public class P {
     public static Object run() { boolean z = false; Byte B = 1; Object o = z ? B : 5; return o.getClass().getSimpleName() + " " + o; }
@@ -267,6 +268,7 @@ public class P {
 === conditional expression: constant condition, short and char operands
 jls: Integer 1
 janino: WRONG Short 1
+compliant: OK
 id: S-04
 public class P {
     public static Object run() { short s = 1; char c = 'a'; Object o = true ? s : c; return o.getClass().getSimpleName() + " " + o; }
@@ -275,6 +277,7 @@ public class P {
 === conditional expression: constant condition, char operand and short constant
 jls: Integer 66
 janino: WRONG Character B
+compliant: OK
 id: S-04
 public class P {
     public static Object run() { char c = 'a'; Object o = false ? c : (short) 66; return o.getClass().getSimpleName() + " " + o; }
@@ -283,6 +286,7 @@ public class P {
 === conditional expression: constant condition, byte and char operands, value out of the range of byte
 jls: Integer 200
 janino: WRONG Byte -56
+compliant: OK
 id: S-04
 public class P {
     public static Object run() { byte b = 1; char c = (char) 200; Object o = false ? b : c; return o.getClass().getSimpleName() + " " + o; }
@@ -291,7 +295,246 @@ public class P {
 === conditional expression: constant condition, char operand and byte constant
 jls: Integer 97
 janino: WRONG Character a
+compliant: OK
 id: S-04
 public class P {
     public static Object run() { char c = 'a'; Object o = true ? c : (byte) 1; return o.getClass().getSimpleName() + " " + o; }
+}
+
+=== conditional expression: Short operand and int constant
+jls: Short 5
+janino: WRONG Integer 5
+compliant: OK
+id: S-04
+public class P {
+    public static Object run() {
+        boolean z = false; Short S = 2; Object o = z ? S : 5; return o.getClass().getSimpleName() + " " + o;
+    }
+}
+
+=== conditional expression: Character operand and int constant
+jls: Character a
+janino: WRONG Integer 97
+compliant: OK
+id: S-04
+public class P {
+    public static Object run() {
+        boolean z = false; Character C = 'b'; Object o = z ? C : 97; return o.getClass().getSimpleName() + " " + o;
+    }
+}
+
+=== conditional expression: int constant and Byte operand
+jls: Byte 1
+janino: WRONG Integer 1
+compliant: OK
+id: S-04
+public class P {
+    public static Object run() {
+        boolean z = false; Byte B = 1; Object o = z ? 5 : B; return o.getClass().getSimpleName() + " " + o;
+    }
+}
+
+=== conditional expression: constant condition, Byte operand and int constant
+jls: Byte 1
+janino: WRONG Integer 1
+compliant: OK
+id: S-04
+public class P {
+    public static Object run() { Byte B = 1; Object o = true ? B : 5; return o.getClass().getSimpleName() + " " + o; }
+}
+
+=== conditional expression: constant condition, Character operand and int constant
+jls: Character a
+janino: WRONG Integer 97
+compliant: OK
+id: S-04
+public class P {
+    public static Object run() {
+        Character C = 'a'; Object o = true ? C : 98; return o.getClass().getSimpleName() + " " + o;
+    }
+}
+
+=== conditional expression: Byte operand and int constant, unboxed in an assignment to Object
+jls: true
+janino: WRONG false
+compliant: OK
+id: S-04
+public class P {
+    public static Object run() {
+        boolean z = false; Byte B = 1; Object o = z ? B : 5; return o.equals(Byte.valueOf((byte) 5));
+    }
+}
+
+=== conditional expression: Byte operand and int constant as the argument of an overloaded method
+jls: f(byte)
+janino: WRONG f(int)
+compliant: OK
+id: S-04
+public class P {
+    static String f(byte x) { return "f(byte)"; }
+    static String f(int x) { return "f(int)"; }
+    public static Object run() { boolean z = false; Byte B = 1; return f(z ? B : 5); }
+}
+
+=== conditional expression: constant condition, byte operand and char constant
+jls: Integer 97
+janino: WRONG Byte 97
+compliant: OK
+id: S-04
+public class P {
+    public static Object run() {
+        byte b = 1; Object o = false ? b : 'a'; return o.getClass().getSimpleName() + " " + o;
+    }
+}
+
+=== conditional expression: constant condition, short operand and Character operand
+jls: Integer 1
+janino: WRONG Short 1
+compliant: OK
+id: S-04
+public class P {
+    public static Object run() {
+        short s = 1; Character C = 'a'; Object o = true ? s : C; return o.getClass().getSimpleName() + " " + o;
+    }
+}
+
+=== conditional expression: constant condition, char constant and short constant
+jls: Integer 97
+janino: WRONG Character a
+compliant: OK
+id: S-04
+public class P {
+    public static Object run() { Object o = true ? 'a' : (short) 1; return o.getClass().getSimpleName() + " " + o; }
+}
+
+=== conditional expression: constant condition, char constant and short constant, in string concatenation
+jls: 97
+janino: WRONG a
+compliant: OK
+id: S-04
+public class P {
+    public static Object run() { return "" + (true ? 'a' : (short) 1); }
+}
+
+=== conditional expression: constant condition, char operand and short constant, in string concatenation
+jls: 66
+janino: WRONG B
+compliant: OK
+legacy: OK
+id: S-04, #51
+public class P {
+    public static Object run() { char c = 'a'; return "" + (false ? c : (short) 66); }
+}
+
+=== conditional expression: constant condition, short and char operands as the argument of an overloaded method
+jls: g(int)
+janino: WRONG g(short)
+compliant: OK
+id: S-04
+public class P {
+    static String g(short x) { return "g(short)"; }
+    static String g(int x) { return "g(int)"; }
+    public static Object run() { short s = 1; char c = 'a'; return g(true ? s : c); }
+}
+
+=== conditional expression: Byte operand and int constant that is not representable in byte
+jls: Integer 500
+janino: OK
+public class P {
+    public static Object run() {
+        boolean z = false; Byte B = 1; Object o = z ? B : 500; return o.getClass().getSimpleName() + " " + o;
+    }
+}
+
+=== conditional expression: Byte operand and char constant
+jls: Integer 97
+janino: OK
+legacy: REJECTED Assignment conversion not possible
+id: #56
+public class P {
+    public static Object run() {
+        boolean z = false; Byte B = 1; Object o = z ? B : 'a'; return o.getClass().getSimpleName() + " " + o;
+    }
+}
+
+=== conditional expression: constant condition, char operand and long constant
+jls: Long 97
+janino: OK
+legacy: REJECTED Cannot convert constant
+id: #51
+public class P {
+    public static Object run() {
+        char c = 'a'; Object o = true ? c : 5L; return o.getClass().getSimpleName() + " " + o;
+    }
+}
+
+=== conditional expression: Byte operand and int constant assigned to a byte variable
+jls: 5
+janino: REJECTED Assignment conversion not possible from type "int" to type "byte"
+compliant: OK
+id: D-07
+public class P {
+    public static Object run() { boolean z = false; Byte B = 1; byte x = z ? B : 5; return x; }
+}
+
+=== conditional expression: Byte operand and int constant assigned to a Byte variable
+jls: 5
+janino: REJECTED Assignment conversion not possible from type "int" to type "java.lang.Byte"
+compliant: OK
+id: D-07
+public class P {
+    public static Object run() { boolean z = false; Byte B = 1; Byte x = z ? B : 5; return x; }
+}
+
+=== conditional expression: constant condition, Character operand and int constant assigned to a Character variable
+jls: a
+janino: REJECTED Assignment conversion not possible from type "int" to type "java.lang.Character"
+compliant: OK
+id: D-07
+public class P {
+    public static Object run() { Character C = 'a'; Character x = true ? C : 98; return x; }
+}
+
+=== conditional expression: Short operand and int constant as the argument of a method with a short parameter
+jls: h(short)
+janino: REJECTED No applicable constructor/method found for actual parameters "int"
+compliant: OK
+id: D-07
+public class P {
+    static String h(short x) { return "h(short)"; }
+    public static Object run() { boolean z = false; Short S = 2; return h(z ? S : 5); }
+}
+
+=== conditional expression: byte operand and a constant shift expression of type int
+jls: Byte 0
+janino: WRONG Integer 0
+legacy: REJECTED Assignment conversion not possible
+id: S-05, #56
+public class P {
+    public static Object run() {
+        boolean z = false; byte b = 1; Object o = z ? b : ((-8) << 31); return o.getClass().getSimpleName() + " " + o;
+    }
+}
+
+=== conditional expression: constant condition and a variable operand that is not selected, in a string comparison
+jls: false
+janino: WRONG true
+compliant: OK
+id: S-12
+public class P {
+    public static Object run() { String s = "x"; return ("a" + (true ? "b" : s)) == "ab"; }
+}
+
+=== conditional expression: constant condition and constant operands, in a string comparison
+jls: true
+janino: OK
+public class P {
+    public static Object run() { return ("a" + (true ? "b" : "c")) == "ab"; }
+}
+
+=== conditional expression: constant condition and constant operands as a case label
+jls: five
+janino: OK
+public class P {
+    public static Object run() { switch (5) { case true ? 5 : 0: return "five"; default: return "default"; } }
 }
