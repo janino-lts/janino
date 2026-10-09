@@ -165,6 +165,8 @@ public class P {
 
 === shift of double
 janino: REJECTED Operator "<<" not applicable to type "double"
+legacy: INVALID InternalCompilerException
+id: #32
 public class P {
     double f() { return 1.0 << 1; }
 }
@@ -262,6 +264,8 @@ public class P {
 
 === void method in string concatenation
 janino: REJECTED "void" not allowed in string concatenation
+legacy: INVALID InternalCompilerException
+id: #32
 public class P {
     void g() {}
     String f() { return "a" + g(); }
@@ -313,6 +317,8 @@ public class P {
 
 === void method as left operand of string concatenation
 janino: REJECTED "void" not allowed in string concatenation
+legacy: INVALID InternalCompilerException
+id: #32
 public class P {
     void g() {}
     String f() { return g() + "a"; }
@@ -320,6 +326,8 @@ public class P {
 
 === shift of float
 janino: REJECTED Operator "<<" not applicable to type "float"
+legacy: INVALID InternalCompilerException
+id: #32
 public class P {
     Object f() { return 1.0f << 1; }
 }
@@ -389,6 +397,8 @@ public class P {
 
 === constant conditional expression of type long assigned to a byte variable
 janino: REJECTED Assignment conversion not possible from type "long" to type "byte"
+legacy: ACCEPTED
+id: A-04
 public class P {
     void f() { byte x = true ? 1 : 2L; }
 }
@@ -403,6 +413,8 @@ public class P {
 === static interface method invoked unqualified from an implementing class
 janino: ACCEPTED
 recovery: ACCEPTED
+legacy: REJECTED Non-abstract class "P" must implement method "public static abstract java.lang.String I.s()"
+id: #53
 interface I { static String s() { return "s"; } }
 public class P implements I {
     String f() { return s(); }
@@ -411,6 +423,8 @@ public class P implements I {
 === static interface method invoked through an implementing class
 janino: ACCEPTED
 recovery: ACCEPTED
+legacy: REJECTED Non-abstract class "P" must implement method "public static abstract java.lang.String I.s()"
+id: #53
 interface I { static String s() { return "s"; } }
 public class P implements I {
     String f() { return P.s(); }
@@ -419,6 +433,8 @@ public class P implements I {
 === static interface method invoked through an instance of an implementing class
 janino: ACCEPTED
 recovery: ACCEPTED
+legacy: REJECTED Non-abstract class "P" must implement method "public static abstract java.lang.String I.s()"
+id: #53
 interface I { static String s() { return "s"; } }
 public class P implements I {
     String f() { return new P().s(); }
@@ -439,6 +455,8 @@ public class P { long[] f(int[] a) { return a.clone(); } }
 
 === clone() of an int array cast to a String array
 janino: REJECTED Cannot cast "int[]" to "java.lang.String[]"
+legacy: ACCEPTED
+id: #58
 public class P { String[] f(int[] a) { return (String[]) a.clone(); } }
 
 === clone() of an int array: element assigned to a String
@@ -447,18 +465,24 @@ public class P { String f(int[] a) { return a.clone()[0]; } }
 
 === subscript of non-array as a method argument
 janino: REJECTED Subscript not allowed on non-array type "java.lang.Object"
+legacy: INVALID InternalCompilerException
+id: #71
 public class P {
     String f(Object o) { return String.valueOf(o[0]); }
 }
 
 === subscript of a String as a method argument
 janino: REJECTED Subscript not allowed on non-array type "java.lang.String"
+legacy: INVALID InternalCompilerException
+id: #71
 public class P {
     String f(String s) { return String.valueOf(s[0]); }
 }
 
 === subscript of non-array as a constructor argument
 janino: REJECTED Subscript not allowed on non-array type "java.lang.Object"
+legacy: INVALID InternalCompilerException
+id: #71
 public class P {
     P(Object x) {}
     P f(Object o) { return new P(o[0]); }
@@ -472,6 +496,8 @@ public class P {
 
 === subscript of non-array as the argument of an overloaded method
 janino: REJECTED Subscript not allowed on non-array type "java.lang.Object"
+legacy: INVALID InternalCompilerException
+id: #71
 public class P {
     void g(int i) {}
     void g(String s) {}
@@ -480,6 +506,8 @@ public class P {
 
 === subscript of non-array as an argument of a static method of another class
 janino: REJECTED Subscript not allowed on non-array type "java.lang.Object"
+legacy: INVALID InternalCompilerException
+id: #71
 public class P {
     int f(Object o) { return Integer.parseInt(o[0]); }
 }

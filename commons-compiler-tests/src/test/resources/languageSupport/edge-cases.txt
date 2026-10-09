@@ -222,6 +222,8 @@ public class P extends A {
 === conditional expression: constant condition, operands int and double, in string concatenation
 jls: 1.0
 janino: OK
+legacy: WRONG 1
+id: #55
 public class P {
     public static Object run() { return "" + (true ? 1 : 2.0); }
 }
@@ -229,6 +231,8 @@ public class P {
 === conditional expression: constant condition, int constant and char variable, in string concatenation
 jls: a
 janino: OK
+legacy: WRONG 97
+id: #51
 public class P {
     public static Object run() { char c = 'a'; return "" + (true ? 97 : c); }
 }
@@ -236,6 +240,8 @@ public class P {
 === conditional expression: constant condition, operands int and long, boxed
 jls: 1
 janino: OK
+legacy: INVALID VerifyError
+id: #55
 public class P {
     public static Object run() { Object o = true ? 1 : 2L; return o; }
 }
@@ -243,6 +249,8 @@ public class P {
 === conditional expression: constant condition, operands int and long, compared
 jls: true
 janino: OK
+legacy: INVALID InternalCompilerException
+id: #55
 public class P {
     public static Object run() { return (true ? 1 : 2L) == 1L; }
 }

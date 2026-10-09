@@ -31,6 +31,8 @@ public class P extends A { long f() { return 0; } }
 
 === override of final method
 janino: REJECTED Cannot override the final method "default void A.f()"
+legacy: INVALID LinkageError
+id: #30
 class A { final void f() {} }
 public class P extends A { void f() {} }
 
@@ -54,6 +56,8 @@ public class P extends A { void f() {} }
 
 === class extends final class
 janino: REJECTED "A" is final; classes cannot extend a final class
+legacy: INVALID LinkageError
+id: #30
 final class A {}
 public class P extends A {}
 
@@ -74,6 +78,8 @@ public class P implements A {}
 
 === interface extends class
 janino: REJECTED "A" is not an interface; interfaces can only extend interfaces
+legacy: INVALID LinkageError
+id: #30
 class A {}
 interface I extends A {}
 
@@ -103,6 +109,8 @@ private class P {}
 
 === duplicate field
 janino: REJECTED Redeclaration of field "x"
+legacy: INVALID LinkageError
+id: #30
 public class P {
     int x;
     int x;
@@ -130,10 +138,14 @@ public class P {
 
 === duplicate enum constant
 janino: REJECTED Redeclaration of field "X"
+legacy: INVALID LinkageError
+id: #30
 enum E { X, X }
 
 === duplicate member type
 janino: REJECTED Redeclaration of member type "M"
+legacy: INVALID LinkageError
+id: #30
 public class P {
     class M {}
     class M {}
@@ -217,6 +229,8 @@ janino: REJECTED Null literal not allowed as element value
 
 === annotation element does not exist
 janino: REJECTED Annotation type "X" has no element "foo"
+legacy: INVALID InternalCompilerException
+id: #32
 @interface X { int value(); }
 @X(foo = 1) public class P {}
 
@@ -230,6 +244,8 @@ enum E {
 
 === instantiation of an enum
 janino: REJECTED Cannot instantiate enum "E"
+legacy: INVALID InternalCompilerException
+id: #32
 enum E { X }
 public class P {
     Object f() { return new E(); }
@@ -237,6 +253,8 @@ public class P {
 
 === class extends enum
 janino: REJECTED "E" is an enum; classes cannot extend an enum
+legacy: INVALID AssertionError
+id: #32
 enum E { X }
 public class P extends E {}
 
@@ -253,6 +271,8 @@ interface I {
 
 === anonymous subclass of an enum
 janino: REJECTED Cannot instantiate enum "E"
+legacy: INVALID InternalCompilerException
+id: #32
 enum E { X }
 public class P {
     Object f() { return new E() {}; }
@@ -260,6 +280,8 @@ public class P {
 
 === annotation with two unknown elements
 janino: REJECTED Annotation type "X" has no element "foo"
+legacy: INVALID InternalCompilerException
+id: #32
 @interface X { int value(); }
 @X(foo = 1, bar = 2) public class P {}
 
@@ -381,48 +403,64 @@ public class P { @X int f; }
 
 === abstract static method
 janino: REJECTED Illegal combination of modifiers "abstract" and "static"
+legacy: INVALID LinkageError
+id: #54
 public abstract class P {
     abstract static void f();
 }
 
 === private abstract method
 janino: REJECTED Illegal combination of modifiers "abstract" and "private"
+legacy: INVALID LinkageError
+id: #54
 public abstract class P {
     private abstract void f();
 }
 
 === final volatile field
 janino: REJECTED Illegal combination of modifiers "final" and "volatile"
+legacy: INVALID LinkageError
+id: #54
 public class P {
     final volatile int x = 1;
 }
 
 === duplicate interface in implements clause
 janino: REJECTED Duplicate interface "java.lang.Runnable"
+legacy: INVALID LinkageError
+id: #54
 public class P implements Runnable, Runnable {
     public void run() {}
 }
 
 === abstract native method
 janino: REJECTED Illegal combination of modifiers "abstract" and "native"
+legacy: INVALID LinkageError
+id: #54
 public abstract class P {
     abstract native void f();
 }
 
 === abstract synchronized method
 janino: REJECTED Illegal combination of modifiers "abstract" and "synchronized"
+legacy: INVALID LinkageError
+id: #54
 public abstract class P {
     abstract synchronized void f();
 }
 
 === abstract strictfp method
 janino: REJECTED Illegal combination of modifiers "abstract" and "strictfp"
+legacy: INVALID LinkageError
+id: #54
 public abstract class P {
     abstract strictfp void f();
 }
 
 === abstract static interface method
 janino: REJECTED Illegal combination of modifiers "abstract" and "static"
+legacy: INVALID LinkageError
+id: #54
 interface I {
     abstract static void f();
 }
@@ -446,17 +484,23 @@ public class P {
 
 === static final volatile field
 janino: REJECTED Illegal combination of modifiers "final" and "volatile"
+legacy: INVALID LinkageError
+id: #54
 public class P {
     static final volatile int x = 1;
 }
 
 === duplicate interface in implements clause, named differently
 janino: REJECTED Duplicate interface "java.lang.Cloneable"
+legacy: INVALID LinkageError
+id: #54
 public class P implements java.lang.Cloneable, Cloneable {
 }
 
 === duplicate interface in extends clause
 janino: REJECTED Duplicate interface "I"
+legacy: INVALID LinkageError
+id: #54
 interface I {}
 interface J extends I, I {}
 public class P implements J {
@@ -464,18 +508,24 @@ public class P implements J {
 
 === member annotation type with type parameters
 janino: REJECTED '{' expected instead of '<'
+legacy: ACCEPTED
+id: #43
 public class P {
     @interface A<T> {}
 }
 
 === member annotation type with an extends clause
 janino: REJECTED '{' expected instead of 'extends'
+legacy: ACCEPTED
+id: #43
 public class P {
     @interface A extends Runnable {}
 }
 
 === class implements a member annotation type without annotationType()
 janino: REJECTED Non-abstract class "P$Impl" must implement method
+legacy: ACCEPTED
+id: #43
 public class P {
     @interface A {}
     static class Impl implements A {}
@@ -483,12 +533,16 @@ public class P {
 
 === default method in a member annotation type
 janino: REJECTED Access modifier(s) default not allowed in this context
+legacy: ACCEPTED
+id: #43
 public class P {
     @interface A { default int f() { return 1; } }
 }
 
 === static method in a member annotation type
 janino: REJECTED Access modifier(s) static not allowed in this context
+legacy: ACCEPTED
+id: #43
 public class P {
     @interface A { static int f() { return 1; } }
 }
@@ -516,6 +570,8 @@ public class P {
 
 === single-element annotation on a type without a "value" element
 janino: REJECTED Annotation type "X" has no element "value"
+legacy: INVALID InternalCompilerException
+id: #43
 @interface X {}
 @X(8) public class P {}
 
@@ -527,6 +583,8 @@ recovery: ACCEPTED
 
 === duplicate annotation on a parameter
 janino: REJECTED Duplicate annotation "X"
+legacy: ACCEPTED
+id: #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface X {}
 public class P {
@@ -582,6 +640,8 @@ public class P {
 === enum constant class body invokes a private instance method of the enum unqualified
 janino: ACCEPTED
 recovery: ACCEPTED
+legacy: REJECTED Non-abstract class "P$E" must implement method "default abstract java.lang.String P$E.n()"
+id: #44
 public class P {
     enum E { A { String n() { return p(); } }; private String p() { return "p"; } abstract String n(); }
 }

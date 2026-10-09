@@ -188,10 +188,21 @@ class InvalidCodeTest extends CommonsCompilerTestSuite {
      */
     static String
     compile(ICompilerFactory compilerFactory, String mode, String source) throws Exception {
+        return InvalidCodeTest.compile(SourceCompiler.of(compilerFactory, mode), source);
+    }
 
-        ISimpleCompiler sc = TestUtil.newSimpleCompiler(compilerFactory, mode);
+    /**
+     * Compiles the <var>source</var> with the default error handler and, if that succeeds, loads and initializes all
+     * generated classes.
+     *
+     * @return The behavior, in the format of the "janino" lines
+     */
+    static String
+    compile(SourceCompiler compiler, String source) throws Exception {
+
+        Map<String, byte[]> classes;
         try {
-            sc.cook(source);
+            classes = compiler.compile(source);
         } catch (CompileException ce) {
             String message = String.valueOf(ce.getMessage());
             return "REJECTED " + InvalidCodeTest.LOCATION_PREFIX.matcher(message).replaceFirst("");
@@ -199,8 +210,8 @@ class InvalidCodeTest extends CommonsCompilerTestSuite {
             return "INVALID " + t.getClass().getSimpleName();
         }
 
-        ClassLoader cl = new UninstrumentedClassLoader(sc.getBytecodes());
-        for (String className : sc.getBytecodes().keySet()) {
+        ClassLoader cl = SourceCompiler.loader(classes);
+        for (String className : classes.keySet()) {
             try {
                 Class.forName(className, true, cl);
             } catch (ExceptionInInitializerError eiie) {
@@ -213,29 +224,6 @@ class InvalidCodeTest extends CommonsCompilerTestSuite {
             }
         }
         return "ACCEPTED";
-    }
-
-    /**
-     * Defines classes without a code source location. Coverage agents (e.g. JaCoCo) do not instrument such classes;
-     * instrumenting rewrites a class file, and would hide some of its defects (e.g. duplicate entries in the
-     * "InnerClasses" attribute).
-     */
-    private static final
-    class UninstrumentedClassLoader extends ClassLoader {
-
-        private final Map<String, byte[]> classes;
-
-        UninstrumentedClassLoader(Map<String, byte[]> classes) {
-            super(InvalidCodeTest.class.getClassLoader());
-            this.classes = classes;
-        }
-
-        @Override protected Class<?>
-        findClass(String name) throws ClassNotFoundException {
-            byte[] b = this.classes.get(name);
-            if (b == null) throw new ClassNotFoundException(name);
-            return this.defineClass(name, b, 0, b.length);
-        }
     }
 
     /**

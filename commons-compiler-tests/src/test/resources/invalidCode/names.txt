@@ -75,6 +75,8 @@ public class P {
 
 === this in static initializer
 janino: REJECTED No current instance available in static initializer
+legacy: INVALID InternalCompilerException
+id: #32
 public class P {
     static Object o;
     static { o = this; }
@@ -233,6 +235,8 @@ public class P {
 
 === this in static field initializer
 janino: REJECTED No current instance available in static field initializer
+legacy: INVALID InternalCompilerException
+id: #32
 public class P {
     static Object o = this;
 }
@@ -265,6 +269,8 @@ public class P {}
 
 === protected method invoked on an instance of an unrelated type
 janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
+legacy: INVALID LinkageError
+id: #54
 public class P {
     void f(Object o) throws Exception { o.clone(); }
 }
@@ -306,18 +312,24 @@ public class P {
 
 === protected method invoked through a local variable of the superclass type
 janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
+legacy: ACCEPTED
+id: #54
 public class P implements Cloneable {
     Object f() throws Exception { Object o = new P(); return o.clone(); }
 }
 
 === protected method invoked through this, cast to the superclass type
 janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
+legacy: ACCEPTED
+id: #54
 public class P implements Cloneable {
     Object f() throws Exception { return ((Object) this).clone(); }
 }
 
 === protected method invoked through the result of a method of the superclass type
 janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
+legacy: INVALID LinkageError
+id: #54
 public class P implements Cloneable {
     static Object g() { return new P(); }
     Object f() throws Exception { return g().clone(); }
@@ -325,6 +337,8 @@ public class P implements Cloneable {
 
 === protected method of the superclass invoked in a default method
 janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
+legacy: INVALID LinkageError
+id: #54
 interface I {
     default Object f(Object o) throws Exception { return o.clone(); }
 }
@@ -333,6 +347,8 @@ public class P implements I {
 
 === protected field of the superclass read through an expression of the superclass type
 janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.FilterInputStream"
+legacy: INVALID LinkageError
+id: #54
 public class P extends java.io.FilterInputStream {
     P() { super(null); }
     Object f(java.io.FilterInputStream s) { return s.in; }
@@ -340,12 +356,16 @@ public class P extends java.io.FilterInputStream {
 
 === protected field of the superclass assigned through an expression of the superclass type
 janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.ByteArrayOutputStream"
+legacy: INVALID LinkageError
+id: #54
 public class P extends java.io.ByteArrayOutputStream {
     void f(java.io.ByteArrayOutputStream s) { s.count = 1; }
 }
 
 === protected field of the superclass read through an expression of a sibling subclass type
 janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.BufferedInputStream"
+legacy: INVALID LinkageError
+id: #54
 public class P extends java.io.FilterInputStream {
     P() { super(null); }
     Object f(java.io.BufferedInputStream s) { return s.in; }
@@ -353,6 +373,8 @@ public class P extends java.io.FilterInputStream {
 
 === protected field of the superclass read through a local variable of the superclass type
 janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.FilterInputStream"
+legacy: ACCEPTED
+id: #54
 public class P extends java.io.FilterInputStream {
     P() { super(null); }
     Object f() { java.io.FilterInputStream s = new P(); return s.in; }
@@ -360,6 +382,8 @@ public class P extends java.io.FilterInputStream {
 
 === protected field of the superclass read through this, cast to the superclass type
 janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.FilterInputStream"
+legacy: ACCEPTED
+id: #54
 public class P extends java.io.FilterInputStream {
     P() { super(null); }
     Object f() { return ((java.io.FilterInputStream) this).in; }
@@ -367,6 +391,8 @@ public class P extends java.io.FilterInputStream {
 
 === protected constructor invoked from a subclass in another package
 janino: REJECTED Protected constructor cannot be invoked from type "P"
+legacy: INVALID LinkageError
+id: #54
 public class P extends java.io.FilterInputStream {
     P() { super(null); }
     Object f() { return new java.io.FilterInputStream(null); }
@@ -461,6 +487,8 @@ public class P {
 
 === protected field of the superclass read through P.this, cast to the superclass type, from an inner class
 janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.FilterInputStream"
+legacy: ACCEPTED
+id: #59
 public class P extends java.io.FilterInputStream {
     P() { super(null); }
     class Q { Object f() { return ((java.io.FilterInputStream) P.this).in; } }
@@ -468,6 +496,8 @@ public class P extends java.io.FilterInputStream {
 
 === protected field of the superclass read through an expression of a sibling subclass type from an inner class
 janino: REJECTED Protected member cannot be accessed through an expression of type "java.io.BufferedInputStream"
+legacy: ACCEPTED
+id: #59
 public class P extends java.io.FilterInputStream {
     P() { super(null); }
     class Q { Object f(java.io.BufferedInputStream b) { return b.in; } }
@@ -475,6 +505,8 @@ public class P extends java.io.FilterInputStream {
 
 === protected method of the superclass invoked through an expression of the superclass type from an inner class
 janino: REJECTED Protected member cannot be accessed through an expression of type "java.util.AbstractList"
+legacy: ACCEPTED
+id: #59
 public class P extends java.util.ArrayList {
     class Q { void f(java.util.AbstractList l) { l.removeRange(0, 0); } }
 }

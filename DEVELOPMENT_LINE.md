@@ -198,3 +198,13 @@ class.
 describes the compatibility mode (`janino:`) and, where the compliance mode differs, the compliance mode
 (`compliant:`, with the `id:` of the deviation). `ExpressionDifferentialTest` and `ControlFlowDifferentialTest` run
 in both modes as well, with the known differences of each mode in its own file.
+
+The reference of the compatibility mode is Janino 3.1.12 (see the contract in `JAVAC_COMPLIANCE.md`): code that
+3.1.12 compiled into loadable classes keeps its behavior, except where 3.1.12 miscompiled it. `LegacyDifferentialTest`
+makes this machine-checkable: it compiles every recorded case with 3.1.12 (loaded from Maven Central into a class
+loader of its own, with target version 8) and compares its behavior with the recorded behavior of the compatibility
+mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction that explains the
+difference (`id:`, an issue number or an ID of the register); a difference that no record states, e.g. a regression,
+fails the test. Today, 372 of the 925 recorded cases differ from 3.1.12, each with its correction: the fixes of
+classes D and V since 3.1.13, the registered exception A-04, and the language features that 3.1.12 did not compile
+(multi-catch, qualified superclass method invocations, effectively final variables, local classes with modifiers).

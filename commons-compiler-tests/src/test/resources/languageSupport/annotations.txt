@@ -13,6 +13,8 @@ public class P {
 === declared annotation type, element read through reflection
 janino: OK
 jls: 7
+legacy: WRONG throws java.lang.NullPointerException
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A { int value(); }
@@ -26,6 +28,8 @@ public class P {
 === declared annotation type with default value, read through reflection
 janino: OK
 jls: 5
+legacy: WRONG throws java.lang.NullPointerException
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A { int value() default 5; }
@@ -39,6 +43,8 @@ public class P {
 === declared RUNTIME annotation on a method
 janino: OK
 jls: true
+legacy: WRONG false
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -49,6 +55,8 @@ public class P {
 === declared RUNTIME annotation on a field
 janino: OK
 jls: true
+legacy: WRONG false
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -59,6 +67,8 @@ public class P {
 === declared RUNTIME annotation on the declaring class
 janino: OK
 jls: true
+legacy: WRONG false
+id: #43
 import java.lang.annotation.*;
 @P.A public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -68,6 +78,8 @@ import java.lang.annotation.*;
 === declared RUNTIME annotation on another nested class
 janino: OK
 jls: 1
+legacy: WRONG 0
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -78,6 +90,8 @@ public class P {
 === declared RUNTIME annotation (fully qualified meta-annotation) on another nested class
 janino: OK
 jls: true
+legacy: WRONG false
+id: #43
 public class P {
     @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.RUNTIME) @interface A {}
     @A static class Q {}
@@ -87,6 +101,8 @@ public class P {
 === declared RUNTIME annotation on a parameter
 janino: OK
 jls: 1
+legacy: WRONG 0
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -198,6 +214,8 @@ public class P {
 === declared annotation type is an annotation type
 jls: true
 janino: OK
+legacy: WRONG false
+id: #43
 public class P {
     @interface A {}
     public static Object run() { return String.valueOf(A.class.isAnnotation()); }
@@ -206,6 +224,8 @@ public class P {
 === declared annotation type: modifiers (static, interface, abstract, annotation)
 jls: 2608
 janino: OK
+legacy: WRONG 600
+id: #43
 public class P {
     @interface A {}
     public static Object run() { return Integer.toHexString(A.class.getModifiers()); }
@@ -214,6 +234,8 @@ public class P {
 === declared annotation type: superinterface Annotation
 jls: [interface java.lang.annotation.Annotation]
 janino: OK
+legacy: WRONG []
+id: #43
 public class P {
     @interface A {}
     public static Object run() { return java.util.Arrays.toString(A.class.getInterfaces()); }
@@ -222,6 +244,8 @@ public class P {
 === declared annotation type: declaring class, simple name, isMemberClass()
 jls: true A true
 janino: OK
+legacy: WRONG false P$A false
+id: #43
 public class P {
     @interface A {}
     public static Object run() {
@@ -232,6 +256,8 @@ public class P {
 === declared annotation type: getDeclaredClasses() and getEnclosingClass()
 jls: 1 P
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #43
 public class P {
     @interface A {}
     public static Object run() {
@@ -242,6 +268,8 @@ public class P {
 === declared annotation type in an interface: modifiers (public)
 jls: 2609
 janino: OK
+legacy: WRONG 600
+id: #43
 interface I { @interface A {} }
 public class P {
     public static Object run() { return Integer.toHexString(I.A.class.getModifiers()); }
@@ -250,6 +278,8 @@ public class P {
 === private declared annotation type: modifiers
 jls: 260a
 janino: OK
+legacy: WRONG 600
+id: #43
 public class P {
     private @interface A {}
     public static Object run() { return Integer.toHexString(A.class.getModifiers()); }
@@ -258,6 +288,8 @@ public class P {
 === declared annotation type, element read with a cast
 jls: 7
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A { int value(); }
@@ -271,6 +303,8 @@ public class P {
 === declared annotation type with a nested annotation element
 jls: 3
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface B { int v(); }
@@ -285,6 +319,8 @@ public class P {
 === declared annotation type with enum, class and array elements
 jls: CLASS class java.lang.String 2
 janino: OK
+legacy: WRONG throws java.lang.NullPointerException
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A { RetentionPolicy p(); Class<?> c(); String[] s(); }
@@ -298,6 +334,8 @@ public class P {
 === declared RUNTIME annotation used before its declaration
 jls: true
 janino: OK
+legacy: WRONG false
+id: #43
 import java.lang.annotation.*;
 public class P {
     @A public static void m() {}
@@ -310,6 +348,8 @@ public class P {
 === declared RUNTIME annotation on a constructor
 jls: true
 janino: OK
+legacy: WRONG false
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -322,6 +362,8 @@ public class P {
 === declared RUNTIME annotation on a member enum
 jls: true
 janino: OK
+legacy: WRONG false
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -332,6 +374,8 @@ public class P {
 === declared RUNTIME annotation on a member interface
 jls: true
 janino: OK
+legacy: WRONG false
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -342,6 +386,8 @@ public class P {
 === declared RUNTIME annotation on another declared annotation type
 jls: true
 janino: OK
+legacy: WRONG false
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -352,6 +398,8 @@ public class P {
 === declared RUNTIME annotation on a method of a nested class
 jls: true
 janino: OK
+legacy: WRONG false
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -364,6 +412,8 @@ public class P {
 === declared annotation type nested two levels deep
 jls: true
 janino: OK
+legacy: WRONG false
+id: #43
 import java.lang.annotation.*;
 public class P {
     static class Q { @Retention(RetentionPolicy.RUNTIME) @interface A {} }
@@ -376,6 +426,8 @@ public class P {
 === declared annotation type in an interface, used on the class
 jls: true
 janino: OK
+legacy: WRONG false
+id: #43
 import java.lang.annotation.*;
 interface I { @Retention(RetentionPolicy.RUNTIME) @interface A {} }
 @I.A public class P {
@@ -408,6 +460,8 @@ public class P {
 === declared RUNTIME annotation on a local class
 janino: OK
 jls: true
+legacy: REJECTED IDENTIFIER expected instead of 'class'
+id: #60
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -417,6 +471,8 @@ public class P {
 === JDK annotation @Deprecated on a parameter
 jls: 1
 janino: OK
+legacy: WRONG 0
+id: #43
 public class P {
     public static void m(@Deprecated int x) {}
     public static Object run() throws Exception {
@@ -427,6 +483,8 @@ public class P {
 === top-level RUNTIME annotation on some of the parameters
 jls: 1 0 1
 janino: OK
+legacy: WRONG 0 0 0
+id: #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface A {}
 public class P {
@@ -440,6 +498,8 @@ public class P {
 === RUNTIME annotation on a constructor parameter
 jls: 1
 janino: OK
+legacy: WRONG 0
+id: #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface A {}
 public class P {
@@ -452,6 +512,8 @@ public class P {
 === RUNTIME annotation on the constructor parameter of a static nested class
 jls: 1
 janino: OK
+legacy: WRONG 0
+id: #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface A {}
 public class P {
@@ -465,6 +527,8 @@ public class P {
 === RUNTIME annotation on the constructor parameter of an inner class
 jls: 1
 janino: OK
+legacy: WRONG 0
+id: #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface A {}
 public class P {
@@ -479,6 +543,8 @@ public class P {
 === RUNTIME annotation on the constructor parameter of a member enum
 jls: 1
 janino: OK
+legacy: WRONG 0
+id: #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface A {}
 public class P {
@@ -493,6 +559,8 @@ public class P {
 === RUNTIME annotation on the constructor parameter of a local class that captures a local variable
 jls: 1
 janino: WRONG 0 1
+legacy: WRONG 0 0
+id: #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface A {}
 public class P {
@@ -509,6 +577,8 @@ public class P {
 === RUNTIME annotation on the parameter of a private instance method
 jls: 1
 janino: WRONG 0 1
+legacy: WRONG 0 0
+id: #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface A {}
 public class P {
@@ -527,6 +597,8 @@ public class P {
 === RUNTIME annotation on a variable arity parameter
 jls: 1
 janino: OK
+legacy: WRONG 0
+id: #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface A {}
 public class P {
@@ -539,6 +611,8 @@ public class P {
 === RUNTIME annotation on a final parameter
 jls: 1
 janino: OK
+legacy: WRONG 0
+id: #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface A {}
 public class P {
@@ -551,6 +625,8 @@ public class P {
 === two RUNTIME annotations on one parameter
 jls: 2
 janino: OK
+legacy: WRONG 0
+id: #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface A {}
 public class P {
@@ -563,6 +639,8 @@ public class P {
 === RUNTIME annotation on the parameter of an interface method
 jls: 1
 janino: OK
+legacy: WRONG 0
+id: #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface A {}
 interface I { void m(@A int x); }
@@ -575,6 +653,8 @@ public class P {
 === parameter annotation with an element value
 jls: 3
 janino: OK
+legacy: WRONG throws java.lang.ArrayIndexOutOfBoundsException
+id: #43
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @interface A { int value(); }
 public class P {
@@ -587,6 +667,8 @@ public class P {
 === parameter annotation of a declared annotation type: annotationType()
 jls: P$A
 janino: OK
+legacy: WRONG throws java.lang.ArrayIndexOutOfBoundsException
+id: #43
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A {}
@@ -620,6 +702,8 @@ public class P {
 === declared RUNTIME annotation with an element on a local class
 jls: 7
 janino: OK
+legacy: REJECTED IDENTIFIER expected instead of 'class'
+id: #60
 import java.lang.annotation.*;
 public class P {
     @Retention(RetentionPolicy.RUNTIME) @interface A { int value(); }

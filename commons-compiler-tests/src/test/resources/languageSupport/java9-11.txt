@@ -58,6 +58,8 @@ public class P {
 jls: r/o1x1
 janino: OK
 minJava: 9
+legacy: WRONG r/o1
+id: #4
 public class P {
     static StringBuilder t = new StringBuilder();
     static class R implements AutoCloseable {

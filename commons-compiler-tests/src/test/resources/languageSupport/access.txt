@@ -118,6 +118,8 @@ public class P extends java.io.FilterInputStream {
 === clone() of an int array without a cast
 janino: OK
 jls: true
+legacy: REJECTED Assignment conversion not possible from type "java.lang.Object" to type "int[]"
+id: #58
 public class P {
     public static Object run() {
         int[] a = { 1 }; int[] b = a.clone();
@@ -128,6 +130,8 @@ public class P {
 === clone() of an int array: length
 janino: OK
 jls: 2
+legacy: REJECTED "java.lang.Object" has no field "length"
+id: #58
 public class P {
     public static Object run() { int[] a = { 1, 2 }; return String.valueOf(a.clone().length); }
 }
@@ -135,6 +139,8 @@ public class P {
 === clone() of an int array: element access
 janino: OK
 jls: 7
+legacy: INVALID InternalCompilerException
+id: #58
 public class P {
     public static Object run() { int[] a = { 7 }; return String.valueOf(a.clone()[0]); }
 }
@@ -142,6 +148,8 @@ public class P {
 === clone() of a two-dimensional String array
 janino: OK
 jls: x
+legacy: REJECTED Assignment conversion not possible from type "java.lang.Object" to type "java.lang.String[][]"
+id: #58
 public class P {
     public static Object run() {
         String[][] a = { { "x" } }; String[][] b = a.clone();
@@ -166,6 +174,8 @@ public class P {
 === protected field of the superclass read from an inner class
 janino: OK
 jls: true
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.io.FilterInputStream {
     P() { super(new java.io.ByteArrayInputStream(new byte[0])); }
     class Q { boolean f() { return in != null; } }
@@ -175,6 +185,8 @@ public class P extends java.io.FilterInputStream {
 === protected field of the superclass assigned from an inner class
 janino: OK
 jls: true
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.io.FilterInputStream {
     P() { super(null); }
     class Q { void f() { in = new java.io.ByteArrayInputStream(new byte[0]); } }
@@ -184,6 +196,8 @@ public class P extends java.io.FilterInputStream {
 === protected field of the superclass read through P.this from an inner class
 janino: OK
 jls: true
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.io.FilterInputStream {
     P() { super(new java.io.ByteArrayInputStream(new byte[0])); }
     class Q { boolean f() { return P.this.in != null; } }
@@ -193,6 +207,8 @@ public class P extends java.io.FilterInputStream {
 === protected method of the superclass invoked through P.this from an inner class
 janino: OK
 jls: true
+legacy: INVALID VerifyError
+id: #59
 public class P implements Cloneable {
     class Q { Object f() throws Exception { return P.this.clone(); } }
     public static Object run() throws Exception {
@@ -203,6 +219,8 @@ public class P implements Cloneable {
 === protected static method of the superclass invoked from an inner class
 janino: OK
 jls: true
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends ClassLoader {
     class Q { boolean f() { return registerAsParallelCapable(); } }
     public static Object run() { return String.valueOf(new P().new Q().f()); }
@@ -211,6 +229,8 @@ public class P extends ClassLoader {
 === protected field of the superclass assigned from an inner class with a compound operator
 jls: 5
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.io.ByteArrayOutputStream {
     class Q { int f() { count += 2; return count; } }
     public static Object run() { P p = new P(); p.count = 3; return String.valueOf(p.new Q().f()); }
@@ -219,6 +239,8 @@ public class P extends java.io.ByteArrayOutputStream {
 === protected field of the superclass incremented and decremented from an inner class
 jls: 4-6-6-5
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.io.ByteArrayOutputStream {
     class Q { String f() { return (count++) + "-" + (++count) + "-" + (count--) + "-" + count; } }
     public static Object run() { P p = new P(); p.count = 4; return p.new Q().f(); }
@@ -227,6 +249,8 @@ public class P extends java.io.ByteArrayOutputStream {
 === protected field of the superclass read through a variable of the class from an inner class
 jls: true
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.io.FilterInputStream {
     P() { super(new java.io.ByteArrayInputStream(new byte[0])); }
     class Q { boolean f(P p) { return p.in != null; } }
@@ -236,6 +260,8 @@ public class P extends java.io.FilterInputStream {
 === protected field of the superclass read through P.super from an inner class
 jls: true
 janino: OK
+legacy: REJECTED Cannot cast "P$Q" to "java.io.FilterInputStream"
+id: #59
 public class P extends java.io.FilterInputStream {
     P() { super(new java.io.ByteArrayInputStream(new byte[0])); }
     class Q { boolean f() { return P.super.in != null; } }
@@ -254,6 +280,8 @@ public class P extends java.io.FilterInputStream {
 === protected method of the superclass invoked unqualified from an inner class
 jls: 1
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.util.ArrayList {
     class Q { int f() { removeRange(0, 1); return size(); } }
     public static Object run() { P p = new P(); p.add("a"); p.add("b"); return String.valueOf(p.new Q().f()); }
@@ -262,6 +290,8 @@ public class P extends java.util.ArrayList {
 === protected method of the superclass invoked with arguments through P.this from an inner class
 jls: 1
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.util.ArrayList {
     class Q { int f() { P.this.removeRange(0, 1); return P.this.size(); } }
     public static Object run() { P p = new P(); p.add("a"); p.add("b"); return String.valueOf(p.new Q().f()); }
@@ -270,6 +300,8 @@ public class P extends java.util.ArrayList {
 === protected method of the superclass invoked through P.super from an inner class
 jls: 1
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #59
 public class P extends java.util.ArrayList {
     class Q { int f() { P.super.removeRange(0, 1); return P.this.size(); } }
     public static Object run() { P p = new P(); p.add("a"); p.add("b"); return String.valueOf(p.new Q().f()); }
@@ -278,6 +310,8 @@ public class P extends java.util.ArrayList {
 === protected method of the superclass invoked through a variable of the class from an inner class
 jls: 1
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.util.ArrayList {
     class Q { int f(P p) { p.removeRange(0, 1); return p.size(); } }
     public static Object run() { P p = new P(); p.add("a"); p.add("b"); return String.valueOf(p.new Q().f(p)); }
@@ -286,6 +320,8 @@ public class P extends java.util.ArrayList {
 === protected static method of the superclass invoked through the superclass from an inner class
 jls: true
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends ClassLoader {
     class Q { boolean f() { return ClassLoader.registerAsParallelCapable(); } }
     public static Object run() { return String.valueOf(new P().new Q().f()); }
@@ -294,6 +330,8 @@ public class P extends ClassLoader {
 === protected static method of the superclass invoked from a static nested class
 jls: true
 janino: OK
+legacy: REJECTED No applicable constructor/method found for zero actual parameters; candidates are: "protected static
+id: #59
 public class P extends ClassLoader {
     static class S { boolean f() { return registerAsParallelCapable(); } }
     public static Object run() { return String.valueOf(new S().f()); }
@@ -302,6 +340,8 @@ public class P extends ClassLoader {
 === protected static method of the superclass invoked from a local class in a static method
 jls: true
 janino: OK
+legacy: REJECTED No applicable constructor/method found for zero actual parameters; candidates are: "protected static
+id: #59
 public class P extends ClassLoader {
     public static Object run() {
         class L { boolean f() { return registerAsParallelCapable(); } }
@@ -312,6 +352,8 @@ public class P extends ClassLoader {
 === protected static field of the superclass read from an inner class
 jls: true
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends for_sandbox_tests.ClassWithFields {
     class Q { int f() { return protectedField; } }
     public static Object run() { return String.valueOf(new P().new Q().f() == protectedField); }
@@ -320,6 +362,8 @@ public class P extends for_sandbox_tests.ClassWithFields {
 === protected static field of the superclass assigned from a static nested class
 jls: 7
 janino: OK
+legacy: REJECTED for_sandbox_tests.ClassWithFields.protectedField: Protected member cannot be accessed from type "P$S",
+id: #59
 public class P extends for_sandbox_tests.ClassWithFields {
     static class S { int f() { protectedField = 7; return for_sandbox_tests.ClassWithFields.protectedField; } }
     public static Object run() { return String.valueOf(new S().f()); }
@@ -328,6 +372,8 @@ public class P extends for_sandbox_tests.ClassWithFields {
 === protected field of the superclass read from an inner class of an inner class
 jls: true
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.io.FilterInputStream {
     P() { super(new java.io.ByteArrayInputStream(new byte[0])); }
     class Q { class R { boolean f() { return in != null && P.this.in == in; } } }
@@ -337,6 +383,8 @@ public class P extends java.io.FilterInputStream {
 === protected field of the superclass read from an anonymous class in a method of the class
 jls: true
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.io.FilterInputStream {
     P() { super(new java.io.ByteArrayInputStream(new byte[0])); }
     Object f() { return new Object() { public String toString() { return String.valueOf(in != null); } }; }
@@ -346,6 +394,8 @@ public class P extends java.io.FilterInputStream {
 === protected field of the superclass read from a local class in a method of the class
 jls: true
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.io.FilterInputStream {
     P() { super(new java.io.ByteArrayInputStream(new byte[0])); }
     Object f() { class L { boolean g() { return in != null; } } return String.valueOf(new L().g()); }
@@ -355,6 +405,8 @@ public class P extends java.io.FilterInputStream {
 === protected field of the superclass read through a variable of the class from a static nested class
 jls: true
 janino: OK
+legacy: REJECTED java.io.FilterInputStream.in: Protected member cannot be accessed from type "P$S", which is neither
+id: #59
 public class P extends java.io.FilterInputStream {
     P() { super(new java.io.ByteArrayInputStream(new byte[0])); }
     static class S { boolean f(P p) { return p.in != null; } }
@@ -364,6 +416,8 @@ public class P extends java.io.FilterInputStream {
 === protected field of the superclass read through a variable of the class from a local class in a static method
 jls: true
 janino: OK
+legacy: REJECTED java.io.FilterInputStream.in: Protected member cannot be accessed from type "P$L", which is neither
+id: #59
 public class P extends java.io.FilterInputStream {
     P() { super(new java.io.ByteArrayInputStream(new byte[0])); }
     public static Object run() {
@@ -376,6 +430,8 @@ public class P extends java.io.FilterInputStream {
 === protected field of the superclass read through a variable of a subclass from an inner class
 jls: true
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.io.FilterInputStream {
     P() { super(new java.io.ByteArrayInputStream(new byte[0])); }
     static class Sub extends P { }
@@ -386,6 +442,8 @@ public class P extends java.io.FilterInputStream {
 === two protected fields of the superclass read and assigned from an inner class
 jls: 3-true
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.io.ByteArrayOutputStream {
     class Q { String f() { count = 3; buf = new byte[1]; return count + "-" + (buf.length == 1); } }
     public static Object run() { return new P().new Q().f(); }
@@ -394,6 +452,8 @@ public class P extends java.io.ByteArrayOutputStream {
 === protected field of the superclass assigned from an inner class, the value of the assignment
 jls: 6
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.io.ByteArrayOutputStream {
     class Q { int f() { return count = 6; } }
     public static Object run() { return String.valueOf(new P().new Q().f()); }
@@ -402,6 +462,8 @@ public class P extends java.io.ByteArrayOutputStream {
 === protected method of the superclass invoked from an inner class, in an expression
 jls: x0true1
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.util.Random {
     P() { super(1L); }
     class Q { String f() { return "x" + next(0) + (next(0) == 0) + (next(0) + 1); } }
@@ -411,6 +473,8 @@ public class P extends java.util.Random {
 === protected method of the superclass invoked from an inner class as the argument of a method
 jls: 0
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.util.Random {
     P() { super(1L); }
     class Q { String f() { return String.valueOf(next(0)); } }
@@ -420,6 +484,8 @@ public class P extends java.util.Random {
 === protected long field of the superclass assigned and read from an inner class
 jls: 5-6
 janino: OK
+legacy: WRONG throws java.lang.IllegalAccessError
+id: #59
 public class P extends java.util.GregorianCalendar {
     class Q { String f() { time = 5L; long t = time; time++; return t + "-" + time; } }
     public static Object run() { return new P().new Q().f(); }

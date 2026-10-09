@@ -32,7 +32,6 @@ import java.util.regex.Pattern;
 
 import org.codehaus.commons.compiler.CompileException;
 import org.codehaus.commons.compiler.ICompilerFactory;
-import org.codehaus.commons.compiler.ISimpleCompiler;
 import org.codehaus.commons.compiler.InternalCompilerException;
 import org.codehaus.commons.compiler.tests.Records.Case;
 import org.junit.Assert;
@@ -179,14 +178,21 @@ class LanguageSupportTest extends CommonsCompilerTestSuite {
      */
     static Outcome
     execute(ICompilerFactory compilerFactory, String mode, String source) throws Exception {
+        return LanguageSupportTest.execute(SourceCompiler.of(compilerFactory, mode), source);
+    }
+
+    /**
+     * Compiles the <var>source</var>, loads class {@code P} with assertions disabled, and invokes its method {@code
+     * run()}.
+     */
+    static Outcome
+    execute(SourceCompiler compiler, String source) throws Exception {
 
         Object result;
         try {
-            ISimpleCompiler sc = TestUtil.newSimpleCompiler(compilerFactory, mode);
-            sc.cook(source);
+            ClassLoader cl = SourceCompiler.loader(compiler.compile(source));
 
             // Make the result independent of "-ea".
-            ClassLoader cl = sc.getClassLoader();
             cl.setClassAssertionStatus("P", false);
 
             result = cl.loadClass("P").getMethod("run").invoke(null);

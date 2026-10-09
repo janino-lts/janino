@@ -31,7 +31,8 @@ public class P {
 jls: not thrown,not thrown,not thrown,not thrown,not thrown,not thrown,not thrown,not thrown
 janino: WRONG thrown,thrown,thrown,thrown,thrown,thrown,thrown,thrown
 compliant: OK
-id: S-03
+legacy: REJECTED Non-abstract class "P$C" must implement method "public static abstract void P$I.s()"
+id: S-03, #53
 public class P {
     static int f;
     static String t(Runnable r) { try { r.run(); return "not thrown"; } catch (AssertionError e) { return "thrown"; } }
@@ -100,6 +101,8 @@ public class P implements java.io.Serializable {
 === qualified superclass method invocation (Outer.super.m())
 janino: OK
 jls: base
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     static class Base { String m() { return "base"; } }
     static class Sub extends Base {
@@ -224,6 +227,8 @@ public class P {
 === anonymous class in a catch clause accesses a local variable declared before the try statement
 jls: ok7
 janino: OK
+legacy: INVALID InternalCompilerException
+id: #21
 public class P {
     public static Object run() {
         final int x = 7;
@@ -239,6 +244,8 @@ public class P {
 === anonymous class in a catch clause accesses the final catch parameter
 jls: ok x
 janino: OK
+legacy: INVALID InternalCompilerException
+id: #21
 public class P {
     public static Object run() {
         try { throw new IllegalStateException("x"); }
@@ -253,6 +260,8 @@ public class P {
 === Outer.super.m(): with arguments
 jls: p1x
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     static class Base { String p(int a, String b) { return "p" + a + b; } }
     static class Sub extends Base {
@@ -265,6 +274,8 @@ public class P {
 === Outer.super.m(): from an inner class of an inner class
 jls: base
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     static class Base { String m() { return "base"; } }
     static class Sub extends Base {
@@ -277,6 +288,8 @@ public class P {
 === Outer.super.m(): from an anonymous class in a method of the outer class
 jls: base
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     static class Base { String m() { return "base"; } }
     static class Sub extends Base {
@@ -292,6 +305,8 @@ public class P {
 === Outer.super.m(): from a local class in a method of the outer class
 jls: base
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     static class Base { String m() { return "base"; } }
     static class Sub extends Base {
@@ -304,6 +319,8 @@ public class P {
 === Outer.super.m(): from an anonymous class in a constructor of the outer class
 jls: base
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     static class Base { String m() { return "base"; } }
     static class Sub extends Base {
@@ -317,6 +334,8 @@ public class P {
 === Outer.super.m(): the qualification is the current class
 jls: subbase
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     static class Base { String m() { return "base"; } }
     static class Sub extends Base { String m() { return "sub" + Sub.super.m(); } }
@@ -326,6 +345,8 @@ public class P {
 === Outer.super.m(): a void method
 jls: base
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     static StringBuilder t = new StringBuilder();
     static class Base { void m() { t.append("base"); } }
@@ -339,6 +360,8 @@ public class P {
 === Outer.super.m(): the superclass method throws a checked exception
 jls: caught io
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     static class Base { String m() throws java.io.IOException { throw new java.io.IOException("io"); } }
     static class Sub extends Base {
@@ -355,6 +378,8 @@ public class P {
 === Outer.super.m(): two methods from two inner classes
 jls: basebasenbase
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     static class Base { String m() { return "base"; } String n() { return "basen"; } }
     static class Sub extends Base {
@@ -369,6 +394,8 @@ public class P {
 === Outer.super.m(): a method of Object
 jls: true
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     static class Base { }
     static class Sub extends Base {
@@ -381,6 +408,8 @@ public class P {
 === Outer.super.m(): the accessor method is static and synthetic
 jls: true true base
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 import java.lang.reflect.*;
 public class P {
     static class Base { String m() { return "base"; } }
@@ -397,6 +426,8 @@ public class P {
 === Outer.super.m(): on an instance of a subclass, and from an inner class of the subclass
 jls: base sub
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     static class Base { String m() { return "base"; } }
     static class Sub extends Base {
@@ -413,6 +444,8 @@ public class P {
 === Outer.super.m(): a primitive result in arithmetic and in string concatenation
 jls: 42/2
 janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #22
 public class P {
     static class Base { int m(int x) { return x + 1; } }
     static class Sub extends Base {
@@ -425,6 +458,8 @@ public class P {
 === qualified superclass field access (Outer.super.f) from an inner class
 jls: basef
 janino: OK
+legacy: REJECTED Cannot cast "P$Sub$Inner" to "P$Base"
+id: #22
 public class P {
     static class Base { String f = "basef"; }
     static class Sub extends Base {
@@ -437,6 +472,8 @@ public class P {
 === qualified superclass field access (Outer.super.f) from an inner class of an inner class
 jls: basef
 janino: OK
+legacy: REJECTED Cannot cast "P$Sub$Inner$Inner2" to "P$Base"
+id: #22
 public class P {
     static class Base { String f = "basef"; }
     static class Sub extends Base {
@@ -449,6 +486,8 @@ public class P {
 === qualified superclass field access (Outer.super.f) from an inner class: assignment
 jls: subfset
 janino: OK
+legacy: REJECTED Cannot cast "P$Sub$Inner" to "P$Base"
+id: #22
 public class P {
     static class Base { String f = "basef"; }
     static class Sub extends Base {
@@ -473,6 +512,8 @@ public class P {
 === final loop variable of a basic for statement captured by an anonymous class
 jls: 7
 janino: OK
+legacy: INVALID InternalCompilerException
+id: #75
 public class P {
     public static Object run() {
         Object o = null;
@@ -487,6 +528,8 @@ public class P {
 === final loop variable of a basic for statement captured by a local class
 jls: 7
 janino: OK
+legacy: INVALID InternalCompilerException
+id: #75
 public class P {
     public static Object run() {
         for (final int i = Integer.parseInt("7"); i < 9; ) {
@@ -500,6 +543,8 @@ public class P {
 === final loop variable of a basic for statement captured from a nested statement of the loop body
 jls: 7
 janino: OK
+legacy: INVALID InternalCompilerException
+id: #75
 public class P {
     public static Object run() {
         Object o = "-";
@@ -514,6 +559,8 @@ public class P {
 === final loop variables of a basic for statement with two declarators captured by an anonymous class
 jls: 3
 janino: OK
+legacy: INVALID InternalCompilerException
+id: #75
 public class P {
     public static Object run() {
         for (final int i = Integer.parseInt("1"), j = 2; i < 9; ) {
@@ -526,6 +573,8 @@ public class P {
 === final loop variable of a basic for statement captured by an anonymous class in the condition
 jls: 7
 janino: OK
+legacy: INVALID InternalCompilerException
+id: #75
 public class P {
     public static Object run() {
         for (final int i = 7; new Object() { boolean b() { return i < 9; } }.b(); ) { return "" + i; }
@@ -536,6 +585,8 @@ public class P {
 === inner class whose superclass is an inner class that extends the enclosing class
 jls: true
 janino: OK
+legacy: INVALID VerifyError
+id: #97
 public class P {
     private int mark;
     class Q extends P {
@@ -557,6 +608,8 @@ public class P {
 === inner class whose superclass is an inner class that extends the enclosing class, implicit super()
 jls: true
 janino: OK
+legacy: INVALID VerifyError
+id: #97
 public class P {
     private int mark;
     class Q extends P {
@@ -578,6 +631,8 @@ public class P {
 === inner class whose superclass is an inner class that extends the enclosing class, explicit super()
 jls: true
 janino: OK
+legacy: INVALID VerifyError
+id: #97
 public class P {
     private int mark;
     class Q extends P {
@@ -599,6 +654,8 @@ public class P {
 === inner class in a member class, whose superclass is an inner class that extends the enclosing class
 jls: true
 janino: OK
+legacy: INVALID VerifyError
+id: #97
 public class P {
     private int mark;
     class Q extends P {
@@ -620,6 +677,8 @@ public class P {
 === anonymous subclass of an inner class that extends the enclosing class, in a subclass of that inner class
 jls: true
 janino: OK
+legacy: INVALID VerifyError
+id: #97
 public class P {
     private int mark;
     class Q extends P {
@@ -645,6 +704,8 @@ public class P {
 === local subclass of an inner class that extends the enclosing class, in a subclass of that inner class
 jls: true
 janino: OK
+legacy: INVALID VerifyError
+id: #97
 public class P {
     private int mark;
     class Q extends P {
