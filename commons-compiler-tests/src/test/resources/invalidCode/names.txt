@@ -423,6 +423,13 @@ public class P {
     static class Sub extends Base { String m() { return Base.super.m(); } }
 }
 
+=== Outer.super.m() where the qualification is a superclass of the enclosing class
+janino: REJECTED "B" is neither the current class nor an enclosing class of "P$Q"
+class B { String m() { return "B.m"; } }
+public class P extends B {
+    class Q extends P { String g() { return B.super.m(); } }
+}
+
 === Outer.super.m() with an unknown method
 janino: REJECTED Class "P$Base" has no method named "m"
 public class P {

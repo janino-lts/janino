@@ -5064,9 +5064,15 @@ class UnitCompiler {
     /**
      * The "{@code O.this}" that the compiler generates as the enclosing instance of an unqualified superclass
      * constructor invocation, where {@code O} is the class that immediately encloses the superclass; see {@link
-     * #referenceThis(Locatable, AbstractTypeDeclaration, TypeBodyDeclaration, IType, boolean)}.
+     * #referenceThis(Locatable, AbstractTypeDeclaration, TypeBodyDeclaration, IType, EnclosingInstanceSearch)}.
      */
     private final Set<QualifiedThisReference> superclassConstructorEnclosingInstances = new HashSet<>();
+
+    /**
+     * The "{@code T.this}" that the compiler generates as the instance of a qualified superclass method invocation
+     * "{@code T.super.m()}" with a lexically enclosing class {@code T}; see {@link EnclosingInstanceSearch#LEXICAL}.
+     */
+    private final Set<QualifiedThisReference> qualifiedSuperclassMethodInvocationInstances = new HashSet<>();
 
     private boolean
     compile2(SuperConstructorInvocation sci) throws CompileException {
@@ -5737,12 +5743,23 @@ class UnitCompiler {
 
     private IType
     compileGet2(QualifiedThisReference qtr) throws CompileException {
+        EnclosingInstanceSearch search;
+        if (this.superclassConstructorEnclosingInstances.contains(qtr)) {
+            search = EnclosingInstanceSearch.ENCLOSING_CLASSES_FIRST;
+        } else
+        if (this.qualifiedSuperclassMethodInvocationInstances.contains(qtr)) {
+            search = EnclosingInstanceSearch.LEXICAL;
+        } else
+        {
+            search = EnclosingInstanceSearch.ASSIGNABLE;
+        }
+
         this.referenceThis(
-            qtr,                                                        // locatable
-            this.getDeclaringClass(qtr),                                // declaringClass
-            this.getDeclaringTypeBodyDeclaration(qtr),                  // declaringTypeBodyDeclaration
-            this.getTargetIType(qtr),                                   // targetIClass
-            this.superclassConstructorEnclosingInstances.contains(qtr) // enclosingClassesFirst
+            qtr,                                       // locatable
+            this.getDeclaringClass(qtr),               // declaringClass
+            this.getDeclaringTypeBodyDeclaration(qtr), // declaringTypeBodyDeclaration
+            this.getTargetIType(qtr),                  // targetIClass
+            search                                     // search
         );
         return this.getTargetIType(qtr);
     }
@@ -6548,6 +6565,7 @@ class UnitCompiler {
                 new SimpleType(scmi.getLocation(), qualification)
             );
             qtr.setEnclosingScope(scmi.getEnclosingScope());
+            this.qualifiedSuperclassMethodInvocationInstances.add(qtr);
             this.compileGetValue(qtr);
 
             opcode           = Opcode.INVOKESTATIC;
@@ -12678,6 +12696,35 @@ class UnitCompiler {
     }
 
     /**
+     * How {@link #referenceThis(Locatable, AbstractTypeDeclaration, TypeBodyDeclaration, IType,
+     * EnclosingInstanceSearch)} determines the instance to load among the <var>declaringType</var> and its enclosing
+     * classes.
+     */
+    private
+    enum EnclosingInstanceSearch {
+
+        /**
+         * The innermost class, starting with the <var>declaringType</var> itself, that is a subtype of the
+         * <var>targetIType</var>. This is the enclosing instance of a class instance creation (JLS8 15.9.2: "the
+         * innermost enclosing class of which C is a member"), and the value of "{@code T.this}".
+         */
+        ASSIGNABLE,
+
+        /**
+         * Like {@link #ASSIGNABLE}, but prefers the enclosing classes of the <var>declaringType</var> to the
+         * <var>declaringType</var> itself; for the enclosing instance of a superclass constructor invocation.
+         */
+        ENCLOSING_CLASSES_FIRST,
+
+        /**
+         * The innermost class, starting with the <var>declaringType</var> itself, that <em>is</em> the
+         * <var>targetIType</var> (JLS8 15.8.4: "the n'th lexically enclosing type declaration"); for the instance on
+         * which a qualified superclass method invocation "{@code T.super.m()}" invokes the method.
+         */
+        LEXICAL,
+    }
+
+    /**
      * Loads the instance of the <var>declaringType</var>, or of its innermost enclosing class that is a subtype of
      * the <var>targetIType</var>.
      *
@@ -12690,12 +12737,20 @@ class UnitCompiler {
         TypeBodyDeclaration     declaringTypeBodyDeclaration,
         IType                   targetIType
     ) throws CompileException {
-        return this.referenceThis(locatable, declaringType, declaringTypeBodyDeclaration, targetIType, false);
+        return this.referenceThis(
+            locatable,
+            declaringType,
+            declaringTypeBodyDeclaration,
+            targetIType,
+            EnclosingInstanceSearch.ASSIGNABLE
+        );
     }
 
     /**
-     * @param enclosingClassesFirst Whether to prefer the innermost enclosing class that is a subtype of the
-     *                              <var>targetIType</var> to the <var>declaringType</var> itself; see below
+     * Loads the instance of the <var>declaringType</var>, or of one of its enclosing classes, as the
+     * <var>search</var> determines.
+     *
+     * @return The class of the loaded instance, or {@code null} iff a compile error was reported
      */
     @Nullable private IClass
     referenceThis(
@@ -12703,7 +12758,7 @@ class UnitCompiler {
         AbstractTypeDeclaration declaringType,
         TypeBodyDeclaration     declaringTypeBodyDeclaration,
         IType                   targetIType,
-        boolean                 enclosingClassesFirst
+        EnclosingInstanceSearch search
     ) throws CompileException {
         List<TypeDeclaration> path = UnitCompiler.getOuterClasses(declaringType);
 
@@ -12722,7 +12777,7 @@ class UnitCompiler {
             // with the declaring type, which yields "this" when the declaring type is a subtype of the target type,
             // e.g. "class R extends Q" in "class P { class Q extends P {} ... }". Without such an enclosing class
             // (e.g. in a static method), the search below yields the same as before.
-            if (enclosingClassesFirst) {
+            if (search == EnclosingInstanceSearch.ENCLOSING_CLASSES_FIRST) {
                 for (j = 1; j < path.size(); ++j) {
                     if (UnitCompiler.isAssignableFrom(targetIType, this.resolve((TypeDeclaration) path.get(j)))) {
                         break TARGET_FOUND;
@@ -12730,20 +12785,29 @@ class UnitCompiler {
                 }
             }
 
-            for (j = 0; j < path.size(); ++j) {
+            // The instance of "T.super.m()" is the n'th lexically enclosing instance whose class is "T" (JLS8
+            // 15.12.4.1), even if an inner class (e.g. "class Q extends T") is itself a subclass of "T" (issue #110).
+            if (search == EnclosingInstanceSearch.LEXICAL) {
+                IClass targetIClass = UnitCompiler.rawTypeOf(targetIType);
+                for (j = 0; j < path.size(); ++j) {
+                    if (this.resolve((TypeDeclaration) path.get(j)) == targetIClass) break TARGET_FOUND;
+                }
+            } else {
+                for (j = 0; j < path.size(); ++j) {
 
-                // Notice: JLS7 15.9.2.BL1.B3.B1.B2 seems to be wrong: Obviously, JAVAC does not only allow
-                //
-                //    O is the nth lexically enclosing class
-                //
-                // , but also
-                //
-                //    O is assignable from the nth lexically enclosing class
-                //
-                // However, this strategy bears the risk of ambiguities, because "O" may be assignable from more than
-                // one enclosing class.
-                if (UnitCompiler.isAssignableFrom(targetIType, this.resolve((TypeDeclaration) path.get(j)))) {
-                    break TARGET_FOUND;
+                    // Notice: JLS7 15.9.2.BL1.B3.B1.B2 seems to be wrong: Obviously, JAVAC does not only allow
+                    //
+                    //    O is the nth lexically enclosing class
+                    //
+                    // , but also
+                    //
+                    //    O is assignable from the nth lexically enclosing class
+                    //
+                    // However, this strategy bears the risk of ambiguities, because "O" may be assignable from more
+                    // than one enclosing class.
+                    if (UnitCompiler.isAssignableFrom(targetIType, this.resolve((TypeDeclaration) path.get(j)))) {
+                        break TARGET_FOUND;
+                    }
                 }
             }
             this.compileError(
