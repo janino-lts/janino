@@ -617,3 +617,30 @@ public class P { void f() { abstract int x; } }
 === strictfp local variable
 janino: REJECTED Access modifier(s) strictfp not allowed in this context
 public class P { void f() { strictfp int x = 1; } }
+
+=== anonymous subclass of an inner class that extends the enclosing class, in a static method
+janino: INVALID LinkageError
+recovery: ACCEPTED
+public class P {
+    class Q extends P { }
+    static Object f() { return new Q() { }; }
+}
+
+=== local subclass of an inner class that extends the enclosing class, in a static method
+janino: INVALID LinkageError
+recovery: ACCEPTED
+public class P {
+    class Q extends P { }
+    static Object f() {
+        class L extends Q { }
+        return new L();
+    }
+}
+
+=== static member class that extends an inner class that extends the enclosing class
+janino: INVALID LinkageError
+recovery: ACCEPTED
+public class P {
+    class Q extends P { }
+    static class S extends Q { }
+}
