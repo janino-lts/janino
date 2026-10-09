@@ -28,6 +28,7 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#88](https://github.com/janino-lts/janino/issues/88) | `AbstractTraverser` visits enum constants | unchanged | subclasses of `AbstractTraverser` |
 | [#103](https://github.com/janino-lts/janino/issues/103) | The compliance mode: the option `JAVAC_COMPLIANCE` (S-01 to S-03) | unchanged | only with the option |
 | [#101](https://github.com/janino-lts/janino/issues/101) | The compliance mode: enclosing instances like `javac` (S-11) | unchanged | only with the option |
+| [#38](https://github.com/janino-lts/janino/issues/38) | The compliance mode: conditional expressions like `javac` (S-04, S-12) | unchanged | only with the option |
 
 ### Compile error messages (#31)
 
@@ -177,14 +178,16 @@ options, so that a library keeps control of its own compilers. The default is th
 and javac](JAVAC_DIFFERENCES.md) is authoritative for what it corrects, so "compiles in the compliance mode" does not
 mean "is valid Java". Language features that Janino does not implement, and everything that depends on the typing of
 generics, remain outside its scope; the other options apply in both modes. So far, the compliance mode corrects
-four deviations, each a consistent rule of Janino's that programs could rely on (class S of the contract):
+six deviations, each a consistent rule of Janino's that programs could rely on (class S of the contract):
 
 | ID | Code | Compatibility mode | Compliance mode (like `javac`) |
 |---|---|---|---|
 | S-01 | `Boolean Z = null; boolean x = Z \|\| true;` (also `Z && false`) | `x == true`, no exception | `NullPointerException` ([#40](https://github.com/janino-lts/janino/issues/40)) |
 | S-02 | `f(Object o)` and `f(int... i)`; `f(1)` | invokes `f(int...)` | invokes `f(Object)` (variable arity methods only in phase 3 of JLS 15.12.2) |
 | S-03 | `assert false;` | always throws | throws only if assertions are enabled for the class |
+| S-04 | `Byte B = 1; Object x = z ? B : 5;`; `char c = 'a'; Object x = false ? c : (short) 66;` | `x` is an `Integer`; `x` is a `Character` | `x` is a `Byte`; `x` is an `Integer` ([#38](https://github.com/janino-lts/janino/issues/38)) |
 | S-11 | `P.this`, and the simple name of a `private` member of `P`, in `class Q extends P` declared in `P` | `this` | the enclosing instance of `Q` ([#101](https://github.com/janino-lts/janino/issues/101)) |
+| S-12 | `String s = "x"; boolean x = ("a" + (true ? "b" : s)) == "ab";` | `x == true` | `x == false` (the expression is not a constant expression) |
 
 For S-03, the compliance mode declares a synthetic field `static final boolean $assertionsDisabled` in every class
 that contains an `assert` statement, initialized with `!Outermost.class.desiredAssertionStatus()` as the first
@@ -203,6 +206,18 @@ mode accepts, like `javac`: the access to a `private` member of a superclass thr
 superclass `B` of an enclosing class (L-46). In both modes, compiling `P.this` as a value of type `P` no longer fails
 with an `InternalCompilerException` when the compiler's assertions are enabled (`-ea`).
 
+For S-04, the compliance mode determines the type of a conditional expression with numeric operands of different
+types like `javac` (JLS 15.25.2): an operand of type `Byte`, `Short` or `Character` and a constant of type `int` that
+is representable in its unboxed type give the unboxed type (`z ? B : 5` is a `byte`), and with a constant condition,
+the operands are subject to binary numeric promotion, like with a variable condition (`true ? s : c` is an `int`,
+not a `short`). The type determines the class of the boxed value, overload resolution and string conversion. As a
+consequence, the compliance mode rejects code that is valid only with the type of the compatibility mode
+(`short x = true ? s : c;`, L-47), and accepts valid code that the compatibility mode rejects because of the type `int`
+(`byte x = z ? B : 5;`, D-07). For S-12, found with S-04, a conditional expression with a constant condition is a
+constant expression only if all three operands are (JLS 15.28), so that `"a" + (true ? "b" : s)` with a variable `s`
+is not an interned constant, and `byte x = false ? i : 5;` and `case false ? i : 5:` with an `int i` are rejected
+(L-48).
+
 **Class files.** Unchanged in the compatibility mode.
 
 **Tests.** The record tests (`InvalidCodeTest`, `LanguageSupportTest`) run every case in both modes: a record
@@ -216,7 +231,7 @@ makes this machine-checkable: it compiles every recorded case with 3.1.12 (loade
 loader of its own, with target version 8) and compares its behavior with the recorded behavior of the compatibility
 mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction that explains the
 difference (`id:`, an issue number or an ID of the register); a difference that no record states, e.g. a regression,
-fails the test. Today, 372 of the 943 recorded cases differ from 3.1.12, each with its correction: the fixes of
+fails the test. Today, 379 of the 980 recorded cases differ from 3.1.12, each with its correction: the fixes of
 classes D and V since 3.1.13, the registered exceptions A-04, A-05 and A-06, and the language features that 3.1.12
 did not compile (multi-catch, qualified superclass method invocations, effectively final variables, local classes
 with modifiers).

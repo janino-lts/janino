@@ -111,9 +111,9 @@ These replace the case-by-case decisions:
    registered exception, are frozen; neither is reverted later.
 
 A consequence of invariants 1 and 2 is that the same defect can be treated differently depending on its form:
-`z ? B : 5` (with a `Byte B`; legacy, type `Integer`) keeps the type `Integer` in the compatibility mode, whereas
-`z ? b : 5` (with a `byte b`; rejected by 3.1.12) gets the type `byte` when #38 is fixed, like with `javac`. This is
-intended: the compatibility mode is "3.1.12 where 3.1.12 worked; `javac` otherwise".
+`z ? B : 5` (with a `Byte B`; legacy, type `Integer`) keeps the type `Integer` in the compatibility mode (S-04),
+whereas `z ? b : 5` (with a `byte b`; rejected by 3.1.12) has had the type `byte` since 3.1.16 (#56), like with
+`javac`. This is intended: the compatibility mode is "3.1.12 where 3.1.12 worked; `javac` otherwise".
 
 ### 3.5 The public promise
 
@@ -148,6 +148,7 @@ behavior. The compliance mode behaves like `javac`.
 | S-05 | the consequences of the incomplete constant folding: which fields are constant variables (`ConstantValue` attribute, class initialization), and the reachability analysis | #47 |
 | S-06 | `private` members are compiled without the `private` flag, `private` instance methods as static methods `m$(P, ...)` | |
 | S-11 | in an inner class `Q extends P` declared in `P`, `P.this` and the simple name of a `private` member of `P` denote `this` instead of the enclosing instance | #101 |
+| S-12 | a conditional expression with a constant condition is a constant expression if the selected operand is, also when the other operand is not: `("a" + (true ? "b" : s)) == "ab"` is `true` | |
 
 ### 4.3 Class V: valid legacy code that is miscompiled
 
@@ -279,7 +280,8 @@ logic has no error path, but silently does something else, the finding is of cla
 - Every mode-dependent place carries a comment with the ID of the deviation (`// Compliance S-01: ...`), so that each
   ID can be found in the code.
 - IDs are stable: a number is never reused or reassigned; new cases get the next number of their class.
-- Implemented so far: S-01, S-02, S-03 and S-11, which also rejects L-20, L-45 and L-46 (the development line); see
+- Implemented so far: S-01, S-02, S-03; S-11, which also rejects L-20, L-45 and L-46; S-04, which also rejects L-47
+  and accepts D-07; and S-12, which also rejects L-48 (the development line); see
   [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md) for what they do.
 
 ### 7.4 The system property
@@ -312,7 +314,7 @@ register is the public list; a deviation that is not in it is an unknown defect,
   its own (as `janino-benchmarks` loads its baseline), and compares its behavior with the recorded behavior of the
   compatibility mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction
   that explains the difference (`id:`); an unrecorded difference fails the test. This is the test that makes "legacy"
-  machine-checkable; without it, the records only protect against accidental changes. Today, 372 of the 943 recorded
+  machine-checkable; without it, the records only protect against accidental changes. Today, 379 of the 980 recorded
   cases differ from 3.1.12.
 - Open: every other test class that compiles with Janino runs in the compatibility mode only; a second run of the
   whole suite in the compliance mode needs the mode-dependent expectations of those tests first.
@@ -324,9 +326,10 @@ register is the public list; a deviation that is not in it is an unknown defect,
 The primary measure is the number of open IDs in the register, per class. The secondary measure is the share of the
 recorded cases on which the compliance mode agrees with `javac`. Both are stated in the change log of every release.
 
-The development line, 2026-10-09: S, 11 IDs, 4 corrected in the compliance mode; L, 46 IDs, 3 rejected in the
-compliance mode, 43 open; D, 6 open; G, 9 and F, 11 (outside the scope); A, 8. Of the 943 recorded cases, the
-compliance mode agrees with `javac` on 800 (the compatibility mode on 773).
+The development line, 2026-10-09: S, 12 IDs, 6 corrected in the compliance mode; L, 48 IDs, 5 rejected in the
+compliance mode, 43 open; D, 7 IDs, 1 corrected in the compliance mode only (D-07, see S-04), 6 open; G, 9 and F, 11
+(outside the scope); A, 8. Of the 980 recorded cases, the compliance mode agrees with `javac` on 841 (the
+compatibility mode on 782).
 
 ## 8. Registered exceptions
 
@@ -435,13 +438,14 @@ adds to it, as with #31 on the development line. The gates are those of 3.1.16.
 5. The first checks of the compliance mode: S-01, S-02 and S-03 (each is one place in the compiler, and they are
    what users of the compliance mode notice first: the behavior of generated code).
 
-**Then:** S-11 (#101; done on the development line, 2026-10-09, which also rejects L-20, L-45 and L-46). Next S-04
-(#38), the last open deviation of class S that changes the values of valid code, which is what users of the compliance
-mode notice first. Then the cases of class L that need no data flow analysis, by area, one branch each: modifiers,
-declarations and annotations; overrides, hiding and `throws` clauses; `catch` clauses; imports and access;
-statements. In each branch, the `compliant:` entries of the area change from `ACCEPTED` to `REJECTED`. Then S-07, S-08
-and S-09 (reflection and class file details) as needed, and the remaining areas of class L. S-05 (constant folding,
-#47) and S-06 with S-10 (the class file layout of `private` members) come last, because they are the largest.
+**Then:** S-11 (#101; done on the development line, 2026-10-09, which also rejects L-20, L-45 and L-46). S-04 (#38; done
+on the development line, 2026-10-09, which also rejects L-47 and accepts D-07), with S-12, which was found with it
+(rejects L-48); these were the last open deviations of class S that change the values of valid code, which is what users
+of the compliance mode notice first. Next the cases of class L that need no data flow analysis, by area, one branch
+each: modifiers, declarations and annotations; overrides, hiding and `throws` clauses; `catch` clauses; imports and
+access; statements. In each branch, the `compliant:` entries of the area change from `ACCEPTED` to `REJECTED`. Then
+S-07, S-08 and S-09 (reflection and class file details) as needed, and the remaining areas of class L. S-05 (constant
+folding, #47) and S-06 with S-10 (the class file layout of `private` members) come last, because they are the largest.
 
 **Definite assignment and definite unassignment** (JLS 16) for the `final` cases of class L: the largest single piece
 of work. Definite assignment analysis might not be implemented at all.
@@ -472,5 +476,5 @@ this happens depends on the number of open IDs, not on the calendar.
 | P4 | precedence of the system property and explicit options | the property sets the initial options of every compiler; an explicit `options(...)` call replaces them, so that a library keeps control of its own compilers (decided, implemented) |
 | P5 | the `javac` reference: all JDKs of the test matrix must agree, `--release` equals the target version | accept |
 | P6 | the line of the foundation | the development line, because of the new API; the version is open (decided) |
-| P7 | the order of the checks of the compliance mode | S-01 to S-03 first (done), S-11 (done); then S-04, the areas of class L, S-07 to S-09; S-05, S-06 and S-10 last (decided) |
+| P7 | the order of the checks of the compliance mode | S-01 to S-03 first (done), S-11 (done), S-04 with S-12 (done); then the areas of class L, S-07 to S-09; S-05, S-06 and S-10 last (decided) |
 | P8 | the record key of the compatibility mode | `janino:` keeps its name (it is the default mode; 895 records stay unchanged) instead of `compat:` (decided) |

@@ -6231,7 +6231,8 @@ class UnitCompiler {
      *   #38). For compatibility, that is kept where the code compiled: with a constant condition, where the selected
      *   operand can be cast to <var>t</var>; otherwise, where the other operand is converted to <var>t</var> without
      *   a narrowing conversion. Where the code did not compile, the rule is not applied, and the type is determined
-     *   by binary numeric promotion, like by JAVAC (issue #56).
+     *   by binary numeric promotion, like by JAVAC (issue #56). The compliance mode applies only the rule of the JLS
+     *   (S-04).
      * </p>
      *
      * @return Whether the type of the conditional expression is <var>t</var>
@@ -6239,6 +6240,16 @@ class UnitCompiler {
     private boolean
     narrowConditionalType(ConditionalExpression ce, IClass t, IType otherType, @Nullable Object otherCv)
     throws CompileException {
+
+        // Compliance S-04: Only the rule of the JLS; for all other operands, the type is determined by binary numeric
+        // promotion, like by JAVAC, e.g. "true ? s : c" has type "int", not "short".
+        if (this.compliant()) {
+            return (
+                otherType == IClass.INT
+                && otherCv instanceof Integer
+                && this.convertConstant(otherCv, t) != UnitCompiler.NOT_CONVERTIBLE
+            );
+        }
 
         Object lhsCv = this.getConstantValue(ce.lhs);
 
@@ -6265,6 +6276,29 @@ class UnitCompiler {
         if (otherType instanceof IClass && this.isWideningPrimitiveConvertible((IClass) otherType, t)) return true;
         IClass unboxedType = this.isUnboxingConvertible(otherType);
         return unboxedType != null && (unboxedType == t || this.isWideningPrimitiveConvertible(unboxedType, t));
+    }
+
+    /**
+     * Implements the rule of JLS8 15.25.2 for an operand of a wrapper type: One operand of a conditional expression has
+     * the type <var>wrapperType</var> ({@code Byte}, {@code Short} or {@code Character}), and the other operand
+     * <var>other</var> (with the type <var>otherType</var>) is a constant expression of type {@code int} whose value is
+     * representable in the unboxed type of <var>wrapperType</var>; then the type of the conditional expression is that
+     * unboxed type.
+     *
+     * @return The type of the conditional expression, or {@code null} if the rule does not apply
+     */
+    @Nullable private IClass
+    unboxedConditionalType(IType wrapperType, IType otherType, Rvalue other) throws CompileException {
+
+        IClass unboxedType = this.isUnboxingConvertible(wrapperType);
+        if (unboxedType != IClass.BYTE && unboxedType != IClass.SHORT && unboxedType != IClass.CHAR) return null;
+        assert unboxedType != null;
+
+        if (otherType != IClass.INT) return null;
+        Object otherCv = this.getConstantValue(other);
+        if (!(otherCv instanceof Integer)) return null;
+
+        return this.convertConstant(otherCv, unboxedType) != UnitCompiler.NOT_CONVERTIBLE ? unboxedType : null;
     }
 
     private IType
@@ -7724,6 +7758,14 @@ class UnitCompiler {
             this.fakeCompile(ce.mhs);
             cv = this.getConstantValue(ce.rhs);
         }
+
+        // Compliance S-12: The compatibility mode treats the conditional expression as a constant expression if the
+        // condition and the selected operand are; the compliance mode requires that all three operands are (JLS8
+        // 15.28), like JAVAC, e.g. "false ? c : 66" with a variable "c" is not a constant expression.
+        if (
+            this.compliant()
+            && this.getConstantValue(((Boolean) lhsCv).booleanValue() ? ce.rhs : ce.mhs) == UnitCompiler.NOT_CONSTANT
+        ) return UnitCompiler.NOT_CONSTANT;
 
         // The value has the type of the conditional expression, not the type of the selected operand (JLS7 15.28):
         // e.g. "true ? 1 : 2.0" has type "double", so its value is 1.0, not 1, and "true ? 97 : c" (with a "char c")
@@ -9283,6 +9325,14 @@ class UnitCompiler {
                 (rhsType == IClass.BYTE || rhsType == this.iClassLoader.TYPE_java_lang_Byte)
                 && (mhsType == IClass.SHORT || mhsType == this.iClassLoader.TYPE_java_lang_Short)
             ) return IClass.SHORT;
+
+            // Compliance S-04: JLS8 15.25.2: "b ? Byte : 5 => byte". The compatibility mode does not implement this
+            // rule, so that the type is determined by binary numeric promotion (below), e.g. "int" for "b ? Byte : 5".
+            if (this.compliant()) {
+                IClass t = this.unboxedConditionalType(mhsType, rhsType, ce.rhs);
+                if (t == null) t = this.unboxedConditionalType(rhsType, mhsType, ce.mhs);
+                if (t != null) return t;
+            }
 
             // JLS7 15.25, list 1, bullet 4, bullet 2: "b ? (byte) 1 : byte => byte". If the rule does not apply,
             // the type is determined by binary numeric promotion (bullet 4).

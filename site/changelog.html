@@ -109,6 +109,22 @@ h5 {
         files of the compatibility mode are unchanged.
       </li>
       <li>
+        <a href="https://github.com/janino-lts/janino/issues/38">Issue #38</a>: In the compliance mode, the type of
+        a conditional expression with numeric operands of different types is that of JAVAC (JLS 15.25.2): an operand
+        of type <code>Byte</code>, <code>Short</code> or <code>Character</code> and a constant of type
+        <code>int</code> that is representable in its unboxed type give the unboxed type (<code>z ? B : 5</code> is a
+        <code>byte</code>, not an <code>int</code>), and with a constant condition, the operands are subject to binary
+        numeric promotion (<code>true ? s : c</code> is an <code>int</code>, not a <code>short</code>); deviation
+        S-04. As a consequence, the compliance mode rejects code that is valid only with the type of the
+        compatibility mode (L-47), and accepts code that the compatibility mode rejects because of the type
+        <code>int</code>, e.g. <code>byte x = z ? B : 5;</code> (D-07). Also in the compliance mode, a conditional
+        expression with a constant condition is a constant expression only if all three operands are constant
+        (JLS 15.28), so that <code>"a" + (true ? "b" : s)</code> with a variable <code>s</code> is not an interned
+        constant, and such an expression is rejected where a constant expression is required (deviation S-12, L-48).
+        <code>ExpressionDifferentialTest</code> now generates such conditional expressions in the compliance mode.
+        The class files of the compatibility mode are unchanged.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/31">issue #31</a>: Some compile error messages
         pointed in the wrong direction; now they explain the error. Each message keeps the text that it had before,
         and the explanation is appended, because applications and their tests match message texts:

@@ -1,2 +1,6 @@
 # Known differences between JANINO in the compliance mode and JAVAC; see "ExpressionDifferentialTest".
 # Format: <seed> <method> <WRONG|INVALID|REJECTED>
+
+# S-05: "(-8) << ((short) 32767)" is a constant expression of type int (value 0), so that JAVAC gives
+# "z ? <that shift> : <byte>" the type byte (JLS 15.25.2); JANINO does not fold shifts, so the type is int.
+20261042 c19 WRONG

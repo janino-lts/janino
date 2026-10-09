@@ -571,9 +571,10 @@ class ExpressionDifferentialTest {
 
         /**
          * The type of a conditional expression whose operands have different primitive or wrapper types is often
-         * wrong (JLS 15.25): JANINO reports a compile error, or the value has the wrong type. Issue #38 (S-04).
+         * wrong (JLS 15.25): JANINO reports a compile error, or the value has the wrong type. Issue #38 (S-04);
+         * corrected in the compliance mode.
          */
-        CONDITIONAL_TYPE(false),
+        CONDITIONAL_TYPE(true),
 
         /**
          * JANINO does not unbox the left operand of {@code ||} and {@code &&} if the right operand is constant and

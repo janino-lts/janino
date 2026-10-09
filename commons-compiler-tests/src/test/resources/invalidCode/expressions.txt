@@ -401,6 +401,88 @@ public class P {
     void f(boolean z, short s, char c) { short x = z ? s : c; }
 }
 
+=== constant conditional expression with short and char operands assigned to a short variable
+janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "int" to type "short"
+recovery: ACCEPTED
+id: L-47
+public class P {
+    void f(short s, char c) { short x = true ? s : c; }
+}
+
+=== constant conditional expression with byte and char operands assigned to a byte variable
+janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "int" to type "byte"
+recovery: ACCEPTED
+id: L-47
+public class P {
+    void f(byte b, char c) { byte x = true ? b : c; }
+}
+
+=== constant conditional expression with a char operand and a byte constant assigned to a char variable
+janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "int" to type "char"
+recovery: ACCEPTED
+id: L-47
+public class P {
+    void f(char c) { char x = true ? c : (byte) 1; }
+}
+
+=== constant conditional expression with short and char operands assigned to a Short variable
+janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "int" to type "java.lang.Short"
+recovery: ACCEPTED
+id: L-47
+public class P {
+    void f(short s, char c) { Short x = true ? s : c; }
+}
+
+=== constant conditional expression with short and char operands as the argument of a short parameter
+janino: ACCEPTED
+compliant: REJECTED No applicable constructor/method found for actual parameters "int"
+recovery: ACCEPTED
+id: L-47
+public class P {
+    void h(short x) {}
+    void f(short s, char c) { h(true ? s : c); }
+}
+
+=== conditional expression with a constant condition and a variable operand assigned to a byte variable
+janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "int" to type "byte"
+recovery: ACCEPTED
+id: L-48
+public class P {
+    void f(int i) { byte x = false ? i : 5; }
+}
+
+=== conditional expression with a constant condition and a variable operand as a case label
+janino: ACCEPTED
+compliant: REJECTED Value of 'case' label does not pose a constant value
+recovery: ACCEPTED
+id: L-48
+public class P {
+    void f(int i) { switch (5) { case false ? i : 5: } }
+}
+
+=== constant conditional expression with a char operand and a short constant assigned to a char variable
+janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "int" to type "char"
+recovery: ACCEPTED
+id: L-47, L-48
+public class P {
+    void f(char c) { char x = false ? c : (short) 66; }
+}
+
+=== constant conditional expression with a byte operand and a char constant assigned to a byte variable
+janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "int" to type "byte"
+recovery: ACCEPTED
+id: L-47, L-48
+public class P {
+    void f(byte b) { byte x = false ? b : 'a'; }
+}
+
 === constant conditional expression of type long assigned to a byte variable
 janino: REJECTED Assignment conversion not possible from type "long" to type "byte"
 legacy: ACCEPTED
