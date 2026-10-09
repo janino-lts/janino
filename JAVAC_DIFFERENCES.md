@@ -78,9 +78,10 @@ variables, and `Method.getParameterAnnotations()` of a `private` instance method
 longer by the number of prepended parameters, with each annotation at the index of its actual parameter.
 
 **An inner class whose superclass is an inner class that extends the enclosing class**
-([#97](https://github.com/janino-lts/janino/issues/97)): for `class P { class Q extends P {} class R extends Q {} }`,
-Janino passes the uninitialized instance of `R`, instead of the enclosing instance of `R`, as the enclosing instance
-to the constructor of `Q`, and the JVM rejects the class `P$R` (`VerifyError`).
+([#97](https://github.com/janino-lts/janino/issues/97), fixed in 3.1.19): for
+`class P { class Q extends P {} class R extends Q {} }`, Janino 3.1.18 and earlier pass the uninitialized instance
+of `R`, instead of the enclosing instance of `R`, as the enclosing instance to the constructor of `Q`, and the JVM
+rejects the class `P$R` (`VerifyError`).
 
 ## 2. Valid code that Janino rejects
 
