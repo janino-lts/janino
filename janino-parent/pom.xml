@@ -229,6 +229,12 @@
     <pluginManagement>
       <plugins>
         <plugin>
+          <!-- Used by the workflows "Spark" and "Calcite" to determine the version of the candidate. -->
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-help-plugin</artifactId>
+          <version>3.5.2</version>
+        </plugin>
+        <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-gpg-plugin</artifactId>
           <version>3.2.8</version>
