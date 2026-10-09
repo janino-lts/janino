@@ -90,7 +90,11 @@ jobs:
           if [ -n "$CANDIDATE" ]; then
             version=$CANDIDATE
           else
-            version=$(mvn -q -f janino-parent/pom.xml help:evaluate -Dexpression=project.version -DforceStdout)
+            # Maven prints its errors to stdout; a command substitution would swallow them, so write the output to
+            # a file and print it if the command fails.
+            mvn -q -N -f janino-parent/pom.xml help:evaluate -Dexpression=project.version -DforceStdout \
+              > version.txt || { cat version.txt; exit 1; }
+            version=$(cat version.txt)
           fi
           if [ "$BASELINE" != none ]; then matrix='["baseline", "candidate"]'; else matrix='["candidate"]'; fi
           echo "Candidate: $version, runs: $matrix"
