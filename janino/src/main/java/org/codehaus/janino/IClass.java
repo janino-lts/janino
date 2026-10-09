@@ -495,18 +495,31 @@ class IClass implements ITypeVariableOrIClass {
     getSuperclass() throws CompileException {
         if (this.superclassIsCached) return this.superclassCache;
 
+        // Invoked again while checking the superclass for a circularity: the chain of superclasses leads back to this
+        // class. Before, the check recursed until a StackOverflowError (issue #31).
+        if (this.superclassIsBeingChecked) throw this.circularity("Class");
+
         IClass sc = this.getSuperclass2();
-        if (sc != null && IClass.rawTypeOf(sc).isSubclassOf(this)) {
-            throw new CompileException(
-                "Class circularity detected for \"" + Descriptor.toClassName(this.getDescriptor()) + "\"",
-                null
-            );
+        this.superclassIsBeingChecked = true;
+        try {
+            if (sc != null && IClass.rawTypeOf(sc).isSubclassOf(this)) throw this.circularity("Class");
+        } finally {
+            this.superclassIsBeingChecked = false;
         }
         this.superclassIsCached = true;
         return (this.superclassCache = sc);
     }
     private boolean          superclassIsCached;
     @Nullable private IClass superclassCache;
+    private boolean          superclassIsBeingChecked;
+
+    private CompileException
+    circularity(String kind) {
+        return new CompileException(
+            kind + " circularity detected for \"" + Descriptor.toClassName(this.getDescriptor()) + "\"",
+            null
+        );
+    }
 
     /**
      * @see #getSuperclass()
@@ -537,18 +550,22 @@ class IClass implements ITypeVariableOrIClass {
     getInterfaces() throws CompileException {
         if (this.interfacesCache != null) return this.interfacesCache;
 
+        // Invoked again while checking the interfaces for a circularity: see "getSuperclass()".
+        if (this.interfacesAreBeingChecked) throw this.circularity("Interface");
+
         IClass[] is = this.getInterfaces2();
-        for (IClass ii : is) {
-            if (ii.implementsInterface(this)) {
-                throw new CompileException(
-                    "Interface circularity detected for \"" + Descriptor.toClassName(this.getDescriptor()) + "\"",
-                    null
-                );
+        this.interfacesAreBeingChecked = true;
+        try {
+            for (IClass ii : is) {
+                if (ii.implementsInterface(this)) throw this.circularity("Interface");
             }
+        } finally {
+            this.interfacesAreBeingChecked = false;
         }
         return (this.interfacesCache = is);
     }
     @Nullable private IClass[] interfacesCache;
+    private boolean            interfacesAreBeingChecked;
 
     /**
      * @see #getInterfaces()
