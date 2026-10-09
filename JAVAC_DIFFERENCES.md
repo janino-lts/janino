@@ -2,15 +2,15 @@
 
 Janino compiles Java source code like `javac`, but not in every respect: it accepts some invalid code, it rejects some
 valid code, and some valid code behaves differently. This page lists all deviations that are known as of version
-3.1.16, so that you can decide whether they matter for your code.
+3.1.18, so that you can decide whether they matter for your code.
 
 Language features that Janino does not implement at all (e.g. lambda expressions, `switch` expressions, records) are
 listed under [Limitations](https://janino-lts.github.io/janino/#limitations) on the project homepage, and are not
 repeated here.
 
-Each deviation was verified against `javac` (JDK 25, with and without `--release 8`) and Janino 3.1.16. Unless stated
-otherwise, Janino 3.1.12 behaves the same way (with target version 8 where the code requires it, e.g. for static
-interface methods).
+Each deviation was verified against `javac` (JDK 25, with and without `--release 8`) and Janino 3.1.16, or the later
+version in which it was added. Unless stated otherwise, Janino 3.1.12 behaves the same way (with target version 8 where
+the code requires it, e.g. for static interface methods).
 
 ## Compatibility policy
 
@@ -31,6 +31,7 @@ below remain for that reason, or because they have not been fixed yet.
 | `char c = 'a'; Object x = false ? c : (short) 66;` | `x` is an `Integer` | `x` is a `Character` | [#38](https://github.com/janino-lts/janino/issues/38) |
 | `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`), kept for the default `serialVersionUID` | [#73](https://github.com/janino-lts/janino/issues/73) |
 | `getEnclosingMethod()` of a class declared in a `private` instance method `p()` | `p` | `p$` (Janino compiles the method as a static method `p$`) | |
+| `getName()` of a local class `L` declared in a class `P` | `"P$1L"` | `"P$L"` | |
 
 **Constant expressions that are not folded** ([#47](https://github.com/janino-lts/janino/issues/47)): Janino does not
 evaluate shifts, relational operators, `~`, operations with `char` operands and casts to and from `char` at compile

@@ -60,7 +60,8 @@ class not being empty, sees the new ones.
 - For a class in a `private` instance method `p()`, `getEnclosingMethod()` returns `p$`, the static method that
   Janino compiles `p()` into (`javac`: `p`).
 
-Both deviations from `javac` are listed in [Differences between Janino and javac](JAVAC_DIFFERENCES.md), section 1.
+The three deviations from `javac` are listed in [Differences between Janino and javac](JAVAC_DIFFERENCES.md),
+section 1.
 
 ### `strictfp` classes (#74)
 
