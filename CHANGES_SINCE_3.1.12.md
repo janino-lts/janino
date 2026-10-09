@@ -65,12 +65,15 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 - `boolean`, `byte`, `char` and `short` constants of fields from class files were treated as `int` ([#46]).
 - The constant folding of a string concatenation with `null` crashed the compiler ([#49]).
 
-**Conditional expressions** (3.1.16):
+**Conditional expressions** (3.1.16, 3.1.19):
 
 - With a `byte`, `short` or `char` operand and an operand of another numeric type, the expression was rejected,
   had the wrong type or compiled into code that failed at run time ([#51], a regression of 3.1.15; [#56]).
 - The constant value of a conditional expression with a constant condition had the type of the selected operand
   instead of the type of the expression: `"" + (true ? 1 : 2.0)` was `"1"` ([#55]).
+- 3.1.19 (in development): A conditional expression with a constant condition in the initializer of a
+  `static final` field of a class, e.g. `static final int K = DEBUG ? 1 : 2;`, was an internal compiler error; as
+  the value of an annotation element, `@A(true ? 1 : 2)`, it was rejected, and so was `@B(X || Y)` ([#113]).
 
 **Annotations, enums and member types** (3.1.15, 3.1.16):
 
@@ -102,6 +105,9 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   superclass is an inner class that extends the enclosing class, e.g. `class R extends Q` with `class Q extends P`
   in `P`, compiled into a class that the JVM rejects (`VerifyError`); the constructor passed its own, still
   uninitialized instance to the constructor of the superclass instead of the enclosing instance ([#97]).
+  `Outer.super.m()` in an inner class that itself extends `Outer`, in a class nested in it, or in an anonymous or
+  local subclass of `Outer`, invoked the superclass method on the instance of the inner class instead of the
+  enclosing instance ([#110], since 3.1.16).
 
 **Arrays and expressions** (3.1.17):
 
@@ -173,8 +179,8 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.17 needs 1 % less time and
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers;
   every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 465 language
-  constructs, negative tests with 430 cases of invalid code, differential tests that compile generated expressions
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 480 language
+  constructs, negative tests with 434 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and two workflows that run the test suites
   of Apache Calcite and of Spark Catalyst every week and before every release ([Compatibility](COMPATIBILITY.md)).
 
@@ -224,3 +230,5 @@ affected.
 [#76]: https://github.com/janino-lts/janino/issues/76
 [#87]: https://github.com/janino-lts/janino/issues/87
 [#97]: https://github.com/janino-lts/janino/issues/97
+[#110]: https://github.com/janino-lts/janino/issues/110
+[#113]: https://github.com/janino-lts/janino/issues/113
