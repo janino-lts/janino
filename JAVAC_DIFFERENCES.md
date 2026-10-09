@@ -69,6 +69,11 @@ them against the declared parameters. `Constructor.getParameterAnnotations()` of
 variables, and `Method.getParameterAnnotations()` of a `private` instance method, therefore return arrays that are
 longer by the number of prepended parameters, with each annotation at the index of its actual parameter.
 
+**An inner class whose superclass is an inner class that extends the enclosing class**
+([#97](https://github.com/janino-lts/janino/issues/97)): for `class P { class Q extends P {} class R extends Q {} }`,
+Janino passes the uninitialized instance of `R`, instead of the enclosing instance of `R`, as the enclosing instance
+to the constructor of `Q`, and the JVM rejects the class `P$R` (`VerifyError`).
+
 ## 2. Valid code that Janino rejects
 
 **Constant expressions** ([#47](https://github.com/janino-lts/janino/issues/47)): wherever the language requires a
@@ -96,6 +101,10 @@ therefore rejects (`Cannot access non-final local variable "x" from inner class`
   (JLS 4.12.4 requires definite assignment analysis here, which Janino does not have);
 - a variable whose name is assigned in another block or in a nested class:
   `{ int x = 1; x = 2; } int x = 3; new Runnable() { ... x ... }`.
+
+**Floating-point literals with a leading zero** ([#96](https://github.com/janino-lts/janino/issues/96)): `09.5`,
+`00.5`, `0123.5`, `07e1`, `07f`, `09d` and `08.` are rejected (e.g. `';' expected instead of '9.5'`); Janino scans
+the digits after a leading `0` as an octal integer literal.
 
 ## 3. Invalid code that Janino accepts
 

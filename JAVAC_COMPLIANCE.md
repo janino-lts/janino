@@ -385,14 +385,19 @@ reference.
 entries and the `EnclosingMethod` attribute of local and anonymous classes, so that the reflection API recognizes
 them (V4; it changes the class files of correct code); #74, the `ACC_STRICT` bit of `strictfp` classes, and #87,
 part 2, the other class flags of member types (class file defects without behavior); #76, completely, and #88:
-`AbstractTraverser` descends into initializers and visits enum constants (public API, not the compiler).
+`AbstractTraverser` descends into initializers and visits enum constants (public API, not the compiler); #31,
+misleading compile error messages: each improved message keeps its old text and adds an explanation, except for a
+typo and for cyclic inheritance, which was reported as a stack overflow ("Compilation unit is nested too deeply") and
+is now reported as a class circularity (the same code is rejected as before).
 
-**Backlog without a target version:** #23 (above).
+**Backlog without a target version:** #23 (above); two cases of class D that were found with #31: #96, a
+floating-point literal with a leading zero, e.g. `09.5`, is rejected; #97, an inner class whose superclass is an
+inner class that extends the enclosing class compiles into a class that the JVM rejects (`VerifyError`).
 
-Open: #38, #40 and #47 (class S) and #33 (class L) belong to the compliance mode. #31, misleading error messages, is
-not a change of behavior in the sense of section 3.1, but applications and their tests match message texts (the
-tests of Apache Spark expect `Cannot determine simple type name "..."`); an improved message therefore keeps the old
-text and adds to it. The gates are those of 3.1.16.
+Open: #38, #40 and #47 (class S) and #33 (class L) belong to the compliance mode. A compile error message is not a
+change of behavior in the sense of section 3.1, but applications and their tests match message texts (the tests of
+Apache Spark expect `Cannot determine simple type name "..."`); an improved message therefore keeps the old text and
+adds to it, as with #31 on the development line. The gates are those of 3.1.16.
 
 **The compliance mode: the foundation** (on the development line; the version is open).
 
