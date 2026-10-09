@@ -193,7 +193,7 @@ public class P {
 }
 
 === duplicate access modifier
-janino: REJECTED Duplication access modifier "public"
+janino: REJECTED Duplicate access modifier "public"
 public class P {
     public public void f() {}
 }

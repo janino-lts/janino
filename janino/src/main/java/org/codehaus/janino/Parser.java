@@ -1223,6 +1223,15 @@ class Parser {
             String     docComment = this.doc();
             Modifier[] modifiers  = this.parseModifiers();
 
+            // An initializer, e.g. "static { ... }", is not allowed in an interface (JLS8 9.1.4); the message keeps the
+            // text of the "IDENTIFIER expected" error that it caused before (issue #31).
+            if (this.peek("{")) {
+                throw Parser.compileException(
+                    TokenType.IDENTIFIER + " expected instead of '{'; an interface cannot declare an initializer",
+                    this.peek().getLocation()
+                );
+            }
+
             // "void" method declaration (without type parameters).
             if (this.peekRead("void")) {
 
@@ -4226,7 +4235,7 @@ class Parser {
 
             // Duplicate access modifier?
             if (!keywords.add(am.keyword)) {
-                throw Parser.compileException("Duplication access modifier \"" + am.keyword + "\"", am.getLocation());
+                throw Parser.compileException("Duplicate access modifier \"" + am.keyword + "\"", am.getLocation());
             }
 
             // Mutually exclusive access modifier keywords?

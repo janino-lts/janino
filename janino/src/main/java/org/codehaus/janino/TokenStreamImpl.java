@@ -145,14 +145,21 @@ class TokenStreamImpl implements TokenStream {
 
     @Override public void
     read(String expected) throws CompileException, IOException {
-        String s = this.read().value;
-        if (!s.equals(expected)) throw this.compileException("'" + expected + "' expected instead of '" + s + "'");
+        Token  previous = this.previousToken;
+        Token  t        = this.read();
+        String s        = t.value;
+        if (!s.equals(expected)) {
+            throw this.compileException(
+                "'" + expected + "' expected instead of '" + s + "'" + TokenStreamImpl.octalLiteralDetail(previous, t)
+            );
+        }
     }
 
     @Override public int
     read(String... expected) throws CompileException, IOException {
 
-        Token t = this.read();
+        Token previous = this.previousToken;
+        Token t        = this.read();
 
         String value = t.value;
 
@@ -184,7 +191,30 @@ class TokenStreamImpl implements TokenStream {
             + "' expected instead of '"
             + value
             + "'"
+            + TokenStreamImpl.octalLiteralDetail(previous, t)
         );
+    }
+
+    /**
+     * The scanner splits a literal like "09" into the tokens "0" and "9", so that the parser reports an unexpected
+     * "9"; this method explains that error (issue #31).
+     *
+     * @return A detail to append to the error message about the unexpected <var>token</var>, or {@code ""}
+     */
+    private static String
+    octalLiteralDetail(@Nullable Token previous, Token token) {
+
+        if (previous == null || previous.type != TokenType.INTEGER_LITERAL || !"0".equals(previous.value)) return "";
+
+        // Only if the token directly follows the "0", e.g. not in "0 9".
+        Location pl = previous.getLocation();
+        Location l  = token.getLocation();
+        if (l.getLineNumber() != pl.getLineNumber() || l.getColumnNumber() != pl.getColumnNumber() + 1) return "";
+
+        // E.g. "9" in "09" or "9L" in "09L", but not "9.5" in "09.5".
+        if (token.type != TokenType.INTEGER_LITERAL) return "";
+        char c = token.value.charAt(0);
+        return c == '8' || c == '9' ? "; digit '" + c + "' not allowed in octal literal" : "";
     }
 
     @Override public String

@@ -4113,7 +4113,22 @@ class Java {
         toRvalueOrCompileException() throws CompileException {
             Rvalue result = this.toRvalue();
             if (result != null) return result;
-            throw new CompileException("Expression \"" + this.toString() + "\" is not an rvalue", this.getLocation());
+
+            // E.g. "this(1)" after the first statement of a constructor, or in a method; the message keeps its old
+            // text (issue #31).
+            throw new CompileException((
+                "Expression \""
+                + this.toString()
+                + "\" is not an rvalue"
+                + (
+                    this instanceof ConstructorInvocation
+                    ? (
+                        "; an explicit constructor invocation is only allowed as the first statement of a "
+                        + "constructor body"
+                    )
+                    : ""
+                )
+            ), this.getLocation());
         }
 
         /**

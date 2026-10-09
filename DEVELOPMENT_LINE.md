@@ -20,11 +20,32 @@ changes in behavior and what stays the same; the class file comparison of the
 
 | Issue | Change | Class files | Behavior |
 |---|---|---|---|
+| [#31](https://github.com/janino-lts/janino/issues/31) | Compile error messages explain the error (in part) | unchanged | message texts |
 | [#73](https://github.com/janino-lts/janino/issues/73) | Local and anonymous classes as `javac` describes them | changed | reflection results |
 | [#74](https://github.com/janino-lts/janino/issues/74) | No `ACC_STRICT` in the flags of `strictfp` classes | changed | unchanged |
 | [#76](https://github.com/janino-lts/janino/issues/76) | `AbstractTraverser` descends into initializers | unchanged | subclasses of `AbstractTraverser` |
 | [#87](https://github.com/janino-lts/janino/issues/87) | Class flags of member types as `javac` writes them | changed | unchanged |
 | [#88](https://github.com/janino-lts/janino/issues/88) | `AbstractTraverser` visits enum constants | unchanged | subclasses of `AbstractTraverser` |
+
+### Compile error messages (#31)
+
+**Behavior.** Some compile error messages pointed in the wrong direction; now they explain the error. Janino rejects
+the same code as before, at the same locations. Applications and their tests match message texts, so each message
+keeps the text that it had in 3.1.x, at its beginning, and the explanation is appended (`...` in the table); a check
+with `contains()` or `startsWith()` still matches. The only exception is a typo.
+
+| Code | 3.1.x | `master` |
+|---|---|---|
+| `public public void f() {}` | `Duplication access modifier "public"` | `Duplicate access modifier "public"` |
+| `int i = 09;` | `';' expected instead of '9'` | `...; digit '9' not allowed in octal literal` |
+| `interface I { static { } }` | `IDENTIFIER expected instead of '{'` | `...; an interface cannot declare an initializer` |
+| `this(1);` or `super(1);` not as the first statement of a constructor | `Expression "this()" is not an rvalue` | `...; an explicit constructor invocation is only allowed as the first statement of a constructor body` |
+| `int x; static int f() { return x; }` | `Expression "P" is not an rvalue` | `...; non-static field "x" cannot be referenced from a static context` |
+| `java.foo.Bar x;` | `Cannot determine simple type name "java"` | `...; no type "java.foo.Bar" found` |
+
+The message about a simple name that denotes no type, e.g. `Cannot determine simple type name "Foo"`, is unchanged.
+
+**Class files.** Unchanged.
 
 ### Local and anonymous classes (#73)
 
