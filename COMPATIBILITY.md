@@ -120,9 +120,10 @@ points of the API as well:
   release candidate before the release: once with the Janino that the project declares and once with this one,
   and compare the results. No release without both being green.
 - **Recorded behavior.** The negative tests (`InvalidCodeTest`, 430 cases of invalid code) and the
-  characterization tests (`LanguageSupportTest`, 477 cases of valid code) record Janino's actual behavior, so that
-  every change of it, intended or not, fails a test. Differential tests compile generated expressions and control
-  flow with Janino and with `javac` and compare the results.
+  characterization tests (`LanguageSupportTest`, 495 cases of valid code) record Janino's actual behavior, so that
+  every change of it, intended or not, fails a test; on the development line, every case runs in both the
+  compatibility mode and the compliance mode. Differential tests compile generated expressions and control flow
+  with Janino and with `javac` and compare the results.
 - **Class files.** `CodeSizeReport` of the benchmarks compares the class files that two versions generate, byte
   for byte, for all workloads, including the code that Spark generates.
 - **Java versions.** The test suite runs on Java 8, 17, 21 and 25 in CI.

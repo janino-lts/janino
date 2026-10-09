@@ -77,7 +77,7 @@ class Compiler extends AbstractCompiler {
 
     private static final Logger LOGGER = Logger.getLogger(Compiler.class.getName());
 
-    private EnumSet<JaninoOption> options = EnumSet.noneOf(JaninoOption.class);
+    private EnumSet<JaninoOption> options = JaninoOption.defaultOptions();
 
     @Nullable private IClassLoader iClassLoader;
 
@@ -193,8 +193,8 @@ class Compiler extends AbstractCompiler {
     public static final StringPattern[] DEFAULT_WARNING_HANDLE_PATTERNS = StringPattern.PATTERNS_NONE;
 
     /**
-     * @return A reference to the currently effective compilation options; changes to it take
-     *         effect immediately
+     * @return A reference to the currently effective compilation options (initially {@link
+     *         JaninoOption#defaultOptions()}); changes to it take effect immediately
      */
     public EnumSet<JaninoOption>
     options() { return this.options; }

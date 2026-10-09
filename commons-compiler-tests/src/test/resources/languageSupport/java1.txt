@@ -3,10 +3,98 @@
 === assert is disabled unless enabled for the class
 jls: not thrown
 janino: WRONG thrown
+compliant: OK
+id: S-03
 public class P {
     public static Object run() {
         try { assert false; return "not thrown"; } catch (AssertionError e) { return "thrown"; }
     }
+}
+
+=== assert with a message is disabled unless enabled for the class
+jls: not thrown
+janino: WRONG thrown msg
+compliant: OK
+id: S-03
+public class P {
+    public static Object run() {
+        try {
+            assert false : "msg";
+            return "not thrown";
+        } catch (AssertionError e) {
+            return "thrown " + e.getMessage();
+        }
+    }
+}
+
+=== assert in nested classes is disabled unless enabled for the outermost class
+jls: not thrown,not thrown,not thrown,not thrown,not thrown,not thrown,not thrown,not thrown
+janino: WRONG thrown,thrown,thrown,thrown,thrown,thrown,thrown,thrown
+compliant: OK
+id: S-03
+public class P {
+    static int f;
+    static String t(Runnable r) { try { r.run(); return "not thrown"; } catch (AssertionError e) { return "thrown"; } }
+    class Inner { void n() { assert f > 0; } }
+    static class Nested { void n() { assert f > 0; } }
+    interface I { default void d() { assert f > 0; } static void s() { assert f > 0; } }
+    static class C implements I { }
+    enum E { X { void k() { assert f > 0; } }, Y; void k() { assert f > 0; } E() { assert f >= 0; } }
+    public static Object run() {
+        final P p = new P();
+        String r = "";
+        r += t(new Runnable() { public void run() { p.new Inner().n(); } });
+        r += "," + t(new Runnable() { public void run() { new Nested().n(); } });
+        r += "," + t(new Runnable() { public void run() { new C().d(); } });
+        r += "," + t(new Runnable() { public void run() { I.s(); } });
+        r += "," + t(new Runnable() { public void run() { E.X.k(); } });
+        r += "," + t(new Runnable() { public void run() { E.Y.k(); } });
+        r += "," + t(new Runnable() { public void run() { assert f > 0; } });
+        r += "," + t(new Runnable() { public void run() { class L { void q() { assert f > 0; } } new L().q(); } });
+        return r;
+    }
+}
+
+=== assert is enabled for the class
+jls: thrown
+janino: OK
+public class P {
+    public static Object run() {
+        try {
+            P.class.getClassLoader().setClassAssertionStatus("P", true);
+            new Q().m();
+            return "not thrown";
+        } catch (AssertionError e) {
+            return "thrown";
+        }
+    }
+    static class Q { void m() { assert false; } }
+}
+
+=== assert true generates no code
+jls: ok
+janino: OK
+public class P {
+    public static Object run() { assert true; return "ok"; }
+}
+
+=== serialVersionUID of a serializable class with an assert statement
+jls: -5059593730127820408
+janino: WRONG 1832763299627940128
+compliant: OK
+id: S-03
+public class P implements java.io.Serializable {
+    static int f;
+    void m() { assert f > 0; }
+    public static Object run() { return java.io.ObjectStreamClass.lookup(P.class).getSerialVersionUID(); }
+}
+
+=== serialVersionUID of a serializable class with an "assert true" statement
+jls: -5580808842437552408
+janino: OK
+public class P implements java.io.Serializable {
+    void m() { assert true; }
+    public static Object run() { return java.io.ObjectStreamClass.lookup(P.class).getSerialVersionUID(); }
 }
 
 === qualified superclass method invocation (Outer.super.m())

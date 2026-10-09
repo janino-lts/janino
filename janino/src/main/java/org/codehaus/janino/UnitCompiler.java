@@ -287,7 +287,7 @@ class UnitCompiler {
      */
     private final Set<IClass> legacyUncheckedExceptions = new HashSet<>();
 
-    private EnumSet<JaninoOption> options = EnumSet.noneOf(JaninoOption.class);
+    private EnumSet<JaninoOption> options = JaninoOption.defaultOptions();
 
     /**
      * Java version to compile for.
@@ -301,8 +301,8 @@ class UnitCompiler {
     }
 
     /**
-     * @return A reference to the currently effective compilation options; changes to it take
-     *         effect immediately
+     * @return A reference to the currently effective compilation options (initially {@link
+     *         JaninoOption#defaultOptions()}); changes to it take effect immediately
      */
     public EnumSet<JaninoOption>
     options() { return this.options; }
@@ -315,6 +315,14 @@ class UnitCompiler {
         this.options = options;
         return this;
     }
+
+    /**
+     * @return Whether the compliance mode ({@link JaninoOption#JAVAC_COMPLIANCE}) is in effect; every place of the
+     *         compiler that depends on the mode is guarded by this method and carries a comment "Compliance" with
+     *         the ID of the deviation in "JAVAC_DIFFERENCES.md"
+     */
+    private boolean
+    compliant() { return this.options.contains(JaninoOption.JAVAC_COMPLIANCE); }
 
     /**
      * Generates class files that target a specified release of the virtual machine, in analogy with JAVAC's {@code
@@ -510,6 +518,10 @@ class UnitCompiler {
 
     private void
     compile2(AbstractClassDeclaration cd) throws CompileException {
+
+        // Compliance S-03: "assert" is disabled unless assertions are enabled for the class.
+        if (this.compliant()) this.declareAssertionsDisabledField(cd);
+
         IClass iClass = this.resolve(cd);
 
         // Check that all methods of the non-abstract class are implemented.
@@ -706,6 +718,16 @@ class UnitCompiler {
                 (fdoi instanceof FieldDeclaration && ((FieldDeclaration) fdoi).isStatic())
                 || (fdoi instanceof Initializer && ((Initializer) fdoi).isStatic())
             ) classInitializationStatements.add(fdoi);
+        }
+
+        // Compliance S-03: The "$assertionsDisabled" field is initialized first, before the enum constants (above).
+        if (this.compliant()) {
+            for (int i = 1; i < classInitializationStatements.size(); i++) {
+                if (this.assertionsDisabledFields.contains(classInitializationStatements.get(i))) {
+                    classInitializationStatements.add(0, classInitializationStatements.remove(i));
+                    break;
+                }
+            }
         }
 
         if (cd instanceof EnumDeclaration) {
@@ -1212,6 +1234,7 @@ class UnitCompiler {
             );
 
             short accessFlags = this.accessFlags(fd.modifiers);
+            if (this.assertionsDisabledFields.contains(fd)) accessFlags |= Mod.SYNTHETIC;
 
             ClassFile.FieldInfo fi;
             if (fd.isPrivate()) {
@@ -1232,7 +1255,7 @@ class UnitCompiler {
                 fi = cf.addFieldInfo(
                     (                                             // accessFlags
                         fd.getDeclaringType() instanceof InterfaceDeclaration
-                        ? (short) (Mod.PUBLIC | Mod.STATIC | Mod.FINAL)
+                        ? (short) (Mod.PUBLIC | Mod.STATIC | Mod.FINAL | (accessFlags & Mod.SYNTHETIC))
                         : accessFlags
                     ),
                     vd.name,                                      // fieldName
@@ -1303,6 +1326,9 @@ class UnitCompiler {
 
     private void
     compile2(InterfaceDeclaration id) throws CompileException {
+
+        // Compliance S-03: "assert" is disabled unless assertions are enabled for the class.
+        if (this.compliant()) this.declareAssertionsDisabledField(id);
 
         final IClass iClass = this.resolve(id);
 
@@ -3129,8 +3155,125 @@ class UnitCompiler {
         return false;
     }
 
+    /**
+     * The synthetic fields "{@code $assertionsDisabled}" that the compliance mode declares; see {@link
+     * #declareAssertionsDisabledField(AbstractTypeDeclaration)}.
+     */
+    private final Set<FieldDeclaration> assertionsDisabledFields = new HashSet<>();
+
+    /**
+     * Compliance S-03: Like JAVAC, declares a synthetic field "{@code static final boolean $assertionsDisabled =
+     * !Outermost.class.desiredAssertionStatus();}" as the first member of the type iff the type contains an ASSERT
+     * statement, so that "{@code assert}" is disabled unless assertions are enabled for the class. Nested types
+     * (member, local and anonymous classes, and the class bodies of enum constants) get their own field. JAVAC
+     * declares the field of an interface in a synthetic class; here, it is a ({@code public}) field of the interface.
+     */
+    private void
+    declareAssertionsDisabledField(AbstractTypeDeclaration atd) throws CompileException {
+
+        for (FieldDeclaration fd : this.assertionsDisabledFields) {
+            if (fd.getDeclaringType() == atd) return; // Already declared.
+        }
+
+        if (!this.containsAssertStatement(atd)) return;
+
+        Location loc = atd.getLocation();
+
+        TypeDeclaration outermost = atd;
+        for (Scope s = atd; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (s instanceof TypeDeclaration) outermost = (TypeDeclaration) s;
+        }
+
+        FieldDeclaration fd = new FieldDeclaration(
+            loc,                                                  // location
+            null,                                                 // docComment
+            UnitCompiler.accessModifiers(loc, "static", "final"), // modifiers
+            new PrimitiveType(loc, Primitive.BOOLEAN),            // type
+            new VariableDeclarator[] {                            // variableDeclarators
+                new VariableDeclarator(
+                    loc,                   // location
+                    "$assertionsDisabled", // name
+                    0,                     // brackets
+                    new UnaryOperation(    // initializer
+                        loc,
+                        "!",
+                        new MethodInvocation(
+                            loc,                                                           // location
+                            new ClassLiteral(loc, new SimpleType(loc, this.resolve(outermost))), // target
+                            "desiredAssertionStatus",                                      // methodName
+                            new Rvalue[0]                                                  // arguments
+                        )
+                    )
+                )
+            }
+        );
+
+        // The field is the first member, so that it is initialized before any other static initializer runs
+        // (JAVAC does the same).
+        if (atd instanceof AbstractClassDeclaration) {
+            AbstractClassDeclaration cd = (AbstractClassDeclaration) atd;
+            cd.addFieldDeclaration(fd);
+            List<FieldDeclarationOrInitializer> l = cd.fieldDeclarationsAndInitializers;
+            l.add(0, l.remove(l.size() - 1));
+        } else {
+            InterfaceDeclaration id = (InterfaceDeclaration) atd;
+            id.addConstantDeclaration(fd);
+            List<FieldDeclaration> l = id.constantDeclarations;
+            l.add(0, l.remove(l.size() - 1));
+        }
+
+        this.assertionsDisabledFields.add(fd);
+    }
+
+    /**
+     * @return Whether the body of the type declaration contains an ASSERT statement that generates code (see {@link
+     *         #isAssertTrue(AssertStatement)}), not counting the bodies of nested types
+     */
+    private boolean
+    containsAssertStatement(AbstractTypeDeclaration atd) throws CompileException {
+
+        final boolean[] result = { false };
+
+        AbstractTraverser<CompileException> traverser = new AbstractTraverser<CompileException>() {
+
+            @Override public void
+            traverseAssertStatement(AssertStatement as) throws CompileException {
+                if (!UnitCompiler.this.isAssertTrue(as)) result[0] = true;
+            }
+
+            // Nested types get their own field.
+            @Override public void traverseAnonymousClassDeclaration(AnonymousClassDeclaration acd)             {}
+            @Override public void traverseLocalClassDeclarationStatement(LocalClassDeclarationStatement lcds) {}
+            @Override public void traverseMemberClassDeclaration(MemberClassDeclaration mcd)                   {}
+            @Override public void traverseMemberEnumDeclaration(MemberEnumDeclaration med)                     {}
+            @Override public void traverseMemberInterfaceDeclaration(MemberInterfaceDeclaration mid)           {}
+            @Override public void traverseMemberAnnotationTypeDeclaration(MemberAnnotationTypeDeclaration matd) {}
+            @Override public void traverseEnumConstant(EnumConstant ec)                                        {}
+        };
+
+        if (atd instanceof AbstractClassDeclaration) {
+            traverser.traverseClassDeclaration((AbstractClassDeclaration) atd);
+        } else {
+            traverser.traverseInterfaceDeclaration((InterfaceDeclaration) atd);
+        }
+
+        return result[0];
+    }
+
+    /**
+     * @return Whether the condition of the ASSERT statement is the constant {@code true}; JAVAC generates no code
+     *         for such a statement (and no "$assertionsDisabled" field for it), and neither does the compliance mode
+     */
+    private boolean
+    isAssertTrue(AssertStatement as) throws CompileException {
+        return Boolean.TRUE.equals(this.getConstantValue(as.expression1));
+    }
+
     private boolean
     compile2(AssertStatement as) throws CompileException {
+
+        // Compliance S-03: No code for "assert true", like JAVAC.
+        if (this.compliant() && this.isAssertTrue(as)) return true;
 
         // assert expression1;
         //   if (!expression1) throw new AssertionError();
@@ -3138,6 +3281,15 @@ class UnitCompiler {
         //   if (!expression1) throw new AssertionError(expression2);
         CodeContext.Offset end = this.getCodeContext().new BasicBlock();
         try {
+
+            // Compliance S-03: "if ($assertionsDisabled) skip", like JAVAC; see "declareAssertionsDisabledField()".
+            if (this.compliant()) {
+                IClass declaringIClass = this.getIClassDeclaringContext(as);
+                assert declaringIClass != null;
+                this.getfield(as, declaringIClass, "$assertionsDisabled", IClass.BOOLEAN, true);
+                this.ifxx(as, UnitCompiler.NE, end);
+            }
+
             this.compileBoolean(as.expression1, end, UnitCompiler.JUMP_IF_TRUE);
 
             this.neW(as, this.iClassLoader.TYPE_java_lang_AssertionError);
@@ -5385,8 +5537,11 @@ class UnitCompiler {
                 }
                 return;
             }
+            // Compliance S-01: The compatibility mode evaluates the LHS of "a || true" and "a && false" without
+            // unboxing it, so a "null" Boolean does not throw a NullPointerException; the compliance mode compiles
+            // them like any other operands (below), which unboxes the LHS, like JAVAC (issue #40).
             Object rhsCv = this.getConstantValue(bo.rhs);
-            if (rhsCv instanceof Boolean) {
+            if (rhsCv instanceof Boolean && !this.compliant()) {
                 if (((Boolean) rhsCv).booleanValue() ^ bo.operator == "||") { // SUPPRESS CHECKSTYLE StringLiteralEquality
                     // "a && true", "a || false"
                     this.compileBoolean(
@@ -12117,7 +12272,16 @@ class UnitCompiler {
         }
 
         // No method found by previous phase(s).
-        if (applicableIInvocables.size() == 0 && !varargApplicables.isEmpty()) {
+        //
+        // Compliance S-02: JLS 15.12.2 considers variable arity methods only in phase 3, after the phase with boxing;
+        // the compatibility mode considers them already in the pass without boxing, so that "f(1)" invokes
+        // "f(int...)" rather than "f(Object)". The compliance mode skips them in that pass; the pass with boxing
+        // (the caller's second attempt) considers them, as phase 3.
+        if (
+            applicableIInvocables.size() == 0
+            && !varargApplicables.isEmpty()
+            && (boxingPermitted || !this.compliant())
+        ) {
             //TODO: 15.12.2.3 (type-conversion?)
 
             // 15.12.2.4 : Phase 3: Identify Applicable Variable Arity Methods

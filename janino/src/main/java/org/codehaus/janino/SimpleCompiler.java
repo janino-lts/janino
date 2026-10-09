@@ -97,7 +97,7 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
     private int     sourceVersion = -1;
     private int     targetVersion = -1;
 
-    private EnumSet<JaninoOption> options = EnumSet.noneOf(JaninoOption.class);
+    private EnumSet<JaninoOption> options = JaninoOption.defaultOptions();
 
     /**
      * {@code Null} before cooking, non-{@code null} after cooking.
@@ -476,8 +476,8 @@ class SimpleCompiler extends Cookable implements ISimpleCompiler {
     }
 
     /**
-     * @return A reference to the currently effective compilation options; changes to it take
-     *         effect immediately
+     * @return A reference to the currently effective compilation options (initially {@link
+     *         JaninoOption#defaultOptions()}); changes to it take effect immediately
      */
     public EnumSet<JaninoOption>
     options() { return this.options; }
