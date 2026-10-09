@@ -96,6 +96,15 @@ h5 {
         parameter, <a href="https://github.com/janino-lts/janino/issues/61">issue #61</a>). No change of the compiler.
       </li>
       <li>
+        <a href="https://github.com/janino-lts/janino/issues/40">Issue #40</a>: In the compliance mode, a
+        <code>Boolean</code> operand of <code>||</code> or <code>&amp;&amp;</code> is unboxed also when the other
+        operand is a constant that determines the result, like with JAVAC: <code>Z || true</code> and <code>Z &amp;&amp;
+        false</code> throw a <code>NullPointerException</code> for a <code>null</code> <code>Z</code>; deviation
+        S-01, part of the compliance mode of <a href="https://github.com/janino-lts/janino/issues/103">issue
+        #103</a>. The compatibility mode keeps the behavior of JANINO 3.1.12 (no exception), and its class files are
+        unchanged.
+      </li>
+      <li>
         <a href="https://github.com/janino-lts/janino/issues/101">Issue #101</a>: In the compliance mode, an inner
         class that extends its enclosing class (<code>class P { class Q extends P { ... } }</code>, also an anonymous
         or local subclass of <code>P</code> in <code>P</code>) refers to its enclosing instance like with JAVAC:
