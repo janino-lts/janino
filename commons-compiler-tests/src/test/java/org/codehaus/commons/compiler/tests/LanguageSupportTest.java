@@ -24,13 +24,8 @@
 
 package org.codehaus.commons.compiler.tests;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -39,6 +34,7 @@ import org.codehaus.commons.compiler.CompileException;
 import org.codehaus.commons.compiler.ICompilerFactory;
 import org.codehaus.commons.compiler.ISimpleCompiler;
 import org.codehaus.commons.compiler.InternalCompilerException;
+import org.codehaus.commons.compiler.tests.Records.Case;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
@@ -53,12 +49,15 @@ import util.TestUtil;
  * Characterization tests for the support of Java language constructs.
  * <p>
  *   Each case is a compilation unit that declares a class {@code P} with a method {@code public static Object
- *   run()}. The cases are read from the files in {@value #RESOURCE_DIR}, in the following format:
+ *   run()}. The cases are read from the files in {@value #RESOURCE_DIR}, in the following format (see {@link
+ *   Records} for the keys that all record files have in common):
  * </p>
  * <pre>
  * === <var>id</var>
  * jls: <var>the correct result: the value of String.valueOf(P.run()), or "throws <var>exception class</var>"</var>
- * janino: <var>the current behavior of JANINO, see below</var>
+ * janino: <var>the current behavior of JANINO in the compatibility mode, see below</var>
+ * compliant: <var>the behavior in the compliance mode (optional, default: the "janino" line)</var>
+ * id: <var>the ID of the deviation, or the issue number (required iff "compliant" is present)</var>
  * minJava: <var>the minimum JVM version for the JDK-based compiler (optional, default 8)</var>
  * <var>the source code</var>
  * </pre>
@@ -80,8 +79,8 @@ import util.TestUtil;
  * </dl>
  * <p>
  *   The JDK-based compiler must produce the correct result, which verifies the "jls" lines. JANINO must behave
- *   exactly as recorded; thus every change of its behavior, intended or not, makes a test fail, and the record must
- *   be updated deliberately.
+ *   exactly as recorded, in both modes (see {@link TestUtil#getCompilerFactoriesAndModesForParameters()}); thus every
+ *   change of its behavior, intended or not, makes a test fail, and the record must be updated deliberately.
  * </p>
  */
 @RunWith(Parameterized.class) public
@@ -106,43 +105,54 @@ class LanguageSupportTest extends CommonsCompilerTestSuite {
 
     private static final Pattern LOCATION_PREFIX = Pattern.compile("^(?:(?:File '[^']*', )?Line \\d+, Column \\d+: )+");
 
-    private final Case testCase;
+    private static final String JLS = "jls";
 
-    @Parameters(name = "{0}, {1}") public static List<Object[]>
+    private final String mode;
+    private final Case   testCase;
+
+    @Parameters(name = "{0}, {1}, {2}") public static List<Object[]>
     parameters() throws Exception {
 
         List<Case> cases = LanguageSupportTest.readCases();
 
         List<Object[]> result = new ArrayList<>();
-        for (Object[] compilerFactory : TestUtil.getCompilerFactoriesForParameters()) {
-            for (Case c : cases) result.add(new Object[] { compilerFactory[0], c });
+        for (Object[] compilerFactoryAndMode : TestUtil.getCompilerFactoriesAndModesForParameters()) {
+            for (Case c : cases) result.add(new Object[] { compilerFactoryAndMode[0], compilerFactoryAndMode[1], c });
         }
         return result;
     }
 
     public
-    LanguageSupportTest(ICompilerFactory compilerFactory, Case testCase) {
+    LanguageSupportTest(ICompilerFactory compilerFactory, String mode, Case testCase) {
         super(compilerFactory);
+        this.mode     = mode;
         this.testCase = testCase;
     }
 
     @Test public void
     test() throws Exception {
 
-        Outcome outcome = LanguageSupportTest.execute(this.compilerFactory, this.testCase.source);
+        String jls = this.testCase.get(LanguageSupportTest.JLS);
+        assert jls != null;
+
+        Outcome outcome = LanguageSupportTest.execute(this.compilerFactory, this.mode, this.testCase.source);
 
         if (this.isJdk) {
             Assume.assumeTrue(CommonsCompilerTestSuite.JVM_VERSION >= this.testCase.minJava);
-            Assert.assertEquals(this.testCase.toString(), this.testCase.jls, outcome.toString());
+            Assert.assertEquals(this.testCase.toString(), jls, outcome.toString());
             return;
         }
 
-        String janino = this.testCase.janino;
-        if (janino.startsWith("REJECTED ") && outcome.kind == Outcome.Kind.REJECTED) {
-            String expectedMessage = janino.substring(9);
+        String expected = this.testCase.expected(this.mode);
+        if (expected.startsWith("REJECTED ") && outcome.kind == Outcome.Kind.REJECTED) {
+            String expectedMessage = expected.substring(9);
             if (outcome.text.contains(expectedMessage)) return;
         }
-        Assert.assertEquals(this.testCase.toString(), janino, LanguageSupportTest.record(outcome, this.testCase.jls));
+        Assert.assertEquals(
+            this.testCase + " (" + this.mode + ")",
+            expected,
+            LanguageSupportTest.record(outcome, jls)
+        );
     }
 
     /**
@@ -168,11 +178,11 @@ class LanguageSupportTest extends CommonsCompilerTestSuite {
      * run()}.
      */
     static Outcome
-    execute(ICompilerFactory compilerFactory, String source) throws Exception {
+    execute(ICompilerFactory compilerFactory, String mode, String source) throws Exception {
 
         Object result;
         try {
-            ISimpleCompiler sc = compilerFactory.newSimpleCompiler();
+            ISimpleCompiler sc = TestUtil.newSimpleCompiler(compilerFactory, mode);
             sc.cook(source);
 
             // Make the result independent of "-ea".
@@ -204,88 +214,12 @@ class LanguageSupportTest extends CommonsCompilerTestSuite {
      */
     static List<Case>
     readCases() throws IOException {
-
-        List<Case> result = new ArrayList<>();
-        for (String fileName : LanguageSupportTest.RESOURCE_FILES) {
-            result.addAll(LanguageSupportTest.readCases(new File(LanguageSupportTest.RESOURCE_DIR, fileName)));
-        }
-        return result;
-    }
-
-    private static List<Case>
-    readCases(File file) throws IOException {
-
-        List<Case> result = new ArrayList<>();
-
-        try (BufferedReader br = new BufferedReader(
-            new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8)
-        )) {
-            String        id      = null;
-            String        jls     = null;
-            String        janino  = null;
-            int           minJava = 8;
-            StringBuilder source  = new StringBuilder();
-
-            for (String line = br.readLine();; line = br.readLine()) {
-
-                if (line == null || line.startsWith("=== ")) {
-                    if (id != null) {
-                        if (jls == null || janino == null) {
-                            throw new IOException(file + ": Case \"" + id + "\" lacks \"jls\" or \"janino\"");
-                        }
-                        result.add(new Case(file.getName(), id, jls, janino, minJava, source.toString()));
-                    }
-                    if (line == null) break;
-
-                    id      = line.substring(4).trim();
-                    jls     = null;
-                    janino  = null;
-                    minJava = 8;
-                    source.setLength(0);
-                    continue;
-                }
-
-                // Lines before the first case are comments.
-                if (id == null) continue;
-
-                if (source.length() == 0 && line.startsWith("jls: ")) {
-                    jls = line.substring(5);
-                } else
-                if (source.length() == 0 && line.startsWith("janino: ")) {
-                    janino = line.substring(8);
-                } else
-                if (source.length() == 0 && line.startsWith("minJava: ")) {
-                    minJava = Integer.parseInt(line.substring(9).trim());
-                } else
-                {
-                    source.append(line).append('\n');
-                }
-            }
-        }
-
-        return result;
-    }
-
-    /**
-     * A test case.
-     */
-    public static final
-    class Case {
-
-        final String file, id, jls, janino, source;
-        final int    minJava;
-
-        Case(String file, String id, String jls, String janino, int minJava, String source) {
-            this.file    = file;
-            this.id      = id;
-            this.jls     = jls;
-            this.janino  = janino;
-            this.minJava = minJava;
-            this.source  = source;
-        }
-
-        @Override public String
-        toString() { return this.file + ": " + this.id; }
+        return Records.read(
+            LanguageSupportTest.RESOURCE_DIR,
+            LanguageSupportTest.RESOURCE_FILES,
+            new String[] { LanguageSupportTest.JLS }, // requiredKeys
+            new String[0]                             // optionalKeys
+        );
     }
 
     /**

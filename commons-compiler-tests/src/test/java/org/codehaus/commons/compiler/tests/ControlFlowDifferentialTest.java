@@ -40,6 +40,11 @@ import org.codehaus.commons.compiler.ICompilerFactory;
 import org.codehaus.commons.compiler.InternalCompilerException;
 import org.codehaus.commons.nullanalysis.Nullable;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
+import util.TestUtil;
 
 /**
  * Generates methods with nested control flow statements ({@code if}, loops, {@code switch}, {@code try}/{@code
@@ -47,8 +52,10 @@ import org.junit.Test;
  * and {@code throw}), compiles them with JANINO and with the JDK-based compiler, and compares the results. The
  * generator is deterministic (fixed seeds), so that every difference is reproducible.
  * <p>
- *   The differences that are currently known are recorded in {@value #KNOWN_DIFFERENCES}, one per line: "<var>seed
- *   </var> <var>method</var> <var>kind</var>", where <var>kind</var> is one of
+ *   The differences that are currently known are recorded in {@value #KNOWN_DIFFERENCES}{@code .txt} (the
+ *   compatibility mode) and {@value #KNOWN_DIFFERENCES}{@code -compliant.txt} (the compliance mode, see {@link
+ *   TestUtil#getCompilerFactoriesAndModesForParameters()}), one per line: "<var>seed</var> <var>method</var>
+ *   <var>kind</var>", where <var>kind</var> is one of
  * </p>
  * <dl>
  *   <dt>{@code WRONG}</dt>
@@ -66,10 +73,10 @@ import org.junit.Test;
  *   way, i.e. also when a defect is fixed; then the record must be updated deliberately.
  * </p>
  */
-public
+@RunWith(Parameterized.class) public
 class ControlFlowDifferentialTest {
 
-    private static final String KNOWN_DIFFERENCES = "src/test/resources/controlFlowDifferential/known-differences.txt";
+    private static final String KNOWN_DIFFERENCES = "src/test/resources/controlFlowDifferential/known-differences";
 
     /**
      * The beginning of the generated class, which declares the trace {@code t} and the resource class {@code R} for
@@ -90,6 +97,14 @@ class ControlFlowDifferentialTest {
     private static final int   METHODS_PER_CLASS = 20;
     private static final long  SEED              = 20261004L;
     private static final int[] ARGUMENTS         = { 0, 1, 2, 5 };
+
+    private final String mode;
+
+    @Parameters(name = "{0}") public static List<Object[]>
+    parameters() { return DifferentialTesting.modes(); }
+
+    public
+    ControlFlowDifferentialTest(String mode) { this.mode = mode; }
 
     @Test public void
     test() throws Exception {
@@ -112,11 +127,23 @@ class ControlFlowDifferentialTest {
 
             // Compile all methods in one class; only if JANINO fails to compile or load that class, compile each
             // method separately, so that the defects can be attributed to the methods.
-            Map<String, String> classDifferences = ControlFlowDifferentialTest.compare(janino, jdk, methods, -1);
+            Map<String, String> classDifferences = ControlFlowDifferentialTest.compare(
+                janino,
+                this.mode,
+                jdk,
+                methods,
+                -1
+            );
             if (classDifferences == null) {
                 classDifferences = new HashMap<>();
                 for (int m = 0; m < methods.size(); m++) {
-                    Map<String, String> methodDifferences = ControlFlowDifferentialTest.compare(janino, jdk, methods, m);
+                    Map<String, String> methodDifferences = ControlFlowDifferentialTest.compare(
+                        janino,
+                        this.mode,
+                        jdk,
+                        methods,
+                        m
+                    );
                     if (methodDifferences == null) {
                         methodDifferences = Collections.singletonMap("m" + m + " INVALID", "Cannot load the class");
                     }
@@ -133,7 +160,7 @@ class ControlFlowDifferentialTest {
         }
 
         DifferentialTesting.assertDifferences(
-            ControlFlowDifferentialTest.KNOWN_DIFFERENCES,
+            DifferentialTesting.knownDifferencesFile(ControlFlowDifferentialTest.KNOWN_DIFFERENCES, this.mode),
             actualDifferences,
             details
         );
@@ -148,7 +175,8 @@ class ControlFlowDifferentialTest {
      *         for which JAVAC generates invalid code are not compared
      */
     @Nullable private static Map<String, String>
-    compare(ICompilerFactory janino, ICompilerFactory jdk, List<String> methods, int onlyMethod) throws Exception {
+    compare(ICompilerFactory janino, String mode, ICompilerFactory jdk, List<String> methods, int onlyMethod)
+    throws Exception {
 
         StringBuilder source = new StringBuilder(ControlFlowDifferentialTest.CLASS_HEADER);
         for (int m = 0; m < methods.size(); m++) {
@@ -157,11 +185,11 @@ class ControlFlowDifferentialTest {
         source.append("}\n");
 
         // The JDK-based compiler is the reference; the generator must produce valid code.
-        ClassLoader expectedCl = DifferentialTesting.compile(jdk, source.toString());
+        ClassLoader expectedCl = DifferentialTesting.compile(jdk, TestUtil.JAVAC, source.toString());
 
         ClassLoader actualCl;
         try {
-            actualCl = DifferentialTesting.compile(janino, source.toString());
+            actualCl = DifferentialTesting.compile(janino, mode, source.toString());
         } catch (CompileException ce) {
             if (onlyMethod == -1) return null;
             return Collections.singletonMap("m" + onlyMethod + " REJECTED", ce.toString());

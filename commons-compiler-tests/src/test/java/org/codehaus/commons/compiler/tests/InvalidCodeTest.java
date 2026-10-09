@@ -24,12 +24,7 @@
 
 package org.codehaus.commons.compiler.tests;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +33,7 @@ import java.util.regex.Pattern;
 import org.codehaus.commons.compiler.CompileException;
 import org.codehaus.commons.compiler.ICompilerFactory;
 import org.codehaus.commons.compiler.ISimpleCompiler;
+import org.codehaus.commons.compiler.tests.Records.Case;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
@@ -53,11 +49,14 @@ import util.TestUtil;
  * and must be rejected with a {@link CompileException}. (For valid code, see {@link LanguageSupportTest}.)
  * <p>
  *   See <a href="https://github.com/janino-lts/janino/issues/29">issue #29</a>. The cases are read from the files in
- *   {@value #RESOURCE_DIR}, in the following format:
+ *   {@value #RESOURCE_DIR}, in the following format (see {@link Records} for the keys that all record files have in
+ *   common):
  * </p>
  * <pre>
  * === <var>id</var>
- * janino: <var>the behavior of JANINO with the default error handler, see below</var>
+ * janino: <var>the behavior of JANINO with the default error handler, in the compatibility mode, see below</var>
+ * compliant: <var>the behavior in the compliance mode (optional, default: the "janino" line)</var>
+ * id: <var>the ID of the deviation, or the issue number (required iff "compliant" is present)</var>
  * recovery: <var>the behavior of JANINO with an error handler that does not throw (optional, default "OK")</var>
  * minJava: <var>the minimum JVM version for the JDK-based compiler (optional, default 8)</var>
  * <var>the source code</var>
@@ -91,9 +90,13 @@ import util.TestUtil;
  *   <dd>JANINO fails with another exception or error</dd>
  * </dl>
  * <p>
+ *   The "recovery" line describes the compatibility mode; in the compliance mode, it is checked only for cases
+ *   without a "compliant" line.
+ * </p>
+ * <p>
  *   The JDK-based compiler must reject every case, which verifies that the case is invalid code. JANINO must behave
- *   exactly as recorded; thus every change of its behavior, intended or not, makes a test fail, and the record must
- *   be updated deliberately.
+ *   exactly as recorded, in both modes (see {@link TestUtil#getCompilerFactoriesAndModesForParameters()}); thus every
+ *   change of its behavior, intended or not, makes a test fail, and the record must be updated deliberately.
  * </p>
  * <p>
  *   The records describe JANINO with assertions enabled ("-ea", as Maven's Surefire plugin runs the tests): some of
@@ -116,23 +119,27 @@ class InvalidCodeTest extends CommonsCompilerTestSuite {
 
     private static final Pattern LOCATION_PREFIX = Pattern.compile("^(?:(?:File '[^']*', )?Line \\d+, Column \\d+: )+");
 
-    private final Case testCase;
+    private static final String RECOVERY = "recovery";
 
-    @Parameters(name = "{0}, {1}") public static List<Object[]>
+    private final String mode;
+    private final Case   testCase;
+
+    @Parameters(name = "{0}, {1}, {2}") public static List<Object[]>
     parameters() throws Exception {
 
         List<Case> cases = InvalidCodeTest.readCases();
 
         List<Object[]> result = new ArrayList<>();
-        for (Object[] compilerFactory : TestUtil.getCompilerFactoriesForParameters()) {
-            for (Case c : cases) result.add(new Object[] { compilerFactory[0], c });
+        for (Object[] compilerFactoryAndMode : TestUtil.getCompilerFactoriesAndModesForParameters()) {
+            for (Case c : cases) result.add(new Object[] { compilerFactoryAndMode[0], compilerFactoryAndMode[1], c });
         }
         return result;
     }
 
     public
-    InvalidCodeTest(ICompilerFactory compilerFactory, Case testCase) {
+    InvalidCodeTest(ICompilerFactory compilerFactory, String mode, Case testCase) {
         super(compilerFactory);
+        this.mode     = mode;
         this.testCase = testCase;
     }
 
@@ -141,7 +148,7 @@ class InvalidCodeTest extends CommonsCompilerTestSuite {
 
         if (this.isJdk) {
             Assume.assumeTrue(CommonsCompilerTestSuite.JVM_VERSION >= this.testCase.minJava);
-            String outcome = InvalidCodeTest.compile(this.compilerFactory, this.testCase.source);
+            String outcome = InvalidCodeTest.compile(this.compilerFactory, this.mode, this.testCase.source);
             Assert.assertTrue(
                 this.testCase + ": The JDK-based compiler does not reject the code: " + outcome,
                 outcome.startsWith("REJECTED ")
@@ -156,19 +163,21 @@ class InvalidCodeTest extends CommonsCompilerTestSuite {
             this.compilerFactory.getClass().desiredAssertionStatus()
         );
 
-        String janino  = this.testCase.janino;
-        String outcome = InvalidCodeTest.compile(this.compilerFactory, this.testCase.source);
+        String expected = this.testCase.expected(this.mode);
+        String outcome  = InvalidCodeTest.compile(this.compilerFactory, this.mode, this.testCase.source);
         if (!(
-            janino.startsWith("REJECTED ")
+            expected.startsWith("REJECTED ")
             && outcome.startsWith("REJECTED ")
-            && outcome.contains(janino.substring(9))
-        )) Assert.assertEquals(this.testCase.toString(), janino, outcome);
+            && outcome.contains(expected.substring(9))
+        )) Assert.assertEquals(this.testCase + " (" + this.mode + ")", expected, outcome);
 
-        Assert.assertEquals(
-            this.testCase + " (recovery)",
-            this.testCase.recovery,
-            InvalidCodeTest.compileWithRecovery(this.compilerFactory, this.testCase.source)
-        );
+        if (TestUtil.COMPAT.equals(this.mode) || this.testCase.get(Records.COMPLIANT) == null) {
+            Assert.assertEquals(
+                this.testCase + " (" + this.mode + ", recovery)",
+                this.testCase.get(InvalidCodeTest.RECOVERY, "OK"),
+                InvalidCodeTest.compileWithRecovery(this.compilerFactory, this.mode, this.testCase.source)
+            );
+        }
     }
 
     /**
@@ -178,9 +187,9 @@ class InvalidCodeTest extends CommonsCompilerTestSuite {
      * @return The behavior, in the format of the "janino" lines
      */
     static String
-    compile(ICompilerFactory compilerFactory, String source) throws ClassNotFoundException {
+    compile(ICompilerFactory compilerFactory, String mode, String source) throws Exception {
 
-        ISimpleCompiler sc = compilerFactory.newSimpleCompiler();
+        ISimpleCompiler sc = TestUtil.newSimpleCompiler(compilerFactory, mode);
         try {
             sc.cook(source);
         } catch (CompileException ce) {
@@ -235,10 +244,10 @@ class InvalidCodeTest extends CommonsCompilerTestSuite {
      * @return The behavior, in the format of the "recovery" lines
      */
     static String
-    compileWithRecovery(ICompilerFactory compilerFactory, String source) {
+    compileWithRecovery(ICompilerFactory compilerFactory, String mode, String source) {
         int[] errorCount = new int[1];
         try {
-            ISimpleCompiler sc = compilerFactory.newSimpleCompiler();
+            ISimpleCompiler sc = TestUtil.newSimpleCompiler(compilerFactory, mode);
             sc.setCompileErrorHandler((message, location) -> errorCount[0]++);
             sc.cook(source);
         } catch (CompileException ce) {
@@ -254,85 +263,11 @@ class InvalidCodeTest extends CommonsCompilerTestSuite {
      */
     static List<Case>
     readCases() throws IOException {
-
-        List<Case> result = new ArrayList<>();
-        for (String fileName : InvalidCodeTest.RESOURCE_FILES) {
-            result.addAll(InvalidCodeTest.readCases(new File(InvalidCodeTest.RESOURCE_DIR, fileName)));
-        }
-        return result;
-    }
-
-    private static List<Case>
-    readCases(File file) throws IOException {
-
-        List<Case> result = new ArrayList<>();
-
-        try (BufferedReader br = new BufferedReader(
-            new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8)
-        )) {
-            String        id       = null;
-            String        janino   = null;
-            String        recovery = "OK";
-            int           minJava  = 8;
-            StringBuilder source   = new StringBuilder();
-
-            for (String line = br.readLine();; line = br.readLine()) {
-
-                if (line == null || line.startsWith("=== ")) {
-                    if (id != null) {
-                        if (janino == null) throw new IOException(file + ": Case \"" + id + "\" lacks \"janino\"");
-                        result.add(new Case(file.getName(), id, janino, recovery, minJava, source.toString()));
-                    }
-                    if (line == null) break;
-
-                    id       = line.substring(4).trim();
-                    janino   = null;
-                    recovery = "OK";
-                    minJava  = 8;
-                    source.setLength(0);
-                    continue;
-                }
-
-                // Lines before the first case are comments.
-                if (id == null) continue;
-
-                if (source.length() == 0 && line.startsWith("janino: ")) {
-                    janino = line.substring(8);
-                } else
-                if (source.length() == 0 && line.startsWith("recovery: ")) {
-                    recovery = line.substring(10);
-                } else
-                if (source.length() == 0 && line.startsWith("minJava: ")) {
-                    minJava = Integer.parseInt(line.substring(9).trim());
-                } else
-                {
-                    source.append(line).append('\n');
-                }
-            }
-        }
-
-        return result;
-    }
-
-    /**
-     * A test case.
-     */
-    public static final
-    class Case {
-
-        final String file, id, janino, recovery, source;
-        final int    minJava;
-
-        Case(String file, String id, String janino, String recovery, int minJava, String source) {
-            this.file     = file;
-            this.id       = id;
-            this.janino   = janino;
-            this.recovery = recovery;
-            this.minJava  = minJava;
-            this.source   = source;
-        }
-
-        @Override public String
-        toString() { return this.file + ": " + this.id; }
+        return Records.read(
+            InvalidCodeTest.RESOURCE_DIR,
+            InvalidCodeTest.RESOURCE_FILES,
+            new String[0],                            // requiredKeys
+            new String[] { InvalidCodeTest.RECOVERY } // optionalKeys
+        );
     }
 }

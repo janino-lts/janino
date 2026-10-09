@@ -26,6 +26,7 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#76](https://github.com/janino-lts/janino/issues/76) | `AbstractTraverser` descends into initializers | unchanged | subclasses of `AbstractTraverser` |
 | [#87](https://github.com/janino-lts/janino/issues/87) | Class flags of member types as `javac` writes them | changed | unchanged |
 | [#88](https://github.com/janino-lts/janino/issues/88) | `AbstractTraverser` visits enum constants | unchanged | subclasses of `AbstractTraverser` |
+| [#103](https://github.com/janino-lts/janino/issues/103) | The compliance mode: the option `JAVAC_COMPLIANCE` (S-01 to S-03) | unchanged | only with the option |
 
 ### Compile error messages (#31)
 
@@ -157,3 +158,43 @@ same as before: the effectively final analysis (an assignment to a field in the 
 would otherwise count against a local variable of the same name, and code that compiles in 3.1.x would be rejected),
 and `ExpressionEvaluator.guessParameterNames()` and `ScriptEvaluator.guessParameterNames()` (a name in an enum
 constant cannot denote a parameter).
+
+### The compliance mode (#103)
+
+[Janino and javac: the compatibility mode and the compliance mode](JAVAC_COMPLIANCE.md) describes two modes: the
+compatibility mode, in which code that Janino has always accepted keeps compiling with its established behavior,
+and the compliance mode, in which Janino behaves like `javac`. `master` has the foundation of the compliance mode
+([#103](https://github.com/janino-lts/janino/issues/103)).
+
+**The option.** `JaninoOption.JAVAC_COMPLIANCE`, set with `options(...)` of `SimpleCompiler`, `Compiler`,
+`JavaSourceIClassLoader` or the evaluators. The system property `org.codehaus.janino.javacCompliance=true` adds the
+option to the initial options of every compiler that is created afterwards (`JaninoOption.defaultOptions()`), so
+that a whole application can be checked without code changes; an explicit `options(...)` call replaces the initial
+options, so that a library keeps control of its own compilers. The default is the compatibility mode, as before.
+
+**Behavior.** The compliance mode is incomplete by design: the register of deviations in [Differences between Janino
+and javac](JAVAC_DIFFERENCES.md) is authoritative for what it corrects, so "compiles in the compliance mode" does not
+mean "is valid Java". Language features that Janino does not implement, and everything that depends on the typing of
+generics, remain outside its scope; the other options apply in both modes. So far, the compliance mode corrects
+three deviations, each a consistent rule of Janino's that programs could rely on (class S of the contract):
+
+| ID | Code | Compatibility mode | Compliance mode (like `javac`) |
+|---|---|---|---|
+| S-01 | `Boolean Z = null; boolean x = Z \|\| true;` (also `Z && false`) | `x == true`, no exception | `NullPointerException` ([#40](https://github.com/janino-lts/janino/issues/40)) |
+| S-02 | `f(Object o)` and `f(int... i)`; `f(1)` | invokes `f(int...)` | invokes `f(Object)` (variable arity methods only in phase 3 of JLS 15.12.2) |
+| S-03 | `assert false;` | always throws | throws only if assertions are enabled for the class |
+
+For S-03, the compliance mode declares a synthetic field `static final boolean $assertionsDisabled` in every class
+that contains an `assert` statement, initialized with `!Outermost.class.desiredAssertionStatus()` as the first
+statement of the class initializer, like `javac`; an `assert true;` generates no code and no field, like with
+`javac`. Two consequences: the default `serialVersionUID` of a serializable class with an `assert` statement is the
+one that `javac` computes (it includes the field), and differs from the compatibility mode's; and for an interface,
+the field is a `public static final` field of the interface itself, where `javac` declares it in a synthetic
+class.
+
+**Class files.** Unchanged in the compatibility mode.
+
+**Tests.** The record tests (`InvalidCodeTest`, `LanguageSupportTest`) run every case in both modes: a record
+describes the compatibility mode (`janino:`) and, where the compliance mode differs, the compliance mode
+(`compliant:`, with the `id:` of the deviation). `ExpressionDifferentialTest` and `ControlFlowDifferentialTest` run
+in both modes as well, with the known differences of each mode in its own file.

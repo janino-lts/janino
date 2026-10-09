@@ -12,6 +12,8 @@ public class P {
 === overload resolution: f(Object) is preferred over f(int...) for f(1)
 jls: Object
 janino: WRONG varargs
+compliant: OK
+id: S-02
 public class P {
     static String f(Object x) { return "Object"; }
     static String f(int... x) { return "varargs"; }
@@ -24,6 +26,111 @@ janino: OK
 public class P {
     static String f(int... x) { return "varargs"; }
     public static Object run() { return f(); }
+}
+
+=== overload resolution: f(Integer, Integer) is preferred over f(int...) for f(1, 2)
+jls: Integer,Integer
+janino: WRONG varargs
+compliant: OK
+id: S-02
+public class P {
+    static String f(Integer a, Integer b) { return "Integer,Integer"; }
+    static String f(int... x) { return "varargs"; }
+    public static Object run() { return f(1, 2); }
+}
+
+=== overload resolution: P(Object) is preferred over P(int...) for new P(1)
+jls: Object
+janino: WRONG varargs
+compliant: OK
+id: S-02
+public class P {
+    String s;
+    P(Object x) { s = "Object"; }
+    P(int... x) { s = "varargs"; }
+    public static Object run() { return new P(1).s; }
+}
+
+=== overload resolution: f(int) is preferred over f(int...) for f(1)
+jls: int
+janino: OK
+public class P {
+    static String f(int x) { return "int"; }
+    static String f(int... x) { return "varargs"; }
+    public static Object run() { return f(1); }
+}
+
+=== overload resolution: f(Integer) is preferred over f(Integer...) for f(1)
+jls: Integer
+janino: OK
+public class P {
+    static String f(Integer x) { return "Integer"; }
+    static String f(Integer... x) { return "varargs"; }
+    public static Object run() { return f(1); }
+}
+
+=== conditional-or with a null Boolean operand and a constant true operand (Z || true)
+jls: throws java.lang.NullPointerException
+janino: WRONG true
+compliant: OK
+id: S-01
+public class P {
+    public static Object run() { Boolean Z = null; return Z || true; }
+}
+
+=== conditional-and with a null Boolean operand and a constant false operand (Z && false)
+jls: throws java.lang.NullPointerException
+janino: WRONG false
+compliant: OK
+id: S-01
+public class P {
+    public static Object run() { Boolean Z = null; return Z && false; }
+}
+
+=== conditional-or with a null Boolean operand and a constant true operand as a condition
+jls: throws java.lang.NullPointerException
+janino: WRONG taken
+compliant: OK
+id: S-01
+public class P {
+    public static Object run() { Boolean Z = null; if (Z || true) return "taken"; return "not taken"; }
+}
+
+=== conditional-or with a null Boolean operand and a constant false operand (Z || false)
+jls: throws java.lang.NullPointerException
+janino: OK
+public class P {
+    public static Object run() { Boolean Z = null; return Z || false; }
+}
+
+=== conditional-or with a constant true operand and a null Boolean operand (true || Z)
+jls: true
+janino: OK
+public class P {
+    public static Object run() { Boolean Z = null; return true || Z; }
+}
+
+=== conditional-and with a constant false operand and a null Boolean operand (false && Z)
+jls: false
+janino: OK
+public class P {
+    public static Object run() { Boolean Z = null; return false && Z; }
+}
+
+=== conditional-or with a non-null Boolean operand and a constant true operand
+jls: true
+janino: OK
+public class P {
+    public static Object run() { Boolean Z = Boolean.FALSE; return Z || true; }
+}
+
+=== conditional-or with a boolean operand with a side effect and a constant true operand
+jls: true,1
+janino: OK
+public class P {
+    static int n;
+    static boolean f() { n++; return false; }
+    public static Object run() { boolean x = f() || true; return x + "," + n; }
 }
 
 === constant expression 1 / 0 is not folded

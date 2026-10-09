@@ -1,0 +1,2 @@
+# Known differences between JANINO in the compliance mode and JAVAC; see "ControlFlowDifferentialTest".
+# Format: <seed> <method> <WRONG|INVALID|REJECTED>

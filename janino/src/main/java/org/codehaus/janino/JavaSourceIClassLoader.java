@@ -59,7 +59,7 @@ class JavaSourceIClassLoader extends IClassLoader {
 
     private ResourceFinder        sourceFinder;
     private Charset               sourceCharset;
-    private EnumSet<JaninoOption> options = EnumSet.noneOf(JaninoOption.class);
+    private EnumSet<JaninoOption> options = JaninoOption.defaultOptions();
 
     /**
      * Collection of parsed compilation units.
@@ -155,8 +155,8 @@ class JavaSourceIClassLoader extends IClassLoader {
     }
 
     /**
-     * @return A reference to the currently effective compilation options; changes to it take
-     *         effect immediately
+     * @return A reference to the currently effective compilation options (initially {@link
+     *         JaninoOption#defaultOptions()}); changes to it take effect immediately
      */
     public EnumSet<JaninoOption>
     options() { return this.options; }

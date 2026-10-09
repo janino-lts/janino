@@ -25,11 +25,14 @@
 
 package util;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.ICompilerFactory;
+import org.codehaus.commons.compiler.ISimpleCompiler;
 import org.junit.runners.Parameterized.Parameters;
 
 /**
@@ -37,6 +40,29 @@ import org.junit.runners.Parameterized.Parameters;
  */
 public final
 class TestUtil {
+
+    /**
+     * The mode in which JANINO compiles by default, see {@link #getCompilerFactoriesAndModesForParameters()}.
+     */
+    public static final String COMPAT = "compat";
+
+    /**
+     * The mode in which JANINO compiles with the option {@code JaninoOption.JAVAC_COMPLIANCE}, see {@link
+     * #getCompilerFactoriesAndModesForParameters()}.
+     */
+    public static final String COMPLIANT = "compliant";
+
+    /**
+     * The "mode" of the JDK-based compiler, which has no modes, see {@link
+     * #getCompilerFactoriesAndModesForParameters()}.
+     */
+    public static final String JAVAC = "javac";
+
+    private static final String JANINO_FACTORY_ID = "org.codehaus.janino";
+
+    private static final String JANINO_OPTION_CLASS_NAME = "org.codehaus.janino.JaninoOption";
+
+    private static final String JAVAC_COMPLIANCE_OPTION_NAME = "JAVAC_COMPLIANCE";
 
     /**
      * Use this method as follows:
@@ -60,6 +86,66 @@ class TestUtil {
             throw new RuntimeException("Could not find any Compiler Factories on the classpath");
         }
         return f;
+    }
+
+    /**
+     * Like {@link #getCompilerFactoriesForParameters()}, but each element is a compiler factory <em>and a mode</em>:
+     * JANINO's factory appears twice, with the modes {@link #COMPAT} and {@link #COMPLIANT}; any other factory once,
+     * with the mode {@link #JAVAC}. Use {@link #newSimpleCompiler(ICompilerFactory, String)} to create a compiler for
+     * the mode.
+     */
+    public static List<Object[]>
+    getCompilerFactoriesAndModesForParameters() throws Exception {
+        List<Object[]> result = new ArrayList<>();
+        for (Object[] e : TestUtil.getCompilerFactoriesForParameters()) {
+            ICompilerFactory cf = (ICompilerFactory) e[0];
+            if (TestUtil.isJanino(cf)) {
+                result.add(new Object[] { cf, TestUtil.COMPAT });
+                result.add(new Object[] { cf, TestUtil.COMPLIANT });
+            } else {
+                result.add(new Object[] { cf, TestUtil.JAVAC });
+            }
+        }
+        return result;
+    }
+
+    /**
+     * @return Whether the compiler factory is JANINO's
+     */
+    public static boolean
+    isJanino(ICompilerFactory compilerFactory) { return TestUtil.JANINO_FACTORY_ID.equals(compilerFactory.getId()); }
+
+    /**
+     * Creates a simple compiler for the given mode (see {@link #getCompilerFactoriesAndModesForParameters()}).
+     */
+    public static ISimpleCompiler
+    newSimpleCompiler(ICompilerFactory compilerFactory, String mode) throws Exception {
+        ISimpleCompiler result = compilerFactory.newSimpleCompiler();
+        if (TestUtil.COMPLIANT.equals(mode)) TestUtil.setJavacCompliance(result);
+        return result;
+    }
+
+    /**
+     * Adds the option {@code JaninoOption.JAVAC_COMPLIANCE} to the options of the given JANINO compiler ({@code
+     * SimpleCompiler}, an evaluator, {@code Compiler} or {@code JavaSourceIClassLoader}). This module compiles only
+     * against the {@code commons-compiler} API, so the option is set through reflection.
+     */
+    @SuppressWarnings({ "unchecked", "rawtypes" }) public static void
+    setJavacCompliance(Object janinoCompiler) throws Exception {
+
+        Class<?> optionClass = Class.forName(
+            TestUtil.JANINO_OPTION_CLASS_NAME,
+            true,
+            janinoCompiler.getClass().getClassLoader()
+        );
+        Enum option = Enum.valueOf((Class) optionClass, TestUtil.JAVAC_COMPLIANCE_OPTION_NAME);
+
+        Method getter = janinoCompiler.getClass().getMethod("options");
+        Method setter = janinoCompiler.getClass().getMethod("options", EnumSet.class);
+
+        EnumSet options = EnumSet.copyOf((EnumSet) getter.invoke(janinoCompiler));
+        options.add(option);
+        setter.invoke(janinoCompiler, options);
     }
 
     private TestUtil() {}

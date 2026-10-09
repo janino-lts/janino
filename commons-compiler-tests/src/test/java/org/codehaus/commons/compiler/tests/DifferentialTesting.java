@@ -29,6 +29,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -38,6 +40,8 @@ import org.codehaus.commons.compiler.ICompilerFactory;
 import org.codehaus.commons.compiler.ISimpleCompiler;
 import org.junit.Assert;
 import org.junit.Assume;
+
+import util.TestUtil;
 
 /**
  * Utility methods for the tests that compile generated code with JANINO and with the JDK-based compiler, and compare
@@ -68,13 +72,31 @@ class DifferentialTesting {
     }
 
     /**
-     * Compiles the <var>source</var> (one or more classes) with the given compiler.
+     * Compiles the <var>source</var> (one or more classes) with the given compiler, in the given mode (see {@link
+     * TestUtil#getCompilerFactoriesAndModesForParameters()}).
      */
     static ClassLoader
-    compile(ICompilerFactory compilerFactory, String source) throws Exception {
-        ISimpleCompiler sc = compilerFactory.newSimpleCompiler();
+    compile(ICompilerFactory compilerFactory, String mode, String source) throws Exception {
+        ISimpleCompiler sc = TestUtil.newSimpleCompiler(compilerFactory, mode);
         sc.cook(source);
         return sc.getClassLoader();
+    }
+
+    /**
+     * @return The parameters for a test that runs JANINO in both modes
+     */
+    static List<Object[]>
+    modes() {
+        return Arrays.asList(new Object[] { TestUtil.COMPAT }, new Object[] { TestUtil.COMPLIANT });
+    }
+
+    /**
+     * @return The name of the file with the known differences for the given mode: <var>baseName</var>{@code .txt}
+     *         for the compatibility mode, <var>baseName</var>{@code -compliant.txt} for the compliance mode
+     */
+    static String
+    knownDifferencesFile(String baseName, String mode) {
+        return baseName + (TestUtil.COMPLIANT.equals(mode) ? "-compliant.txt" : ".txt");
     }
 
     /**

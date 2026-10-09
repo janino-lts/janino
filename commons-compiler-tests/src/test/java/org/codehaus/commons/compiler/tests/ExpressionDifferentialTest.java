@@ -42,6 +42,11 @@ import org.codehaus.commons.compiler.CompileException;
 import org.codehaus.commons.compiler.ICompilerFactory;
 import org.codehaus.commons.nullanalysis.Nullable;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
+import util.TestUtil;
 
 /**
  * Generates random expressions over the primitive types, their wrapper types and {@link String} (operators, casts,
@@ -57,8 +62,10 @@ import org.junit.Test;
  * </p>
  * <p>
  *   The generator avoids the constructs that JANINO is known to compile incorrectly (see {@link Defect}). Other
- *   differences that are currently known are recorded in {@value #KNOWN_DIFFERENCES}, one per line: "<var>seed</var>
- *   <var>method</var> <var>kind</var>", where <var>kind</var> is one of
+ *   differences that are currently known are recorded in {@value #KNOWN_DIFFERENCES}{@code .txt} (the compatibility
+ *   mode) and {@value #KNOWN_DIFFERENCES}{@code -compliant.txt} (the compliance mode, see {@link
+ *   TestUtil#getCompilerFactoriesAndModesForParameters()}), one per line: "<var>seed</var> <var>method</var>
+ *   <var>kind</var>", where <var>kind</var> is one of
  * </p>
  * <dl>
  *   <dt>{@code WRONG}</dt>
@@ -82,10 +89,10 @@ import org.junit.Test;
  *   default all), e.g. to verify a fix.
  * </p>
  */
-public
+@RunWith(Parameterized.class) public
 class ExpressionDifferentialTest {
 
-    private static final String KNOWN_DIFFERENCES = "src/test/resources/expressionDifferential/known-differences.txt";
+    private static final String KNOWN_DIFFERENCES = "src/test/resources/expressionDifferential/known-differences";
 
     private static final int  CLASSES               = 60;
     private static final int  EXPRESSIONS_PER_CLASS = 25;
@@ -109,6 +116,14 @@ class ExpressionDifferentialTest {
         CLASS_HEADER = sb.toString();
     }
 
+    private final String mode;
+
+    @Parameters(name = "{0}") public static List<Object[]>
+    parameters() { return DifferentialTesting.modes(); }
+
+    public
+    ExpressionDifferentialTest(String mode) { this.mode = mode; }
+
     @Test public void
     test() throws Exception {
 
@@ -119,9 +134,12 @@ class ExpressionDifferentialTest {
         String soak    = System.getProperty("expression.differential.classes");
         int    classes = soak == null ? ExpressionDifferentialTest.CLASSES : Integer.parseInt(soak);
 
-        // By default, the generator avoids the constructs of all known defects.
-        Set<Defect> avoided = EnumSet.allOf(Defect.class);
-        String      avoid   = System.getProperty("expression.differential.avoid");
+        // By default, the generator avoids the constructs of all known defects that the mode does not correct.
+        Set<Defect> avoided = EnumSet.noneOf(Defect.class);
+        for (Defect d : Defect.values()) {
+            if (!(d.correctedInComplianceMode && TestUtil.COMPLIANT.equals(this.mode))) avoided.add(d);
+        }
+        String avoid = System.getProperty("expression.differential.avoid");
         if (avoid != null) {
             avoided.clear();
             for (String name : avoid.split(",")) {
@@ -152,6 +170,7 @@ class ExpressionDifferentialTest {
 
             for (Map.Entry<String, String> e : ExpressionDifferentialTest.compare(
                 janino,
+                this.mode,
                 jdk,
                 names,
                 methods,
@@ -170,7 +189,11 @@ class ExpressionDifferentialTest {
             return;
         }
 
-        DifferentialTesting.assertDifferences(ExpressionDifferentialTest.KNOWN_DIFFERENCES, actualDifferences, details);
+        DifferentialTesting.assertDifferences(
+            DifferentialTesting.knownDifferencesFile(ExpressionDifferentialTest.KNOWN_DIFFERENCES, this.mode),
+            actualDifferences,
+            details
+        );
     }
 
     /**
@@ -181,6 +204,7 @@ class ExpressionDifferentialTest {
     private static Map<String, String>
     compare(
         ICompilerFactory janino,
+        String           mode,
         ICompilerFactory jdk,
         List<String>     names,
         List<String>     methods,
@@ -192,7 +216,7 @@ class ExpressionDifferentialTest {
         // The JDK-based compiler is the reference; the generator must produce code that it accepts.
         ClassLoader expectedCl;
         try {
-            expectedCl = DifferentialTesting.compile(jdk, source);
+            expectedCl = DifferentialTesting.compile(jdk, TestUtil.JAVAC, source);
         } catch (CompileException ce) {
             throw new AssertionError("JAVAC rejects the generated code: " + ce + "\n" + source, ce);
         }
@@ -201,6 +225,7 @@ class ExpressionDifferentialTest {
         // separately, so that the defects can be attributed to the methods.
         Map<String, String> result = ExpressionDifferentialTest.compareMethods(
             janino,
+            mode,
             expectedCl,
             source,
             names,
@@ -213,6 +238,7 @@ class ExpressionDifferentialTest {
         for (int m = 0; m < methods.size(); m++) {
             Map<String, String> methodDifferences = ExpressionDifferentialTest.compareMethods(
                 janino,
+                mode,
                 expectedCl,
                 ExpressionDifferentialTest.classSource(methods, m),
                 names,
@@ -236,6 +262,7 @@ class ExpressionDifferentialTest {
     @Nullable private static Map<String, String>
     compareMethods(
         ICompilerFactory janino,
+        String           mode,
         ClassLoader      expectedCl,
         String           source,
         List<String>     names,
@@ -245,7 +272,7 @@ class ExpressionDifferentialTest {
 
         ClassLoader actualCl;
         try {
-            actualCl = DifferentialTesting.compile(janino, source);
+            actualCl = DifferentialTesting.compile(janino, mode, source);
         } catch (CompileException ce) {
             if (onlyMethod == -1) return null;
             return Collections.singletonMap(names.get(onlyMethod) + " REJECTED", ce.toString());
@@ -538,22 +565,30 @@ class ExpressionDifferentialTest {
 
     /**
      * Known defects of JANINO. The generator avoids the respective constructs, so that it finds other defects; when a
-     * defect is fixed, its constant is to be removed.
+     * defect is fixed in both modes, its constant is to be removed.
      */
     enum Defect {
 
         /**
          * The type of a conditional expression whose operands have different primitive or wrapper types is often
-         * wrong (JLS 15.25): JANINO reports a compile error, or the value has the wrong type. Issue #38.
+         * wrong (JLS 15.25): JANINO reports a compile error, or the value has the wrong type. Issue #38 (S-04).
          */
-        CONDITIONAL_TYPE,
+        CONDITIONAL_TYPE(false),
 
         /**
          * JANINO does not unbox the left operand of {@code ||} and {@code &&} if the right operand is constant and
          * determines the result ({@code Z || true}, {@code Z && false}), so that a {@code null} operand does not throw
-         * a {@link NullPointerException}. Issue #40.
+         * a {@link NullPointerException}. Issue #40 (S-01); corrected in the compliance mode.
          */
-        UNBOXING_OF_LOGICAL_OPERAND,
+        UNBOXING_OF_LOGICAL_OPERAND(true);
+
+        /**
+         * Whether the compliance mode corrects the defect, so that the generator need not avoid the construct in
+         * that mode.
+         */
+        final boolean correctedInComplianceMode;
+
+        Defect(boolean correctedInComplianceMode) { this.correctedInComplianceMode = correctedInComplianceMode; }
     }
 
     /**

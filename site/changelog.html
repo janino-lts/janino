@@ -59,6 +59,23 @@ h5 {
     </p>
     <ul>
       <li>
+        <a href="https://github.com/janino-lts/janino/issues/103">Issue #103</a>: Added the compliance mode, in which
+        JANINO compiles like JAVAC where it deviates from JAVAC by design
+        (<code>JaninoOption.JAVAC_COMPLIANCE</code>, or the system property
+        <code>org.codehaus.janino.javacCompliance=true</code>, which sets the initial options of every compiler that is
+        created afterwards; an explicit <code>options(...)</code> call replaces them). The default is unchanged (the
+        compatibility mode). The compliance mode is incomplete by design; so far, it corrects three deviations: a
+        <code>Boolean</code> operand of <code>||</code> or <code>&amp;&amp;</code> is unboxed, so that <code>Z ||
+        true</code> throws a <code>NullPointerException</code> for a <code>null</code> <code>Z</code>
+        (<a href="https://github.com/janino-lts/janino/issues/40">issue #40</a>); overload resolution considers
+        variable arity methods only after boxing (JLS 15.12.2), so that <code>f(1)</code> invokes
+        <code>f(Object)</code>, not <code>f(int...)</code>; and <code>assert</code> statements are disabled unless
+        assertions are enabled for the class, through a synthetic field <code>$assertionsDisabled</code> like with
+        JAVAC. See <a href="https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md">Development
+        line</a>. The record tests (<code>InvalidCodeTest</code>, <code>LanguageSupportTest</code>) and the
+        differential tests run in both modes. The class files of the compatibility mode are unchanged.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/31">issue #31</a>: Some compile error messages
         pointed in the wrong direction; now they explain the error. Each message keeps the text that it had before,
         and the explanation is appended, because applications and their tests match message texts:

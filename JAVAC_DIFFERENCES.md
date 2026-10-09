@@ -246,6 +246,10 @@ default:
 
 Set them with `options(...)` of `SimpleCompiler`, `Compiler`, `JavaSourceIClassLoader` or the evaluators.
 
+The development line (`master`) has a third option, `JAVAC_COMPLIANCE`, the compliance mode: Janino then follows
+`javac` for some of the deviations of section 1 (so far: the first three rows of the table); see
+[Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md).
+
 ## Tests
 
 The deviations are recorded in the test suite, so that every change of Janino's behavior, intended or not, makes a
