@@ -70,6 +70,7 @@ the compliance mode follows `javac` (where the column says so; "open" means not 
 | S-07 | `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`), kept for the default `serialVersionUID` | [#73](https://github.com/janino-lts/janino/issues/73) | open |
 | S-06 | `getEnclosingMethod()` of a class declared in a `private` instance method `p()` | `p` | `p$` (Janino compiles the method as a static method `p$`, see below) | | open |
 | S-08 | `getName()` of a local class `L` declared in a class `P` | `"P$1L"` | `"P$L"` | | open |
+| S-11 | `P.this`, and the simple name of a `private` member of `P`, in `class Q extends P` that is declared in `P` (see below) | the enclosing instance of `Q` | `this` | [#101](https://github.com/janino-lts/janino/issues/101) | like `javac` (development line) |
 
 **S-05, constant expressions that are not folded** ([#47](https://github.com/janino-lts/janino/issues/47)): Janino
 does not evaluate shifts, relational operators, `~`, operations with `char` operands and casts to and from `char` at
@@ -119,16 +120,21 @@ longer by the number of prepended parameters, with each annotation at the index 
 of `R`, instead of the enclosing instance of `R`, as the enclosing instance to the constructor of `Q`, and the JVM
 rejects the class `P$R` (`VerifyError`).
 
-**An inner class that extends its enclosing class** ([#101](https://github.com/janino-lts/janino/issues/101); the
-class, S or V, is decided in the issue, and the ID follows): in `class P { class Q extends P { ... } }`, two
-expressions in `Q` denote `Q` itself (`this`) instead of the enclosing instance of `Q`:
+**S-11, an inner class that extends its enclosing class** ([#101](https://github.com/janino-lts/janino/issues/101)):
+in `class P { class Q extends P { ... } }`, and likewise in an anonymous or local subclass of `P` that is declared in
+`P` (`return new P(...) { ... };`), expressions in `Q` denote `Q` itself (`this`) instead of the enclosing instance of
+`Q`:
 
-- `P.this`: Janino takes the first class, starting with `Q`, that is a subclass of `P`; with assertions enabled
-  (`-ea`), compiling it fails with an `InternalCompilerException`;
-- the simple name of a `private` member of `P`: Janino finds it through the superclass of `Q`, although `private`
-  members are not inherited.
+- `P.this`, also in `P.this.f`, `P.this.m()` and `P.super.f`, and in a class nested in `Q`: Janino takes the first
+  class, starting with `Q`, that is a subclass of `P`, while `javac` takes the lexically enclosing class `P`;
+- the simple name of a `private` field or method of `P`: Janino finds it through the superclass of `Q`, although
+  `private` members are not inherited.
 
-Members that `Q` inherits from `P` denote `this` with both compilers.
+Members that `Q` inherits from `P`, and `((P) this).f`, denote `this` with both compilers. The compliance mode
+follows `javac`; as a consequence, it rejects the access to a `private` member of a superclass through the subclass
+(L-20, L-45) and `B.this` for a superclass `B` of an enclosing class (L-46). Before the development line, compiling
+`P.this` as a value of type `P` (e.g. `Object o = P.this;`) failed with an `InternalCompilerException` when the
+compiler's assertions were enabled (`-ea`).
 
 ## 2. Valid code that Janino rejects
 
@@ -180,13 +186,13 @@ methods; F-11 the diamond operator with an anonymous class.
 Class L: `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it
 behaves as the source suggests (e.g. an assignment to a `final` local variable assigns it). See
 [issue #33](https://github.com/janino-lts/janino/issues/33) for the compatibility considerations. The compatibility
-mode keeps accepting all of it; the compliance mode rejects it once the respective check is implemented (today, all
-entries of this section are open). One exception, registered as A-05 (section 5): the access to a `protected` member
-of a class in another package through an expression whose type is neither the accessing class nor a subclass of it
-(`((Object) this).clone()`, `Object o = new P(); o.clone()`) is rejected since 3.1.16, like by `javac`, although the
-JVM loaded such classes when the verifier could infer the type `P` from the bytecode
-([#54](https://github.com/janino-lts/janino/issues/54)); it rejected them for a parameter, a field or a method
-result of type `Object`.
+mode keeps accepting all of it; the compliance mode rejects it once the respective check is implemented (today, it
+rejects L-20, L-45 and L-46, see S-11; all other entries of this section are open). One exception, registered as
+A-05 (section 5): the access to a `protected` member of a class in another package through an expression whose type
+is neither the accessing class nor a subclass of it (`((Object) this).clone()`, `Object o = new P(); o.clone()`) is
+rejected since 3.1.16, like by `javac`, although the JVM loaded such classes when the verifier could infer the type
+`P` from the bytecode ([#54](https://github.com/janino-lts/janino/issues/54)); it rejected them for a parameter, a
+field or a method result of type `Object`.
 
 Code generators rely on some of these leniencies. The code that Apache Spark generates for SQL queries, for
 example, assigns to a `final` local variable, names nested classes by their binary names, creates generic arrays
@@ -229,7 +235,8 @@ and assigns a parameterized type to a field with a different type argument
 - L-19: `public` enum constructor; `final` modifier on an enum declaration (ignored);
 - L-20: an unqualified invocation of a `private` instance method of the enum from the class body of an enum constant
   (`enum E { A { String n() { return p(); } }; private String p() { ... } abstract String n(); }`, which `javac`
-  rejects as a reference from a static context; Janino invokes the method on the constant);
+  rejects as a reference from a static context; Janino invokes the method on the constant; the compliance mode
+  rejects it, see S-11);
 - L-21: annotation type element with parameters (`int value(int i);`), or of a type that is not allowed
   (`Object value();`);
 - L-22: in a script (`IScriptEvaluator`) only ([#72](https://github.com/janino-lts/janino/issues/72)): any modifier on a
@@ -287,7 +294,14 @@ and assigns a parameterized type to a field with a different type argument
   `new java.util.AbstractMap$SimpleEntry<String, String>("a", "b")`;
 - L-43: on-demand import of a package that does not exist: `import foo.*;`;
 - L-44: static import of a member that does not exist, or is not static: `import static java.lang.Math.foo;`,
-  `import static java.lang.String.length;`.
+  `import static java.lang.String.length;`;
+- L-45: access to a `private` member of a superclass through the subclass, which does not inherit it (JLS 8.2):
+  `this.secret` and `this.sec()` in `class Q extends P` that is declared in `P`, or the simple name `secret` in a
+  `static class S extends P` (where `P` has no instance); Janino accesses the member of the subclass instance
+  ([#101](https://github.com/janino-lts/janino/issues/101); the compliance mode rejects it, see S-11);
+- L-46: `B.this` for a superclass `B` of an enclosing class `P`, which is not an enclosing class itself
+  (`class P extends B { class Q { ... B.this.f ... } }`); Janino takes the instance of `P`
+  ([#101](https://github.com/janino-lts/janino/issues/101); the compliance mode rejects it, see S-11).
 
 **Generics, class G** (type arguments are not checked; outside the scope of both modes):
 

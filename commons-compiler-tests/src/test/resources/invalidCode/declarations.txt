@@ -670,6 +670,7 @@ public class P {
 
 === enum constant class body invokes a private instance method of the enum unqualified
 janino: ACCEPTED
+compliant: REJECTED "P$E$1" is not enclosed by "P$E"
 recovery: ACCEPTED
 legacy: REJECTED Non-abstract class "P$E" must implement method "default abstract java.lang.String P$E.n()"
 id: L-20, #44

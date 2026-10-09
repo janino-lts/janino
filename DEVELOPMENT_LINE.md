@@ -27,6 +27,7 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#87](https://github.com/janino-lts/janino/issues/87) | Class flags of member types as `javac` writes them | changed | unchanged |
 | [#88](https://github.com/janino-lts/janino/issues/88) | `AbstractTraverser` visits enum constants | unchanged | subclasses of `AbstractTraverser` |
 | [#103](https://github.com/janino-lts/janino/issues/103) | The compliance mode: the option `JAVAC_COMPLIANCE` (S-01 to S-03) | unchanged | only with the option |
+| [#101](https://github.com/janino-lts/janino/issues/101) | The compliance mode: enclosing instances like `javac` (S-11) | unchanged | only with the option |
 
 ### Compile error messages (#31)
 
@@ -176,13 +177,14 @@ options, so that a library keeps control of its own compilers. The default is th
 and javac](JAVAC_DIFFERENCES.md) is authoritative for what it corrects, so "compiles in the compliance mode" does not
 mean "is valid Java". Language features that Janino does not implement, and everything that depends on the typing of
 generics, remain outside its scope; the other options apply in both modes. So far, the compliance mode corrects
-three deviations, each a consistent rule of Janino's that programs could rely on (class S of the contract):
+four deviations, each a consistent rule of Janino's that programs could rely on (class S of the contract):
 
 | ID | Code | Compatibility mode | Compliance mode (like `javac`) |
 |---|---|---|---|
 | S-01 | `Boolean Z = null; boolean x = Z \|\| true;` (also `Z && false`) | `x == true`, no exception | `NullPointerException` ([#40](https://github.com/janino-lts/janino/issues/40)) |
 | S-02 | `f(Object o)` and `f(int... i)`; `f(1)` | invokes `f(int...)` | invokes `f(Object)` (variable arity methods only in phase 3 of JLS 15.12.2) |
 | S-03 | `assert false;` | always throws | throws only if assertions are enabled for the class |
+| S-11 | `P.this`, and the simple name of a `private` member of `P`, in `class Q extends P` declared in `P` | `this` | the enclosing instance of `Q` ([#101](https://github.com/janino-lts/janino/issues/101)) |
 
 For S-03, the compliance mode declares a synthetic field `static final boolean $assertionsDisabled` in every class
 that contains an `assert` statement, initialized with `!Outermost.class.desiredAssertionStatus()` as the first
@@ -191,6 +193,15 @@ statement of the class initializer, like `javac`; an `assert true;` generates no
 one that `javac` computes (it includes the field), and differs from the compatibility mode's; and for an interface,
 the field is a `public static final` field of the interface itself, where `javac` declares it in a synthetic
 class.
+
+For S-11, the compliance mode resolves `T.this` to the lexically enclosing instance of class `T` (JLS 15.8.4), also in
+`P.this.f`, `P.this.m()`, `P.super.f`, in anonymous and local subclasses of `P` and in classes nested in `Q`; and the
+`private` members of a superclass are not inherited (JLS 8.2), so that their simple names denote the members of the
+enclosing instance. As a consequence, the compliance mode rejects three forms of invalid code that the compatibility
+mode accepts, like `javac`: the access to a `private` member of a superclass through the subclass (`this.secret` in
+`Q`, L-45, and the invocation of a `private` enum method from the body of an enum constant, L-20), and `B.this` for a
+superclass `B` of an enclosing class (L-46). In both modes, compiling `P.this` as a value of type `P` no longer fails
+with an `InternalCompilerException` when the compiler's assertions are enabled (`-ea`).
 
 **Class files.** Unchanged in the compatibility mode.
 
@@ -205,7 +216,7 @@ makes this machine-checkable: it compiles every recorded case with 3.1.12 (loade
 loader of its own, with target version 8) and compares its behavior with the recorded behavior of the compatibility
 mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction that explains the
 difference (`id:`, an issue number or an ID of the register); a difference that no record states, e.g. a regression,
-fails the test. Today, 372 of the 925 recorded cases differ from 3.1.12, each with its correction: the fixes of
+fails the test. Today, 372 of the 943 recorded cases differ from 3.1.12, each with its correction: the fixes of
 classes D and V since 3.1.13, the registered exceptions A-04, A-05 and A-06, and the language features that 3.1.12
 did not compile (multi-catch, qualified superclass method invocations, effectively final variables, local classes
 with modifiers).

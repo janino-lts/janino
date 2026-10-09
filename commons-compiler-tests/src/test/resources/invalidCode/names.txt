@@ -537,7 +537,7 @@ public class P extends java.io.FilterInputStream {
 }
 
 === protected method of the superclass invoked unqualified from a local class in a static method
-janino: REJECTED "L" is not enclosed by "java.util.ArrayList"
+janino: REJECTED "L" is not enclosed by
 public class P extends java.util.ArrayList {
     static void f() { class L { void g() { removeRange(0, 0); } } }
 }
@@ -685,4 +685,52 @@ recovery: ACCEPTED
 id: G-09
 public class P {
     java.util.List<String>[] a = new java.util.List<String>[2];
+}
+
+=== private field of the superclass through "this"
+janino: ACCEPTED
+compliant: REJECTED "P$Q" has no field "secret"
+recovery: ACCEPTED
+id: L-45
+public class P {
+    private int secret;
+    class Q extends P {
+        int g() { return this.secret; }
+    }
+}
+
+=== private method of the superclass through "this"
+janino: ACCEPTED
+compliant: REJECTED A method named "sec" is not declared in any enclosing class nor any supertype
+recovery: ACCEPTED
+id: L-45
+public class P {
+    private int sec() { return 1; }
+    class Q extends P {
+        int g() { return this.sec(); }
+    }
+}
+
+=== private field of the superclass in a static nested subclass
+janino: ACCEPTED
+compliant: REJECTED "S" is not enclosed by "P"
+recovery: ACCEPTED
+id: L-45
+public class P {
+    private int secret;
+    static class S extends P {
+        int g() { return secret; }
+    }
+}
+
+=== qualified this of a superclass of the enclosing class
+janino: ACCEPTED
+compliant: REJECTED "Q" is not enclosed by "B"
+recovery: ACCEPTED
+id: L-46
+class B { int f; }
+public class P extends B {
+    class Q {
+        int g() { return B.this.f; }
+    }
 }

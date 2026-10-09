@@ -96,6 +96,19 @@ h5 {
         parameter, <a href="https://github.com/janino-lts/janino/issues/61">issue #61</a>). No change of the compiler.
       </li>
       <li>
+        <a href="https://github.com/janino-lts/janino/issues/101">Issue #101</a>: In the compliance mode, an inner
+        class that extends its enclosing class (<code>class P { class Q extends P { ... } }</code>, also an anonymous
+        or local subclass of <code>P</code> in <code>P</code>) refers to its enclosing instance like with JAVAC:
+        <code>P.this</code> is the enclosing instance of <code>Q</code>, not <code>Q</code> itself (JLS 15.8.4), and
+        the simple name of a <code>private</code> member of <code>P</code> denotes the member of the enclosing
+        instance, because <code>private</code> members are not inherited (JLS 8.2); deviation S-11. As a
+        consequence, the compliance mode rejects the access to a <code>private</code> member of a superclass through
+        the subclass (L-20, L-45) and <code>B.this</code> for a superclass <code>B</code> of an enclosing class
+        (L-46), like JAVAC. In both modes, compiling <code>P.this</code> as a value of type <code>P</code> no longer
+        fails with an <code>InternalCompilerException</code> when the compiler's assertions are enabled. The class
+        files of the compatibility mode are unchanged.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/31">issue #31</a>: Some compile error messages
         pointed in the wrong direction; now they explain the error. Each message keeps the text that it had before,
         and the explanation is appended, because applications and their tests match message texts:
