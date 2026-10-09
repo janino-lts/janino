@@ -179,6 +179,16 @@ h5 {
     <h4>Version 3.1.19 (unreleased)</h4>
     <ul>
       <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/110">issue #110</a>: A qualified superclass method
+        invocation <code>P.super.m()</code> (<a href="https://github.com/janino-lts/janino/issues/22">issue #22</a>,
+        since 3.1.16) in an inner class of <code>P</code> that is itself a subclass of <code>P</code>, e.g.
+        <code>class Q extends P</code> in <code>class P extends B</code>, invoked the superclass method on the
+        instance of <code>Q</code> instead of the enclosing instance of <code>Q</code>; likewise in a class nested in
+        <code>Q</code> and in an anonymous or local subclass of <code>P</code>. Now the instance is the lexically
+        enclosing instance of class <code>P</code>, like with JAVAC. Only the class files of such invocations change;
+        the class files of all other code are unchanged.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/97">issue #97</a>: An inner class whose superclass
         is an inner class that extends the enclosing class, e.g. <code>class R extends Q</code> with
         <code>class Q extends P</code> in <code>class P</code>, compiled into a class that the JVM rejected

@@ -435,10 +435,13 @@ adds to it, as with #31 on the development line. The gates are those of 3.1.16.
 5. The first checks of the compliance mode: S-01, S-02 and S-03 (each is one place in the compiler, and they are
    what users of the compliance mode notice first: the behavior of generated code).
 
-**Then:** the cases of class L that need no data flow analysis, by area, one branch each: modifiers, declarations and
-annotations; overrides, hiding and `throws` clauses; `catch` clauses; imports and access; statements. In each branch,
-the `compliant:` entries of the area change from `ACCEPTED` to `REJECTED`. Then S-04 and S-05 in the compliance mode;
-the remaining areas of class L.
+**Then:** S-11 (#101; done on the development line, 2026-10-09, which also rejects L-20, L-45 and L-46). Next S-04
+(#38), the last open deviation of class S that changes the values of valid code, which is what users of the compliance
+mode notice first. Then the cases of class L that need no data flow analysis, by area, one branch each: modifiers,
+declarations and annotations; overrides, hiding and `throws` clauses; `catch` clauses; imports and access;
+statements. In each branch, the `compliant:` entries of the area change from `ACCEPTED` to `REJECTED`. Then S-07, S-08
+and S-09 (reflection and class file details) as needed, and the remaining areas of class L. S-05 (constant folding,
+#47) and S-06 with S-10 (the class file layout of `private` members) come last, because they are the largest.
 
 **Definite assignment and definite unassignment** (JLS 16) for the `final` cases of class L: the largest single piece
 of work. Definite assignment analysis might not be implemented at all.
@@ -469,5 +472,5 @@ this happens depends on the number of open IDs, not on the calendar.
 | P4 | precedence of the system property and explicit options | the property sets the initial options of every compiler; an explicit `options(...)` call replaces them, so that a library keeps control of its own compilers (decided, implemented) |
 | P5 | the `javac` reference: all JDKs of the test matrix must agree, `--release` equals the target version | accept |
 | P6 | the line of the foundation | the development line, because of the new API; the version is open (decided) |
-| P7 | the order of the first checks of the compliance mode | S-01 to S-03 first (done), then the areas of class L (decided) |
+| P7 | the order of the checks of the compliance mode | S-01 to S-03 first (done), S-11 (done); then S-04, the areas of class L, S-07 to S-09; S-05, S-06 and S-10 last (decided) |
 | P8 | the record key of the compatibility mode | `janino:` keeps its name (it is the default mode; 895 records stay unchanged) instead of `compat:` (decided) |

@@ -455,6 +455,55 @@ public class P {
     public static Object run() { return new Sub().new Inner().call(); }
 }
 
+=== Outer.super.m(): from an inner class that extends the outer class
+jls: B.m of outer
+janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #110
+class B { String m() { return "B.m of " + ((P) this).name; } }
+public class P extends B {
+    final String name;
+    P(String name) { this.name = name; }
+    String m() { return "P.m of " + name; }
+    class Q extends P {
+        Q(String n) { super(n); }
+        String g() { return P.super.m(); }
+    }
+    public static Object run() { return new P("outer").new Q("q").g(); }
+}
+
+=== Outer.super.m(): from a class in an inner class that extends the outer class
+jls: B.m of outer
+janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #110
+class B { String m() { return "B.m of " + ((P) this).name; } }
+public class P extends B {
+    final String name;
+    P(String name) { this.name = name; }
+    String m() { return "P.m of " + name; }
+    class Q extends P {
+        Q(String n) { super(n); }
+        class R { String g() { return P.super.m(); } }
+    }
+    public static Object run() { return new P("outer").new Q("q").new R().g(); }
+}
+
+=== Outer.super.m(): from an anonymous subclass of the outer class
+jls: B.m of outer
+janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #110
+class B { String m() { return "B.m of " + ((P) this).name; } }
+public class P extends B {
+    final String name;
+    P(String name) { this.name = name; }
+    String m() { return "P.m of " + name; }
+    String g() { return "P.g"; }
+    P anon() { return new P("a") { String g() { return P.super.m(); } }; }
+    public static Object run() { return new P("outer").anon().g(); }
+}
+
 === qualified superclass field access (Outer.super.f) from an inner class
 jls: basef
 janino: OK

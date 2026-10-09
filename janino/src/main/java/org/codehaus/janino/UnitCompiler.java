@@ -5359,9 +5359,15 @@ class UnitCompiler {
     /**
      * The "{@code O.this}" that the compiler generates as the enclosing instance of an unqualified superclass
      * constructor invocation, where {@code O} is the class that immediately encloses the superclass; see {@link
-     * #referenceThis(Locatable, AbstractTypeDeclaration, TypeBodyDeclaration, IType, boolean)}.
+     * #referenceThis(Locatable, AbstractTypeDeclaration, TypeBodyDeclaration, IType, EnclosingInstanceSearch)}.
      */
     private final Set<QualifiedThisReference> superclassConstructorEnclosingInstances = new HashSet<>();
+
+    /**
+     * The "{@code T.this}" that the compiler generates as the instance of a qualified superclass method invocation
+     * "{@code T.super.m()}" with a lexically enclosing class {@code T}; see {@link EnclosingInstanceSearch#LEXICAL}.
+     */
+    private final Set<QualifiedThisReference> qualifiedSuperclassMethodInvocationInstances = new HashSet<>();
 
     /**
      * The "{@code O.this}" that the compiler generates as the enclosing instance of an unqualified class instance
@@ -6051,6 +6057,9 @@ class UnitCompiler {
         EnclosingInstanceSearch search;
         if (this.superclassConstructorEnclosingInstances.contains(qtr)) {
             search = EnclosingInstanceSearch.ENCLOSING_CLASSES_FIRST;
+        } else
+        if (this.qualifiedSuperclassMethodInvocationInstances.contains(qtr)) {
+            search = EnclosingInstanceSearch.LEXICAL;
         } else
         if (this.classInstanceCreationEnclosingInstances.contains(qtr)) {
             search = EnclosingInstanceSearch.ASSIGNABLE;
@@ -6890,6 +6899,7 @@ class UnitCompiler {
                 new SimpleType(scmi.getLocation(), qualification)
             );
             qtr.setEnclosingScope(scmi.getEnclosingScope());
+            this.qualifiedSuperclassMethodInvocationInstances.add(qtr);
             this.compileGetValue(qtr);
 
             opcode           = Opcode.INVOKESTATIC;
@@ -13119,9 +13129,10 @@ class UnitCompiler {
 
         /**
          * The innermost class, starting with the <var>declaringType</var> itself, that <em>is</em> the
-         * <var>targetIType</var> (JLS8 15.8.4: "the n'th lexically enclosing type declaration"); in the compliance
-         * mode, for "{@code T.this}" and for the implicit "{@code T.this}" of a member that is accessed through its
-         * simple name.
+         * <var>targetIType</var> (JLS8 15.8.4: "the n'th lexically enclosing type declaration"); for the instance on
+         * which a qualified superclass method invocation "{@code T.super.m()}" invokes the method, and, in the
+         * compliance mode, for "{@code T.this}" and for the implicit "{@code T.this}" of a member that is accessed
+         * through its simple name.
          */
         LEXICAL,
     }
@@ -13187,8 +13198,9 @@ class UnitCompiler {
                 }
             }
 
-            // Compliance S-11: "T.this" denotes the n'th lexically enclosing instance whose class is "T" (JLS8
-            // 15.8.4), even if an inner class (e.g. "class Q extends T") is itself a subclass of "T"; see below.
+            // The instance of "T.super.m()" (issue #110) and, Compliance S-11, "T.this" denote the n'th lexically
+            // enclosing instance whose class is "T" (JLS8 15.12.4.1, 15.8.4), even if an inner class (e.g. "class Q
+            // extends T") is itself a subclass of "T"; see below.
             if (search == EnclosingInstanceSearch.LEXICAL) {
                 IClass targetIClass = UnitCompiler.rawTypeOf(targetIType);
                 for (j = 0; j < path.size(); ++j) {
