@@ -98,7 +98,10 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   parameter ([#65]).
 - 3.1.19 (in development): A `protected` member type (class, interface or enum) could not be used from a subclass of
   the enclosing type in another package: the JVM threw an `IllegalAccessError`. Its class file now has the flag
-  `ACC_PUBLIC`, like with `javac` ([#87]); the class files of all other code are unchanged.
+  `ACC_PUBLIC`, like with `javac` ([#87]); the class files of all other code are unchanged. An inner class whose
+  superclass is an inner class that extends the enclosing class, e.g. `class R extends Q` with `class Q extends P`
+  in `P`, compiled into a class that the JVM rejects (`VerifyError`); the constructor passed its own, still
+  uninitialized instance to the constructor of the superclass instead of the enclosing instance ([#97]).
 
 **Arrays and expressions** (3.1.17):
 
@@ -170,8 +173,8 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.17 needs 1 % less time and
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers;
   every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 458 language
-  constructs, negative tests with 427 cases of invalid code, differential tests that compile generated expressions
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 465 language
+  constructs, negative tests with 430 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and two workflows that run the test suites
   of Apache Calcite and of Spark Catalyst every week and before every release ([Compatibility](COMPATIBILITY.md)).
 
@@ -220,3 +223,4 @@ affected.
 [#75]: https://github.com/janino-lts/janino/issues/75
 [#76]: https://github.com/janino-lts/janino/issues/76
 [#87]: https://github.com/janino-lts/janino/issues/87
+[#97]: https://github.com/janino-lts/janino/issues/97

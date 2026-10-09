@@ -444,3 +444,162 @@ public class P {
         return "-";
     }
 }
+
+=== inner class whose superclass is an inner class that extends the enclosing class
+jls: true
+janino: OK
+public class P {
+    private int mark;
+    class Q extends P {
+        int outerMark() { return mark; } // So that JAVAC keeps the field "this$0".
+    }
+    class R extends Q { }
+    public static Object run() throws Exception {
+        P p = new P();
+        return String.valueOf(P.outerOf(p.new R()) == p);
+    }
+    static Object outerOf(Object q) throws Exception {
+        for (java.lang.reflect.Field f : Q.class.getDeclaredFields()) {
+            if (f.getName().startsWith("this$")) { f.setAccessible(true); return f.get(q); }
+        }
+        return null;
+    }
+}
+
+=== inner class whose superclass is an inner class that extends the enclosing class, implicit super()
+jls: true
+janino: OK
+public class P {
+    private int mark;
+    class Q extends P {
+        int outerMark() { return mark; } // So that JAVAC keeps the field "this$0".
+    }
+    class R extends Q { final int x; R() { this.x = 1; } }
+    public static Object run() throws Exception {
+        P p = new P();
+        return String.valueOf(P.outerOf(p.new R()) == p);
+    }
+    static Object outerOf(Object q) throws Exception {
+        for (java.lang.reflect.Field f : Q.class.getDeclaredFields()) {
+            if (f.getName().startsWith("this$")) { f.setAccessible(true); return f.get(q); }
+        }
+        return null;
+    }
+}
+
+=== inner class whose superclass is an inner class that extends the enclosing class, explicit super()
+jls: true
+janino: OK
+public class P {
+    private int mark;
+    class Q extends P {
+        int outerMark() { return mark; } // So that JAVAC keeps the field "this$0".
+    }
+    class R extends Q { R() { super(); } }
+    public static Object run() throws Exception {
+        P p = new P();
+        return String.valueOf(P.outerOf(p.new R()) == p);
+    }
+    static Object outerOf(Object q) throws Exception {
+        for (java.lang.reflect.Field f : Q.class.getDeclaredFields()) {
+            if (f.getName().startsWith("this$")) { f.setAccessible(true); return f.get(q); }
+        }
+        return null;
+    }
+}
+
+=== inner class in a member class, whose superclass is an inner class that extends the enclosing class
+jls: true
+janino: OK
+public class P {
+    private int mark;
+    class Q extends P {
+        int outerMark() { return mark; } // So that JAVAC keeps the field "this$0".
+    }
+    class M { class R extends Q { } }
+    public static Object run() throws Exception {
+        P p = new P();
+        return String.valueOf(P.outerOf(p.new M().new R()) == p);
+    }
+    static Object outerOf(Object q) throws Exception {
+        for (java.lang.reflect.Field f : Q.class.getDeclaredFields()) {
+            if (f.getName().startsWith("this$")) { f.setAccessible(true); return f.get(q); }
+        }
+        return null;
+    }
+}
+
+=== anonymous subclass of an inner class that extends the enclosing class, in a subclass of that inner class
+jls: true
+janino: OK
+public class P {
+    private int mark;
+    class Q extends P {
+        int outerMark() { return mark; } // So that JAVAC keeps the field "this$0".
+    }
+    class R extends Q {
+        R(P o) { o.super(); }
+        Object make() { return new Q() { }; }
+    }
+    public static Object run() throws Exception {
+        P p = new P();
+        R r = p.new R(p);
+        return String.valueOf(P.outerOf(r.make()) == r);
+    }
+    static Object outerOf(Object q) throws Exception {
+        for (java.lang.reflect.Field f : Q.class.getDeclaredFields()) {
+            if (f.getName().startsWith("this$")) { f.setAccessible(true); return f.get(q); }
+        }
+        return null;
+    }
+}
+
+=== local subclass of an inner class that extends the enclosing class, in a subclass of that inner class
+jls: true
+janino: OK
+public class P {
+    private int mark;
+    class Q extends P {
+        int outerMark() { return mark; } // So that JAVAC keeps the field "this$0".
+    }
+    class R extends Q {
+        R(P o) { o.super(); }
+        Object make() {
+            class L extends Q { }
+            return new L();
+        }
+    }
+    public static Object run() throws Exception {
+        P p = new P();
+        R r = p.new R(p);
+        return String.valueOf(P.outerOf(r.make()) == r);
+    }
+    static Object outerOf(Object q) throws Exception {
+        for (java.lang.reflect.Field f : Q.class.getDeclaredFields()) {
+            if (f.getName().startsWith("this$")) { f.setAccessible(true); return f.get(q); }
+        }
+        return null;
+    }
+}
+
+=== qualified superclass constructor invocation of an inner class that extends the enclosing class
+jls: true
+janino: OK
+public class P {
+    private int mark;
+    class Q extends P {
+        int outerMark() { return mark; } // So that JAVAC keeps the field "this$0".
+    }
+    class R extends Q { R(P o) { o.super(); } }
+    public static Object run() throws Exception {
+        P p = new P();
+        P other = new P();
+        return String.valueOf(P.outerOf(p.new R(other)) == other);
+    }
+    static Object outerOf(Object q) throws Exception {
+        for (java.lang.reflect.Field f : Q.class.getDeclaredFields()) {
+            if (f.getName().startsWith("this$")) { f.setAccessible(true); return f.get(q); }
+        }
+        return null;
+    }
+}
