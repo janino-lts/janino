@@ -238,9 +238,9 @@ i, Object... a)` (D-08), which the compatibility mode accepts as well since 3.1.
 **Tests.** The record tests (`InvalidCodeTest`, `LanguageSupportTest`) run every case in both modes: a record
 describes the compatibility mode (`janino:`) and, where the compliance mode differs, the compliance mode
 (`compliant:`, with the `id:` of the deviation). `ExpressionDifferentialTest` and `ControlFlowDifferentialTest` run
-in both modes as well, with the known differences of each mode in its own file. The downstream workflows "Calcite"
-and "Spark" have the input "javac-compliance", which runs the tests of Calcite and Spark with the candidate in the
-compliance mode (and the baseline as always).
+in both modes as well, with the known differences of each mode in its own file. The downstream workflows "Calcite",
+"Spark" and "Fory" have the input "javac-compliance", which runs the tests of Calcite, Spark and Fory with the
+candidate in the compliance mode (and the baseline as always).
 
 The reference of the compatibility mode is Janino 3.1.12 (see the contract in `JAVAC_COMPLIANCE.md`): code that
 3.1.12 compiled into loadable classes keeps its behavior, except where 3.1.12 miscompiled it. `LegacyDifferentialTest`
