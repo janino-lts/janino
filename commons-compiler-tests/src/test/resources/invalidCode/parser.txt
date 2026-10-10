@@ -71,9 +71,40 @@ public class P {
 }
 
 === octal literal with invalid digit
-janino: REJECTED ';' expected instead of '9'
+janino: REJECTED Digit '9' not allowed in octal literal
 public class P {
     int i = 09;
+}
+
+=== octal literal with invalid digit after octal digits
+janino: REJECTED Digit '8' not allowed in octal literal
+public class P {
+    int i = 012389;
+}
+
+=== octal long literal with invalid digit
+janino: REJECTED Digit '9' not allowed in octal literal
+public class P {
+    long l = 09L;
+}
+
+=== octal literal with invalid digit after an underscore
+janino: REJECTED Digit '9' not allowed in octal literal
+public class P {
+    int i = 0_9;
+}
+
+=== octal literal with invalid digit as an argument
+janino: REJECTED Digit '8' not allowed in octal literal
+public class P {
+    static int f(int i) { return i; }
+    int i = f(08);
+}
+
+=== floating-point literal with a leading zero and a missing exponent
+janino: REJECTED Exponent missing after "E"
+public class P {
+    double d = 09e;
 }
 
 === underscore at end of literal
