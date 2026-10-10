@@ -201,7 +201,17 @@ h5 {
       </li>
     </ul>
 
-    <h4>Version 3.1.19 (unreleased)</h4>
+    <h4>Version 3.1.19 2026-10-10</h4>
+    <p>
+      Five fixes in the compiler. The most important one: a qualified superclass method invocation
+      <code>P.super.m()</code> in an inner class that is itself a subclass of <code>P</code> invoked the method on
+      the wrong instance, without any error (issue #110, since 3.1.16). The other fixes concern code that did not
+      compile or did not run: an inner class whose superclass extends the enclosing class failed verification (issue
+      #97), a <code>protected</code> member type could not be used from a subclass in another package (issue #87),
+      conditional expressions with a constant condition in <code>static final</code> fields and annotations crashed
+      the compiler or were rejected (issue #113), and floating-point literals with a leading zero were rejected
+      (issue #96). No code that compiled before is rejected now.
+    </p>
     <ul>
       <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/96">issue #96</a>: A floating-point literal with
@@ -269,6 +279,16 @@ h5 {
         New test cases: seven cases of valid code with inner classes that extend inner classes of their enclosing
         class (#97), and three cases of invalid code of this kind in static contexts, which JANINO compiles into
         classes that the JVM rejects, as before.
+      </li>
+      <li>
+        Compatibility: The class files change only for <code>protected</code> member types (the flag
+        <code>ACC_PUBLIC</code>, issue #87), for the constructors of the inner classes of issue #97, which the JVM
+        rejected before, and for the invocations of issue #110, which invoked the method on the wrong instance
+        before; the code of issues #113 and #96 did not compile before. For all workloads of the benchmarks,
+        including JANINO's own sources and the code that Apache Spark generates, the class files are the same as with
+        3.1.18, byte for byte, and the compile time and the allocated memory are the same as with 3.1.18 within the
+        measurement error. The test suites of Apache Calcite and of Spark Catalyst pass with this release as with the
+        JANINO that the projects declare.
       </li>
     </ul>
 

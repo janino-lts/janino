@@ -37,7 +37,8 @@ it is released is open; the document is a roadmap, not a commitment.
 To restrict what untrusted code that is compiled at runtime may do, see
 [Restricting Untrusted Code with a Sandbox Policy](SANDBOX.md).
 
-Please visit the [project homepage](https://janino-lts.github.io/janino/) for more documentation.
+Please visit the [project homepage](https://janino-lts.github.io/janino/) for more documentation. What changed in
+each release: see the [change log](https://janino-lts.github.io/janino/changelog.html).
 
 ## Maven coordinates
 
@@ -48,7 +49,7 @@ versions up to 3.1.12 have the group ID `org.codehaus.janino`):
 <dependency>
     <groupId>io.github.janino-lts</groupId>
     <artifactId>janino</artifactId>
-    <version>3.1.18</version>
+    <version>3.1.19</version>
 </dependency>
 ```
 

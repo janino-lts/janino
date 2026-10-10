@@ -2,7 +2,7 @@
 
 Janino compiles Java source code like `javac`, but not in every respect: it accepts some invalid code, it rejects some
 valid code, and some valid code behaves differently. This page is the register of all deviations that are known as
-of version 3.1.18 and the development line, so that you can decide whether they matter for your code. Every
+of version 3.1.19 and the development line, so that you can decide whether they matter for your code. Every
 deviation has an ID: its class (see "The two modes" below) and a number, e.g. `L-07`. IDs are stable: a number is
 never reused or reassigned, and the test records refer to them. A deviation that is not in the register is an
 unknown defect; please report it as an issue.

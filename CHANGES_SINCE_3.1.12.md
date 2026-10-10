@@ -3,8 +3,8 @@
 For projects that depend on Janino 3.1.12, the last release of the original project, and consider an upgrade:
 what the releases 3.1.13 to 3.1.19 of this continuation change, in short. The
 [change log](https://janino-lts.github.io/janino/changelog.html) has the complete entries, with details and
-examples; this page summarizes it. State: 3.1.18 was released on 2026-10-08; 3.1.19 is in development, and its
-entries are marked as such. The entries of 3.1.17 and later are marked with the version.
+examples; this page summarizes it. State: 3.1.19, released on 2026-10-10. The entries of 3.1.17 and later are
+marked with the version.
 
 ## What stays the same
 
@@ -16,7 +16,7 @@ entries are marked as such. The entries of 3.1.17 and later are marked with the 
   [#33]), with the exceptions listed under "Code that is now rejected" below.
 - Code that compiled correctly with 3.1.12 compiles into the same class files, except where a fix changes them
   (the change log names these cases) and except for the class file version (below). For the code that Apache
-  Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.17 differ from those of 3.1.12
+  Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.19 differ from those of 3.1.12
   only in the class file version ([benchmarks](janino-benchmarks/README.md)).
 
 ## What changes for every user
@@ -71,7 +71,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   had the wrong type or compiled into code that failed at run time ([#51], a regression of 3.1.15; [#56]).
 - The constant value of a conditional expression with a constant condition had the type of the selected operand
   instead of the type of the expression: `"" + (true ? 1 : 2.0)` was `"1"` ([#55]).
-- 3.1.19 (in development): A conditional expression with a constant condition in the initializer of a
+- 3.1.19: A conditional expression with a constant condition in the initializer of a
   `static final` field of a class, e.g. `static final int K = DEBUG ? 1 : 2;`, was an internal compiler error; as
   the value of an annotation element, `@A(true ? 1 : 2)`, it was rejected, and so was `@B(X || Y)` ([#113]).
 
@@ -99,7 +99,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   `final` loop variable of a basic `for` statement, captured by an inner class, was an internal compiler error
   ([#75]). A type in a `throws` clause whose name consists of uppercase letters only was taken for a type
   parameter ([#65]).
-- 3.1.19 (in development): A `protected` member type (class, interface or enum) could not be used from a subclass of
+- 3.1.19: A `protected` member type (class, interface or enum) could not be used from a subclass of
   the enclosing type in another package: the JVM threw an `IllegalAccessError`. Its class file now has the flag
   `ACC_PUBLIC`, like with `javac` ([#87]); the class files of all other code are unchanged. An inner class whose
   superclass is an inner class that extends the enclosing class, e.g. `class R extends Q` with `class Q extends P`
@@ -114,7 +114,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 - `clone()` of an array had the type `Object` instead of the array type ([#58]).
 - A subscript on an expression that is not an array was an internal compiler error when the expression was a
   method or constructor argument ([#71]).
-- 3.1.19 (in development): A floating-point literal with a leading zero, e.g. `09.5`, `07e1` or `07f`, was
+- 3.1.19: A floating-point literal with a leading zero, e.g. `09.5`, `07e1` or `07f`, was
   rejected ([#96]); except for `0_9.5` and the like, with an underscore directly before the first digit `8` or `9`.
   An integer literal with a leading zero and the digit `8` or `9`, e.g. `09`, is still rejected with the same message.
 
@@ -178,10 +178,10 @@ affected.
 - The compilation of Janino's own sources is about 6 % faster than with 3.1.12 and allocates about 16 % less
   memory ([#26], 3.1.15). Code with many nested `try` / `finally` statements compiles somewhat slower, because the
   code that Janino generates for them since 3.1.14 is correct, but larger.
-- On the code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, 3.1.17 and 3.1.12 compile
-  equally fast within the measurement error; without the JIT compiler, 3.1.17 needs 1 % less time and
-  allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers;
-  every release is measured against its predecessor the same way.
+- On the code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, 3.1.19 and 3.1.12 compile
+  equally fast within the measurement error; without the JIT compiler, 3.1.19 needs 1.8 % less time and
+  allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
+  of 3.1.17; every release is measured against its predecessor the same way.
 - New tests: characterization tests that record the correct result and Janino's actual behavior for 485 language
   constructs, negative tests with 440 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and two workflows that run the test suites
