@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Compares the JUnit XML reports of two test runs, a baseline run and a candidate run.
 
-Used by the workflows ".github/workflows/calcite.yml", "spark.yml" and "fory.yml": the tests of a project that uses
-JANINO are executed with the JANINO that the project declares (the baseline) and with the JANINO of this repository
-(the candidate). A test that passes with the baseline and fails with the candidate is a regression; a test that fails
-with both is not.
+Used by the workflows ".github/workflows/calcite.yml", "spark.yml", "fory.yml" and "drill.yml": the tests of a project
+that uses JANINO are executed with the JANINO that the project declares (the baseline) and with the JANINO of this
+repository (the candidate). A test that passes with the baseline and fails with the candidate is a regression; a test
+that fails with both is not.
 
 Usage: compare_junit.py <baseline-dir> <candidate-dir>
        compare_junit.py <candidate-dir>      (no baseline: the run must contain tests, and none may have failed)

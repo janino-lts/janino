@@ -1,11 +1,11 @@
-# Starts the downstream workflows "Calcite", "Spark" and "Fory" once a week on both release lines: on "master" (the
-# development line) and on "3.1.x" (the maintenance line, see "Release lines" in COMPATIBILITY.md).
+# Starts the downstream workflows "Calcite", "Spark", "Fory" and "Drill" once a week on both release lines: on
+# "master" (the development line) and on "3.1.x" (the maintenance line, see "Release lines" in COMPATIBILITY.md).
 #
 # Scheduled workflows run only on the default branch. Therefore these workflows have no schedule of their own;
 # instead, this workflow starts them with "workflow_dispatch" on each branch, exactly as if they were started manually
 # ("Actions" > "Calcite" > "Run workflow" > "Use workflow from: 3.1.x"). Each run uses the workflow file and the
-# sources of its branch, with the default values of its inputs. The results are the runs of "Calcite", "Spark"
-# and "Fory", not this workflow.
+# sources of its branch, with the default values of its inputs. The results are the runs of "Calcite", "Spark",
+# "Fory" and "Drill", not this workflow.
 #
 # To add or remove a release line, change the list "ref" below.
 
@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        workflow: [ calcite.yml, spark.yml, fory.yml ]
+        workflow: [ calcite.yml, spark.yml, fory.yml, drill.yml ]
         ref: [ master, 3.1.x ]
     steps:
       - name: Start ${{ matrix.workflow }} on ${{ matrix.ref }}
