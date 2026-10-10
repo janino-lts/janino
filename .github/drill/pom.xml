@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Runs the published tests of Apache Drill's module "java-exec" with a selectable JANINO; used by the workflow
+  ".github/workflows/drill.yml". Nothing is compiled: surefire scans Drill's tests jar ("dependenciesToScan") and runs
+  the classes listed in the file "tests.includesFile" (written by "tests.py").
+
+  The JANINO that Drill declares (3.1.12 in Drill 1.22.0) is excluded everywhere; the direct dependencies below
+  select the JANINO to test, through the properties "janino.groupId" and "janino.version", e.g.
+    -Djanino.groupId=org.codehaus.janino   -Djanino.version=3.1.12            (the baseline, what Drill declares)
+    -Djanino.groupId=io.github.janino-lts  -Djanino.version=3.1.20-SNAPSHOT   (a candidate)
+  "commons-compiler" is declared as well, because Drill's dependency management would otherwise select the version
+  that Drill declares. The property "janino.argLine" adds JVM options for the tests, e.g.
+    -Djanino.argLine=-Dorg.codehaus.janino.javacCompliance=true    (the compliance mode of the development line)
+
+  Drill's root POM is imported for its dependency management, so that the versions of the transitive dependencies
+  are those of Drill's own build. The test-scoped dependencies of "java-exec" and of Drill's root POM are not
+  transitive and are listed here, as far as the selected tests need them.
+
+  Drill's tests read their data from "src/test/resources" and "../../sample-data" relative to the working directory,
+  and as files from the class path, so the property "drill.dir" names a checkout of these two directories of the
+  Drill release, and its test resources come first on the class path. The JVM options are those of Drill's root POM
+  (and its profile "jdk9+").
+
+  Hadoop needs "winutils.exe" on Windows, so the tests run on Linux (and macOS) only.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.github.janino-lts</groupId>
+  <artifactId>drill-java-exec-tests</artifactId>
+  <version>0</version>
+
+  <properties>
+    <drill.version>1.22.0</drill.version>
+    <drill.dir>${project.basedir}/../../drill</drill.dir>
+    <janino.groupId>org.codehaus.janino</janino.groupId>
+    <janino.version>3.1.12</janino.version>
+    <janino.argLine />
+    <tests.includesFile>${project.build.directory}/includes.txt</tests.includesFile>
+    <jmockit.version>1.47</jmockit.version>
+    <junit.platform.version>1.8.2</junit.platform.version>
+    <surefire.version>3.1.2</surefire.version>
+    <!-- Drill rewrites the class files that JANINO generates ("scalar replacement" with ASM). -->
+    <drill.system.options>org.apache.drill.exec.compile.ClassTransformer.scalar_replacement=on</drill.system.options>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.apache.drill</groupId>
+        <artifactId>drill-root</artifactId>
+        <version>${drill.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>${janino.groupId}</groupId>
+      <artifactId>janino</artifactId>
+      <version>${janino.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>${janino.groupId}</groupId>
+      <artifactId>commons-compiler</artifactId>
+      <version>${janino.version}</version>
+    </dependency>
+
+    <!-- JMockit must be on the class path before JUnit. -->
+    <dependency>
+      <groupId>org.jmockit</groupId>
+      <artifactId>jmockit</artifactId>
+      <version>${jmockit.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.drill.exec</groupId>
+      <artifactId>drill-java-exec</artifactId>
+      <version>${drill.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.codehaus.janino</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.drill.exec</groupId>
+      <artifactId>drill-java-exec</artifactId>
+      <version>${drill.version}</version>
+      <type>test-jar</type>
+      <exclusions>
+        <exclusion>
+          <groupId>org.codehaus.janino</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.drill</groupId>
+      <artifactId>drill-common</artifactId>
+      <version>${drill.version}</version>
+      <type>test-jar</type>
+      <exclusions>
+        <exclusion>
+          <groupId>org.codehaus.janino</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.drill.contrib.data</groupId>
+      <artifactId>tpch-sample-data</artifactId>
+      <version>${drill.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.drill.metastore</groupId>
+      <artifactId>drill-iceberg-metastore</artifactId>
+      <version>${drill.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.codehaus.janino</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>net.hydromatic</groupId>
+      <artifactId>foodmart-data-json</artifactId>
+      <version>0.4</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.vintage</groupId>
+      <artifactId>junit-vintage-engine</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-engine</artifactId>
+      <version>${junit.platform.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
+      <version>${junit.platform.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>5.17.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-inline</artifactId>
+      <version>5.2.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.curator</groupId>
+      <artifactId>curator-test</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.glassfish</groupId>
+      <artifactId>javax.json</artifactId>
+      <version>1.0.4</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${surefire.version}</version>
+        <dependencies>
+          <dependency>
+            <groupId>org.apache.maven.surefire</groupId>
+            <artifactId>surefire-junit-platform</artifactId>
+            <version>${surefire.version}</version>
+          </dependency>
+        </dependencies>
+        <configuration>
+          <dependenciesToScan>
+            <dependency>org.apache.drill.exec:drill-java-exec:test-jar:tests</dependency>
+          </dependenciesToScan>
+          <includesFile>${tests.includesFile}</includesFile>
+          <!-- As in "tests.py", for the test methods that have these categories. -->
+          <excludedGroups>
+            org.apache.drill.categories.SecurityTest,
+            org.apache.drill.categories.MetastoreTest,
+            org.apache.drill.categories.FlakyTest
+          </excludedGroups>
+          <workingDirectory>${drill.dir}/exec/java-exec</workingDirectory>
+          <!-- Puts the test resources of the checkout first on the class path (there are no test classes here): many
+               of Drill's tests turn the URL of a resource into a file ("DrillFileUtils.getResourceAsFile"), which
+               fails for a resource in the tests jar. -->
+          <testClassesDirectory>${drill.dir}/exec/java-exec/src/test/resources</testClassesDirectory>
+          <argLine>-Xms512m -Xmx4096m -Ddrill.exec.http.enabled=false
+            -Ddrill.exec.memory.enable_unsafe_bounds_check=true
+            -Ddrill.exec.sys.store.provider.local.write=false
+            -Dorg.apache.drill.exec.server.Drillbit.system_options=${drill.system.options}
+            -Ddrill.catastrophic_to_standard_out=true
+            -XX:MaxDirectMemorySize=3072M
+            -Djava.net.preferIPv4Stack=true
+            -Djava.awt.headless=true
+            -Duser.timezone=UTC
+            -ea
+            --add-opens java.base/java.lang=ALL-UNNAMED
+            --add-opens java.base/java.net=ALL-UNNAMED
+            --add-opens java.base/java.nio=ALL-UNNAMED
+            --add-opens java.base/java.util=ALL-UNNAMED
+            --add-opens java.base/sun.nio.ch=ALL-UNNAMED
+            --add-opens java.security.jgss/sun.security.krb5=ALL-UNNAMED
+            -Djdk.attach.allowAttachSelf=true
+            -javaagent:${settings.localRepository}/org/jmockit/jmockit/${jmockit.version}/jmockit-${jmockit.version}.jar
+            ${janino.argLine}
+          </argLine>
+          <forkCount>1</forkCount>
+          <reuseForks>true</reuseForks>
+          <systemPropertyVariables>
+            <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
+          </systemPropertyVariables>
+          <useSystemClassLoader>false</useSystemClassLoader>
+          <trimStackTrace>false</trimStackTrace>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

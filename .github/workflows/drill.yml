@@ -1,0 +1,254 @@
+# Tests JANINO against the tests of Apache Drill's execution engine (the module "java-exec"). Drill generates Java code
+# for nearly every operator and function of a query and compiles it with JANINO ("JaninoClassCompiler"): through the
+# "Scanner", the "Parser" and the "UnitCompiler" directly, not through the "ISimpleCompiler" API. Then it rewrites the
+# class files with ASM ("scalar replacement", switched on in Drill's tests).
+#
+# No Drill build is needed: Drill publishes the test classes of "java-exec" on Maven Central
+# ("drill-java-exec-<v>-tests.jar"), and ".github/drill/pom.xml" runs them with surefire on a class path in which the
+# JANINO is selectable. Drill's tests read their data relative to the working directory and as files from the class
+# path, so the test resources and the sample data of the Drill release are checked out (sparse, about 4 MB). The
+# tests are executed with the JANINO that Drill declares (the baseline, "org.codehaus.janino:janino:3.1.12") and with
+# the JANINO of this repository (the candidate: built from the checked out commit, or a released version from Maven
+# Central), on Java 11 (the oldest version that Drill 1.22.0 supports) and 21. The "compare" jobs fail if a test that
+# passed with the baseline fails with the candidate, or if a test that ran with the baseline did not run with the
+# candidate. Tests that fail with both are listed, but do not fail the job (e.g. the test of Parquet's Brotli codec,
+# which Drill gets from a repository other than Maven Central).
+#
+# All of "java-exec" takes about 42 minutes on GitHub's runner. ".github/drill/tests.py" leaves out the tests that do
+# not compile generated code, but take much time or need infrastructure (RPC and security, cluster coordination, fault
+# injection, the metastore, the web server, HDFS, dynamic UDFs; about 15 minutes), and distributes the remaining
+# tests (about 4800 in about 480 classes, among them all tests of queries, functions, operators, TPC-H and code
+# generation) over two shards by their running times in ".github/drill/times.txt". Each shard runs in its own job,
+# whose tests take 8 to 12 minutes; the whole workflow takes about 15 minutes.
+#
+# The workflow runs
+#  * when started manually ("Actions" > "Drill" > "Run workflow"): the Drill version, the baseline and the candidate
+#    can be chosen, and more tests can be excluded;
+#  * once a week with the default values, on "master" and on "3.1.x": the workflow "Weekly" starts it on both
+#    branches; and
+#  * for a pull request that changes this workflow or ".github/drill", so that a change of it is tested before it is
+#    merged (manual runs need the workflow on the default branch).
+# It does NOT run for other pull requests. Before a release, start it manually for the release branch.
+#
+# On the development line, the input "javac-compliance" (off by default, and off in the weekly runs) runs the
+# candidate in JANINO's compliance mode; the baseline runs as always. The "compare" jobs then show every test that
+# depends on a behavior that the compliance mode changes. This needs a candidate that has the compliance mode, i.e.
+# one built from the development line. The mode is the system property "org.codehaus.janino.javacCompliance", which
+# ".github/drill/pom.xml" adds to the JVM options of the tests ("janino.argLine"); Drill does not shade JANINO.
+
+name: Drill
+run-name: ${{ inputs.javac-compliance && 'Drill (javac compliance)' || 'Drill' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      drill-version:
+        description: Drill version on Maven Central whose tests run (its tag "drill-<version>" provides the test data)
+        type: string
+        default: '1.22.0'
+      baseline:
+        description: Baseline, a version of org.codehaus.janino:janino on Maven Central
+        type: string
+        default: '3.1.12'
+      candidate:
+        description: Candidate, a released version of io.github.janino-lts:janino; empty = build this commit
+        type: string
+        default: ''
+      excludes:
+        description: Regular expression of further excluded test classes (full names), e.g. TestParquetWriter$
+        type: string
+        default: ''
+      javac-compliance:
+        description: Run the candidate in the compliance mode (the development line only)
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - .github/workflows/drill.yml
+      - .github/drill/**
+
+permissions:
+  contents: read
+
+# When new commits are pushed to a pull request, cancel the run for its previous commits.
+concurrency:
+  group: drill-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  DRILL_VERSION: ${{ inputs.drill-version || '1.22.0' }}
+  BASELINE: ${{ inputs.baseline || '3.1.12' }}
+  CANDIDATE: ${{ inputs.candidate || '' }}
+  EXCLUDES: ${{ inputs.excludes || '' }}
+  JAVAC_COMPLIANCE: ${{ inputs.javac-compliance && 'true' || 'false' }}
+  SHARDS: 2   # the number of values of "shard" in the matrix of the job "test"
+
+jobs:
+
+  # Builds the candidate from the checked out commit, unless a released version was given.
+  build:
+    name: Build the candidate
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        if: env.CANDIDATE == ''
+
+      - name: Set up JDK 25
+        if: env.CANDIDATE == ''
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Build and install into the local Maven repository
+        if: env.CANDIDATE == ''
+        run: mvn -B -f janino-parent/pom.xml install -DskipTests
+
+      - name: Determine the version of the candidate
+        id: version
+        run: |
+          if [ -n "$CANDIDATE" ]; then
+            version=$CANDIDATE
+          else
+            # Maven prints its errors to stdout; a command substitution would swallow them, so write the output to
+            # a file and print it if the command fails.
+            mvn -q -N -f janino-parent/pom.xml help:evaluate -Dexpression=project.version -DforceStdout \
+              > version.txt || { cat version.txt; exit 1; }
+            version=$(cat version.txt)
+          fi
+          echo "Candidate: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the installed artifacts
+        if: env.CANDIDATE == ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: janino-m2
+          path: ~/.m2/repository/io/github/janino-lts
+          if-no-files-found: error
+
+  # Runs one shard of Drill's tests with the baseline or with the candidate.
+  test:
+    name: Drill with the ${{ matrix.janino }} on Java ${{ matrix.java }}, shard ${{ matrix.shard }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        janino: [ baseline, candidate ]
+        java: [ 11, 21 ]
+        shard: [ 1, 2 ]   # see SHARDS
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check out the test data of Drill ${{ env.DRILL_VERSION }}
+        uses: actions/checkout@v7
+        with:
+          repository: apache/drill
+          ref: drill-${{ env.DRILL_VERSION }}
+          path: drill
+          sparse-checkout: |
+            exec/java-exec/src/test/resources
+            sample-data
+
+      # Drill's own CI builds and tests with Temurin.
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+          cache-dependency-path: .github/drill/pom.xml
+
+      - name: Install the candidate into the local Maven repository
+        if: matrix.janino == 'candidate' && env.CANDIDATE == ''
+        uses: actions/download-artifact@v8
+        with:
+          name: janino-m2
+          path: ~/.m2/repository/io/github/janino-lts
+
+      # The mode is that of the candidate; the baseline does not know the compliance mode.
+      - name: Select the JANINO version and its mode
+        run: |
+          mode=off
+          if [ "${{ matrix.janino }}" = candidate ]; then
+            echo "JANINO_GROUP=io.github.janino-lts" >> "$GITHUB_ENV"
+            echo "JANINO_VERSION=${{ needs.build.outputs.version }}" >> "$GITHUB_ENV"
+            [ "$JAVAC_COMPLIANCE" != true ] || mode=true
+          else
+            echo "JANINO_GROUP=org.codehaus.janino" >> "$GITHUB_ENV"
+            echo "JANINO_VERSION=$BASELINE" >> "$GITHUB_ENV"
+          fi
+          echo "JANINO_COMPLIANCE=$mode" >> "$GITHUB_ENV"
+
+      # Resolves the class path (and with it Drill's tests jar), then selects the test classes of this shard.
+      - name: Select the tests of shard ${{ matrix.shard }}
+        run: |
+          mvn -B -ntp -q -f .github/drill/pom.xml dependency:resolve "-Ddrill.version=$DRILL_VERSION" \
+            "-Djanino.groupId=$JANINO_GROUP" "-Djanino.version=$JANINO_VERSION"
+          tests_jar=$HOME/.m2/repository/org/apache/drill/exec/drill-java-exec/$DRILL_VERSION
+          tests_jar=$tests_jar/drill-java-exec-$DRILL_VERSION-tests.jar
+          mkdir -p .github/drill/target
+          python3 .github/drill/tests.py "$tests_jar" .github/drill/times.txt "$EXCLUDES" "${{ matrix.shard }}" \
+            "$SHARDS" .github/drill/target/includes.txt
+
+      # With "maven.test.failure.ignore", failing tests do not fail this step (the verdict comes from the "compare"
+      # job), but any other error of the build does. In the compliance mode, "janino.argLine" sets the property.
+      - name: >-
+          Run the tests with ${{ env.JANINO_GROUP }}:janino:${{ env.JANINO_VERSION }}
+          (compliance mode ${{ env.JANINO_COMPLIANCE }})
+        run: |
+          arg_line=
+          if [ "$JANINO_COMPLIANCE" = true ]; then
+            arg_line="-Djanino.argLine=-Dorg.codehaus.janino.javacCompliance=true"
+          fi
+          mvn -B -ntp -f .github/drill/pom.xml test -Dmaven.test.failure.ignore=true "-Ddrill.version=$DRILL_VERSION" \
+            "-Djanino.groupId=$JANINO_GROUP" "-Djanino.version=$JANINO_VERSION" ${arg_line:+"$arg_line"}
+
+      # Drill does not shade JANINO: the property of the compliance mode under its name only.
+      - name: Verify which JANINO the tests ran with, and its mode
+        run: |
+          python3 .github/fory/check_reports.py .github "$JANINO_GROUP" "$JANINO_VERSION" "$JANINO_COMPLIANCE" \
+            org.codehaus.janino.javacCompliance
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: results-${{ matrix.janino }}-java${{ matrix.java }}-shard${{ matrix.shard }}
+          path: .github/drill/target/surefire-reports/TEST-*.xml
+          if-no-files-found: error
+
+  # Compares the test results of the candidate with those of the baseline, both shards together.
+  compare:
+    name: Compare on Java ${{ matrix.java }}
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ 11, 21 ]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/calcite
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: results-baseline-java${{ matrix.java }}-shard*
+          merge-multiple: true
+          path: baseline
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: results-candidate-java${{ matrix.java }}-shard*
+          merge-multiple: true
+          path: candidate
+
+      - name: Compare the results
+        run: python3 .github/calcite/compare_junit.py baseline candidate
