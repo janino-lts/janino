@@ -98,6 +98,72 @@ public class P implements java.io.Serializable {
     public static Object run() { return java.io.ObjectStreamClass.lookup(P.class).getSerialVersionUID(); }
 }
 
+=== assert on parameters and local variables is disabled unless enabled for the class (#124)
+jls: ok,ok,ok,ok,ok,ok,ok,ok
+janino: WRONG thrown,thrown,thrown,thrown,thrown,thrown,thrown,thrown
+compliant: OK
+id: S-03, #124
+public class P {
+    static String t(Runnable r) { try { r.run(); return "ok"; } catch (AssertionError e) { return "thrown"; } }
+    static void param(Object o) { assert o != null; }
+    static void local() { Object o = null; assert o != null; }
+    static void forVariable() { for (int i = 0; i < 1; i++) assert i == 1; }
+    static void forEachVariable() { for (int i : new int[] { 0 }) assert i == 1; }
+    static void catchParameter() {
+        try { throw new RuntimeException(); } catch (RuntimeException e) { assert e == null; }
+    }
+    static void booleanParam(boolean b) { assert b; }
+    interface I { static void s(int x) { assert x == 1; } }
+    static void captured() { final Object o = null; class L { void q() { assert o != null; } } new L().q(); }
+    public static Object run() {
+        String r = t(new Runnable() { public void run() { param(null); } });
+        r += "," + t(new Runnable() { public void run() { local(); } });
+        r += "," + t(new Runnable() { public void run() { forVariable(); } });
+        r += "," + t(new Runnable() { public void run() { forEachVariable(); } });
+        r += "," + t(new Runnable() { public void run() { catchParameter(); } });
+        r += "," + t(new Runnable() { public void run() { booleanParam(false); } });
+        r += "," + t(new Runnable() { public void run() { I.s(0); } });
+        r += "," + t(new Runnable() { public void run() { captured(); } });
+        return r;
+    }
+}
+
+=== assert on a parameter or local variable that hides a field (#124)
+jls: thrown,thrown,thrown
+janino: OK
+public class P {
+    public static Object run() {
+        P.class.getClassLoader().setClassAssertionStatus("P", true);
+        return Q.t();
+    }
+    static class Q {
+        static boolean X = true;
+        static int Y = 1;
+        static final boolean Z = true;
+        static void x(boolean X) { assert X; }
+        static void y() { int Y = 0; assert Y == 1; }
+        static void z() { boolean Z = false; assert Z; }
+        static String a(Runnable r) {
+            try { r.run(); return "not thrown"; } catch (AssertionError e) { return "thrown"; }
+        }
+        static String t() {
+            String r = a(new Runnable() { public void run() { x(false); } });
+            r += "," + a(new Runnable() { public void run() { y(); } });
+            r += "," + a(new Runnable() { public void run() { z(); } });
+            return r;
+        }
+    }
+}
+
+=== serialVersionUID of a serializable class whose assert condition is a constant field with the value true
+jls: 3158675307029055783
+janino: OK
+public class P implements java.io.Serializable {
+    static final boolean T = true;
+    void m() { assert T; }
+    public static Object run() { return java.io.ObjectStreamClass.lookup(P.class).getSerialVersionUID(); }
+}
+
 === qualified superclass method invocation (Outer.super.m())
 janino: OK
 jls: base

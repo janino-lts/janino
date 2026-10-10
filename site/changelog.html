@@ -148,6 +148,14 @@ h5 {
         like JAVAC. The class files of the compatibility mode are unchanged.
       </li>
       <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/124">issue #124</a>: In the compliance mode, the
+        condition of an <code>assert</code> statement that refers to a parameter or a local variable was resolved
+        before the variable was known: <code>assert o != null;</code> with a parameter <code>o</code> was rejected
+        ("Expression "o" is not an rvalue"), and where a field had the same name, the condition silently read the
+        field. Now such a condition is compiled like any other expression. The class files of the compatibility mode
+        are unchanged.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/31">issue #31</a>: Some compile error messages
         pointed in the wrong direction; now they explain the error. Each message keeps the text that it had before,
         and the explanation is appended, because applications and their tests match message texts:
