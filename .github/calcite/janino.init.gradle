@@ -4,13 +4,19 @@
 // Gradle property "janino.version". This script
 //  * substitutes these two modules with the artifacts of this repository ("io.github.janino-lts"), in the version of
 //    the Gradle property "janino.candidate", if that property is set (the artifacts come from the local Maven
-//    repository, see Calcite's property "enableMavenLocal", or from Maven Central), and
+//    repository, see Calcite's property "enableMavenLocal", or from Maven Central),
+//  * sets the system property "org.codehaus.janino.javacCompliance" to "true" in every test task, if the Gradle
+//    property "janino.compliance" is "true", so that the tests run with JANINO's compliance mode (the development
+//    line only; Calcite passes only its own system properties to the test JVMs), and
 //  * adds the task ":core:janinoClasspath", which prints the JANINO artifacts on the test runtime class path of
-//    Calcite's "core" module, so that the workflow can verify which JANINO the tests actually used.
+//    Calcite's "core" module and the mode of its tests, so that the workflow can verify which JANINO the tests
+//    actually used, and how.
 //
-// Usage: gradlew -I janino.init.gradle [-Pjanino.candidate=<version>] [-PenableMavenLocal=] :core:janinoClasspath
+// Usage: gradlew -I janino.init.gradle [-Pjanino.candidate=<version>] [-PenableMavenLocal=] [-Pjanino.compliance=true]
+//        :core:janinoClasspath
 
 def candidate = gradle.startParameter.projectProperties["janino.candidate"]
+def compliance = gradle.startParameter.projectProperties["janino.compliance"] == "true"
 
 if (candidate) {
     allprojects {
@@ -27,16 +33,26 @@ if (candidate) {
     }
 }
 
+if (compliance) {
+    allprojects {
+        tasks.withType(Test).configureEach {
+            systemProperty("org.codehaus.janino.javacCompliance", "true")
+        }
+    }
+}
+
 // "allprojects" instead of "project(':core')", because this script also applies to Calcite's "buildSrc" build.
 allprojects {
     if (path == ":core") {
         tasks.register("janinoClasspath") {
-            description = "Prints the JANINO artifacts on the test runtime class path."
+            description = "Prints the JANINO artifacts on the test runtime class path, and the mode of the tests."
             doLast {
                 def files = configurations.testRuntimeClasspath.files.findAll {
                     it.name.startsWith("janino-") || it.name.startsWith("commons-compiler-")
                 }
                 files.each { println("JANINO_CLASSPATH " + it.absolutePath.replace(File.separator, "/")) }
+                def mode = tasks.named("test").get().systemProperties["org.codehaus.janino.javacCompliance"]
+                println("JANINO_COMPLIANCE " + (mode ?: "off"))
             }
         }
     }

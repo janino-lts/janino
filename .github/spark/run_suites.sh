@@ -9,6 +9,9 @@
 # and under Git Bash on Windows. Writes the JUnit XML reports to "reports/<label>/", the log to "logs/<label>.log"
 # and the resolved class path to "cp-<label>.txt", all in this directory.
 #
+# With the environment variable JANINO_COMPLIANCE=true, the suites run with JANINO's compliance mode (the system
+# property "org.codehaus.janino.javacCompliance"; the development line only).
+#
 # Exit status: 0 = the run completed and all tests passed; 3 = the run completed, but tests failed (the comparison
 # decides); 2 = the ScalaTest run aborted, e.g. because of a LinkageError in a suite (the aborting suite is printed;
 # exclude it); 1 = wrong arguments, or the class path does not contain exactly the expected JANINO.
@@ -36,6 +39,8 @@ for artifact in janino commons-compiler; do
     echo "$jars" | grep -E -q "$pattern/.*/$artifact-$version\.jar$" \
         || { echo "$artifact-$version.jar of $group is not on the class path"; exit 1; }
 done
+if [ "${JANINO_COMPLIANCE:-}" = true ]; then compliance=true; mode=true; else compliance=false; mode=off; fi
+echo "JANINO_COMPLIANCE $mode"
 
 # 2. The tests jar as the runpath for the suite discovery; copied, because the runpath is split at spaces.
 tests_jar=$(echo "$entries" | grep -E '/spark-catalyst_2\.13-[^/]*-tests\.jar$' | head -1)
@@ -45,7 +50,8 @@ suites=$("$py" suites.py catalyst-tests.jar "$prefix" "$excluded") || exit 1
 [ -n "$suites" ] || { echo "no suites for the package prefix $prefix"; exit 1; }
 
 # 3. The run. The class path goes into an argument file (the command line of Windows is limited to 32 K
-# characters); the JVM options are those of Spark's own test runs ("extraJavaTestArgs" in the spark-parent POM).
+# characters); the JVM options are those of Spark's own test runs ("extraJavaTestArgs" in the spark-parent POM),
+# plus the mode of JANINO (which the baseline ignores).
 echo "-cp \"$(echo "$entries" | paste -s -d "$sep" -)\"" > "cp-$label.args"
 rm -rf "reports/$label"; mkdir -p "reports/$label"
 start=$(date +%s)
@@ -70,6 +76,7 @@ start=$(date +%s)
     --enable-native-access=ALL-UNNAMED \
     -XX:+EnableDynamicAgentLoading \
     -Dspark.test.home="$PWD/home" -Dspark.testing=true -Duser.timezone=UTC -Dfile.encoding=UTF-8 \
+    -Dorg.codehaus.janino.javacCompliance=$compliance \
     org.scalatest.tools.Runner -R catalyst-tests.jar -u "reports/$label" -oD $suites > "logs/$label.log" 2>&1
 rc=$?
 sed 's/\x1b\[[0-9;]*m//g' "logs/$label.log" > "logs/$label-plain.log"

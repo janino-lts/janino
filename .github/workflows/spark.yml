@@ -20,8 +20,15 @@
 # values, on "master" and on "3.1.x": the workflow "Weekly" starts it on both branches, because a scheduled workflow
 # would run only on the default branch. It does NOT run for pull requests. Before a release, start it manually for
 # the release branch.
+#
+# On the development line, the input "javac-compliance" (off by default, and off in the weekly runs) runs the
+# candidate in JANINO's compliance mode (the system property "org.codehaus.janino.javacCompliance", see
+# "run_suites.sh"); the baseline runs as always. The "compare" jobs then show every test that depends on a behavior
+# that the compliance mode changes. This needs a candidate that has the compliance mode, i.e. one built from the
+# development line.
 
 name: Spark
+run-name: ${{ inputs.javac-compliance && 'Spark (javac compliance)' || 'Spark' }}
 
 on:
   workflow_dispatch:
@@ -46,6 +53,10 @@ on:
         description: Regular expression of excluded suite names
         type: string
         default: SparkSubmit|SubExprEvaluationRuntimeSuite|SQLKeywordSuite|TableIdentifierParserSuite
+      javac-compliance:
+        description: Run the candidate in the compliance mode (the development line only)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -58,6 +69,7 @@ env:
   EXCLUDES: >-
     ${{ inputs.excludes ||
     'SparkSubmit|SubExprEvaluationRuntimeSuite|SQLKeywordSuite|TableIdentifierParserSuite' }}
+  JAVAC_COMPLIANCE: ${{ inputs.javac-compliance && 'true' || 'false' }}
 
 jobs:
 
@@ -143,6 +155,8 @@ jobs:
           if [ "${{ matrix.janino }}" = candidate ]; then
             echo "JANINO_GROUP=io.github.janino-lts" >> "$GITHUB_ENV"
             echo "JANINO_VERSION=${{ needs.build.outputs.version }}" >> "$GITHUB_ENV"
+            # The mode of the candidate, see "run_suites.sh".
+            echo "JANINO_COMPLIANCE=$JAVAC_COMPLIANCE" >> "$GITHUB_ENV"
           else
             echo "JANINO_GROUP=org.codehaus.janino" >> "$GITHUB_ENV"
             echo "JANINO_VERSION=$BASELINE" >> "$GITHUB_ENV"

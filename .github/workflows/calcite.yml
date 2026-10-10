@@ -21,8 +21,15 @@
 #    from the branch), on "master" and on "3.1.x": the workflow "Weekly" starts it on both branches, because a
 #    scheduled workflow would run only on the default branch.
 # It does NOT run for pull requests. Before a release, start it manually for the release branch.
+#
+# On the development line, the input "javac-compliance" (off by default, and off in the weekly runs) runs the
+# candidate in JANINO's compliance mode (the system property "org.codehaus.janino.javacCompliance", set in every
+# test task by the init script); the baseline runs as always. The "compare" jobs then show every test that depends on
+# a behavior that the compliance mode changes. This needs a candidate that has the compliance mode, i.e. one built
+# from the development line.
 
 name: Calcite
+run-name: ${{ inputs.javac-compliance && 'Calcite (javac compliance)' || 'Calcite' }}
 
 on:
   workflow_dispatch:
@@ -43,6 +50,10 @@ on:
         description: Gradle tasks that run the tests, e.g. test (all modules) or :core:test
         type: string
         default: test
+      javac-compliance:
+        description: Run the candidate in the compliance mode (the development line only)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -52,6 +63,7 @@ env:
   BASELINE: ${{ inputs.baseline || '3.1.12' }}
   CANDIDATE: ${{ inputs.candidate || '' }}
   TASKS: ${{ inputs.tasks || 'test' }}
+  JAVAC_COMPLIANCE: ${{ inputs.javac-compliance && 'true' || 'false' }}
 
 jobs:
 
@@ -137,14 +149,20 @@ jobs:
           name: janino-m2
           path: ~/.m2/repository/io/github/janino-lts
 
-      # The version that the tests must use, and the Gradle arguments that select it (see the init script).
+      # The version that the tests must use, its mode, and the Gradle arguments that select them (see the init
+      # script).
       - name: Select the JANINO version
         run: |
+          mode=off
           if [ "${{ matrix.janino }}" = candidate ]; then
             version='${{ needs.build.outputs.version }}'
             group='io[./]github[./]janino-lts'
             args="-Pjanino.candidate=$version"
             [ -n "$CANDIDATE" ] || args="$args -PenableMavenLocal="
+            if [ "$JAVAC_COMPLIANCE" = true ]; then
+              mode=true
+              args="$args -Pjanino.compliance=true"
+            fi
           else
             version=$BASELINE
             group='org[./]codehaus[./]janino'
@@ -152,12 +170,13 @@ jobs:
           fi
           echo "JANINO_VERSION=$version" >> "$GITHUB_ENV"
           echo "JANINO_GROUP=$group" >> "$GITHUB_ENV"
+          echo "JANINO_MODE=$mode" >> "$GITHUB_ENV"
           echo "GRADLE_ARGS=--no-daemon --no-parallel -I ../janino/.github/calcite/janino.init.gradle $args" \
             >> "$GITHUB_ENV"
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - name: Verify which JANINO is on the test class path
+      - name: Verify which JANINO is on the test class path, and its mode
         working-directory: calcite
         run: |
           ./gradlew -q $GRADLE_ARGS :core:janinoClasspath | tee classpath.txt
@@ -167,6 +186,8 @@ jobs:
             grep -E -q "$JANINO_GROUP/.*/$artifact-$JANINO_VERSION[.]jar$" jars.txt \
               || { echo "::error::$artifact-$JANINO_VERSION.jar of $JANINO_GROUP is not on the class path"; exit 1; }
           done
+          grep -q -x "JANINO_COMPLIANCE $JANINO_MODE" classpath.txt \
+            || { echo "::error::the tests do not run with JANINO_COMPLIANCE $JANINO_MODE"; exit 1; }
 
       # The verdict comes from the "compare" job; failing tests do not fail this job.
       - name: Run Calcite's tests (${{ env.TASKS }}) with ${{ env.JANINO_VERSION }}
