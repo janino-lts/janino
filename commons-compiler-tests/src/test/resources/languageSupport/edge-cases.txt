@@ -66,11 +66,11 @@ public class P {
 }
 
 === floating-point literals with a leading zero: underscores, exponents, suffixes
-jls: 9.5/90.0/0.9/123.0/7.0/0.0/189.5/9.9E11/FloatDouble
+jls: 0.75/90.0/0.9/123.0/7.0/0.0/189.5/9.9E11/FloatDouble
 janino: OK
 public class P {
     public static Object run() {
-        return 0_9.5 + "/" + 09E+1 + "/" + 09e-1f + "/" + 0123. + "/" + 07.f + "/" + 00e0 + "/" + 0189.5 + "/"
+        return 0_7.5f / 10 + "/" + 09E+1 + "/" + 09e-1f + "/" + 0123. + "/" + 07.f + "/" + 00e0 + "/" + 0189.5 + "/"
             + 09_9e1_0 + "/" + ((Object) 09f).getClass().getSimpleName() + ((Object) 08.).getClass().getSimpleName();
     }
 }
@@ -82,6 +82,11 @@ public class P {
     static final double D = 09.5 * 2;
     public static Object run() { return String.valueOf(D); }
 }
+
+=== floating-point literal with a leading zero and an underscore before the first digit 8 or 9
+jls: 9.5
+janino: REJECTED ')' expected instead of '_9'
+public class P { public static Object run() { return String.valueOf(0_9.5); } }
 
 === octal integer literals
 jls: 15/0/15/7/4095/-1/Long
