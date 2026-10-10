@@ -15,12 +15,15 @@ help with the work by creating an [issue](https://github.com/janino-lts/janino/i
 [pull request](https://github.com/janino-lts/janino/pulls).
 
 Janino is used by several large Apache projects, among others [Apache Spark](https://spark.apache.org/),
-[Apache Calcite](https://calcite.apache.org/), [Apache Flink](https://flink.apache.org/) and
-[Apache Hive](https://hive.apache.org/). (They use the original Janino 3.1.12, not this continuation.)
-Three workflows run the test suites of [Apache Calcite](.github/workflows/calcite.yml) (all modules), of
-[Spark Catalyst](.github/workflows/spark.yml) and of [Apache Fory](.github/workflows/fory.yml) (all Java modules)
-against this Janino, each twice: with the Janino that the project declares and with this one, and compare the
-results. The [compile-time benchmarks](janino-benchmarks/README.md)
+[Apache Calcite](https://calcite.apache.org/), [Apache Flink](https://flink.apache.org/),
+[Apache Hive](https://hive.apache.org/), [Apache Drill](https://drill.apache.org/) and
+[Apache Fory](https://fory.apache.org/). (They use the original Janino 3.1.12, not this continuation.)
+Four workflows run the test suites of [Apache Calcite](.github/workflows/calcite.yml) (all modules), of
+[Spark Catalyst](.github/workflows/spark.yml) and of [Apache Fory](.github/workflows/fory.yml) (all Java modules),
+and a reduced set of the tests of [Apache Drill](.github/workflows/drill.yml) (about 4800 tests of its execution
+engine), against this Janino, each twice: with the Janino that the project declares and with this one, and compare
+the results.
+The [compile-time benchmarks](janino-benchmarks/README.md)
 compare the compile time of two Janino versions, among others on the code that Apache Spark generates for the
 TPC-DS queries; each release is measured against its predecessor.
 

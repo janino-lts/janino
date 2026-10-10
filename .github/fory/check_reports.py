@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Checks which JANINO the tests of Apache Fory actually ran with.
+"""Checks which JANINO the tests of Apache Fory or Apache Drill actually ran with.
 
-Used by the workflow ".github/workflows/fory.yml" after the tests: surefire records the system properties of the
-test JVM in each report ("<module>/target/surefire-reports/TEST-*.xml"), among them the class path of the tests
-("surefire.test.class.path"). The script fails unless
+Used by the workflows ".github/workflows/fory.yml" and "drill.yml" after the tests: surefire records the system
+properties of the test JVM in each report ("<module>/target/surefire-reports/TEST-*.xml", where "<module>" is a
+subdirectory of the given directory, e.g. "fory-core", or "drill" below ".github"), among them the class path of
+the tests ("surefire.test.class.path"). The script fails unless
  * every report that has a JANINO jar ("janino-*.jar" or "commons-compiler-*.jar") on its class path has exactly
    "janino-<version>.jar" and "commons-compiler-<version>.jar" of the given group, from the local Maven repository,
    and nothing else of JANINO, and
  * at least one report has them (Fory's modules without code generation do not need JANINO).
 This makes sure that the baseline and the candidate run are what they claim to be, e.g. that the candidate run did
-not silently use the JANINO that Fory declares.
+not silently use the JANINO that the project declares.
 
-Usage: check_reports.py <fory-java-dir> <group-id> <version>
+Usage: check_reports.py <directory> <group-id> <version>
 """
 
 import glob
@@ -43,7 +44,7 @@ def check(path, group, version):
 
 def main(argv):
     if len(argv) != 4:
-        print("usage: check_reports.py <fory-java-dir> <group-id> <version>")
+        print("usage: check_reports.py <directory> <group-id> <version>")
         return 2
     directory, group, version = argv[1:]
     paths = sorted(glob.glob(os.path.join(directory, "*", "target", "surefire-reports", "TEST-*.xml")))
