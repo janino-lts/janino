@@ -192,13 +192,17 @@ seven deviations, each a consistent rule of Janino's that programs could rely on
 | S-12 | `String s = "x"; boolean x = ("a" + (true ? "b" : s)) == "ab";` | `x == true` | `x == false` (the expression is not a constant expression) |
 | S-13 | `f(Object o)` and `f(int... i)`; `f(new int[] { 1 })`; `f(Object... a)`; `f(null)` | invokes `f(Object)`; `a` is `{ null }` | invokes `f(int...)`; `a` is `null` ([#126](https://github.com/janino-lts/janino/issues/126)) |
 
-For S-03, the compliance mode declares a synthetic field `static final boolean $assertionsDisabled` in every class
-that contains an `assert` statement, initialized with `!Outermost.class.desiredAssertionStatus()` as the first
-statement of the class initializer, like `javac`; an `assert true;` generates no code and no field, like with
-`javac`. Two consequences: the default `serialVersionUID` of a serializable class with an `assert` statement is the
-one that `javac` computes (it includes the field), and differs from the compatibility mode's; and for an interface,
-the field is a `public static final` field of the interface itself, where `javac` declares it in a synthetic
-class.
+For S-03, the compliance mode declares a synthetic field `static final boolean $assertionsDisabled` in every class that
+contains an `assert` statement, initialized with `!Outermost.class.desiredAssertionStatus()` as the first statement of
+the class initializer, like `javac`; an `assert true;` generates no code and no field, like with `javac`. Two
+consequences: the default `serialVersionUID` of a serializable class with an `assert` statement is the one that `javac`
+computes (it includes the field), and differs from the compatibility mode's; and for an interface, the field is a
+`public static final` field of the interface itself, where `javac` declares it in a synthetic class. Janino decides
+whether a class needs the field before it compiles the methods, i.e. before it knows their local variables; a condition
+with a name that is also declared as a parameter or local variable in an enclosing method or initializer therefore
+counts as not constant then. So, in the rare case that `assert T;` refers to a `static final boolean T = true` while a
+local variable `T` is declared elsewhere in the method, the class gets an unused field where `javac` declares none (only
+the class file and the default `serialVersionUID` differ; [#124](https://github.com/janino-lts/janino/issues/124)).
 
 For S-11, the compliance mode resolves `T.this` to the lexically enclosing instance of class `T` (JLS 15.8.4), also in
 `P.this.f`, `P.this.m()`, `P.super.f`, in anonymous and local subclasses of `P` and in classes nested in `Q`; and the

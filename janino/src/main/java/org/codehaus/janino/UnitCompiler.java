@@ -3227,7 +3227,7 @@ class UnitCompiler {
 
     /**
      * @return Whether the body of the type declaration contains an ASSERT statement that generates code (see {@link
-     *         #isAssertTrue(AssertStatement)}), not counting the bodies of nested types
+     *         #isAssertTrueBeforeCompilation(AssertStatement)}), not counting the bodies of nested types
      */
     private boolean
     containsAssertStatement(AbstractTypeDeclaration atd) throws CompileException {
@@ -3238,7 +3238,7 @@ class UnitCompiler {
 
             @Override public void
             traverseAssertStatement(AssertStatement as) throws CompileException {
-                if (!UnitCompiler.this.isAssertTrue(as)) result[0] = true;
+                if (!UnitCompiler.this.isAssertTrueBeforeCompilation(as)) result[0] = true;
             }
 
             // Nested types get their own field.
@@ -3267,6 +3267,84 @@ class UnitCompiler {
     private boolean
     isAssertTrue(AssertStatement as) throws CompileException {
         return Boolean.TRUE.equals(this.getConstantValue(as.expression1));
+    }
+
+    /**
+     * Compliance S-03: Like {@link #isAssertTrue(AssertStatement)}, for the decision about the "$assertionsDisabled"
+     * field, which is made before the methods are compiled, i.e. before their local variables are declared. A name in
+     * the condition that may denote a local variable or a parameter must not be resolved then, because it would be
+     * resolved as a field (or not at all), and the result is cached (issue #124); such a condition counts as not
+     * constant, because JANINO never takes a local variable for a constant. If the condition turns out to be the
+     * constant {@code true} nevertheless (e.g. "{@code true || x}"), the field remains unused.
+     */
+    private boolean
+    isAssertTrueBeforeCompilation(AssertStatement as) throws CompileException {
+
+        final Set<String> localVariableNames = UnitCompiler.localVariableNamesOfEnclosingBodies(as);
+        if (!localVariableNames.isEmpty()) {
+            final boolean[] mayDenoteLocalVariable = { false };
+            new AbstractTraverser<RuntimeException>() {
+
+                @Override public void
+                traverseAmbiguousName(AmbiguousName an) {
+                    if (localVariableNames.contains(an.identifiers[0])) mayDenoteLocalVariable[0] = true;
+                    super.traverseAmbiguousName(an);
+                }
+            }.traverseArrayInitializerOrRvalue(as.expression1);
+            if (mayDenoteLocalVariable[0]) return false;
+        }
+
+        return this.isAssertTrue(as);
+    }
+
+    /**
+     * @return The names of all parameters and local variables that are declared in the methods, constructors and
+     *         initializers that enclose the <var>scope</var>, including those of enclosing types (whose local
+     *         variables a local or anonymous class can access), whether or not they are in scope at the
+     *         <var>scope</var>
+     */
+    private static Set<String>
+    localVariableNamesOfEnclosingBodies(Scope scope) {
+
+        final Set<String> result = new HashSet<>();
+
+        AbstractTraverser<RuntimeException> collector = new AbstractTraverser<RuntimeException>() {
+
+            @Override public void
+            traverseFormalParameter(FormalParameter fp) {
+                result.add(fp.name);
+                super.traverseFormalParameter(fp);
+            }
+
+            @Override public void
+            traverseLocalVariableDeclarationStatement(LocalVariableDeclarationStatement lvds) {
+                for (VariableDeclarator vd : lvds.variableDeclarators) result.add(vd.name);
+                super.traverseLocalVariableDeclarationStatement(lvds);
+            }
+
+            @Override public void
+            traverseLocalVariableDeclaratorResource(LocalVariableDeclaratorResource lvdr) {
+                result.add(lvdr.variableDeclarator.name);
+                super.traverseLocalVariableDeclaratorResource(lvdr);
+            }
+
+            @Override public void
+            traverseTryStatement(TryStatement ts) {
+                for (CatchClause cc : ts.catchClauses) result.add(cc.catchParameter.name);
+                super.traverseTryStatement(ts);
+            }
+        };
+
+        for (Scope s = scope.getEnclosingScope(); !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (s instanceof FunctionDeclarator) {
+                collector.traverseFunctionDeclarator((FunctionDeclarator) s);
+            } else
+            if (s instanceof Initializer) {
+                collector.traverseInitializer((Initializer) s);
+            }
+        }
+
+        return result;
     }
 
     private boolean
