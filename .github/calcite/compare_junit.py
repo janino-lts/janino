@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """Compares the JUnit XML reports of two test runs, a baseline run and a candidate run.
 
-Used by the workflows ".github/workflows/calcite.yml" and "spark.yml": the tests of a project that uses JANINO are
-executed with the JANINO that the project declares (the baseline) and with the JANINO of this repository (the
-candidate). A test that passes with the baseline and fails with the candidate is a regression; a test that fails
+Used by the workflows ".github/workflows/calcite.yml", "spark.yml" and "fory.yml": the tests of a project that uses
+JANINO are executed with the JANINO that the project declares (the baseline) and with the JANINO of this repository
+(the candidate). A test that passes with the baseline and fails with the candidate is a regression; a test that fails
 with both is not.
 
 Usage: compare_junit.py <baseline-dir> <candidate-dir>
        compare_junit.py <candidate-dir>      (no baseline: the run must contain tests, and none may have failed)
 
 Both directories are searched recursively for "*.xml" files in the JUnit XML format (as Gradle writes them to
-"build/test-results"). A test is identified by its module (the path of the XML file relative to the directory, up
-to "build", e.g. "core" or "example/csv"), its class, its name without identity hash codes, and the number of the
-execution among equally named tests. The script prints a summary and the differences (also to the GitHub job
-summary, if the
-environment variable GITHUB_STEP_SUMMARY is set) and exits with status 1 if
+"build/test-results", and Maven's surefire to "target/surefire-reports"). A test is identified by its module (the
+path of the XML file relative to the directory, up to "build" or "target", e.g. "core", "example/csv" or
+"fory-core"), its class, its name without identity hash codes and TestNG's invocation numbers, and the number of the
+execution among equally named tests. The script prints a summary and the differences (also to the GitHub job summary,
+if the environment variable GITHUB_STEP_SUMMARY is set) and exits with status 1 if
  * a test passed with the baseline, but failed with the candidate,
  * a test that ran with the baseline did not run with the candidate (e.g. because the test JVM crashed), or
  * one of the runs contains no test at all.
@@ -31,13 +31,16 @@ MAX_LISTED = 100
 # The display names of some parameterized tests contain the identity hash code of a parameter object, e.g.
 # "[1] CAST, org.apache.calcite.test.SqlOperatorFixtureImpl@784bc074", which differs between the runs.
 IDENTITY_HASH = re.compile(r"@[0-9a-f]{1,8}\b")
+# TestNG (Fory) appends the number of the invocation by a data provider, e.g. "testItem[false](2)", which depends on
+# the order of the invocations and differs between the runs.
+INVOCATION_NUMBER = re.compile(r"\(\d+\)$")
 
 
 def module_name(directory, xml_dir):
-    """Returns the path of "xml_dir" relative to "directory" up to (excluding) a component "build", with "/"."""
+    """Returns the path of "xml_dir" relative to "directory" up to (excluding) "build" or "target", with "/"."""
     parts = []
     for part in os.path.relpath(xml_dir, directory).split(os.sep):
-        if part == "build" or part == os.curdir:
+        if part in ("build", "target") or part == os.curdir:
             break
         parts.append(part)
     return "/".join(parts)
@@ -65,7 +68,8 @@ def read_results(directory):
                 print("WARNING: cannot parse " + path + ": " + str(e))
                 continue
             for case in tree.getroot().iter("testcase"):
-                name = (module, case.get("classname", ""), IDENTITY_HASH.sub("", case.get("name", "")))
+                test = INVOCATION_NUMBER.sub("", IDENTITY_HASH.sub("", case.get("name", "")))
+                name = (module, case.get("classname", ""), test)
                 n = executions.get(name, 0)
                 executions[name] = n + 1
                 if case.find("failure") is not None or case.find("error") is not None:
