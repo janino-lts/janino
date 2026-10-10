@@ -5,13 +5,14 @@
 #
 # No Drill build is needed: Drill publishes the test classes of "java-exec" on Maven Central
 # ("drill-java-exec-<v>-tests.jar"), and ".github/drill/pom.xml" runs them with surefire on a class path in which the
-# JANINO is selectable. Drill's tests read their data relative to the working directory, so the test resources and
-# the sample data of the Drill release are checked out (sparse, about 4 MB). The tests are executed with the JANINO
-# that Drill declares (the baseline, "org.codehaus.janino:janino:3.1.12") and with the JANINO of this repository (the
-# candidate: built from the checked out commit, or a released version from Maven Central), on Java 11 (the oldest
-# version that Drill 1.22.0 supports) and 21. The "compare" jobs fail if a test that passed with the baseline fails
-# with the candidate, or if a test that ran with the baseline did not run with the candidate. Tests that fail with
-# both are listed, but do not fail the job.
+# JANINO is selectable. Drill's tests read their data relative to the working directory and as files from the class
+# path, so the test resources and the sample data of the Drill release are checked out (sparse, about 4 MB). The
+# tests are executed with the JANINO that Drill declares (the baseline, "org.codehaus.janino:janino:3.1.12") and with
+# the JANINO of this repository (the candidate: built from the checked out commit, or a released version from Maven
+# Central), on Java 11 (the oldest version that Drill 1.22.0 supports) and 21. The "compare" jobs fail if a test that
+# passed with the baseline fails with the candidate, or if a test that ran with the baseline did not run with the
+# candidate. Tests that fail with both are listed, but do not fail the job (e.g. the test of Parquet's Brotli codec,
+# which Drill gets from a repository other than Maven Central).
 #
 # All of "java-exec" takes about 42 minutes on GitHub's runner. ".github/drill/tests.py" leaves out the tests that do
 # not compile generated code, but take much time or need infrastructure (RPC and security, cluster coordination, fault

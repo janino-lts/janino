@@ -15,9 +15,10 @@
   are those of Drill's own build. The test-scoped dependencies of "java-exec" and of Drill's root POM are not
   transitive and are listed here, as far as the selected tests need them.
 
-  Drill's tests read their data from "src/test/resources" and "../../sample-data" relative to the working directory
-  (not from the class path), so the property "drill.dir" names a checkout of these two directories of the Drill
-  release. The JVM options are those of Drill's root POM (and its profile "jdk9+").
+  Drill's tests read their data from "src/test/resources" and "../../sample-data" relative to the working directory,
+  and as files from the class path, so the property "drill.dir" names a checkout of these two directories of the
+  Drill release, and its test resources come first on the class path. The JVM options are those of Drill's root POM
+  (and its profile "jdk9+").
 
   Hadoop needs "winutils.exe" on Windows, so the tests run on Linux (and macOS) only.
 -->
@@ -198,6 +199,10 @@
             org.apache.drill.categories.FlakyTest
           </excludedGroups>
           <workingDirectory>${drill.dir}/exec/java-exec</workingDirectory>
+          <!-- Puts the test resources of the checkout first on the class path (there are no test classes here): many
+               of Drill's tests turn the URL of a resource into a file ("DrillFileUtils.getResourceAsFile"), which
+               fails for a resource in the tests jar. -->
+          <testClassesDirectory>${drill.dir}/exec/java-exec/src/test/resources</testClassesDirectory>
           <argLine>-Xms512m -Xmx4096m -Ddrill.exec.http.enabled=false
             -Ddrill.exec.memory.enable_unsafe_bounds_check=true
             -Ddrill.exec.sys.store.provider.local.write=false
