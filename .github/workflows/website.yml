@@ -1,5 +1,9 @@
 # Builds the project website (the files under "site/", plus the aggregated JAVADOC) and publishes it on GitHub Pages.
 #
+# The pages under "site/" come from the branch that the workflow runs on (normally the default branch, whose change
+# log covers all releases and the development line). The JAVADOC comes from the latest release, i.e. the highest tag
+# "v3.1.*", so that it documents the API of the artifacts on Maven Central; the input "release" selects another tag.
+#
 # The workflow only runs when started manually ("Actions" > "Website" > "Run workflow"); it is never triggered
 # automatically.
 #
@@ -10,7 +14,8 @@
 #
 # Notice: GitHub creates an environment "github-pages", which, by default, allows deployments only from the default
 # branch. If the default branch changes, or if this workflow is ever triggered by a release (i.e. by a tag), adjust
-# "Settings" > "Environments" > "github-pages" > "Deployment branches and tags" accordingly.
+# "Settings" > "Environments" > "github-pages" > "Deployment branches and tags" accordingly. (Checking out a tag for
+# the JAVADOC, as below, does not count as a deployment from that tag.)
 #
 # Links from the website into the repository use "blob/HEAD/..." and "tree/HEAD/...", which always refer to the
 # default branch.
@@ -19,6 +24,10 @@ name: Website
 
 on:
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Release tag for the JAVADOC, e.g. "v3.1.19" (empty: the highest tag "v3.1.*")'
+        required: false
 
 permissions:
   contents: read
@@ -34,7 +43,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+
+      # The pages under "site/"; the complete history, for the tags.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Determine the release
+        id: release
+        env:
+          RELEASE: ${{ inputs.release }}
+        run: |
+          tag="$RELEASE"
+          [ -n "$tag" ] || tag=$(git tag --list 'v3.1.*' --sort=-v:refname | head -1)
+          git rev-parse --verify --quiet "refs/tags/$tag" > /dev/null || { echo "No such tag: \"$tag\""; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "JAVADOC from $tag"
+
+      # The sources of the release, for the JAVADOC.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+          path: release
 
       - name: Set up JDK 25
         uses: actions/setup-java@v6
@@ -43,15 +73,22 @@ jobs:
           java-version: 25
           cache: maven
 
-      # Assembles the website in "janino-parent/target/website"; see profile "website" in "janino-parent/pom.xml".
+      # Builds the JAVADOC of the release in "release/janino-parent/target/website/apidocs"; see profile "website" in
+      # "janino-parent/pom.xml".
+      - name: Build the JAVADOC of the release
+        run: mvn -B -f release/janino-parent/pom.xml -P website
+
       - name: Assemble the website
-        run: mvn -B -f janino-parent/pom.xml -P website
+        run: |
+          mkdir -p target/website
+          cp -r site/. target/website/
+          cp -r release/janino-parent/target/website/apidocs target/website/apidocs
 
       - uses: actions/configure-pages@v6
 
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: janino-parent/target/website
+          path: target/website
 
   deploy:
     needs: build
