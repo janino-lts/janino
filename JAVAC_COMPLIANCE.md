@@ -380,7 +380,8 @@ has the flag `ACC_PUBLIC`; the class files of all other code are unchanged. A ne
 `private` member type of a class in another package, which compiles into a class that fails when it resolves the
 reference. #97, found with #31: an inner class whose superclass is an inner class that extends the enclosing class
 compiled into a class that the JVM rejects (D: the constructor passed its uninitialized `this` as the enclosing
-instance); only these class files change.
+instance); only these class files change. #96, found with #31: a floating-point literal with a leading zero,
+e.g. `09.5`, was rejected (D); now it compiles, and the class files of all other code are unchanged.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`
@@ -392,8 +393,7 @@ misleading compile error messages: each improved message keeps its old text and 
 typo and for cyclic inheritance, which was reported as a stack overflow ("Compilation unit is nested too deeply") and
 is now reported as a class circularity (the same code is rejected as before).
 
-**Backlog without a target version:** #23 (above); #96, a floating-point literal with a leading zero, e.g. `09.5`,
-is rejected (D, found with #31).
+**Backlog without a target version:** #23 (above).
 
 Open: #38, #40 and #47 (class S) and #33 (class L) belong to the compliance mode. A compile error message is not a
 change of behavior in the sense of section 3.1, but applications and their tests match message texts (the tests of

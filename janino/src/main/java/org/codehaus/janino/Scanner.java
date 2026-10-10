@@ -431,27 +431,37 @@ class Scanner {
 
         if (this.peekRead('0')) {
 
-            if (               // E.g. "01"...
-                Scanner.isOctalDigit(this.peek())
-                || (this.peek() == '_' && (this.peekButOne() == '_' || Scanner.isOctalDigit(this.peekButOne())))
+            if (               // E.g. "01"... or "09"...
+                Scanner.isDecimalDigit(this.peek())
+                || (this.peek() == '_' && (this.peekButOne() == '_' || Scanner.isDecimalDigit(this.peekButOne())))
             ) {
 
-                this.read();
-                while (
-                    Scanner.isOctalDigit(this.peek())
-                    || (this.peek() == '_' && (this.peekButOne() == '_' || Scanner.isOctalDigit(this.peekButOne())))
-                ) this.read();
-                if (this.peek("89")) {
-                    throw new CompileException(
-                        "Digit '" + (char) this.peek() + "' not allowed in octal literal",
-                        this.location()
-                    );
-                }
-                if (this.peekRead("lL")) {
-                    return TokenType.INTEGER_LITERAL; // Octal long literal, e.g. "0123L".
+                // The digits after the leading zero are those of an octal integer literal, e.g. "0123", or of a
+                // decimal floating-point literal, e.g. "09.5", "07e1" or "09f" (JLS8 3.10.2, issue #96).
+                char nonOctalDigit = 0;
+                do {
+                    if (nonOctalDigit == 0 && this.peek("89")) nonOctalDigit = (char) this.peek();
+                    this.read();
+                } while (
+                    Scanner.isDecimalDigit(this.peek())
+                    || (this.peek() == '_' && (this.peekButOne() == '_' || Scanner.isDecimalDigit(this.peekButOne())))
+                );
+
+                if (!this.peek(".eEfFdD")) {
+                    if (nonOctalDigit != 0) {
+                        throw new CompileException(
+                            "Digit '" + nonOctalDigit + "' not allowed in octal literal",
+                            this.location()
+                        );
+                    }
+                    if (this.peekRead("lL")) {
+                        return TokenType.INTEGER_LITERAL; // Octal long literal, e.g. "0123L".
+                    }
+
+                    return TokenType.INTEGER_LITERAL; // Octal int literal, e.g. "0123".
                 }
 
-                return TokenType.INTEGER_LITERAL; // Octal int literal, e.g. "0123".
+                // A decimal floating-point literal; continue below with the fraction, the exponent and the suffix.
             }
 
             if (this.peekRead("lL")) return TokenType.INTEGER_LITERAL; // "0L"
@@ -636,9 +646,6 @@ class Scanner {
      */
     private static boolean
     isHexDigit(int c) { return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'); }
-
-    private static boolean
-    isOctalDigit(int c) { return c >= '0' && c <= '7'; }
 
     private static boolean
     isBinaryDigit(int c) { return c == '0' || c == '1'; }

@@ -122,9 +122,9 @@ therefore rejects (`Cannot access non-final local variable "x" from inner class`
 - a variable whose name is assigned in another block or in a nested class:
   `{ int x = 1; x = 2; } int x = 3; new Runnable() { ... x ... }`.
 
-**Floating-point literals with a leading zero** ([#96](https://github.com/janino-lts/janino/issues/96)): `09.5`,
-`00.5`, `0123.5`, `07e1`, `07f`, `09d` and `08.` are rejected (e.g. `';' expected instead of '9.5'`); Janino scans
-the digits after a leading `0` as an octal integer literal.
+**Floating-point literals with a leading zero** ([#96](https://github.com/janino-lts/janino/issues/96), fixed in
+3.1.19): Janino 3.1.18 and earlier reject `09.5`, `00.5`, `0123.5`, `07e1`, `07f`, `09d` and `08.` (e.g. `';'
+expected instead of '9.5'`), because they scan the digits after a leading `0` as an octal integer literal.
 
 ## 3. Invalid code that Janino accepts
 
