@@ -113,11 +113,12 @@ points of the API as well:
 
 ## How it is checked
 
-- **Downstream test suites.** Two workflows run the complete test suite of
-  [Apache Calcite](.github/workflows/calcite.yml) and the 349 test suites of
-  [Spark Catalyst](.github/workflows/spark.yml) against the current sources every week, and against every
-  release candidate before the release: once with the Janino that the project declares and once with this one,
-  and compare the results. No release without both being green.
+- **Downstream test suites.** Three workflows run the complete test suite of
+  [Apache Calcite](.github/workflows/calcite.yml), the 349 test suites of
+  [Spark Catalyst](.github/workflows/spark.yml) and the tests of all Java modules of
+  [Apache Fory](.github/workflows/fory.yml) against the current sources every week, and against every release
+  candidate before the release: once with the Janino that the project declares and once with this one, and
+  compare the results. No release without all three being green.
 - **Recorded behavior.** The negative tests (`InvalidCodeTest`, 443 cases of invalid code) and the
   characterization tests (`LanguageSupportTest`, 491 cases of valid code) record Janino's actual behavior, so that
   every change of it, intended or not, fails a test. Differential tests compile generated expressions and control

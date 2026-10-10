@@ -1,0 +1,217 @@
+# Tests JANINO against the test suite of Apache Fory, a serialization framework that generates Java code for the
+# serializers of the user's classes and compiles it with JANINO ("JaninoUtils" in "fory-core"). Besides the public
+# API, Fory uses internals of JANINO: it rewrites the generated class files through "org.codehaus.janino.util.
+# ClassFile", and it sets private fields of "ClassLoaderIClassLoader", "IClassLoader" and "ClassFile" by reflection.
+# Many of its tests run with and without code generation.
+#
+# Fory's tests (the Maven build in its directory "java", all modules) are executed twice on each Java version: with
+# the JANINO that Fory declares (the baseline, "org.codehaus.janino:janino:3.1.12" from Maven Central), and with the
+# JANINO of this repository (the candidate: either built from the checked out commit and installed into the local
+# Maven repository, or a released version from Maven Central). The "compare" jobs fail if a test that passed with the
+# baseline fails with the candidate, or if a test that ran with the baseline did not run with the candidate. Tests
+# that fail with both are listed, but do not fail the job.
+#
+# Fory declares "org.codehaus.janino:janino" with the version in the Maven property "janino.version", and shades it
+# into its jars, selected by that group ID; its other modules test against the shaded "fory-core". The artifacts of
+# this repository have the group ID "io.github.janino-lts", and Maven, unlike Gradle, cannot substitute a module.
+# Therefore ".github/fory/install_candidate.py" installs the candidate into the local Maven repository under the
+# coordinates "org.codehaus.janino" with its own version, and the build selects it with "-Djanino.version"; Fory's
+# sources and POMs stay untouched. The build runs up to the phase "install", like Fory's CI on Java 17 and later
+# ("fory-json" and "fory-format" compile their module descriptors against the jar of "fory-core"). After the tests,
+# ".github/fory/check_reports.py" reads the class path of the test JVMs from the surefire reports and fails unless it
+# has exactly the expected JANINO. No Maven cache: it would keep the candidate under the original coordinates.
+#
+# The profile "xlang-parallel" is switched off: it runs Fory's cross-language tests in a second surefire execution of
+# "fory-core", whose report overwrites that of the first one; without peers in the other languages, these tests are
+# skipped anyway, and without the profile they are skipped in the one execution.
+#
+# The workflow runs
+#  * when started manually ("Actions" > "Fory" > "Run workflow"): the Fory ref, the baseline and the candidate can be
+#    chosen;
+#  * once a week with the default values (the Fory release tag below, the baseline 3.1.12, and the candidate built
+#    from the branch), on "master" and on "3.1.x": the workflow "Weekly" starts it on both branches; and
+#  * for a pull request that changes this workflow or ".github/fory", so that a change of it is tested before it is
+#    merged (manual runs need the workflow on the default branch).
+# It does NOT run for other pull requests. Before a release, start it manually for the release branch.
+
+name: Fory
+
+on:
+  workflow_dispatch:
+    inputs:
+      fory-ref:
+        description: Fory tag, branch or commit (e.g. v1.7.6 or main)
+        type: string
+        default: v1.7.6
+      baseline:
+        description: Baseline, a version of org.codehaus.janino:janino on Maven Central
+        type: string
+        default: '3.1.12'
+      candidate:
+        description: Candidate, a released version of io.github.janino-lts:janino; empty = build this commit
+        type: string
+        default: ''
+  pull_request:
+    paths:
+      - .github/workflows/fory.yml
+      - .github/fory/**
+
+permissions:
+  contents: read
+
+# When new commits are pushed to a pull request, cancel the run for its previous commits.
+concurrency:
+  group: fory-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  FORY_REF: ${{ inputs.fory-ref || 'v1.7.6' }}
+  BASELINE: ${{ inputs.baseline || '3.1.12' }}
+  CANDIDATE: ${{ inputs.candidate || '' }}
+
+jobs:
+
+  # Builds the candidate from the checked out commit, unless a released version was given.
+  build:
+    name: Build the candidate
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        if: env.CANDIDATE == ''
+
+      - name: Set up JDK 25
+        if: env.CANDIDATE == ''
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Build and install into the local Maven repository
+        if: env.CANDIDATE == ''
+        run: mvn -B -f janino-parent/pom.xml install -DskipTests
+
+      - name: Determine the version of the candidate
+        id: version
+        run: |
+          if [ -n "$CANDIDATE" ]; then
+            version=$CANDIDATE
+          else
+            # Maven prints its errors to stdout; a command substitution would swallow them, so write the output to
+            # a file and print it if the command fails.
+            mvn -q -N -f janino-parent/pom.xml help:evaluate -Dexpression=project.version -DforceStdout \
+              > version.txt || { cat version.txt; exit 1; }
+            version=$(cat version.txt)
+          fi
+          echo "Candidate: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the installed artifacts
+        if: env.CANDIDATE == ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: janino-m2
+          path: ~/.m2/repository/io/github/janino-lts
+          if-no-files-found: error
+
+  # Runs Fory's tests with the baseline and with the candidate.
+  test:
+    name: Fory with the ${{ matrix.janino }} on Java ${{ matrix.java }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        janino: [ baseline, candidate ]
+        java: [ 8, 21 ]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: janino
+
+      - name: Check out Fory ${{ env.FORY_REF }}
+        uses: actions/checkout@v7
+        with:
+          repository: apache/fory
+          ref: ${{ env.FORY_REF }}
+          path: fory
+
+      # Fory's own CI builds and tests with Temurin.
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      - name: Install the candidate into the local Maven repository
+        if: matrix.janino == 'candidate' && env.CANDIDATE == ''
+        uses: actions/download-artifact@v8
+        with:
+          name: janino-m2
+          path: ~/.m2/repository/io/github/janino-lts
+
+      # Both runs use the coordinates "org.codehaus.janino"; the candidate is installed under them.
+      - name: Select the JANINO version
+        run: |
+          if [ "${{ matrix.janino }}" = candidate ]; then
+            version='${{ needs.build.outputs.version }}'
+            python3 janino/.github/fory/install_candidate.py "$version"
+          else
+            version=$BASELINE
+          fi
+          echo "JANINO_VERSION=$version" >> "$GITHUB_ENV"
+
+      # With "maven.test.failure.ignore", failing tests do not fail this step (the verdict comes from the "compare"
+      # job), but any other error of the build does. On Java 9 and later, "fory-format" needs the module option that
+      # Fory's CI sets for Apache Arrow. No Javadoc: on Java 8, Fory's Javadoc has warnings that fail the build.
+      - name: Run Fory's tests with JANINO ${{ env.JANINO_VERSION }}
+        working-directory: fory/java
+        run: |
+          if [ "${{ matrix.java }}" != 8 ]; then
+            export JDK_JAVA_OPTIONS="--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED"
+          fi
+          mvn -B -ntp -T4 install -P '!xlang-parallel' -Dmaven.test.failure.ignore=true -Dmaven.javadoc.skip=true \
+            "-Djanino.version=$JANINO_VERSION"
+
+      - name: Verify which JANINO the tests ran with
+        run: python3 janino/.github/fory/check_reports.py fory/java org.codehaus.janino "$JANINO_VERSION"
+
+      # Only the reports of surefire itself; "junitreports" below them are TestNG's copies of the same results.
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: results-${{ matrix.janino }}-java${{ matrix.java }}
+          path: fory/java/*/target/surefire-reports/TEST-*.xml
+          if-no-files-found: error
+
+  # Compares the test results of the candidate with those of the baseline.
+  compare:
+    name: Compare on Java ${{ matrix.java }}
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ 8, 21 ]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/calcite
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: results-baseline-java${{ matrix.java }}
+          path: baseline
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: results-candidate-java${{ matrix.java }}
+          path: candidate
+
+      - name: Compare the results
+        run: python3 .github/calcite/compare_junit.py baseline candidate
