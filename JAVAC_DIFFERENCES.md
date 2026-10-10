@@ -129,6 +129,12 @@ expected instead of '9.5'`), because they scan the digits after a leading `0` as
 or `01_8.5` (`';' expected instead of '_9'`): there, Janino keeps scanning `0_` as before, so that invalid octal
 integer literals are reported with the same messages as before.
 
+**An array for a variable arity parameter** ([#127](https://github.com/janino-lts/janino/issues/127), fixed in
+3.1.20): Janino 3.1.19 and earlier reject `f(1, new int[] { 1, 2 })` with `f(Integer i, Object... a)` (`Assignment
+conversion not possible from type "int[]" to type "java.lang.Object[]"`), and likewise with a parameter
+`Serializable...`, because they pass the `int[]` as the array itself instead of as its only element when another
+argument of the invocation needs boxing or unboxing.
+
 ## 3. Invalid code that Janino accepts
 
 `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it behaves

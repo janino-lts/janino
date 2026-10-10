@@ -109,7 +109,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   local subclass of `Outer`, invoked the superclass method on the instance of the inner class instead of the
   enclosing instance ([#110], since 3.1.16).
 
-**Arrays, expressions and literals** (3.1.17, 3.1.19):
+**Arrays, expressions and literals** (3.1.17, 3.1.19, 3.1.20):
 
 - `clone()` of an array had the type `Object` instead of the array type ([#58]).
 - A subscript on an expression that is not an array was an internal compiler error when the expression was a
@@ -117,6 +117,9 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 - 3.1.19: A floating-point literal with a leading zero, e.g. `09.5`, `07e1` or `07f`, was
   rejected ([#96]); except for `0_9.5` and the like, with an underscore directly before the first digit `8` or `9`.
   An integer literal with a leading zero and the digit `8` or `9`, e.g. `09`, is still rejected with the same message.
+- 3.1.20 (in development): An array of a primitive type as the only variable arity argument of a parameter
+  `Object...` or `Serializable...` was rejected when another argument needs boxing, e.g. `f(1, new int[] { 1, 2 })`
+  with `f(Integer i, Object... a)` ([#127]); now the array is the only element of `a`, like with `javac`.
 
 **Invalid code that crashed the compiler or compiled into class files that the JVM rejects** is rejected with a
 compile error now: overriding a `final` method, extending a `final` class, duplicate fields or member types,
@@ -182,8 +185,8 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.19 needs 1.8 % less time and
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 485 language
-  constructs, negative tests with 440 cases of invalid code, differential tests that compile generated expressions
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 491 language
+  constructs, negative tests with 443 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and two workflows that run the test suites
   of Apache Calcite and of Spark Catalyst every week and before every release ([Compatibility](COMPATIBILITY.md)).
 
@@ -236,3 +239,4 @@ affected.
 [#97]: https://github.com/janino-lts/janino/issues/97
 [#110]: https://github.com/janino-lts/janino/issues/110
 [#113]: https://github.com/janino-lts/janino/issues/113
+[#127]: https://github.com/janino-lts/janino/issues/127

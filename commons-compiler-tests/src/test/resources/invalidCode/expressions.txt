@@ -305,6 +305,27 @@ public class P {
     Object f() { return new StringBuilder(1, 2); }
 }
 
+=== int array for a variable arity parameter Number...
+janino: REJECTED Assignment conversion not possible from type "int[]" to type "java.lang.Number[]"
+public class P {
+    static int f(Integer i, Number... x) { return x.length; }
+    int g() { return f(1, new int[] { 1, 2 }); }
+}
+
+=== int array for a variable arity parameter long...
+janino: REJECTED Assignment conversion not possible from type "int[]" to type "long[]"
+public class P {
+    static int f(Integer i, long... x) { return x.length; }
+    int g() { return f(1, new int[] { 1, 2 }); }
+}
+
+=== int array for a variable arity parameter Integer...
+janino: REJECTED Assignment conversion not possible from type "int[]" to type "java.lang.Integer[]"
+public class P {
+    static int f(Integer i, Integer... x) { return x.length; }
+    int g() { return f(1, new int[] { 1, 2 }); }
+}
+
 === class literal of parameterized type
 janino: REJECTED Unexpected token "." in primary
 public class P {
