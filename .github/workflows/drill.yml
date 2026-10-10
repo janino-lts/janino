@@ -19,7 +19,7 @@
 # injection, the metastore, the web server, HDFS, dynamic UDFs; about 15 minutes), and distributes the remaining
 # tests (about 4800 in about 480 classes, among them all tests of queries, functions, operators, TPC-H and code
 # generation) over two shards by their running times in ".github/drill/times.txt". Each shard runs in its own job,
-# about 13 minutes.
+# whose tests take 8 to 12 minutes; the whole workflow takes about 15 minutes.
 #
 # The workflow runs
 #  * when started manually ("Actions" > "Drill" > "Run workflow"): the Drill version, the baseline and the candidate

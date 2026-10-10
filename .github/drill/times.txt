@@ -68,7 +68,6 @@
 2.0 org.apache.drill.exec.expr.ExpressionTest
 1.8 org.apache.drill.exec.expr.TestLogicalExprSerDe
 2.2 org.apache.drill.exec.expr.TestSchemaPathMaterialization
-77.0 org.apache.drill.exec.expr.fn.FunctionInitializerTest
 1.1 org.apache.drill.exec.expr.fn.impl.TestIntervalDayFunctions
 0.7 org.apache.drill.exec.expr.fn.impl.TestRegexpFunctions
 2.2 org.apache.drill.exec.expr.fn.impl.TestSimpleRepeatedFunctions
@@ -363,7 +362,6 @@
 3.5 org.apache.drill.exec.store.FormatPluginSerDeTest
 0.3 org.apache.drill.exec.store.StorageStrategyTest
 0.3 org.apache.drill.exec.store.TestAffinityCalculator
-2.0 org.apache.drill.exec.store.TestBootstrapLoader
 0.7 org.apache.drill.exec.store.TestClassicLocator
 2.7 org.apache.drill.exec.store.TestImplicitFileColumns
 2.6 org.apache.drill.exec.store.TestPluginRegistry

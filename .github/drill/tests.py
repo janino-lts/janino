@@ -42,6 +42,9 @@ EXCLUDED = [
     r"\.exec\.store\.(Dropbox|Box)FileSystemTest$",    # cloud file systems
     r"^org\.apache\.drill\.storage\.",                 # credential providers (Vault)
     r"\.exec\.TestSSLConfig$",                         # SSL configuration
+    r"\.exec\.expr\.fn\.FunctionInitializerTest$",     # builds a UDF jar with an embedded Maven; 77 s
+    # Fails when its upgrade file is on the class path twice (as a file and in the tests jar, see "pom.xml").
+    r"\.exec\.store\.TestBootstrapLoader$",
 ]
 EXCLUDED_CATEGORIES = ("SecurityTest", "MetastoreTest", "FlakyTest")
 SUREFIRE_NAMES = re.compile(r"^(Test.*|.*Test|.*Tests|.*TestCase)$")
