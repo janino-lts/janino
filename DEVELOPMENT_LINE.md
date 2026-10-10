@@ -30,6 +30,7 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#40](https://github.com/janino-lts/janino/issues/40) | The compliance mode: `Z \|\| true` and `Z && false` unbox `Z` (S-01) | unchanged | only with the option |
 | [#101](https://github.com/janino-lts/janino/issues/101) | The compliance mode: enclosing instances like `javac` (S-11) | unchanged | only with the option |
 | [#38](https://github.com/janino-lts/janino/issues/38) | The compliance mode: conditional expressions like `javac` (S-04, S-12) | unchanged | only with the option |
+| [#126](https://github.com/janino-lts/janino/issues/126) | The compliance mode: variable arity methods like `javac` (S-02, S-13) | unchanged | only with the option |
 
 ### Compile error messages (#31)
 
@@ -179,7 +180,7 @@ options, so that a library keeps control of its own compilers. The default is th
 and javac](JAVAC_DIFFERENCES.md) is authoritative for what it corrects, so "compiles in the compliance mode" does not
 mean "is valid Java". Language features that Janino does not implement, and everything that depends on the typing of
 generics, remain outside its scope; the other options apply in both modes. So far, the compliance mode corrects
-six deviations, each a consistent rule of Janino's that programs could rely on (class S of the contract):
+seven deviations, each a consistent rule of Janino's that programs could rely on (class S of the contract):
 
 | ID | Code | Compatibility mode | Compliance mode (like `javac`) |
 |---|---|---|---|
@@ -189,6 +190,7 @@ six deviations, each a consistent rule of Janino's that programs could rely on (
 | S-04 | `Byte B = 1; Object x = z ? B : 5;`; `char c = 'a'; Object x = false ? c : (short) 66;` | `x` is an `Integer`; `x` is a `Character` | `x` is a `Byte`; `x` is an `Integer` ([#38](https://github.com/janino-lts/janino/issues/38)) |
 | S-11 | `P.this`, and the simple name of a `private` member of `P`, in `class Q extends P` declared in `P` | `this` | the enclosing instance of `Q` ([#101](https://github.com/janino-lts/janino/issues/101)) |
 | S-12 | `String s = "x"; boolean x = ("a" + (true ? "b" : s)) == "ab";` | `x == true` | `x == false` (the expression is not a constant expression) |
+| S-13 | `f(Object o)` and `f(int... i)`; `f(new int[] { 1 })`; `f(Object... a)`; `f(null)` | invokes `f(Object)`; `a` is `{ null }` | invokes `f(int...)`; `a` is `null` ([#126](https://github.com/janino-lts/janino/issues/126)) |
 
 For S-03, the compliance mode declares a synthetic field `static final boolean $assertionsDisabled` in every class
 that contains an `assert` statement, initialized with `!Outermost.class.desiredAssertionStatus()` as the first
@@ -218,6 +220,14 @@ consequence, the compliance mode rejects code that is valid only with the type o
 constant expression only if all three operands are (JLS 15.28), so that `"a" + (true ? "b" : s)` with a variable `s`
 is not an interned constant, and `byte x = false ? i : 5;` and `case false ? i : 5:` with an `int i` are rejected
 (L-48).
+
+For S-02 and S-13, the compliance mode applies variable arity methods like `javac` (JLS 15.12.2): in phases 1 and 2, a
+variable arity method is applicable like a fixed arity method whose last parameter has the array type, and it competes
+with its parameter types, so that `f(new int[] { 1 })` invokes `f(int...)` rather than `f(Object)`, and `f(null)` passes
+`null` to `f(Object...)`; only in phase 3, after the phase with boxing, the arguments are expanded into an array, so
+that `f(1)` invokes `f(Object)` rather than `f(int...)`. As a consequence, the compliance mode rejects `f(4)` with
+`f(int...)` and `f(Number...)` as ambiguous (L-49), like `javac`, and accepts `f(1, new int[] { 1, 2 })` with `f(Integer
+i, Object... a)`, which the compatibility mode rejects (D-08).
 
 **Class files.** Unchanged in the compatibility mode.
 

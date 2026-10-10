@@ -12349,6 +12349,19 @@ class UnitCompiler {
             int            nUncheckedArg    = argumentTypes.length;
             final boolean  isVarargs        = ii.isVarargs();
 
+            // Compliance S-02, S-13: In phases 1 and 2 (JLS 15.12.2.2, 15.12.2.3), a variable arity method is applied
+            // like a fixed arity method whose last parameter has the array type, e.g. "f(int...)" to "f(new int[1])",
+            // and "f(Object...)" to "f(null)"; only the expansion of the arguments into an array waits for phase 3.
+            if (
+                isVarargs
+                && this.compliant()
+                && this.isApplicableByFixedArity(parameterTypes, argumentTypes, boxingPermitted)
+            ) {
+                ii.setArgsNeedAdjust(false);
+                applicableIInvocables.add(ii);
+                continue;
+            }
+
             // Match the last formal parameter with all args starting from that index (or none).
             VARARGS:
             if (isVarargs) {
@@ -12362,8 +12375,12 @@ class UnitCompiler {
 
                 // If the two have the same argCount and the last actual arg is an array of the same type accept it
                 // (e.g. "void foo(int a, double...b) VS foo(1, new double[0]").
+                //
+                // Compliance S-13: Not in the compliance mode, which applies the method by fixed arity above, and
+                // otherwise only expands the arguments (JLS 15.12.2.4), e.g. "new int[2]" to an "Object..." parameter.
                 if (
-                    formalParamCount == lastActualArg
+                    !this.compliant()
+                    && formalParamCount == lastActualArg
                     && argumentTypes[lastActualArg].isArray()
                     && this.isMethodInvocationConvertible(
                         (IClass) UnitCompiler.assertNonNull(argumentTypes[lastActualArg].getComponentType()),
@@ -12430,10 +12447,11 @@ class UnitCompiler {
 
         // No method found by previous phase(s).
         //
-        // Compliance S-02: JLS 15.12.2 considers variable arity methods only in phase 3, after the phase with boxing;
-        // the compatibility mode considers them already in the pass without boxing, so that "f(1)" invokes
-        // "f(int...)" rather than "f(Object)". The compliance mode skips them in that pass; the pass with boxing
-        // (the caller's second attempt) considers them, as phase 3.
+        // Compliance S-02: JLS 15.12.2 expands the arguments of variable arity methods only in phase 3, after the
+        // phase with boxing; the compatibility mode considers them already in the pass without boxing, so that "f(1)"
+        // invokes "f(int...)" rather than "f(Object)". The compliance mode skips them in that pass; the pass with
+        // boxing (the caller's second attempt) considers them, as phase 3.
+        boolean byFixedArity = true;
         if (
             applicableIInvocables.size() == 0
             && !varargApplicables.isEmpty()
@@ -12442,6 +12460,7 @@ class UnitCompiler {
             //TODO: 15.12.2.3 (type-conversion?)
 
             // 15.12.2.4 : Phase 3: Identify Applicable Variable Arity Methods
+            byFixedArity          = false;
             applicableIInvocables = varargApplicables;
             if (applicableIInvocables.size() == 1) {
                 return (IInvocable) applicableIInvocables.get(0);
@@ -12455,10 +12474,26 @@ class UnitCompiler {
         for (IClass.IInvocable applicableIInvocable : applicableIInvocables) {
             int moreSpecific = 0, lessSpecific = 0;
             for (IClass.IInvocable mostSpecificIInvocable : maximallySpecificIInvocables) {
-                if (applicableIInvocable.isMoreSpecificThan(mostSpecificIInvocable)) {
+
+                // Compliance S-13: In phases 1 and 2, a variable arity method competes with its parameter types, like
+                // a fixed arity method (JLS 15.12.2.5), e.g. "f(int...)" is more specific than "f(Object)".
+                boolean compareParameterTypes = (
+                    byFixedArity
+                    && this.compliant()
+                    && (applicableIInvocable.isVarargs() || mostSpecificIInvocable.isVarargs())
+                );
+                if (
+                    compareParameterTypes
+                    ? UnitCompiler.hasMoreSpecificParameterTypes(applicableIInvocable, mostSpecificIInvocable)
+                    : applicableIInvocable.isMoreSpecificThan(mostSpecificIInvocable)
+                ) {
                     ++moreSpecific;
                 } else
-                if (applicableIInvocable.isLessSpecificThan(mostSpecificIInvocable)) {
+                if (
+                    compareParameterTypes
+                    ? UnitCompiler.hasMoreSpecificParameterTypes(mostSpecificIInvocable, applicableIInvocable)
+                    : applicableIInvocable.isLessSpecificThan(mostSpecificIInvocable)
+                ) {
                     ++lessSpecific;
                 }
             }
@@ -12630,6 +12665,37 @@ class UnitCompiler {
         }
 
         return iInvocables[0];
+    }
+
+    /**
+     * @return Whether an invocable with the <var>parameterTypes</var> is applicable to the <var>argumentTypes</var> by
+     *         fixed arity, i.e. without the expansion of variable arity arguments (JLS 15.12.2.2, 15.12.2.3)
+     */
+    private boolean
+    isApplicableByFixedArity(IClass[] parameterTypes, IClass[] argumentTypes, boolean boxingPermitted)
+    throws CompileException {
+
+        if (parameterTypes.length != argumentTypes.length) return false;
+
+        for (int i = 0; i < parameterTypes.length; ++i) {
+            if (!this.isMethodInvocationConvertible(argumentTypes[i], parameterTypes[i], boxingPermitted)) return false;
+        }
+        return true;
+    }
+
+    /**
+     * @return Whether the parameter types of <var>a</var> are more specific than those of <var>b</var>, for two
+     *         invocables that are applicable by fixed arity (JLS 15.12.2.5), regardless of variable arity
+     */
+    private static boolean
+    hasMoreSpecificParameterTypes(IClass.IInvocable a, IClass.IInvocable b) throws CompileException {
+
+        IClass[] aParameterTypes = a.getParameterTypes();
+        IClass[] bParameterTypes = b.getParameterTypes();
+        for (int i = 0; i < aParameterTypes.length; ++i) {
+            if (!bParameterTypes[i].isAssignableFrom(aParameterTypes[i])) return false;
+        }
+        return !Arrays.equals(aParameterTypes, bParameterTypes);
     }
 
     private static <T> T

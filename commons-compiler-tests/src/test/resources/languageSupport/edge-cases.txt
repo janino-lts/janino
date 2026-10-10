@@ -69,6 +69,73 @@ public class P {
     public static Object run() { return f(1); }
 }
 
+=== overload resolution: f(int...) is preferred over f(Number...) for f(new int[] { 4 }) (#126)
+jls: int...
+janino: OK
+public class P {
+    static String f(int... x) { return "int..."; }
+    static String f(Number... x) { return "Number..."; }
+    public static Object run() { return f(new int[] { 4 }); }
+}
+
+=== overload resolution: P(int...) is preferred over P(Number...) for new P(new int[] { 4 }) (#126)
+jls: int...
+janino: OK
+public class P {
+    String s;
+    P(int... x) { s = "int..."; }
+    P(Number... x) { s = "Number..."; }
+    public static Object run() { return new P(new int[] { 4 }).s; }
+}
+
+=== overload resolution: f(Number...) is preferred over f(int...) for f(new Integer[] { 4 }) (#126)
+jls: Number...
+janino: OK
+public class P {
+    static String f(int... x) { return "int..."; }
+    static String f(Number... x) { return "Number..."; }
+    public static Object run() { return f(new Integer[] { 4 }); }
+}
+
+=== overload resolution: f(Object...) for f(new int[] { 1, 2 }) wraps the array (#126)
+jls: 1
+janino: OK
+public class P {
+    static int f(Object... x) { return x.length; }
+    public static Object run() { return f(new int[] { 1, 2 }); }
+}
+
+=== overload resolution: f(int...) is preferred over f(Object) for f(new int[] { 1 })
+jls: int...
+janino: WRONG Object
+compliant: OK
+id: S-13
+public class P {
+    static String f(Object x) { return "Object"; }
+    static String f(int... x) { return "int..."; }
+    public static Object run() { return f(new int[] { 1 }); }
+}
+
+=== overload resolution: f(Object...) for f(null) passes null as the array
+jls: null
+janino: WRONG 1
+compliant: OK
+id: S-13
+public class P {
+    static Object f(Object... x) { return x == null ? null : x.length; }
+    public static Object run() { return f(null); }
+}
+
+=== overload resolution: f(Integer, Object...) for f(1, new int[] { 1, 2 }) wraps the array
+jls: 1
+janino: REJECTED Assignment conversion not possible from type "int[]" to type "java.lang.Object[]"
+compliant: OK
+id: D-08
+public class P {
+    static int f(Integer i, Object... x) { return x.length; }
+    public static Object run() { return f(1, new int[] { 1, 2 }); }
+}
+
 === conditional-or with a null Boolean operand and a constant true operand (Z || true)
 jls: throws java.lang.NullPointerException
 janino: WRONG true

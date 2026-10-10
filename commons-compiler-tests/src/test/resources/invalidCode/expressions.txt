@@ -304,6 +304,17 @@ public class P {
     void f() { m(1, 1); }
 }
 
+=== ambiguous invocation of two variable arity methods with a primitive argument
+janino: ACCEPTED
+compliant: REJECTED Invocation of constructor/method with argument type(s) "int" is ambiguous
+recovery: ACCEPTED
+id: L-49
+public class P {
+    static void f(int... x) {}
+    static void f(Number... x) {}
+    void g() { f(4); }
+}
+
 === constructor invocation with wrong arguments
 janino: REJECTED No applicable constructor/method found for actual parameters "int, int"
 public class P {
