@@ -128,12 +128,59 @@ public class P {
 
 === overload resolution: f(Integer, Object...) for f(1, new int[] { 1, 2 }) wraps the array
 jls: 1
-janino: REJECTED Assignment conversion not possible from type "int[]" to type "java.lang.Object[]"
-compliant: OK
+janino: OK
+legacy: REJECTED Assignment conversion not possible from type "int[]" to type "java.lang.Object[]"
 id: D-08
 public class P {
     static int f(Integer i, Object... x) { return x.length; }
     public static Object run() { return f(1, new int[] { 1, 2 }); }
+}
+
+=== overload resolution: f(int, Serializable...) for f(Integer.valueOf(1), new int[] { 1, 2 }) wraps the array
+jls: 1/true
+janino: OK
+legacy: REJECTED Assignment conversion not possible from type "int[]" to type "java.io.Serializable[]"
+id: D-08
+public class P {
+    static Object f(int i, java.io.Serializable... x) { return x.length + "/" + (x[0] instanceof int[]); }
+    public static Object run() { return f(Integer.valueOf(1), new int[] { 1, 2 }); }
+}
+
+=== overload resolution: constructor Q(Integer, Object...) for new Q(1, new int[] { 1, 2 }) wraps the array
+jls: 1
+janino: OK
+legacy: REJECTED Assignment conversion not possible from type "int[]" to type "java.lang.Object[]"
+id: D-08
+public class P {
+    static class Q { int n; Q(Integer i, Object... x) { this.n = x.length; } }
+    public static Object run() { return new Q(1, new int[] { 1, 2 }).n; }
+}
+
+=== overload resolution: f(Integer, Serializable...) is preferred over f(Integer, Object...) for f(1, new int[] { 1 })
+jls: Serializable
+janino: OK
+legacy: REJECTED Assignment conversion not possible from type "int[]" to type "java.io.Serializable[]"
+id: D-08
+public class P {
+    static String f(Integer i, Object... x) { return "Object"; }
+    static String f(Integer i, java.io.Serializable... x) { return "Serializable"; }
+    public static Object run() { return f(1, new int[] { 1 }); }
+}
+
+=== overload resolution: f(Integer, Object...) for f(1, new Integer[] { 1, 2 }) passes the array
+jls: 2
+janino: OK
+public class P {
+    static int f(Integer i, Object... x) { return x.length; }
+    public static Object run() { return f(1, new Integer[] { 1, 2 }); }
+}
+
+=== overload resolution: f(Integer, Object...) for f(1, new int[][] { { 1 }, { 2 } }) passes the array
+jls: 2
+janino: OK
+public class P {
+    static int f(Integer i, Object... x) { return x.length; }
+    public static Object run() { return f(1, new int[][] { { 1 }, { 2 } }); }
 }
 
 === conditional-or with a null Boolean operand and a constant true operand (Z || true)

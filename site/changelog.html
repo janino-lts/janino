@@ -223,6 +223,21 @@ h5 {
       </li>
     </ul>
 
+    <h4>Version 3.1.20 (unreleased)</h4>
+    <ul>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/127">issue #127</a>: An invocation that passes an
+        array of a primitive type as the only variable arity argument of a parameter <code>Object...</code> or
+        <code>Serializable...</code> was rejected when another argument of the invocation needs boxing or unboxing,
+        e.g. <code>f(1, new int[] { 1, 2 })</code> with <code>f(Integer i, Object... a)</code> (<code>Assignment
+        conversion not possible from type "int[]" to type "java.lang.Object[]"</code>): JANINO passed the
+        <code>int[]</code> as the array itself. Now it passes the array as the only element of <code>a</code>, like
+        JAVAC (JLS 15.12.2.4). Only invocations that were rejected change; where JAVAC rejects the invocation as well,
+        e.g. with <code>f(Integer i, Number... a)</code>, the message is the same as before. The class files of all
+        other code are unchanged.
+      </li>
+    </ul>
+
     <h4>Version 3.1.19 2026-10-10</h4>
     <p>
       Five fixes in the compiler. The most important one: a qualified superclass method invocation

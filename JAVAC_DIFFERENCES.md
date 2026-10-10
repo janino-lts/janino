@@ -212,10 +212,12 @@ found`), because the type of the expression is `int` (S-04). The compatibility m
 giving up the type of S-04 that it keeps for legacy code; the compliance mode accepts it, like `javac`.
 
 **D-08, an array for a variable arity parameter of a type to which only its elements convert**
-([#126](https://github.com/janino-lts/janino/issues/126)): with `f(Integer i, Object... a)`, `f(1, new int[] { 1, 2 })`
-is rejected (`Assignment conversion not possible from type "int[]" to type "java.lang.Object[]"`), because Janino passes
-the `int[]` as the array instead of as its only element, once it needs boxing for another argument; `javac` passes `new
-Object[] { new int[] { 1, 2 } }`. Open in the compatibility mode; the compliance mode accepts it, like `javac`.
+([#127](https://github.com/janino-lts/janino/issues/127), found with
+[#126](https://github.com/janino-lts/janino/issues/126), fixed in 3.1.20): Janino 3.1.19 and earlier reject `f(1, new
+int[] { 1, 2 })` with `f(Integer i, Object... a)` (`Assignment conversion not possible from type "int[]" to type
+"java.lang.Object[]"`), and likewise with a parameter `Serializable...`, because they pass the `int[]` as the array
+itself instead of as its only element when another argument of the invocation needs boxing or unboxing; `javac` passes
+`new Object[] { new int[] { 1, 2 } }`. Since 3.1.20, both modes accept it, like `javac`.
 
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions

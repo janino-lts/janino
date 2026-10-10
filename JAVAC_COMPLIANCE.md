@@ -282,8 +282,8 @@ logic has no error path, but silently does something else, the finding is of cla
   ID can be found in the code.
 - IDs are stable: a number is never reused or reassigned; new cases get the next number of their class.
 - Implemented so far: S-01, S-02, which also rejects L-49; S-03; S-11, which also rejects L-20, L-45 and L-46; S-04,
-  which also rejects L-47 and accepts D-07; S-12, which also rejects L-48; and S-13, which also accepts D-08 (the
-  development line); see
+  which also rejects L-47 and accepts D-07; S-12, which also rejects L-48; and S-13, which also accepts D-08, fixed
+  in both modes since 3.1.20 (the development line); see
   [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md) for what they do.
 
 ### 7.4 The system property
@@ -316,7 +316,7 @@ register is the public list; a deviation that is not in it is an unknown defect,
   its own (as `janino-benchmarks` loads its baseline), and compares its behavior with the recorded behavior of the
   compatibility mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction
   that explains the difference (`id:`); an unrecorded difference fails the test. This is the test that makes "legacy"
-  machine-checkable; without it, the records only protect against accidental changes. Today, 395 of the 1006 recorded
+  machine-checkable; without it, the records only protect against accidental changes. Today, 399 of the 1025 recorded
   cases differ from 3.1.12.
 - Open: every other test class that compiles with Janino runs in the compatibility mode only; a second run of the
   whole suite in the compliance mode needs the mode-dependent expectations of those tests first.
@@ -328,10 +328,10 @@ register is the public list; a deviation that is not in it is an unknown defect,
 The primary measure is the number of open IDs in the register, per class. The secondary measure is the share of the
 recorded cases on which the compliance mode agrees with `javac`. Both are stated in the change log of every release.
 
-The development line, 2026-10-10: S, 12 IDs, 6 corrected in the compliance mode; L, 48 IDs, 5 rejected in the
-compliance mode, 43 open; D, 7 IDs, 1 fixed in 3.1.19 except for one form (D-04, see there), 1 corrected in the
-compliance mode only (D-07, see S-04), 5 open; G, 9 and F, 11 (outside the scope); A, 8. Of the 1006 recorded
-cases, the compliance mode agrees with `javac` on 866 (the compatibility mode on 807).
+The development line, 2026-10-10: S, 13 IDs, 7 corrected in the compliance mode; L, 49 IDs, 6 rejected in the compliance
+mode, 43 open; D, 8 IDs, 2 fixed (D-04 in 3.1.19 except for one form, see there; D-08 in 3.1.20), 1 corrected in the
+compliance mode only (D-07, see S-04), 5 open; G, 9 and F, 11 (outside the scope); A, 8. Of the 1025 recorded cases, the
+compliance mode agrees with `javac` on 885 (the compatibility mode on 822).
 
 ## 8. Registered exceptions
 
@@ -413,6 +413,12 @@ instance); only these class files change. #96, found with #31: a floating-point 
 e.g. `09.5`, was rejected (D); now it compiles, except with an underscore directly before the first digit `8` or
 `9`, e.g. `0_9.5`; invalid octal integer literals keep their messages, and the class files of all other code are
 unchanged.
+
+**3.1.20 (in development):** #127, found with #126 on the development line: an array of a primitive type as the
+only variable arity argument of a parameter `Object...` or `Serializable...` was rejected when another argument
+needs boxing, e.g. `f(1, new int[] { 1, 2 })` with `f(Integer i, Object... a)` (D-08); now the array is passed as the
+only element, like with `javac`. Only invocations that were rejected change; where `javac` rejects the invocation
+as well, the message is the same as before.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`
