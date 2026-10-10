@@ -115,8 +115,8 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 - A subscript on an expression that is not an array was an internal compiler error when the expression was a
   method or constructor argument ([#71]).
 - 3.1.19 (in development): A floating-point literal with a leading zero, e.g. `09.5`, `07e1` or `07f`, was
-  rejected ([#96]). An integer literal with a leading zero and the digit `8` or `9`, e.g. `09`, is still rejected,
-  now always with the message `Digit '9' not allowed in octal literal`.
+  rejected ([#96]); except for `0_9.5` and the like, with an underscore directly before the first digit `8` or `9`.
+  An integer literal with a leading zero and the digit `8` or `9`, e.g. `09`, is still rejected with the same message.
 
 **Invalid code that crashed the compiler or compiled into class files that the JVM rejects** is rejected with a
 compile error now: overriding a `final` method, extending a `final` class, duplicate fields or member types,
@@ -182,8 +182,8 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.17 needs 1 % less time and
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers;
   every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 484 language
-  constructs, negative tests with 439 cases of invalid code, differential tests that compile generated expressions
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 485 language
+  constructs, negative tests with 440 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and two workflows that run the test suites
   of Apache Calcite and of Spark Catalyst every week and before every release ([Compatibility](COMPATIBILITY.md)).
 

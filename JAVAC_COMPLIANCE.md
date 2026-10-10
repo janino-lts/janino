@@ -381,7 +381,9 @@ has the flag `ACC_PUBLIC`; the class files of all other code are unchanged. A ne
 reference. #97, found with #31: an inner class whose superclass is an inner class that extends the enclosing class
 compiled into a class that the JVM rejects (D: the constructor passed its uninitialized `this` as the enclosing
 instance); only these class files change. #96, found with #31: a floating-point literal with a leading zero,
-e.g. `09.5`, was rejected (D); now it compiles, and the class files of all other code are unchanged.
+e.g. `09.5`, was rejected (D); now it compiles, except with an underscore directly before the first digit `8` or
+`9`, e.g. `0_9.5`; invalid octal integer literals keep their messages, and the class files of all other code are
+unchanged.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`
