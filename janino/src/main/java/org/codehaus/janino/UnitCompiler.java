@@ -11911,6 +11911,8 @@ class UnitCompiler {
 
                 // If the two have the same argCount and the last actual arg is an array of the same type accept it
                 // (e.g. "void foo(int a, double...b) VS foo(1, new double[0]").
+                // But an array that converts only to the component type is the only element of the variable arity
+                // argument, e.g. "new int[2]" to an "Object..." parameter in the pass with boxing (issue #127).
                 if (
                     formalParamCount == lastActualArg
                     && argumentTypes[lastActualArg].isArray()
@@ -11918,6 +11920,18 @@ class UnitCompiler {
                         (IClass) UnitCompiler.assertNonNull(argumentTypes[lastActualArg].getComponentType()),
                         lastParamType,
                         boxingPermitted
+                    )
+                    && (
+                        this.isMethodInvocationConvertible(
+                            argumentTypes[lastActualArg],
+                            parameterTypes[formalParamCount],
+                            boxingPermitted
+                        )
+                        || !this.isMethodInvocationConvertible(
+                            argumentTypes[lastActualArg],
+                            lastParamType,
+                            boxingPermitted
+                        )
                     )
                 ) {
                     nUncheckedArg--;
