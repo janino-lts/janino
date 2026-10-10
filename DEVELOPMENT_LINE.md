@@ -27,6 +27,7 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#87](https://github.com/janino-lts/janino/issues/87) | Class flags of member types as `javac` writes them | changed | unchanged |
 | [#88](https://github.com/janino-lts/janino/issues/88) | `AbstractTraverser` visits enum constants | unchanged | subclasses of `AbstractTraverser` |
 | [#103](https://github.com/janino-lts/janino/issues/103) | The compliance mode: the option `JAVAC_COMPLIANCE` (S-01 to S-03) | unchanged | only with the option |
+| [#40](https://github.com/janino-lts/janino/issues/40) | The compliance mode: `Z \|\| true` and `Z && false` unbox `Z` (S-01) | unchanged | only with the option |
 | [#101](https://github.com/janino-lts/janino/issues/101) | The compliance mode: enclosing instances like `javac` (S-11) | unchanged | only with the option |
 | [#38](https://github.com/janino-lts/janino/issues/38) | The compliance mode: conditional expressions like `javac` (S-04, S-12) | unchanged | only with the option |
 
