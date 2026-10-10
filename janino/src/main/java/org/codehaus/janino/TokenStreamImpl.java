@@ -211,7 +211,7 @@ class TokenStreamImpl implements TokenStream {
         Location l  = token.getLocation();
         if (l.getLineNumber() != pl.getLineNumber() || l.getColumnNumber() != pl.getColumnNumber() + 1) return "";
 
-        // E.g. "9" in "09" or "9L" in "09L", but not "9.5" in "09.5".
+        // E.g. "9" in "09" or "9L" in "09L", but not "_9" in "0_9" (the scanner keeps "09.5" as one token).
         if (token.type != TokenType.INTEGER_LITERAL) return "";
         char c = token.value.charAt(0);
         return c == '8' || c == '9' ? "; digit '" + c + "' not allowed in octal literal" : "";

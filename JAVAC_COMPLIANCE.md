@@ -314,7 +314,7 @@ register is the public list; a deviation that is not in it is an unknown defect,
   its own (as `janino-benchmarks` loads its baseline), and compares its behavior with the recorded behavior of the
   compatibility mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction
   that explains the difference (`id:`); an unrecorded difference fails the test. This is the test that makes "legacy"
-  machine-checkable; without it, the records only protect against accidental changes. Today, 395 of the 1004 recorded
+  machine-checkable; without it, the records only protect against accidental changes. Today, 395 of the 1006 recorded
   cases differ from 3.1.12.
 - Open: every other test class that compiles with Janino runs in the compatibility mode only; a second run of the
   whole suite in the compliance mode needs the mode-dependent expectations of those tests first.
@@ -327,9 +327,9 @@ The primary measure is the number of open IDs in the register, per class. The se
 recorded cases on which the compliance mode agrees with `javac`. Both are stated in the change log of every release.
 
 The development line, 2026-10-10: S, 12 IDs, 6 corrected in the compliance mode; L, 48 IDs, 5 rejected in the
-compliance mode, 43 open; D, 7 IDs, 1 fixed in 3.1.19 (D-04), 1 corrected in the compliance mode only (D-07, see
-S-04), 5 open; G, 9 and F, 11 (outside the scope); A, 8. Of the 1004 recorded cases, the compliance mode agrees
-with `javac` on 865 (the compatibility mode on 806).
+compliance mode, 43 open; D, 7 IDs, 1 fixed in 3.1.19 except for one form (D-04, see there), 1 corrected in the
+compliance mode only (D-07, see S-04), 5 open; G, 9 and F, 11 (outside the scope); A, 8. Of the 1006 recorded
+cases, the compliance mode agrees with `javac` on 866 (the compatibility mode on 807).
 
 ## 8. Registered exceptions
 
@@ -408,7 +408,9 @@ has the flag `ACC_PUBLIC`; the class files of all other code are unchanged. A ne
 reference. #97, found with #31: an inner class whose superclass is an inner class that extends the enclosing class
 compiled into a class that the JVM rejects (D: the constructor passed its uninitialized `this` as the enclosing
 instance); only these class files change. #96, found with #31: a floating-point literal with a leading zero,
-e.g. `09.5`, was rejected (D); now it compiles, and the class files of all other code are unchanged.
+e.g. `09.5`, was rejected (D); now it compiles, except with an underscore directly before the first digit `8` or
+`9`, e.g. `0_9.5`; invalid octal integer literals keep their messages, and the class files of all other code are
+unchanged.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`

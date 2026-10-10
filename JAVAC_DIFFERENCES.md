@@ -194,7 +194,10 @@ therefore rejects (`Cannot access non-final local variable "x" from inner class`
 
 **D-04, floating-point literals with a leading zero** ([#96](https://github.com/janino-lts/janino/issues/96), fixed
 in 3.1.19): Janino 3.1.18 and earlier reject `09.5`, `00.5`, `0123.5`, `07e1`, `07f`, `09d` and `08.` (e.g. `';'
-expected instead of '9.5'`), because they scan the digits after a leading `0` as an octal integer literal.
+expected instead of '9.5'`), because they scan the digits after a leading `0` as an octal integer literal. Since
+3.1.19, only a literal with an underscore directly before the first digit `8` or `9` is still rejected, e.g. `0_9.5`
+or `01_8.5` (`';' expected instead of '_9'`): there, Janino keeps scanning `0_` as before, so that invalid octal
+integer literals are reported with the same messages as before.
 
 **D-05, a member type of a parameterized type** ([#23](https://github.com/janino-lts/janino/issues/23)): `O<String>.I`
 is rejected (`IDENTIFIER expected instead of '.'`).

@@ -85,8 +85,8 @@ class CompileErrorMessagesTest {
             "public class P { int i = 0 9; }"
         );
         CompileErrorMessagesTest.assertMessage(
-            "Line 1, Column 30: ';' expected instead of '9.5'",
-            "public class P { double d = 09.5; }"
+            "Line 1, Column 31: ';' expected instead of '_9'",
+            "public class P { double d = 0_9.5; }"
         );
     }
 
