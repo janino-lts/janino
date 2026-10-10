@@ -204,6 +204,17 @@ h5 {
     <h4>Version 3.1.19 (unreleased)</h4>
     <ul>
       <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/96">issue #96</a>: A floating-point literal with
+        a leading zero, e.g. <code>09.5</code>, <code>00.5</code>, <code>07e1</code>, <code>07f</code> or
+        <code>08.</code>, was rejected (e.g. <code>';' expected instead of '9.5'</code>), because the scanner read
+        the digits after the leading zero as an octal integer literal. Now these literals compile like with JAVAC
+        (JLS 3.10.2). An integer literal with a leading zero and the digit <code>8</code> or <code>9</code>, e.g.
+        <code>09</code>, is still rejected, now always with the message <code>Digit '9' not allowed in octal
+        literal</code>, which JANINO already reported for e.g. <code>0189</code>; before, a literal like
+        <code>09</code> was rejected with an error of the following token, e.g. <code>';' expected instead of
+        '9'</code>. The class files of all other code are unchanged.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/113">issue #113</a>: A conditional expression
         with a constant condition in the initializer of a <code>static final</code> field of a class, e.g.
         <code>static final int K = DEBUG ? 1 : 2;</code> with <code>static final boolean DEBUG = false;</code>,

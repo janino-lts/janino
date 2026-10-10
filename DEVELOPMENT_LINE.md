@@ -232,7 +232,7 @@ makes this machine-checkable: it compiles every recorded case with 3.1.12 (loade
 loader of its own, with target version 8) and compares its behavior with the recorded behavior of the compatibility
 mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction that explains the
 difference (`id:`, an issue number or an ID of the register); a difference that no record states, e.g. a regression,
-fails the test. Today, 392 of the 995 recorded cases differ from 3.1.12, each with its correction: the fixes of
+fails the test. Today, 395 of the 1004 recorded cases differ from 3.1.12, each with its correction: the fixes of
 classes D and V since 3.1.13, the registered exceptions A-04, A-05 and A-06, and the language features that 3.1.12
 did not compile (multi-catch, qualified superclass method invocations, effectively final variables, local classes
 with modifiers).

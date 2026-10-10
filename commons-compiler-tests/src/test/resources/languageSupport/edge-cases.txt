@@ -162,6 +162,50 @@ public class P {
     public static Object run() { int i = -2147483648; long l = -9223372036854775808L; return i + "/" + l; }
 }
 
+=== floating-point literals with a leading zero
+jls: 9.5/0.5/123.5/70.0/7.0/9.0/8.0/90.0/9.0
+janino: OK
+legacy: REJECTED ';' expected instead of '9.5'
+id: #96
+public class P {
+    public static Object run() {
+        return 09.5 + "/" + 00.5 + "/" + 0123.5 + "/" + 07e1 + "/" + 07f + "/" + 09d + "/" + 08. + "/" + 09e1
+            + "/" + 09f;
+    }
+}
+
+=== floating-point literals with a leading zero: underscores, exponents, suffixes
+jls: 9.5/90.0/0.9/123.0/7.0/0.0/189.5/9.9E11/FloatDouble
+janino: OK
+legacy: REJECTED ';' expected instead of '_9'
+id: #96
+public class P {
+    public static Object run() {
+        return 0_9.5 + "/" + 09E+1 + "/" + 09e-1f + "/" + 0123. + "/" + 07.f + "/" + 00e0 + "/" + 0189.5 + "/"
+            + 09_9e1_0 + "/" + ((Object) 09f).getClass().getSimpleName() + ((Object) 08.).getClass().getSimpleName();
+    }
+}
+
+=== floating-point literal with a leading zero in a constant
+jls: 19.0
+janino: OK
+legacy: REJECTED ';' expected instead of '9.5'
+id: #96
+public class P {
+    static final double D = 09.5 * 2;
+    public static Object run() { return String.valueOf(D); }
+}
+
+=== octal integer literals
+jls: 15/0/15/7/4095/-1/Long
+janino: OK
+public class P {
+    public static Object run() {
+        return 017 + "/" + 00 + "/" + 017L + "/" + 0_7 + "/" + 0777_7 + "/" + 037777777777 + "/"
+            + ((Object) 017L).getClass().getSimpleName();
+    }
+}
+
 === conditional expression with boxed operands of different types (Integer : Double)
 jls: 1.0
 janino: OK

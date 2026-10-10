@@ -314,7 +314,7 @@ register is the public list; a deviation that is not in it is an unknown defect,
   its own (as `janino-benchmarks` loads its baseline), and compares its behavior with the recorded behavior of the
   compatibility mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction
   that explains the difference (`id:`); an unrecorded difference fails the test. This is the test that makes "legacy"
-  machine-checkable; without it, the records only protect against accidental changes. Today, 392 of the 995 recorded
+  machine-checkable; without it, the records only protect against accidental changes. Today, 395 of the 1004 recorded
   cases differ from 3.1.12.
 - Open: every other test class that compiles with Janino runs in the compatibility mode only; a second run of the
   whole suite in the compliance mode needs the mode-dependent expectations of those tests first.
@@ -326,10 +326,10 @@ register is the public list; a deviation that is not in it is an unknown defect,
 The primary measure is the number of open IDs in the register, per class. The secondary measure is the share of the
 recorded cases on which the compliance mode agrees with `javac`. Both are stated in the change log of every release.
 
-The development line, 2026-10-09: S, 12 IDs, 6 corrected in the compliance mode; L, 48 IDs, 5 rejected in the
-compliance mode, 43 open; D, 7 IDs, 1 corrected in the compliance mode only (D-07, see S-04), 6 open; G, 9 and F, 11
-(outside the scope); A, 8. Of the 995 recorded cases, the compliance mode agrees with `javac` on 856 (the
-compatibility mode on 797).
+The development line, 2026-10-10: S, 12 IDs, 6 corrected in the compliance mode; L, 48 IDs, 5 rejected in the
+compliance mode, 43 open; D, 7 IDs, 1 fixed in 3.1.19 (D-04), 1 corrected in the compliance mode only (D-07, see
+S-04), 5 open; G, 9 and F, 11 (outside the scope); A, 8. Of the 1004 recorded cases, the compliance mode agrees
+with `javac` on 865 (the compatibility mode on 806).
 
 ## 8. Registered exceptions
 
@@ -407,7 +407,8 @@ has the flag `ACC_PUBLIC`; the class files of all other code are unchanged. A ne
 `private` member type of a class in another package, which compiles into a class that fails when it resolves the
 reference. #97, found with #31: an inner class whose superclass is an inner class that extends the enclosing class
 compiled into a class that the JVM rejects (D: the constructor passed its uninitialized `this` as the enclosing
-instance); only these class files change.
+instance); only these class files change. #96, found with #31: a floating-point literal with a leading zero,
+e.g. `09.5`, was rejected (D); now it compiles, and the class files of all other code are unchanged.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`
@@ -419,8 +420,7 @@ misleading compile error messages: each improved message keeps its old text and 
 typo and for cyclic inheritance, which was reported as a stack overflow ("Compilation unit is nested too deeply") and
 is now reported as a class circularity (the same code is rejected as before).
 
-**Backlog without a target version:** #23 (above); #96, a floating-point literal with a leading zero, e.g. `09.5`,
-is rejected (D, found with #31).
+**Backlog without a target version:** #23 (above).
 
 Open: #38, #40 and #47 (class S) and #33 (class L) belong to the compliance mode. A compile error message is not a
 change of behavior in the sense of section 3.1, but applications and their tests match message texts (the tests of
