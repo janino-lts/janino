@@ -275,6 +275,17 @@ class Scanner {
     public Token
     produce() throws CompileException, IOException {
 
+        // The token that "scanNumericLiteral()" scanned after a "0", e.g. "9" in "09".
+        {
+            Token t = this.pendingToken;
+            if (t != null) {
+                this.pendingToken      = null;
+                this.tokenLineNumber   = t.getLocation().getLineNumber();
+                this.tokenColumnNumber = t.getLocation().getColumnNumber();
+                return t;
+            }
+        }
+
         if (this.peek() == -1) return this.token(TokenType.END_OF_INPUT, "end-of-input");
 
         // Funny... the JLS calls it "white space", and the JRE calls it "whitespace"!?
@@ -431,29 +442,42 @@ class Scanner {
 
         if (this.peekRead('0')) {
 
-            if (               // E.g. "01"... or "09"...
-                Scanner.isDecimalDigit(this.peek())
-                || (this.peek() == '_' && (this.peekButOne() == '_' || Scanner.isDecimalDigit(this.peekButOne())))
+            // The digits after the leading zero are those of an octal integer literal, e.g. "0123", or of a decimal
+            // floating-point literal, e.g. "0123.5", "07e1" or "09f" (JLS8 3.10.2, issue #96). Invalid octal
+            // integer literals are reported as before, e.g. "0189" as "Digit '8' not allowed in octal literal", and
+            // "09" as the tokens "0" and "9".
+
+            if (               // E.g. "01"...
+                Scanner.isOctalDigit(this.peek())
+                || (this.peek() == '_' && (this.peekButOne() == '_' || Scanner.isOctalDigit(this.peekButOne())))
             ) {
 
-                // The digits after the leading zero are those of an octal integer literal, e.g. "0123", or of a
-                // decimal floating-point literal, e.g. "09.5", "07e1" or "09f" (JLS8 3.10.2, issue #96).
-                char nonOctalDigit = 0;
-                do {
-                    if (nonOctalDigit == 0 && this.peek("89")) nonOctalDigit = (char) this.peek();
-                    this.read();
-                } while (
-                    Scanner.isDecimalDigit(this.peek())
-                    || (this.peek() == '_' && (this.peekButOne() == '_' || Scanner.isDecimalDigit(this.peekButOne())))
-                );
-
-                if (!this.peek(".eEfFdD")) {
-                    if (nonOctalDigit != 0) {
+                this.read();
+                while (
+                    Scanner.isOctalDigit(this.peek())
+                    || (this.peek() == '_' && (this.peekButOne() == '_' || Scanner.isOctalDigit(this.peekButOne())))
+                ) this.read();
+                if (this.peek("89")) {
+                    char digit = (char) this.peek();
+                    do {
+                        this.read();
+                    } while (
+                        Scanner.isDecimalDigit(this.peek())
+                        || (
+                            this.peek() == '_'
+                            && (this.peekButOne() == '_' || Scanner.isDecimalDigit(this.peekButOne()))
+                        )
+                    );
+                    if (!this.peek(".eEfFdD")) {
                         throw new CompileException(
-                            "Digit '" + nonOctalDigit + "' not allowed in octal literal",
+                            "Digit '" + digit + "' not allowed in octal literal",
                             this.location()
                         );
                     }
+
+                    // E.g. "0189.5"; continue below with the fraction, the exponent and the suffix.
+                } else
+                if (!this.peek(".eEfFdD")) {
                     if (this.peekRead("lL")) {
                         return TokenType.INTEGER_LITERAL; // Octal long literal, e.g. "0123L".
                     }
@@ -461,7 +485,34 @@ class Scanner {
                     return TokenType.INTEGER_LITERAL; // Octal int literal, e.g. "0123".
                 }
 
-                // A decimal floating-point literal; continue below with the fraction, the exponent and the suffix.
+                // E.g. "0123.5"; continue below with the fraction, the exponent and the suffix.
+            } else
+            if (this.peek("89")) { // E.g. "09"...
+
+                // Scan the literal that follows the "0" as a token of its own.
+                int line   = this.tokenLineNumber;
+                int column = this.tokenColumnNumber;
+                this.tokenLineNumber   = this.nextCharLineNumber;
+                this.tokenColumnNumber = this.nextCharColumnNumber;
+                this.sb.setLength(0);
+                TokenType tokenType     = this.scanNumericLiteral();
+                String    value         = this.sb.toString();
+                int       pendingLine   = this.tokenLineNumber;
+                int       pendingColumn = this.tokenColumnNumber;
+
+                this.tokenLineNumber   = line;
+                this.tokenColumnNumber = column;
+                this.sb.setLength(0);
+                this.sb.append('0');
+
+                if (tokenType == TokenType.FLOATING_POINT_LITERAL) {
+                    this.sb.append(value);
+                    return TokenType.FLOATING_POINT_LITERAL; // E.g. "09.5".
+                }
+
+                // E.g. "09" or "09L": the "0" is a token, and the following literal is the next token.
+                this.pendingToken = new Token(this.fileName, pendingLine, pendingColumn, tokenType, value);
+                return TokenType.INTEGER_LITERAL;
             }
 
             if (this.peekRead("lL")) return TokenType.INTEGER_LITERAL; // "0L"
@@ -646,6 +697,9 @@ class Scanner {
      */
     private static boolean
     isHexDigit(int c) { return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'); }
+
+    private static boolean
+    isOctalDigit(int c) { return c >= '0' && c <= '7'; }
 
     private static boolean
     isBinaryDigit(int c) { return c == '0' || c == '1'; }
@@ -855,6 +909,11 @@ class Scanner {
      * line break).
      */
     private int tokenColumnNumber;
+
+    /**
+     * The token that follows the previously produced token "0", e.g. "9" in "09", or {@code null}.
+     */
+    @Nullable private Token pendingToken;
 
     private static final Set<String> JAVA_KEYWORDS = new HashSet<>(Arrays.asList(
 
