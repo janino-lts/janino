@@ -2,7 +2,7 @@
 
 Janino compiles Java source code like `javac`, but not in every respect: it accepts some invalid code, it rejects some
 valid code, and some valid code behaves differently. This page lists all deviations that are known as of version
-3.1.18, so that you can decide whether they matter for your code.
+3.1.19, so that you can decide whether they matter for your code.
 
 Language features that Janino does not implement at all (e.g. lambda expressions, `switch` expressions, records) are
 listed under [Limitations](https://janino-lts.github.io/janino/#limitations) on the project homepage, and are not
