@@ -149,6 +149,7 @@ behavior. The compliance mode behaves like `javac`.
 | S-06 | `private` members are compiled without the `private` flag, `private` instance methods as static methods `m$(P, ...)` | |
 | S-11 | in an inner class `Q extends P` declared in `P`, `P.this` and the simple name of a `private` member of `P` denote `this` instead of the enclosing instance | #101 |
 | S-12 | a conditional expression with a constant condition is a constant expression if the selected operand is, also when the other operand is not: `("a" + (true ? "b" : s)) == "ab"` is `true` | |
+| S-13 | a variable arity method is less specific than a fixed arity method, and its arguments are always expanded: `f(new int[] { 1 })` invokes `f(Object)`, not `f(int...)`; `f(null)` passes `new Object[] { null }` to `f(Object...)`, not `null` | #126 |
 
 ### 4.3 Class V: valid legacy code that is miscompiled
 
@@ -280,8 +281,9 @@ logic has no error path, but silently does something else, the finding is of cla
 - Every mode-dependent place carries a comment with the ID of the deviation (`// Compliance S-01: ...`), so that each
   ID can be found in the code.
 - IDs are stable: a number is never reused or reassigned; new cases get the next number of their class.
-- Implemented so far: S-01, S-02, S-03; S-11, which also rejects L-20, L-45 and L-46; S-04, which also rejects L-47
-  and accepts D-07; and S-12, which also rejects L-48 (the development line); see
+- Implemented so far: S-01, S-02, which also rejects L-49; S-03; S-11, which also rejects L-20, L-45 and L-46; S-04,
+  which also rejects L-47 and accepts D-07; S-12, which also rejects L-48; and S-13, which also accepts D-08 (the
+  development line); see
   [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md) for what they do.
 
 ### 7.4 The system property

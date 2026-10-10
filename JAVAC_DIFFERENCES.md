@@ -72,6 +72,8 @@ the compliance mode follows `javac` (where the column says so; "open" means not 
 | S-08 | `getName()` of a local class `L` declared in a class `P` | `"P$1L"` | `"P$L"` | | open |
 | S-11 | `P.this`, and the simple name of a `private` member of `P`, in `class Q extends P` that is declared in `P` (see below) | the enclosing instance of `Q` | `this` | [#101](https://github.com/janino-lts/janino/issues/101) | like `javac` (development line) |
 | S-12 | `String s = "x"; boolean x = ("a" + (true ? "b" : s)) == "ab";` (see below) | `x == false` | `x == true` | | like `javac` (development line) |
+| S-13 | `f(Object o)` and `f(int... i)`; `f(new int[] { 1 })` | invokes `f(int...)` | invokes `f(Object)` (a variable arity method is less specific than a fixed arity method) | [#126](https://github.com/janino-lts/janino/issues/126) | like `javac` (development line) |
+| S-13 | `f(Object... a)`; `f(null)` | `a` is `null` | `a` is an array with one element `null` (the arguments of a variable arity method are always expanded) | [#126](https://github.com/janino-lts/janino/issues/126) | like `javac` (development line) |
 
 **S-05, constant expressions that are not folded** ([#47](https://github.com/janino-lts/janino/issues/47)): Janino
 does not evaluate shifts, relational operators, `~`, operations with `char` operands and casts to and from `char` at
@@ -209,6 +211,12 @@ with a `Byte B`, `Character x = true ? C : 98;` with a `Character C`, and `h(z ?
 found`), because the type of the expression is `int` (S-04). The compatibility mode cannot accept this code without
 giving up the type of S-04 that it keeps for legacy code; the compliance mode accepts it, like `javac`.
 
+**D-08, an array for a variable arity parameter of a type to which only its elements convert**
+([#126](https://github.com/janino-lts/janino/issues/126)): with `f(Integer i, Object... a)`, `f(1, new int[] { 1, 2 })`
+is rejected (`Assignment conversion not possible from type "int[]" to type "java.lang.Object[]"`), because Janino passes
+the `int[]` as the array instead of as its only element, once it needs boxing for another argument; `javac` passes `new
+Object[] { new int[] { 1, 2 } }`. Open in the compatibility mode; the compliance mode accepts it, like `javac`.
+
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions
 and method references; F-02 `switch` expressions, arrow labels and multiple labels in a `case`; F-03 pattern
@@ -219,16 +227,15 @@ methods; F-11 the diamond operator with an anonymous class.
 ## 3. Invalid code that Janino accepts
 
 Class L: `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it
-behaves as the source suggests (e.g. an assignment to a `final` local variable assigns it). See
-[issue #33](https://github.com/janino-lts/janino/issues/33) for the compatibility considerations. The compatibility
-mode keeps accepting all of it; the compliance mode rejects it once the respective check is implemented (today, it
-rejects L-20, L-45 and L-46, see S-11, L-47, see S-04, and L-48, see S-12; all other entries of this section are
-open). One exception, registered as A-05 (section 5): the access to a `protected` member of a class in another
-package through an expression whose type is neither the accessing class nor a subclass of it
-(`((Object) this).clone()`, `Object o = new P(); o.clone()`) is rejected since 3.1.16, like by `javac`, although the
-JVM loaded such classes when the verifier could infer the type `P` from the bytecode
-([#54](https://github.com/janino-lts/janino/issues/54)); it rejected them for a parameter, a field or a method result
-of type `Object`.
+behaves as the source suggests (e.g. an assignment to a `final` local variable assigns it). See [issue
+#33](https://github.com/janino-lts/janino/issues/33) for the compatibility considerations. The compatibility mode keeps
+accepting all of it; the compliance mode rejects it once the respective check is implemented (today, it rejects L-20,
+L-45 and L-46, see S-11, L-47, see S-04, L-48, see S-12, and L-49, see S-02; all other entries of this section are
+open). One exception, registered as A-05 (section 5): the access to a `protected` member of a class in another package
+through an expression whose type is neither the accessing class nor a subclass of it (`((Object) this).clone()`, `Object
+o = new P(); o.clone()`) is rejected since 3.1.16, like by `javac`, although the JVM loaded such classes when the
+verifier could infer the type `P` from the bytecode ([#54](https://github.com/janino-lts/janino/issues/54)); it rejected
+them for a parameter, a field or a method result of type `Object`.
 
 Code generators rely on some of these leniencies. The code that Apache Spark generates for SQL queries, for
 example, assigns to a `final` local variable, names nested classes by their binary names, creates generic arrays
@@ -344,7 +351,10 @@ and assigns a parameterized type to a field with a different type argument
   the type is `int`; [#38](https://github.com/janino-lts/janino/issues/38); the compliance mode rejects it, see S-04);
 - L-48: a conditional expression with a constant condition and an operand that is not constant, where a constant
   expression is required: `byte x = false ? i : 5;` and `case false ? i : 5:` with an `int i` (the compliance mode
-  rejects it, see S-12).
+  rejects it, see S-12);
+- L-49: an invocation that is ambiguous in phase 3 of JLS 15.12.2, because neither of two variable arity methods is more
+  specific: `f(4)` with `f(int...)` and `f(Number...)`; Janino invokes `f(int...)`, because it applies variable arity
+  methods before boxing (the compliance mode rejects it, see S-02).
 
 **Generics, class G** (type arguments are not checked; outside the scope of both modes):
 

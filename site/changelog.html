@@ -134,6 +134,20 @@ h5 {
         The class files of the compatibility mode are unchanged.
       </li>
       <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/126">issue #126</a>: In the compliance mode, an
+        invocation that passes an array for a variable arity parameter was rejected as ambiguous where JAVAC accepts
+        it, e.g. <code>copyOf(new int[] { 4 })</code> with <code>copyOf(int...)</code> and
+        <code>copyOf(Number...)</code>, which Apache Calcite generates. Now the compliance mode applies variable arity
+        methods like JAVAC (JLS 15.12.2): in phases 1 and 2, a variable arity method is applicable like a fixed arity
+        method whose last parameter has the array type, and it competes with its parameter types; only in phase 3, the
+        arguments are expanded into an array. As a consequence, in the compliance mode, <code>f(new int[] { 1
+        })</code> invokes <code>f(int...)</code> rather than <code>f(Object)</code>, and <code>f(null)</code> passes
+        <code>null</code> to <code>f(Object...)</code> rather than an array with one element (deviation S-13);
+        <code>f(1, new int[] { 1, 2 })</code> with <code>f(Integer i, Object... a)</code> is accepted (D-08), and
+        <code>f(4)</code> with <code>f(int...)</code> and <code>f(Number...)</code> is rejected as ambiguous (L-49),
+        like JAVAC. The class files of the compatibility mode are unchanged.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/31">issue #31</a>: Some compile error messages
         pointed in the wrong direction; now they explain the error. Each message keeps the text that it had before,
         and the explanation is appended, because applications and their tests match message texts:
