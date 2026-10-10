@@ -374,7 +374,7 @@ takes fixes of classes D and V that leave the class files of all other code byte
 change the class files of correct code, or the behavior of public API such as `AbstractTraverser`, go to the
 development line.
 
-**3.1.19 (in preparation):** #87, part 1: a `protected` member type could not be used from a subclass of the
+**3.1.19 (released):** #87, part 1: a `protected` member type could not be used from a subclass of the
 enclosing type in another package; the JVM threw an `IllegalAccessError` (V4 and D, like #59). Its class file now
 has the flag `ACC_PUBLIC`; the class files of all other code are unchanged. A new case of class L for #33: a
 `private` member type of a class in another package, which compiles into a class that fails when it resolves the
