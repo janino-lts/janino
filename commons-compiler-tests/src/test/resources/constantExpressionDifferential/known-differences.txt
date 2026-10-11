@@ -123,7 +123,7 @@
 20261061 sw0 ACCEPTED
 20261061 sw9 ACCEPTED
 
-# "&&" and "||" with a constant left operand (an issue is to be filed): JANINO folds "true || z" and "false && z"
+# #140, "&&" and "||" with a constant left operand: JANINO folds "true || z" and "false && z"
 # to a constant although the right operand is not constant (JLS 15.28 requires both operands to be constant), so
 # the expression is a constant expression as the initializer of a "static final" field (ConstantValue, FOLDING),
 # as a "case" label, as the condition of a "while" statement (reachability) and in a string concatenation
