@@ -1440,6 +1440,7 @@ class Parser {
                 this.read(";");
                 constructorInvocation = (ConstructorInvocation) a;
             } else {
+                a = this.parseBracketsOptOfVariableType(a);
                 Statement s;
                 if (this.peek(TokenType.IDENTIFIER)) {
                     Type variableType = a.toTypeOrCompileException();
@@ -1832,6 +1833,36 @@ class Parser {
     }
 
     /**
+     * {@link #parseExpressionOrType()} does not read the brackets after a parameterized type, e.g. {@code
+     * List<Object>[]}; this method reads them if the <var>atom</var> is a type.
+     *
+     * @return The <var>atom</var>, or the array type of the <var>atom</var> and the brackets that follow it
+     */
+    private Atom
+    parseBracketsOptAfterType(Atom atom) throws CompileException, IOException {
+
+        if (!this.peek("[") || !this.peekNextButOne("]")) return atom;
+
+        Type type = atom.toType();
+        if (type == null) return atom;
+
+        for (int i = this.parseBracketsOpt(); i > 0; --i) type = new ArrayType(type);
+        return type;
+    }
+
+    /**
+     * Like {@link #parseBracketsOptAfterType(Atom)}, for the type of a local variable. If no identifier follows the
+     * brackets, the error is that the <var>atom</var> is not an rvalue, like without the brackets.
+     */
+    private Atom
+    parseBracketsOptOfVariableType(Atom atom) throws CompileException, IOException {
+
+        Atom result = this.parseBracketsOptAfterType(atom);
+        if (result != atom && !this.peek(TokenType.IDENTIFIER)) atom.toRvalueOrCompileException();
+        return result;
+    }
+
+    /**
      * <pre>
      *   MethodBody := Block
      * </pre>
@@ -2176,7 +2207,7 @@ class Parser {
                 break INIT;
             }
 
-            Atom a = this.parseExpressionOrType();
+            Atom a = this.parseBracketsOptOfVariableType(this.parseExpressionOrType());
 
             if (this.peek(TokenType.IDENTIFIER)) {
                 if (this.peekNextButOne(":")) {
@@ -3049,6 +3080,19 @@ class Parser {
                         }
                     }
 
+                    // Brackets after the type arguments of the first type argument, e.g. "Map<List<String>[], T>".
+                    // Unless '>' or ',' follows them, the error is the same as without them.
+                    if (ftatas != null && this.peek("[")) {
+                        Location bracketsLocation = this.peek().getLocation();
+                        int      brackets         = this.parseBracketsOpt();
+                        if (brackets == 0 || !this.peek(",") && !this.peek().value.startsWith(">")) {
+                            throw Parser.compileException("One of '> ,' expected instead of '['", bracketsLocation);
+                        }
+                        Type type = (ReferenceType) firstTypeArgument;
+                        for (; brackets > 0; --brackets) type = new ArrayType(type);
+                        firstTypeArgument = (ArrayType) type;
+                    }
+
                     List<TypeArgument> typeArguments = new ArrayList<>();
                     typeArguments.add(firstTypeArgument);
 
@@ -3285,7 +3329,8 @@ class Parser {
                 return new LambdaExpression(loc, parameters, this.parseLambdaBody());
             }
 
-            Atom a;
+            Atom     a;
+            Location bracketsLocation = null;
             if (this.peek(TokenType.IDENTIFIER) && (this.peekNextButOne(",") || this.peekNextButOne(")"))) {
 
                 // '(' Identifier { ',' Identifier } ')' -> LambdaBody
@@ -3313,6 +3358,15 @@ class Parser {
                 a = new AmbiguousName(loc, new String[] { names[0] });
             } else {
                 a = this.parseExpressionOrType();
+
+                // Brackets after a parameterized type, e.g. "(List<Object>[]) o". Unless a formal parameter or the
+                // operand of a cast follows them, the error is the same as without them.
+                if (this.peek("[")) {
+                    bracketsLocation = this.peek().getLocation();
+                    Atom t = this.parseBracketsOptAfterType(a);
+                    if (t == a) throw Parser.compileException("')' expected instead of '['", bracketsLocation);
+                    a = t;
+                }
             }
 
             // '(' FormalParameterList ')'
@@ -3326,6 +3380,9 @@ class Parser {
             }
 
             // '(' atom ')'
+            if (bracketsLocation != null && !this.peek(")")) {
+                throw Parser.compileException("')' expected instead of '['", bracketsLocation);
+            }
             this.read(")");
 
             if (
@@ -3340,6 +3397,10 @@ class Parser {
                     a.toTypeOrCompileException(),                            // targetType
                     this.parseUnaryExpression().toRvalueOrCompileException() // value
                 );
+            }
+
+            if (bracketsLocation != null) {
+                throw Parser.compileException("')' expected instead of '['", bracketsLocation);
             }
 
             // '(' Expression ')'

@@ -120,6 +120,10 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 - 3.1.20 (in development): An array of a primitive type as the only variable arity argument of a parameter
   `Object...` or `Serializable...` was rejected when another argument needs boxing, e.g. `f(1, new int[] { 1, 2 })`
   with `f(Integer i, Object... a)` ([#127]); now the array is the only element of `a`, like with `javac`.
+- 3.1.20 (in development): An array type of a parameterized type, e.g. `List<Object>[]`, was rejected as the type
+  of a local variable in a script, in the first statement of a constructor and in a `for` statement, as the target
+  type of a cast, and as the first type argument of the type of a local variable or of a cast, e.g.
+  `Map<List<String>[], String> m` ([#138]); now these compile, like with `javac`.
 
 **Invalid code that crashed the compiler or compiled into class files that the JVM rejects** is rejected with a
 compile error now: overriding a `final` method, extending a `final` class, duplicate fields or member types,
@@ -185,8 +189,8 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.19 needs 1.8 % less time and
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 491 language
-  constructs, negative tests with 443 cases of invalid code, differential tests that compile generated expressions
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 497 language
+  constructs, negative tests with 448 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
   suites of Apache Calcite, Spark Catalyst, Apache Fory and Apache Drill every week and before every release
   ([Compatibility](COMPATIBILITY.md)).
@@ -241,3 +245,4 @@ affected.
 [#110]: https://github.com/janino-lts/janino/issues/110
 [#113]: https://github.com/janino-lts/janino/issues/113
 [#127]: https://github.com/janino-lts/janino/issues/127
+[#138]: https://github.com/janino-lts/janino/issues/138

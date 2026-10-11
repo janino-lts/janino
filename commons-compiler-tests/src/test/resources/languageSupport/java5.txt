@@ -133,6 +133,64 @@ public class P {
     @SuppressWarnings("unchecked") public static Object run() { List<String>[] a = new List[1]; return String.valueOf(a.length); }
 }
 
+=== generics: generic array type of a local variable in the first statement of a constructor
+jls: 1
+janino: OK
+import java.util.*;
+public class P {
+    int n;
+    @SuppressWarnings("unchecked") P() { List<String>[] a = new List[1]; this.n = a.length; }
+    public static Object run() { return String.valueOf(new P().n); }
+}
+
+=== generics: enhanced for with a variable of a generic array type (List<String>[] x : a)
+jls: 2
+janino: OK
+import java.util.*;
+public class P {
+    @SuppressWarnings("unchecked") public static Object run() {
+        List<String>[][] a = new List[2][1];
+        int n = 0;
+        for (List<String>[] x : a) n += x.length;
+        return String.valueOf(n);
+    }
+}
+
+=== generics: basic for with a variable of a generic array type (List<String>[] a = ...)
+jls: 3
+janino: OK
+import java.util.*;
+public class P {
+    @SuppressWarnings("unchecked") public static Object run() {
+        int n = 0;
+        for (List<String>[] a = new List[3]; n < a.length; n++);
+        return String.valueOf(n);
+    }
+}
+
+=== generics: cast to a generic array type ((List<String>[]) o, (List<String>[][]) o)
+jls: 1/2
+janino: OK
+import java.util.*;
+public class P {
+    @SuppressWarnings("unchecked") public static Object run() {
+        Object o = new List[1], p = new List[2][];
+        return ((List<String>[]) o).length + "/" + ((List<String>[][]) p).length;
+    }
+}
+
+=== generics: generic array type as the first type argument of a local variable (Map<List<String>[], String>)
+jls: 1
+janino: OK
+import java.util.*;
+public class P {
+    @SuppressWarnings("unchecked") public static Object run() {
+        Map<List<String>[], String> m = new HashMap<List<String>[], String>();
+        m.put(new List[0], "x");
+        return String.valueOf(((Map<List<String>[], String>) (Object) m).size());
+    }
+}
+
 === generics: raw implementation of a generic interface
 jls: x
 janino: OK

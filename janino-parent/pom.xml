@@ -153,6 +153,12 @@
           <alias>dummy</alias>
           <storepass>storepass</storepass>
           <keypass>keypass</keypass>
+
+          <!-- The digest algorithm of 3.1.12 (built with JDK 11); later JDKs default to SHA-384. -->
+          <arguments>
+            <argument>-digestalg</argument>
+            <argument>SHA-256</argument>
+          </arguments>
         </configuration>
       </plugin>
 
