@@ -270,3 +270,33 @@ janino: REJECTED IDENTIFIER expected instead of '('
 public class P {
     f() {}
 }
+
+=== array type of a parameterized type with a dimension expression, in a cast
+janino: REJECTED ')' expected instead of '['
+public class P {
+    Object f(Object o) { return (java.util.List<Object>[1]) o; }
+}
+
+=== array type of a parameterized type in parentheses, without an operand
+janino: REJECTED ')' expected instead of '['
+public class P {
+    Object f() { return (java.util.List<Object>[]); }
+}
+
+=== array type of a parameterized type without a variable, in the first statement of a constructor
+janino: REJECTED Expression "java.util.List<Object>" is not an rvalue
+public class P {
+    P() { java.util.List<Object>[]; }
+}
+
+=== array type of a parameterized type without a variable, in a basic for statement
+janino: REJECTED Expression "java.util.List<Object>" is not an rvalue
+public class P {
+    void f() { for (java.util.List<Object>[];;) {} }
+}
+
+=== array type of a parameterized type as the first type argument, without '>' after the brackets
+janino: REJECTED One of '> ,' expected instead of '['
+public class P {
+    void f() { java.util.Map<java.util.List<String>[] java.lang.String> m = null; }
+}

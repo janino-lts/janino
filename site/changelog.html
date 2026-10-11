@@ -62,6 +62,20 @@ h5 {
         e.g. with <code>f(Integer i, Number... a)</code>, the message is the same as before. The class files of all
         other code are unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/138">issue #138</a>: An array type of a
+        parameterized type, e.g. <code>List&lt;Object&gt;[]</code>, was rejected in several places: as the type of a
+        local variable or the return type of a method in a script (<code>IDENTIFIER expected instead of
+        '['</code>); as the type of a local variable in the first statement of a constructor and in a
+        <code>for</code> statement (<code>Expression "java.util.List&lt;Object&gt;" is not an rvalue</code>); as the
+        target type of a cast and the type of a lambda parameter (<code>')' expected instead of '['</code>); and as
+        the first type argument of the type of a local variable or of a cast, e.g. <code>Map&lt;List&lt;String&gt;[],
+        String&gt; m</code> (<code>One of '&gt; ,' expected instead of '['</code>). The parser did not read the
+        brackets after the type arguments there. Now these declarations and casts compile, like with JAVAC; a lambda
+        expression is still not compiled (<code>Compilation of lambda expression NYI</code>). Only code that was
+        rejected changes; syntax errors, e.g. <code>List&lt;Object&gt;[1] a</code>, are reported with the same
+        message as before. The class files of all other code are unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.19 2026-10-10</h4>
