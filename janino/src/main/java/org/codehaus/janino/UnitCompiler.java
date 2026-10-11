@@ -12497,7 +12497,11 @@ class UnitCompiler {
                             );
                         }
                         if (!this.isMethodInvocationConvertible(argumentTypes[idx], lastParamType, boxingPermitted)) {
+
+                            // Not applicable by variable arity; check below whether it is applicable by fixed arity,
+                            // with all arguments (issue #134).
                             formalParamCount++;
+                            nUncheckedArg = argumentTypes.length;
                             break VARARGS;
                         }
 
@@ -12750,7 +12754,10 @@ class UnitCompiler {
             StringBuilder sb = new StringBuilder("Invocation of constructor/method with argument type(s) \"");
             for (int i = 0; i < argumentTypes.length; ++i) {
                 if (i > 0) sb.append(", ");
-                sb.append(Descriptor.toString(argumentTypes[i].getDescriptor()));
+
+                // The null type has no descriptor (issue #134).
+                IClass at = argumentTypes[i];
+                sb.append(at == IClass.NULL ? at.toString() : Descriptor.toString(at.getDescriptor()));
             }
             sb.append("\" is ambiguous: ");
             for (int i = 0; i < maximallySpecificIInvocables.size(); ++i) {

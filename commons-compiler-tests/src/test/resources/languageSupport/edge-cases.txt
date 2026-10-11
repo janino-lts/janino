@@ -247,6 +247,76 @@ public class P {
     public static Object run() { boolean x = f() || true; return x + "," + n; }
 }
 
+=== overload resolution: m(Integer[], Short, int) for m(null, (short) 1, 'c'), not m(int...)
+jls: m#2
+janino: OK
+legacy: INVALID InternalCompilerException
+id: #134
+public class P {
+    static String m(Integer a0) { return "m#0"; }
+    static String m(int... a0) { return "m#1"; }
+    static String m(Integer[] a0, Short a1, int a2) { return "m#2"; }
+    public static Object run() { return m(null, (short) 1, 'c'); }
+}
+
+=== overload resolution: constructor Q(Integer[], Short, int) for new Q(null, (short) 1, 'c'), not Q(int...)
+jls: Q#2
+janino: OK
+legacy: INVALID InternalCompilerException
+id: #134
+public class P {
+    static class Q {
+        String s;
+        Q(Integer a0) { this.s = "Q#0"; }
+        Q(int... a0) { this.s = "Q#1"; }
+        Q(Integer[] a0, Short a1, int a2) { this.s = "Q#2"; }
+    }
+    public static Object run() { return new Q(null, (short) 1, 'c').s; }
+}
+
+=== overload resolution: m(Integer[], Byte...) for m(ia, b), not m(Number...)
+jls: IB1
+janino: OK
+legacy: REJECTED Invocation of constructor/method with argument type(s) "java.lang.Integer[], java.lang.Byte"
+id: #134
+public class P {
+    static Integer[] ia = { 1 };
+    static Byte      b  = 1;
+    static String m(Number... a) { return "N"; }
+    static String m(Integer[] a, Byte... b) { return "IB" + b.length; }
+    public static Object run() { return m(ia, b); }
+}
+
+=== overload resolution: m(Integer...) by fixed arity for m(null) (Janino expands the arguments)
+jls: m#2
+janino: REJECTED Invocation of constructor/method with argument type(s) "(null type)" is ambiguous
+compliant: OK
+legacy: INVALID InternalCompilerException
+id: S-13, #134
+public class P {
+    static String m(Long a0, byte... a1) { return "m#0"; }
+    static String m(Boolean a0, char a1) { return "m#1"; }
+    static String m(Integer... a0) { return "m#2"; }
+    static String m(Boolean a0, Short a1, short... a2) { return "m#3"; }
+    public static Object run() { return m(null); }
+}
+
+=== overload resolution: Q(Object, byte...) by fixed arity for new Q(null, null) (Janino expands the arguments)
+jls: Q#1
+janino: REJECTED Invocation of constructor/method with argument type(s) "(null type), (null type)" is ambiguous
+compliant: OK
+legacy: INVALID InternalCompilerException
+id: S-13, #134
+public class P {
+    static class Q {
+        String s;
+        Q(byte a0, short... a1) { this.s = "Q#0"; }
+        Q(Object a0, byte... a1) { this.s = "Q#1"; }
+        Q(Long... a0) { this.s = "Q#2"; }
+    }
+    public static Object run() { return new Q(null, null).s; }
+}
+
 === constant expression 1 / 0 is not folded
 jls: AE
 janino: OK

@@ -37,21 +37,3 @@
 20261035 p8 ACCEPTED
 20261042 p1 ACCEPTED
 20261042 p10 ACCEPTED
-
-# #134: internal compiler errors on invocations with "null" arguments: an ArrayIndexOutOfBoundsException after overload
-# resolution selected a method with fewer parameters than there are arguments (20261019 p5 and p9: valid code, JAVAC
-# selects "m(Integer[], Short, int)"; 20261019 p3: invalid code), or a StringIndexOutOfBoundsException while the
-# message of an ambiguity error formats the descriptor of the null type (the others: invalid code, JAVAC reports the
-# ambiguity).
-20261017 p11 INVALID
-20261019 p3 INVALID
-20261019 p5 INVALID
-20261019 p9 INVALID
-20261020 p1 INVALID
-20261020 p5 INVALID
-20261039 p4 INVALID
-20261045 p11 INVALID
-20261048 p6 INVALID
-20261048 p9 INVALID
-20261056 p3 INVALID
-20261058 p10 INVALID
