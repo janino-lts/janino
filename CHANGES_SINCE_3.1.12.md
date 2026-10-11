@@ -125,6 +125,12 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   type of a cast, and as the first type argument of the type of a local variable or of a cast, e.g.
   `Map<List<String>[], String> m` ([#138]); now these compile, like with `javac`.
 
+**Imports** (3.1.20):
+
+- 3.1.20 (in development): A static method that the compilation unit imports twice, e.g. with
+  `import static java.lang.Math.abs;` twice or `import static java.lang.Math.*;` twice, was an internal compiler
+  error when it was invoked ([#133]); now the code compiles, like with `javac`.
+
 **Invalid code that crashed the compiler or compiled into class files that the JVM rejects** is rejected with a
 compile error now: overriding a `final` method, extending a `final` class, duplicate fields or member types,
 `int x; x++;` ([#30]); illegal combinations of modifiers, the same interface twice in an `implements` clause,
@@ -189,7 +195,7 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.19 needs 1.8 % less time and
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 497 language
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 501 language
   constructs, negative tests with 448 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
   suites of Apache Calcite, Spark Catalyst, Apache Fory and Apache Drill every week and before every release
@@ -245,4 +251,5 @@ affected.
 [#110]: https://github.com/janino-lts/janino/issues/110
 [#113]: https://github.com/janino-lts/janino/issues/113
 [#127]: https://github.com/janino-lts/janino/issues/127
+[#133]: https://github.com/janino-lts/janino/issues/133
 [#138]: https://github.com/janino-lts/janino/issues/138
