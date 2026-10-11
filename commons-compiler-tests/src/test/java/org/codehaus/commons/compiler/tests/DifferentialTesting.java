@@ -40,15 +40,11 @@ import java.util.TreeSet;
 
 import org.codehaus.commons.compiler.CompileException;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
-import org.codehaus.commons.compiler.ICompiler;
 import org.codehaus.commons.compiler.ICompilerFactory;
 import org.codehaus.commons.compiler.ISimpleCompiler;
 import org.codehaus.commons.compiler.Location;
 import org.codehaus.commons.compiler.util.ResourceFinderClassLoader;
-import org.codehaus.commons.compiler.util.resource.MapResourceCreator;
 import org.codehaus.commons.compiler.util.resource.MapResourceFinder;
-import org.codehaus.commons.compiler.util.resource.Resource;
-import org.codehaus.commons.compiler.util.resource.StringResource;
 import org.junit.Assert;
 import org.junit.Assume;
 
@@ -103,13 +99,17 @@ class DifferentialTesting {
     static Map<String, byte[]>
     compileToClassFiles(ICompilerFactory compilerFactory, String mode, String source) throws Exception {
 
-        ICompiler compiler = compilerFactory.newCompiler();
-        if (TestUtil.COMPLIANT.equals(mode)) TestUtil.setJavacCompliance(compiler);
+        // Not through an "ICompiler": JANINO's "Compiler" reads the class files of the JDK for each instance, which
+        // takes far longer than the compilation of a small class.
+        ISimpleCompiler sc = TestUtil.newSimpleCompiler(compilerFactory, mode);
+        sc.cook("P.java", source);
 
+        // JANINO's "getBytecodes()" maps class names, the JDK-based compiler's maps resource names.
         Map<String, byte[]> result = new HashMap<>();
-        compiler.setClassFileFinder(new MapResourceFinder(result));
-        compiler.setClassFileCreator(new MapResourceCreator(result));
-        compiler.compile(new Resource[] { new StringResource("P.java", source) });
+        for (Map.Entry<String, byte[]> e : sc.getBytecodes().entrySet()) {
+            String name = e.getKey();
+            result.put(name.endsWith(".class") ? name : name.replace('.', '/') + ".class", e.getValue());
+        }
         return result;
     }
 
