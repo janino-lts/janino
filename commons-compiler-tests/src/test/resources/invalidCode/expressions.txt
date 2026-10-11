@@ -299,6 +299,28 @@ public class P {
     void f() { m(1, 1); }
 }
 
+=== ambiguous method invocation with a null argument
+janino: REJECTED Invocation of constructor/method with argument type(s) "(null type)" is ambiguous
+public class P {
+    void m(Character a) {}
+    void m(Integer a) {}
+    void f() { m(null); }
+}
+
+=== ambiguous constructor invocation with a null argument
+janino: REJECTED Invocation of constructor/method with argument type(s) "(null type)" is ambiguous
+public class P {
+    static class Q { Q(Character a) {} Q(Integer a) {} }
+    Object f() { return new Q(null); }
+}
+
+=== constructor invocation with no applicable variable arity constructor
+janino: REJECTED No applicable constructor/method found for actual parameters "int[], char, short"
+public class P {
+    static class Q { Q(boolean a0, String[]... a1) {} Q(int... a0) {} Q(Integer[] a0, Integer a1, int[][] a2) {} }
+    Object f(int[] ia, char c, short s) { return new Q(ia, c, s); }
+}
+
 === constructor invocation with wrong arguments
 janino: REJECTED No applicable constructor/method found for actual parameters "int, int"
 public class P {

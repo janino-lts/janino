@@ -395,7 +395,11 @@ statement, as the target type of a cast, and as the first type argument of the t
 cast (D); now these compile. Only code that was rejected changes; syntax errors keep their messages. #133: a
 static method that the compilation unit imports twice, e.g. `import static java.lang.Math.abs;` twice, was an
 internal compiler error when it was invoked (D); now it compiles. Only code that failed with an internal compiler
-error changes.
+error changes. #134: some invocations of overloaded methods or constructors with a `null` argument were an internal
+compiler error (D): a variable arity method counted as applicable against the leading arguments only, and the
+message "... is ambiguous" failed for a `null` argument; now the invocation selects the method like `javac`, or the
+ambiguity is reported. Only invocations that failed with an internal compiler error change, and those that were
+rejected as ambiguous only because of such a method.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`
