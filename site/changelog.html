@@ -86,6 +86,21 @@ h5 {
         the code compiles, like with JAVAC. Only code that failed with an internal compiler error changes; the class
         files of all other code are unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/134">issue #134</a>: Some invocations of
+        overloaded methods or constructors with a <code>null</code> argument made the compiler fail with an internal
+        compiler error. A variable arity method whose trailing arguments do not convert to its component type counted
+        as applicable by fixed arity against the leading arguments only, e.g. <code>m(int...)</code> for
+        <code>m(null, (short) 1, 'c')</code> (<code>ArrayIndexOutOfBoundsException</code>); now such a method is
+        applicable by fixed arity only if there are as many arguments as parameters, and the invocation selects
+        <code>m(Integer[], Short, int)</code>, like JAVAC. And the message <code>Invocation of constructor/method with
+        argument type(s) ... is ambiguous</code> failed for a <code>null</code> argument
+        (<code>StringIndexOutOfBoundsException</code>); now it names its type <code>(null type)</code>, like the
+        message <code>No applicable constructor/method found</code>. Only invocations that failed with an internal
+        compiler error change, and those that were rejected as ambiguous because of such a method, e.g.
+        <code>m(ia, b)</code> (<code>Integer[]</code>, <code>Byte</code>) with <code>m(Number...)</code> and
+        <code>m(Integer[], Byte...)</code>; the class files of all other code are unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.19 2026-10-10</h4>

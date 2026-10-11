@@ -150,6 +150,15 @@ static method that the compilation unit imports twice, with two single-static-im
 (`import static java.lang.Math.abs;` twice) or with two static-import-on-demand declarations of the same class,
 because they count the method once per declaration.
 
+**Invocations with a `null` argument** ([#134](https://github.com/janino-lts/janino/issues/134), fixed in 3.1.20):
+Janino 3.1.19 and earlier fail with an internal compiler error on `m(null, (short) 1, 'c')` with `m(Integer)`,
+`m(int...)` and `m(Integer[], Short, int)` (`ArrayIndexOutOfBoundsException`), because they count `m(int...)` as
+applicable against the first argument only; since 3.1.20, the invocation selects `m(Integer[], Short, int)`, like
+`javac`. They also fail while reporting an ambiguity with a `null` argument (`StringIndexOutOfBoundsException`).
+Where `javac` applies a variable arity method by fixed arity, Janino still expands the arguments, so that, e.g.,
+`m(null)` with `m(Integer...)` and `m(Long, byte...)` is still rejected; since 3.1.20, with the message
+`Invocation of constructor/method with argument type(s) "(null type)" is ambiguous`.
+
 ## 3. Invalid code that Janino accepts
 
 `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it behaves
