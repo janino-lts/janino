@@ -48,11 +48,11 @@ import util.TestUtil;
 @RunWith(Parameterized.class) public
 class Issue32Test extends CommonsCompilerTestSuite {
 
-    @Parameters(name = "CompilerFactory={0}") public static Collection<Object[]>
-    compilerFactories() throws Exception { return TestUtil.getCompilerFactoriesForParameters(); }
+    @Parameters(name = "{0}, {1}") public static Collection<Object[]>
+    compilerFactories() throws Exception { return TestUtil.getCompilerFactoriesAndModesForParameters(); }
 
     public
-    Issue32Test(ICompilerFactory compilerFactory) { super(compilerFactory); }
+    Issue32Test(ICompilerFactory compilerFactory, String mode) { super(compilerFactory, mode); }
 
     public static
     class SpoofRowwise {

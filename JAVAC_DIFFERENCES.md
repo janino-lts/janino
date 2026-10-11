@@ -76,9 +76,9 @@ the compliance mode follows `javac` (where the column says so; "open" means not 
 | S-13 | `f(Object... a)`; `f(null)` | `a` is `null` | `a` is an array with one element `null` (the arguments of a variable arity method are always expanded) | [#126](https://github.com/janino-lts/janino/issues/126) | like `javac` (development line) |
 
 **S-05, constant expressions that are not folded** ([#47](https://github.com/janino-lts/janino/issues/47)): Janino
-does not evaluate shifts, relational operators, `~`, operations with `char` operands and casts to and from `char` at
-compile time (see section 2). Their values are correct, but a `static final` field with such an initializer, e.g.
-`static final int X = 1 << 2;`, is not a constant variable:
+does not evaluate shifts, relational operators, `~`, operations with `char` operands, casts to and from `char`, `&`,
+`|` and `^` with `boolean` operands, and casts to `String` at compile time (see section 2). Their values are correct,
+but a `static final` field with such an initializer, e.g. `static final int X = 1 << 2;`, is not a constant variable:
 
 - it has no `ConstantValue` attribute and is initialized in the static initializer;
 - reading it from another class initializes the declaring class, which `javac`'s code does not (JLS 12.4.1).

@@ -75,6 +75,13 @@
       <version>${spark.version}</version>
       <scope>provided</scope>
     </dependency>
+    <!-- For "SparkCorpusTest", which compiles the corpus of SPARK_TPCDS in both modes of the current JANINO. -->
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.1</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -109,7 +116,16 @@
         </configuration>
       </plugin>
 
-      <!-- Copies the JAR files of the two JANINO versions to "target/janino-current" and "target/janino-baseline". -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+      </plugin>
+
+      <!--
+        Copies the JAR files of the two JANINO versions to "target/janino-current" and "target/janino-baseline", and
+        the Spark runtime to "target/spark-classpath". The latter before the tests, because "SparkCorpusTest" needs it.
+      -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
@@ -151,7 +167,7 @@
           </execution>
           <execution>
             <id>spark-classpath</id>
-            <phase>package</phase>
+            <phase>process-test-resources</phase>
             <goals>
               <goal>copy-dependencies</goal>
             </goals>

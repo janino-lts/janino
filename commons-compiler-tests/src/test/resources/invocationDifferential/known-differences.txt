@@ -1,0 +1,57 @@
+# Known differences between JANINO and JAVAC; see "InvocationDifferentialTest".
+# Format: <seed> <method> <WRONG|REJECTED|ACCEPTED|INVALID>
+
+# S-02: JANINO applies variable arity methods before boxing, so it selects a variable arity method where JAVAC
+# selects a fixed arity method that is applicable with boxing (e.g. "m(i)" with "m(Integer)" and "m(int...)").
+20261011 p0 WRONG
+20261019 p4 WRONG
+20261038 p7 WRONG
+20261056 p4 WRONG
+20261056 p8 WRONG
+20261066 p7 WRONG
+
+# S-13: JANINO always expands the arguments of a variable arity method, so a "null" argument for the variable
+# arity parameter becomes an array with one element "null", where JAVAC passes "null" as the array.
+20261018 p9 WRONG
+20261040 p3 WRONG
+20261045 p6 WRONG
+20261046 p3 WRONG
+20261058 p9 WRONG
+20261060 p5 WRONG
+20261063 p0 WRONG
+20261066 p3 WRONG
+
+# L-49: an invocation that JAVAC rejects as ambiguous, because neither of two variable arity methods is more
+# specific, is accepted; JANINO selects one of them.
+20261011 p5 ACCEPTED
+20261011 p6 ACCEPTED
+20261011 p7 ACCEPTED
+20261011 p8 ACCEPTED
+20261019 p0 ACCEPTED
+20261024 p11 ACCEPTED
+20261027 p10 ACCEPTED
+20261032 p1 ACCEPTED
+20261032 p4 ACCEPTED
+20261032 p8 ACCEPTED
+20261032 p9 ACCEPTED
+20261035 p8 ACCEPTED
+20261042 p1 ACCEPTED
+20261042 p10 ACCEPTED
+
+# #134: internal compiler errors on invocations with "null" arguments: an ArrayIndexOutOfBoundsException after overload
+# resolution selected a method with fewer parameters than there are arguments (20261019 p5 and p9: valid code, JAVAC
+# selects "m(Integer[], Short, int)"; 20261019 p3: invalid code), or a StringIndexOutOfBoundsException while the
+# message of an ambiguity error formats the descriptor of the null type (the others: invalid code, JAVAC reports the
+# ambiguity).
+20261017 p11 INVALID
+20261019 p3 INVALID
+20261019 p5 INVALID
+20261019 p9 INVALID
+20261020 p1 INVALID
+20261020 p5 INVALID
+20261039 p4 INVALID
+20261045 p11 INVALID
+20261048 p6 INVALID
+20261048 p9 INVALID
+20261056 p3 INVALID
+20261058 p10 INVALID

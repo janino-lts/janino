@@ -62,6 +62,17 @@ compiler and 25 seconds with `-Xint`, hence the longer rounds. To compare with a
 group ID `org.codehaus.janino`). JDK 24 and later warn about `sun.misc.Unsafe` when a class of Spark is loaded;
 `--sun-misc-unsafe-memory-access=allow` silences that.
 
+The module has one test, `SparkCorpusTest`: it compiles the corpus of `SPARK_TPCDS` with the current Janino in the
+compatibility mode and in the compliance mode (`JaninoOption.JAVAC_COMPLIANCE`), loads and instantiates every
+generated class, and fails with the list of the class bodies that do not compile or load in a mode. It also writes
+the names of the class bodies whose class files differ between the two modes to
+`target/spark-corpus-mode-differences.txt`. The job "Spark corpus in both modes" of the workflow "CI" runs it; locally:
+
+```
+mvn -f janino-parent/pom.xml install -DskipTests
+mvn -f janino-benchmarks/pom.xml test
+```
+
 ## Results: Janino 3.1.12 and 3.1.17 on the Spark corpus
 
 Measured on 2026-10-07 on a laptop with JDK 25.0.2; 3.1.17 contains all changes from 3.1.13 on. A is Janino

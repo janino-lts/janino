@@ -309,17 +309,43 @@ register is the public list; a deviation that is not in it is an unknown defect,
   ID of the deviation that the case documents (or the issue number of a correction); both modes run for every case.
   The module `commons-compiler-tests` compiles only against the `commons-compiler` API, so it sets the option
   through reflection (`TestUtil.setJavacCompliance()`).
-- `ExpressionDifferentialTest` and `ControlFlowDifferentialTest` run in both modes; in the compliance mode, the
-  generator does not avoid the constructs of the defects that the mode corrects (`Defect`), and each mode has its own
-  file of known differences.
+- `ExpressionDifferentialTest`, `ControlFlowDifferentialTest` and `InvocationDifferentialTest` run in both modes; in
+  the compliance mode, the expression generator does not avoid the constructs of the defects that the mode corrects
+  (`Defect`), and each mode has its own file of known differences. `InvocationDifferentialTest` generates sets of
+  overloaded methods and constructors (primitive, wrapper, reference and array parameter types, variable arity) and
+  invocations with random arguments, and compares which overload each compiler selects, or whether it rejects the
+  invocation (JLS 15.12.2): the area of S-02, S-13, L-49 and D-08, and of #126 and #127. Its record of the
+  compatibility mode lists the invocations that S-02 and S-13 decide differently than `javac`.
+  `NameResolutionDifferentialTest` generates classes in which the same simple names denote static, instance,
+  private and constant fields of the outer class, fields of an inner subclass, of a static nested class, of a local
+  class and of an anonymous subclass, parameters and local variables, and probes that read them (simple names,
+  `this.x`, `P.this.x`, `super.x`, a private and an overridden method, `assert` conditions with assertions enabled
+  and disabled): the area of S-03, S-11, L-45 and L-46, and of #101 and #124. It runs in both modes as well.
+  `ConstantExpressionDifferentialTest` generates expressions over literals, constant variables, variables (also of
+  the wrapper types), casts, conditional expressions with constant and with non-constant conditions and string
+  concatenations, and uses each of them where the language decides by whether it is a constant expression: as the
+  initializer of a `static final` field (the `ConstantValue` attribute of the class file is compared), as a `case`
+  label, as the condition of a `while` statement, in a reference comparison of two evaluations (the interning of
+  constant strings) and as an `Object` (the type of the expression): the area of S-04, S-12, L-47, L-48 and D-07.
+  The generator avoids the constructs that S-05 does not fold (`Defect`). It runs in both modes as well.
 - `LegacyDifferentialTest` runs the recorded cases through 3.1.12, loaded from Maven Central into a class loader of
   its own (as `janino-benchmarks` loads its baseline), and compares its behavior with the recorded behavior of the
   compatibility mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction
   that explains the difference (`id:`); an unrecorded difference fails the test. This is the test that makes "legacy"
   machine-checkable; without it, the records only protect against accidental changes. Today, 399 of the 1025 recorded
   cases differ from 3.1.12.
-- Open: every other test class that compiles with Janino runs in the compatibility mode only; a second run of the
-  whole suite in the compliance mode needs the mode-dependent expectations of those tests first.
+- `SparkCorpusTest` (`janino-benchmarks`, job "Spark corpus in both modes" of the workflow "CI") compiles the code
+  that Spark generated for twelve TPC-DS queries (342 class bodies) in both modes, and loads and instantiates every
+  generated class: real generated code, with the constructs that a code generator actually produces.
+- The downstream workflows "Calcite", "Spark", "Fory" and "Drill" run the tests of those projects with the candidate
+  in the compliance mode when started with the input "javac-compliance"; the workflow "Weekly" starts each of them
+  on `master` in both modes, so that a regression of the compliance mode in generated code shows up within a week.
+- The tests on `CommonsCompilerTestSuite` (`JlsTest`, `ReportedBugsTest`, `EvaluatorTest`, `BaseClassTest`,
+  `CookableApiTest`, `Issue32Test`, `SourceCharsetTest`) and `CompilerTest`, which compiles Janino's own sources with
+  Janino (the "self-compilation", also with the Janino compiled that way), run in both modes as well: the suite
+  configures every compiler that it creates for the mode of the test (`forMode()`). Janino's own sources are the
+  largest body of valid code in the repository, with `assert` statements, variable arity methods and nested classes
+  in quantity. The sandbox tests run in the compatibility mode only (they do not concern the language).
 - `CodeSizeReport` (`janino-benchmarks`): in the compatibility mode, the class files of all workloads are byte for
   byte identical to those of the last release, except where a fix of class V or D explains the difference.
 

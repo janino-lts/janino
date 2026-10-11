@@ -68,11 +68,11 @@ import util.TestUtil;
 @RunWith(Parameterized.class) public
 class EvaluatorTest extends CommonsCompilerTestSuite {
 
-    @Parameters(name = "CompilerFactory={0}") public static Collection<Object[]>
-    compilerFactories() throws Exception { return TestUtil.getCompilerFactoriesForParameters(); }
+    @Parameters(name = "{0}, {1}") public static Collection<Object[]>
+    compilerFactories() throws Exception { return TestUtil.getCompilerFactoriesAndModesForParameters(); }
 
     public
-    EvaluatorTest(ICompilerFactory compilerFactory) { super(compilerFactory); }
+    EvaluatorTest(ICompilerFactory compilerFactory, String mode) { super(compilerFactory, mode); }
 
     @SuppressWarnings({ "unused", "static-method" })
     @Before

@@ -91,16 +91,21 @@ class CompilerTest {
     private final String                              compilerFactoryId;
     private final boolean                             isJdk;
     @SuppressWarnings("unused") private final boolean isJanino;
+    private final boolean                             isCompliant;
 
     @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-    @Parameters(name = "CompilerFactory={0}") public static Collection<Object[]>
-    compilerFactories() throws Exception { return TestUtil.getCompilerFactoriesForParameters(); }
+    @Parameters(name = "{0}, {1}") public static Collection<Object[]>
+    compilerFactories() throws Exception { return TestUtil.getCompilerFactoriesAndModesForParameters(); }
 
+    /**
+     * @param mode {@link TestUtil#COMPAT}, {@link TestUtil#COMPLIANT} or {@link TestUtil#JAVAC}
+     */
     public
-    CompilerTest(ICompilerFactory compilerFactory) {
+    CompilerTest(ICompilerFactory compilerFactory, String mode) {
 
         this.compilerFactory = compilerFactory;
+        this.isCompliant     = TestUtil.COMPLIANT.equals(mode);
 
         this.compilerFactoryId = compilerFactory.getId();
         this.isJdk             = this.compilerFactoryId.equals("org.codehaus.commons.compiler.jdk");
@@ -110,6 +115,22 @@ class CompilerTest {
     @Before
     public void
     setUp() throws Exception {
+    }
+
+    /** @return A new compiler of the {@link #compilerFactory}, configured for the mode */
+    private ICompiler
+    newCompiler() throws Exception {
+        ICompiler result = this.compilerFactory.newCompiler();
+        if (this.isCompliant) TestUtil.setJavacCompliance(result);
+        return result;
+    }
+
+    /** @return A new simple compiler of the {@link #compilerFactory}, configured for the mode */
+    private ISimpleCompiler
+    newSimpleCompiler() throws Exception {
+        ISimpleCompiler result = this.compilerFactory.newSimpleCompiler();
+        if (this.isCompliant) TestUtil.setJavacCompliance(result);
+        return result;
     }
 
     /**
@@ -171,7 +192,7 @@ class CompilerTest {
         {
             b.beginReporting("Compile " + this.compilerFactoryId + " from scratch");
             classFileMap1 = new TreeMap<>(
-                CompilerTest.compileJanino(sourceFiles, this.compilerFactory.newCompiler(), null)
+                CompilerTest.compileJanino(sourceFiles, this.newCompiler(), null)
             );
             b.endReporting("Generated " + classFileMap1.size() + " class files.");
 
@@ -186,7 +207,7 @@ class CompilerTest {
                 + "compilation being available, i.e. only the explicitly given source files should be recompiled"
             );
             SortedMap<String, byte[]> classFileMap2 = new TreeMap<>(
-                CompilerTest.compileJanino(sourceFiles, this.compilerFactory.newCompiler(), classFileMap1)
+                CompilerTest.compileJanino(sourceFiles, this.newCompiler(), classFileMap1)
             );
             b.endReporting("Generated " + classFileMap2.size() + " class files.");
 
@@ -215,6 +236,7 @@ class CompilerTest {
             Object iCompiler = cl.loadClass(
                 this.compilerFactory.getId() + ".Compiler"
             ).getDeclaredConstructor().newInstance();
+            if (this.isCompliant) TestUtil.setJavacCompliance(iCompiler);
 
             SortedMap<String, byte[]> classFileMap3 = new TreeMap<>(CompilerTest.compileJanino(
                 sourceFiles,
@@ -417,7 +439,7 @@ class CompilerTest {
         b.beginReporting("Compile Stream.java");
         MapResourceCreator classFileResources1 = new MapResourceCreator();
         {
-            ICompiler c = this.compilerFactory.newCompiler();
+            ICompiler c = this.newCompiler();
             c.setSourceFinder(sourceFinder);
             c.setClassPath(new File[0]);
             c.setClassFileCreator(classFileResources1);
@@ -506,7 +528,7 @@ class CompilerTest {
 
         // Error handler that throws a CompileException.
         {
-            ICompiler compiler = this.compilerFactory.newCompiler();
+            ICompiler compiler = this.newCompiler();
 
             final int[] count = new int[1];
             compiler.setCompileErrorHandler(new ErrorHandler() {
@@ -533,7 +555,7 @@ class CompilerTest {
 
         // Error handler that does *not* throw a CompileException.
         {
-            ICompiler compiler = this.compilerFactory.newCompiler();
+            ICompiler compiler = this.newCompiler();
 
             final int[] count = new int[1];
             compiler.setCompileErrorHandler(new ErrorHandler() {
@@ -589,10 +611,10 @@ class CompilerTest {
     }
 
     private Map<String, byte[]>
-    compile(MapResourceFinder sourceFinder) throws CompileException, IOException {
+    compile(MapResourceFinder sourceFinder) throws Exception {
 
         // Set up the compiler.
-        ICompiler compiler = this.compilerFactory.newCompiler();
+        ICompiler compiler = this.newCompiler();
         compiler.setSourceFinder(sourceFinder);
         return CompilerTest.compile(compiler, sourceFinder);
     }
@@ -635,14 +657,14 @@ class CompilerTest {
             + "}\n"
         );
 
-        ISimpleCompiler sc = this.compilerFactory.newSimpleCompiler();
+        ISimpleCompiler sc = this.newSimpleCompiler();
         sc.cook(cu);
     }
 
     // https://github.com/codehaus/janino/issues/5
     @Test public void
     testLocalVarTableGeneration() throws Exception {
-        ISimpleCompiler sc = this.compilerFactory.newSimpleCompiler();
+        ISimpleCompiler sc = this.newSimpleCompiler();
         sc.setDebuggingInformation(true, true, true);
         sc.cook(new FileInputStream(CompilerTest.RESOURCE_DIR + "/a/TestLocalVarTable.java"));
         sc.getClassLoader().loadClass("a.TestLocalVarTable");
@@ -651,7 +673,7 @@ class CompilerTest {
     @Test public void
     testIssue98() throws Exception {
 
-        ICompiler compiler = this.compilerFactory.newCompiler();
+        ICompiler compiler = this.newCompiler();
 
         // Here's the magic: Configure a custom "resource creator", so the .class files are stored in a Map, and no
         // files are created.
@@ -684,7 +706,7 @@ class CompilerTest {
 
         // Compile the class that declares the constants into a directory.
         File      dir = this.temporaryFolder.newFolder();
-        ICompiler c1  = this.compilerFactory.newCompiler();
+        ICompiler c1  = this.newCompiler();
         c1.setDestinationDirectory(dir, false);
         c1.compile(new Resource[] {
             new StringResource(
@@ -702,7 +724,7 @@ class CompilerTest {
 
         // Compile a class that uses the constants, against the class files.
         Map<String, byte[]> classes = new HashMap<>();
-        ICompiler           c2      = this.compilerFactory.newCompiler();
+        ICompiler           c2      = this.newCompiler();
         c2.setClassPath(new File[] { dir });
         c2.setClassFileCreator(new MapResourceCreator(classes));
         c2.compile(new Resource[] {
@@ -731,7 +753,7 @@ class CompilerTest {
         Assert.assertEquals((byte) 97, b.getMethod("b").invoke(null));
 
         // The loop condition is constant, so the statement after the loop is unreachable (JLS 14.22).
-        ICompiler c3 = this.compilerFactory.newCompiler();
+        ICompiler c3 = this.newCompiler();
         c3.setClassPath(new File[] { dir });
         c3.setClassFileCreator(new MapResourceCreator(new HashMap<String, byte[]>()));
         try {
@@ -758,7 +780,7 @@ class CompilerTest {
 
         File file = File.createTempFile("janino-test", ".jar");
         try {
-            ICompiler compiler = this.compilerFactory.newCompiler();
+            ICompiler compiler = this.newCompiler();
             compiler.setExtensionDirectories(new File[] { file });
             compiler.setClassPath(new File[0]);
 
@@ -803,7 +825,7 @@ class CompilerTest {
     }
 
     private void
-    assertUncompilable(String messageRegex, MapResourceFinder sourceFinder) throws IOException {
+    assertUncompilable(String messageRegex, MapResourceFinder sourceFinder) throws Exception {
         try {
             this.compile(sourceFinder);
             Assert.fail("CompileException expected");

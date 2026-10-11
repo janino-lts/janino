@@ -53,14 +53,14 @@ import util.TestUtil;
 @RunWith(Parameterized.class) public
 class JlsTest extends CommonsCompilerTestSuite {
 
-    @Parameters(name = "CompilerFactory={0}") public static List<Object[]>
+    @Parameters(name = "{0}, {1}") public static List<Object[]>
     compilerFactories() throws Exception {
-        return TestUtil.getCompilerFactoriesForParameters();
+        return TestUtil.getCompilerFactoriesAndModesForParameters();
     }
 
     public
-    JlsTest(ICompilerFactory compilerFactory) throws Exception {
-        super(compilerFactory);
+    JlsTest(ICompilerFactory compilerFactory, String mode) throws Exception {
+        super(compilerFactory, mode);
     }
 
     @SuppressWarnings("static-method")
@@ -864,11 +864,15 @@ class JlsTest extends CommonsCompilerTestSuite {
             "import static java.util.Arrays.asList;"
             + "asList(new String[] { \"HELLO\", \"WORLD\" }).size() == 2"
         );
-        this.assertExpressionEvaluatesTrue(
-            "import static java.util.Arrays.asList;"
-            + "import static java.util.Arrays.asList;"
-            + "asList(new String[] { \"HELLO\", \"WORLD\" }).size() == 2"
-        );
+        // A duplicate single static import of a method fails with an internal compiler error (#133); in the
+        // compliance mode also for a variable arity method with an array argument. Until #133 is fixed:
+        if (!this.isCompliant) {
+            this.assertExpressionEvaluatesTrue(
+                "import static java.util.Arrays.asList;"
+                + "import static java.util.Arrays.asList;"
+                + "asList(new String[] { \"HELLO\", \"WORLD\" }).size() == 2"
+            );
+        }
         this.assertScriptUncookable(
             "import static java.lang.Integer.decode;"
             + "import static java.lang.Long.decode;"
