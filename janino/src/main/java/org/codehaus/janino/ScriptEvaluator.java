@@ -55,6 +55,7 @@ import org.codehaus.commons.compiler.sandbox.SandboxPolicy;
 import org.codehaus.commons.nullanalysis.Nullable;
 import org.codehaus.janino.Java.AbstractClassDeclaration;
 import org.codehaus.janino.Java.AbstractCompilationUnit.ImportDeclaration;
+import org.codehaus.janino.Java.ArrayType;
 import org.codehaus.janino.Java.Atom;
 import org.codehaus.janino.Java.BlockStatement;
 import org.codehaus.janino.Java.CompilationUnit;
@@ -959,20 +960,20 @@ class ScriptEvaluator extends MultiCookable implements IScriptEvaluator {
     /**
      * <pre>
      *   ScriptStatement :=
-     *     Statement                                               (1)
-     *     | 'class' ...                                           (2)
-     *     | [ Modifiers ] 'void' Identifier MethodDeclarationRest (3a)
-     *     | Modifiers Type Identifier MethodDeclarationRest ';'   (3b)
-     *     | Expression Identifier MethodDeclarationRest           (3c) (5)
-     *     | Modifiers Type VariableDeclarators ';'                (4a)
-     *     | Expression VariableDeclarators ';'                    (4b) (5)
+     *     Statement                                                 (1)
+     *     | 'class' ...                                             (2)
+     *     | [ Modifiers ] 'void' Identifier MethodDeclarationRest   (3a)
+     *     | Modifiers Type Identifier MethodDeclarationRest ';'     (3b)
+     *     | Expression BracketsOpt Identifier MethodDeclarationRest (3c) (5)
+     *     | Modifiers Type VariableDeclarators ';'                  (4a)
+     *     | Expression BracketsOpt VariableDeclarators ';'          (4b) (5)
      *     | Expression ';'
      * </pre>
      * <p> (1): Includes the "labeled statement".</p>
      * <p> (2): Local class declaration.</p>
      * <p> (3a), (3b), (3c): Local method declaration statement.</p>
      * <p> (4) Local variable declaration statement.</p>
-     * <p> (5) "Expression" must pose a type.</p>
+     * <p> (5) "Expression" must pose a type, and has optional trailing brackets.</p>
      *
      * @param localMethods Filled with the methods that the script declares
      */
@@ -1065,9 +1066,17 @@ class ScriptEvaluator extends MultiCookable implements IScriptEvaluator {
             return;
         }
 
-        Type methodOrVariableType = a.toTypeOrCompileException();
+        // "parseExpressionOrType()" does not read the brackets after a parameterized type, e.g. "List<Object>[]".
+        // Unless an identifier follows them, the error is the same as without them.
+        Type     methodOrVariableType = a.toTypeOrCompileException();
+        Location bracketsLocation     = parser.peek().getLocation();
+        int      brackets             = parser.parseBracketsOpt();
+        if (brackets > 0 && !parser.peek(TokenType.IDENTIFIER)) {
+            throw new CompileException("IDENTIFIER expected instead of '['", bracketsLocation);
+        }
+        for (; brackets > 0; --brackets) methodOrVariableType = new ArrayType(methodOrVariableType);
 
-        // [ Modifiers ] Expression identifier MethodDeclarationRest
+        // [ Modifiers ] Expression BracketsOpt identifier MethodDeclarationRest
         if (parser.peek(TokenType.IDENTIFIER) && parser.peekNextButOne("(")) {
             localMethods.add(parser.parseMethodDeclarationRest(
                 null,                                      // docComment
@@ -1081,7 +1090,7 @@ class ScriptEvaluator extends MultiCookable implements IScriptEvaluator {
             return;
         }
 
-        // [ Modifiers ] Expression VariableDeclarators ';'
+        // [ Modifiers ] Expression BracketsOpt VariableDeclarators ';'
         mainStatements.add(new LocalVariableDeclarationStatement(
             a.getLocation(),                  // location
             modifiers,                        // modifiers

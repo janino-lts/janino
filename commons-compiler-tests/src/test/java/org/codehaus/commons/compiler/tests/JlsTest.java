@@ -2414,6 +2414,21 @@ class JlsTest extends CommonsCompilerTestSuite {
         String script = "var f = java.util.function.Function.<String>identity();\n";
         if (this.isJanino)                                            this.assertScriptUncookable(script, "NYI");
         if (this.isJdk && CommonsCompilerTestSuite.JVM_VERSION >= 10) this.assertScriptExecutable(script);
+
+        // A variable of an array type of a parameterized type (issue #138; before, a script rejected it).
+        this.assertScriptReturnsTrue("java.util.List<Object>[] a = new java.util.List[1]; return a.length == 1;");
+        this.assertScriptReturnsTrue("java.util.List<Object>[][] a = new java.util.List[2][]; return a.length == 2;");
+        this.assertScriptReturnsTrue("java.util.Map<String, Object>[] m = null; return m == null;");
+        this.assertScriptReturnsTrue("import java.util.List;\nList<Object>[] a = null; return a == null;");
+        if (this.isJanino) {
+
+            // A method of the script with such a return type.
+            this.assertScriptReturnsTrue("java.util.List<Object>[] m() { return new java.util.List[2]; } return true;");
+
+            // Invalid declarations keep their error messages.
+            this.assertScriptUncookable("java.util.List<Object>[1] a = null;", "IDENTIFIER expected instead of '\\['");
+            this.assertScriptUncookable("java.util.List<Object>[] = null;",    "IDENTIFIER expected instead of '\\['");
+        }
     }
 
     @Test public void

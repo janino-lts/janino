@@ -22,6 +22,18 @@ public class P {
     }
 }
 
+=== lambda expression with a formal parameter of a generic array type (List<String>[] a)
+jls: 4
+janino: REJECTED Compilation of lambda expression NYI
+import java.util.*;
+import java.util.function.*;
+public class P {
+    @SuppressWarnings("unchecked") public static Object run() {
+        ToIntFunction<List<String>[]> f = (List<String>[] a) -> a.length;
+        return String.valueOf(f.applyAsInt(new List[4]));
+    }
+}
+
 === method reference
 jls: ABC
 janino: REJECTED Compilation of method reference NYI

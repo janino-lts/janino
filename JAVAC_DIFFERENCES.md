@@ -226,6 +226,14 @@ matching (for `instanceof` and `switch`); F-04 records; F-05 sealed types; F-06 
 (`var`); F-07 local enums and interfaces; F-08 type annotations; F-09 repeating annotations; F-10 `private` interface
 methods; F-11 the diamond operator with an anonymous class.
 
+**An array type of a parameterized type** ([#138](https://github.com/janino-lts/janino/issues/138), fixed in
+3.1.20): Janino 3.1.19 and earlier reject `List<Object>[]` as the type of a local variable in a script
+(`IDENTIFIER expected instead of '['`), in the first statement of a constructor and in a `for` statement
+(`Expression "java.util.List<Object>" is not an rvalue`), as the target type of a cast (`')' expected instead of
+'['`), and as the first type argument of the type of a local variable or of a cast, e.g.
+`Map<List<String>[], String> m` (`One of '> ,' expected instead of '['`), because the parser does not read the
+brackets after the type arguments in these places.
+
 ## 3. Invalid code that Janino accepts
 
 Class L: `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it
