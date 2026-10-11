@@ -321,6 +321,22 @@ public class P {
     Object f(int[] ia, char c, short s) { return new Q(ia, c, s); }
 }
 
+=== ambiguous invocation of variable arity methods with different numbers of parameters
+janino: REJECTED Invocation of constructor/method with argument type(s) "java.lang.Object[], byte, long" is ambiguous
+public class P {
+    static void m(Object[] a0, byte a1, Long... a2) {}
+    static void m(Object... a0) {}
+    void f() { m(new Object[0], (byte) 1, 1L); }
+}
+
+=== ambiguous invocation of variable arity methods with different numbers of parameters, in the opposite order
+janino: REJECTED Invocation of constructor/method with argument type(s) "java.lang.Object[], byte, long" is ambiguous
+public class P {
+    static void m(Object... a0) {}
+    static void m(Object[] a0, byte a1, Long... a2) {}
+    void f() { m(new Object[0], (byte) 1, 1L); }
+}
+
 === constructor invocation with wrong arguments
 janino: REJECTED No applicable constructor/method found for actual parameters "int, int"
 public class P {

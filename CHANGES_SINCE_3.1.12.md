@@ -130,6 +130,9 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   ([#134]). Now `m(null, (short) 1, 'c')` selects `m(Integer[], Short, int)`, like with `javac`, and the ambiguity
   is reported with the type `(null type)`. An invocation that was rejected as ambiguous only because of such a
   method compiles now.
+- 3.1.20 (in development): An invocation of overloaded variable arity methods was an internal compiler error when
+  the parameter types of one maximally specific method are the leading parameter types of another, e.g.
+  `m(int...)` and `m(int[], Serializable...)` for `m(ia)` ([#147]); now it is reported as ambiguous.
 
 **Imports** (3.1.20):
 
@@ -201,8 +204,8 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.19 needs 1.8 % less time and
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 506 language
-  constructs, negative tests with 451 cases of invalid code, differential tests that compile generated expressions
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 508 language
+  constructs, negative tests with 453 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
   suites of Apache Calcite, Spark Catalyst, Apache Fory and Apache Drill every week and before every release
   ([Compatibility](COMPATIBILITY.md)).
@@ -260,3 +263,4 @@ affected.
 [#133]: https://github.com/janino-lts/janino/issues/133
 [#134]: https://github.com/janino-lts/janino/issues/134
 [#138]: https://github.com/janino-lts/janino/issues/138
+[#147]: https://github.com/janino-lts/janino/issues/147

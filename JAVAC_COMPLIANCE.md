@@ -399,7 +399,10 @@ error changes. #134: some invocations of overloaded methods or constructors with
 compiler error (D): a variable arity method counted as applicable against the leading arguments only, and the
 message "... is ambiguous" failed for a `null` argument; now the invocation selects the method like `javac`, or the
 ambiguity is reported. Only invocations that failed with an internal compiler error change, and those that were
-rejected as ambiguous only because of such a method.
+rejected as ambiguous only because of such a method. #147: an invocation of overloaded variable arity methods
+was an internal compiler error when the parameter types of one maximally specific method are the leading parameter
+types of another, e.g. `m(int...)` and `m(int[], Serializable...)` for `m(ia)` (D); now it is reported as ambiguous.
+Only invocations that failed with an internal compiler error change.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`
