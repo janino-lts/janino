@@ -275,6 +275,21 @@ h5 {
         <code>m(ia, b)</code> (<code>Integer[]</code>, <code>Byte</code>) with <code>m(Number...)</code> and
         <code>m(Integer[], Byte...)</code>; the class files of all other code are unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/147">issue #147</a>: An invocation of overloaded
+        variable arity methods made the compiler fail with an internal compiler error when overload resolution found
+        two maximally specific methods, and the parameter types of one are the leading parameter types of the other,
+        e.g. <code>m(ia)</code>
+        (<code>int[]</code>) with <code>m(int...)</code> and <code>m(int[], Serializable...)</code>, or
+        <code>m(new Object[0], (byte) 1, 1L)</code> with <code>m(Object[], byte, Long...)</code> and
+        <code>m(Object...)</code> (<code>ArrayIndexOutOfBoundsException</code>, or <code>Two non-abstract methods ...
+        have the same parameter types, declaring type and return type</code>, depending on the order of the
+        declarations): JANINO compared the parameter types without comparing their numbers. Now both invocations are
+        reported as ambiguous (<code>Invocation of constructor/method with argument type(s) ... is
+        ambiguous</code>); JAVAC reports the second one as ambiguous as well, and selects <code>m(int...)</code> for
+        the first one, which JANINO applies only by variable arity. Only invocations that failed with an internal
+        compiler error change; the class files of all other code are unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.19 2026-10-10</h4>

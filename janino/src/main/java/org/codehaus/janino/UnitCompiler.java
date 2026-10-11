@@ -12680,6 +12680,9 @@ class UnitCompiler {
 
                     m = (IClass.IMethod) it.next();
                     IClass[] pts = m.getParameterTypes();
+
+                    // Methods with different numbers of parameters do not have the same signature (issue #147).
+                    if (pts.length != parameterTypesOfFirstMethod.length) break ONE_NON_ABSTRACT_INVOCABLE;
                     for (int i = 0; i < pts.length; ++i) {
                         if (pts[i] != parameterTypesOfFirstMethod[i]) break ONE_NON_ABSTRACT_INVOCABLE;
                     }

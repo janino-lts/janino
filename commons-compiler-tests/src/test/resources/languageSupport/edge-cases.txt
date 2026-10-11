@@ -317,6 +317,32 @@ public class P {
     public static Object run() { return new Q(null, null).s; }
 }
 
+=== overload resolution: m(int...) by fixed arity for m(ia), not m(int[], Serializable...) (Janino expands)
+jls: m#0
+janino: REJECTED Invocation of constructor/method with argument type(s) "int[]" is ambiguous
+compliant: OK
+legacy: INVALID InternalCompilerException
+id: S-13, #147
+public class P {
+    static int[] ia = { 1 };
+    static String m(int... a0) { return "m#0"; }
+    static String m(int[] a0, java.io.Serializable... a1) { return "m#1"; }
+    public static Object run() { return m(ia); }
+}
+
+=== overload resolution: m(int...) by fixed arity for m(ia), declared after m(int[], Serializable...) (Janino expands)
+jls: m#0
+janino: REJECTED Invocation of constructor/method with argument type(s) "int[]" is ambiguous
+compliant: OK
+legacy: INVALID InternalCompilerException
+id: S-13, #147
+public class P {
+    static int[] ia = { 1 };
+    static String m(int[] a0, java.io.Serializable... a1) { return "m#1"; }
+    static String m(int... a0) { return "m#0"; }
+    public static Object run() { return m(ia); }
+}
+
 === constant expression 1 / 0 is not folded
 jls: AE
 janino: OK

@@ -121,8 +121,8 @@ points of the API as well:
   [Apache Drill](.github/workflows/drill.yml) against the current sources every week, and against every release
   candidate before the release: once with the Janino that the project declares and once with this one, and
   compare the results. No release without all four being green.
-- **Recorded behavior.** The negative tests (`InvalidCodeTest`, 465 cases of invalid code) and the
-  characterization tests (`LanguageSupportTest`, 583 cases of valid code) record Janino's actual behavior, so that
+- **Recorded behavior.** The negative tests (`InvalidCodeTest`, 467 cases of invalid code) and the
+  characterization tests (`LanguageSupportTest`, 585 cases of valid code) record Janino's actual behavior, so that
   every change of it, intended or not, fails a test; on the development line, every case runs in both the
   compatibility mode and the compliance mode, and `LegacyDifferentialTest` compares every case with Janino 3.1.12,
   the reference of the compatibility mode. Differential tests compile generated expressions, control flow,
