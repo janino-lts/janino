@@ -115,8 +115,8 @@ class ConstantExpressionDifferentialTest {
 
         /**
          * JANINO does not treat a {@code final} local variable with a constant initializer as a constant variable
-         * (JLS 4.12.4), so e.g. {@code case k:} with {@code final int k = 3;} is rejected (both modes). The generator
-         * avoids such variables.
+         * (JLS 4.12.4, #139), so e.g. {@code case k:} with {@code final int k = 3;} is rejected (both modes). The
+         * generator avoids such variables.
          */
         LOCAL_CONSTANTS,
     }
