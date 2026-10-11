@@ -143,6 +143,13 @@ argument of the invocation needs boxing or unboxing.
 `Map<List<String>[], String> m` (`One of '> ,' expected instead of '['`), because the parser does not read the
 brackets after the type arguments in these places.
 
+**A static method imported twice** ([#133](https://github.com/janino-lts/janino/issues/133), fixed in 3.1.20):
+Janino 3.1.19 and earlier fail with an internal compiler error (`Two non-abstract methods "public static int
+java.lang.Math.abs(int)" have the same parameter types, declaring type and return type`) when the code invokes a
+static method that the compilation unit imports twice, with two single-static-import declarations
+(`import static java.lang.Math.abs;` twice) or with two static-import-on-demand declarations of the same class,
+because they count the method once per declaration.
+
 ## 3. Invalid code that Janino accepts
 
 `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it behaves

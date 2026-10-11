@@ -294,6 +294,34 @@ janino: OK
 import static java.lang.Math.*;
 public class P { public static Object run() { return String.valueOf(max(1.0, 3.0)); } }
 
+=== static import: the same method imported twice (import static java.lang.Math.abs; twice)
+jls: 1
+janino: OK
+import static java.lang.Math.abs;
+import static java.lang.Math.abs;
+public class P { public static Object run() { return String.valueOf(abs(-1)); } }
+
+=== static import: the same class imported twice on demand (import static java.lang.Math.*; twice)
+jls: 1
+janino: OK
+import static java.lang.Math.*;
+import static java.lang.Math.*;
+public class P { public static Object run() { return String.valueOf(abs(-1)); } }
+
+=== static import: an overloaded method imported twice (max)
+jls: 2
+janino: OK
+import static java.lang.Math.max;
+import static java.lang.Math.max;
+public class P { public static Object run() { return String.valueOf(max(1, 2)); } }
+
+=== static import: a variable arity method imported twice, invoked with an array (asList)
+jls: 2
+janino: OK
+import static java.util.Arrays.asList;
+import static java.util.Arrays.asList;
+public class P { public static Object run() { return String.valueOf(asList(new String[] { "a", "b" }).size()); } }
+
 === covariant return type
 jls: s
 janino: OK

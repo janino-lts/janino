@@ -875,12 +875,26 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "decode(\"4000000000\");"
         );
 
+        // The same method, imported twice (issue #133; before, an internal compiler error).
+        this.assertExpressionEvaluatesTrue(
+            "import static java.lang.Math.abs;"
+            + "import static java.lang.Math.abs;"
+            + "abs(-1) == 1"
+        );
+
         // 7.5.4 Import Declarations -- Static-Import-on-Demand
         this.assertExpressionEvaluatesTrue("import static java.util.Collections.*; EMPTY_SET instanceof java.util.Set");
         this.assertScriptExecutable("import static java.util.Map.*; Entry e;");
         this.assertExpressionEvaluatesTrue(
             "import static java.util.Arrays.*;"
             + "asList(new String[] { \"HELLO\", \"WORLD\" }).size() == 2"
+        );
+
+        // The same class, imported twice on demand (issue #133; before, an internal compiler error).
+        this.assertExpressionEvaluatesTrue(
+            "import static java.lang.Math.*;"
+            + "import static java.lang.Math.*;"
+            + "abs(-1) == 1"
         );
     }
 

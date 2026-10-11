@@ -11314,7 +11314,9 @@ class UnitCompiler {
 
     /**
      * Finds all members (member classes, member interfaces, static fields and/or static methods) of the
-     * <var>declaringIClass</var> with the given <var>simpleName</var> and adds them to the <var>result</var>.
+     * <var>declaringIClass</var> with the given <var>simpleName</var> and adds them to the <var>result</var>. A member
+     * that is already in the <var>result</var>, because the compilation unit imports it twice (JLS8 7.5.3, 7.5.4), is
+     * not added again.
      *
      * @param declaringIClass The class or interface that declares the members
      * @param result          Results ({@link IClass}es, {@link IField}s and/or {@link IMethod}s) are added to this
@@ -11326,7 +11328,9 @@ class UnitCompiler {
 
         // Member type?
         for (IClass memberIClass : declaringIClass.findMemberType(simpleName)) {
-            if (memberIClass.getDeclaringIClass() == declaringIClass) result.add(memberIClass);
+            if (memberIClass.getDeclaringIClass() == declaringIClass && !result.contains(memberIClass)) {
+                result.add(memberIClass);
+            }
         }
 
         // Static field?
@@ -11339,7 +11343,7 @@ class UnitCompiler {
                         location
                     );
                 }
-                result.add(iField);
+                if (!result.contains(iField)) result.add(iField);
             }
         }
 
@@ -11351,7 +11355,7 @@ class UnitCompiler {
                     location
                 );
             }
-            result.add(iMethod);
+            if (!result.contains(iMethod)) result.add(iMethod);
         }
     }
 

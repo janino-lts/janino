@@ -392,7 +392,10 @@ only element, like with `javac`. Only invocations that were rejected change; whe
 as well, the message is the same as before. #138: an array type of a parameterized type, e.g. `List<Object>[]`,
 was rejected as the type of a local variable in a script, in the first statement of a constructor and in a `for`
 statement, as the target type of a cast, and as the first type argument of the type of a local variable or of a
-cast (D); now these compile. Only code that was rejected changes; syntax errors keep their messages.
+cast (D); now these compile. Only code that was rejected changes; syntax errors keep their messages. #133: a
+static method that the compilation unit imports twice, e.g. `import static java.lang.Math.abs;` twice, was an
+internal compiler error when it was invoked (D); now it compiles. Only code that failed with an internal compiler
+error changes.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`
