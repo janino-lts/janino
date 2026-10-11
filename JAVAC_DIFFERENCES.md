@@ -159,6 +159,15 @@ Where `javac` applies a variable arity method by fixed arity, Janino still expan
 `m(null)` with `m(Integer...)` and `m(Long, byte...)` is still rejected; since 3.1.20, with the message
 `Invocation of constructor/method with argument type(s) "(null type)" is ambiguous`.
 
+**Two maximally specific variable arity methods with different numbers of parameters**
+([#147](https://github.com/janino-lts/janino/issues/147), fixed in 3.1.20): Janino 3.1.19 and earlier fail with an
+internal compiler error on `m(ia)` (`int[]`) with `m(int...)` and `m(int[], Serializable...)`
+(`ArrayIndexOutOfBoundsException`, or `Two non-abstract methods ... have the same parameter types, declaring type
+and return type` with the declarations in the opposite order), because they compare the parameter types of the
+two methods without comparing their numbers. Since 3.1.20, the invocation is still rejected, with the message
+`Invocation of constructor/method with argument type(s) "int[]" is ambiguous`: `javac` applies `m(int...)` by fixed
+arity, Janino only by variable arity, where neither method is more specific than the other.
+
 ## 3. Invalid code that Janino accepts
 
 `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it behaves
