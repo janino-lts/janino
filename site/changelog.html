@@ -250,6 +250,16 @@ h5 {
         rejected changes; syntax errors, e.g. <code>List&lt;Object&gt;[1] a</code>, are reported with the same
         message as before. The class files of all other code are unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/133">issue #133</a>: A compilation unit that
+        imports the same static method twice, with two single-static-import declarations, e.g. <code>import static
+        java.lang.Math.abs;</code> twice, or with two static-import-on-demand declarations of the same class, made the
+        compiler fail with an internal compiler error when the method was invoked (<code>Two non-abstract methods
+        "public static int java.lang.Math.abs(int)" have the same parameter types, declaring type and return
+        type</code>): JANINO counted the method once per declaration. Now it counts each imported member once, and
+        the code compiles, like with JAVAC. Only code that failed with an internal compiler error changes; the class
+        files of all other code are unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.19 2026-10-10</h4>
