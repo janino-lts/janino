@@ -127,7 +127,8 @@ class TestUtil {
 
     /**
      * Adds the option {@code JaninoOption.JAVAC_COMPLIANCE} to the options of the given JANINO compiler ({@code
-     * SimpleCompiler}, an evaluator, {@code Compiler} or {@code JavaSourceIClassLoader}). This module compiles only
+     * SimpleCompiler}, an evaluator, {@code Compiler}, {@code JavaSourceClassLoader} or {@code
+     * JavaSourceIClassLoader}). This module compiles only
      * against the {@code commons-compiler} API, so the option is set through reflection.
      */
     @SuppressWarnings({ "unchecked", "rawtypes" }) public static void

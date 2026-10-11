@@ -125,8 +125,9 @@ points of the API as well:
   characterization tests (`LanguageSupportTest`, 568 cases of valid code) record Janino's actual behavior, so that
   every change of it, intended or not, fails a test; on the development line, every case runs in both the
   compatibility mode and the compliance mode, and `LegacyDifferentialTest` compares every case with Janino 3.1.12,
-  the reference of the compatibility mode. Differential tests compile generated expressions and control flow with
-  Janino and with `javac` and compare the results.
+  the reference of the compatibility mode. Differential tests compile generated expressions, control flow,
+  invocations of overloaded methods and constructors, names in nested classes, and constant expressions with Janino
+  and with `javac` and compare the results.
 - **Class files.** `CodeSizeReport` of the benchmarks compares the class files that two versions generate, byte
   for byte, for all workloads, including the code that Spark generates.
 - **Java versions.** The test suite runs on Java 8, 17, 21 and 25 in CI.

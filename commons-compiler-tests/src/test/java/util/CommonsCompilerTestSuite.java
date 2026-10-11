@@ -71,14 +71,53 @@ class CommonsCompilerTestSuite {
      */
     protected final ICompilerFactory compilerFactory;
 
+    /**
+     * The mode in effect for this test execution: {@link TestUtil#COMPAT} or {@link TestUtil#COMPLIANT} for JANINO,
+     * {@link TestUtil#JAVAC} for the JDK-based compiler (see {@link
+     * TestUtil#getCompilerFactoriesAndModesForParameters()}).
+     */
+    protected final String mode;
+
+    /**
+     * Whether {@link #mode} is {@link TestUtil#COMPLIANT}: JANINO compiles with the option {@code
+     * JaninoOption.JAVAC_COMPLIANCE}.
+     */
+    public final boolean isCompliant;
+
+    /**
+     * Equivalent with {@link #CommonsCompilerTestSuite(ICompilerFactory, String)} with the mode {@link
+     * TestUtil#COMPAT} for JANINO and {@link TestUtil#JAVAC} for the JDK-based compiler.
+     */
     public
-    CommonsCompilerTestSuite(ICompilerFactory compilerFactory) {
+    CommonsCompilerTestSuite(ICompilerFactory compilerFactory) { this(compilerFactory, null); }
+
+    /**
+     * @param mode {@link TestUtil#COMPAT}, {@link TestUtil#COMPLIANT} or {@link TestUtil#JAVAC}; {@code null} means
+     *             the default mode of the compiler factory
+     */
+    public
+    CommonsCompilerTestSuite(ICompilerFactory compilerFactory, @Nullable String mode) {
 
         this.compilerFactory = compilerFactory;
 
         String compilerFactoryId = compilerFactory.getId();
         this.isJdk    = compilerFactoryId.equals("org.codehaus.commons.compiler.jdk"); // SUPPRESS CHECKSTYLE EqualsAvoidNull
         this.isJanino = compilerFactoryId.equals("org.codehaus.janino");
+
+        this.mode        = mode != null ? mode : this.isJanino ? TestUtil.COMPAT : TestUtil.JAVAC;
+        this.isCompliant = TestUtil.COMPLIANT.equals(this.mode);
+    }
+
+    /**
+     * Configures a compiler that the {@link #compilerFactory} created ({@link ISimpleCompiler}, an evaluator, a
+     * source class loader, ...) for the {@link #mode}.
+     *
+     * @return The <var>compiler</var>
+     */
+    protected <T> T
+    forMode(T compiler) throws Exception {
+        if (this.isCompliant) TestUtil.setJavacCompliance(compiler);
+        return compiler;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -152,7 +191,9 @@ class CommonsCompilerTestSuite {
         public
         ExpressionTest(String expression) throws Exception {
             this.expression          = expression;
-            this.expressionEvaluator = CommonsCompilerTestSuite.this.compilerFactory.newExpressionEvaluator();
+            this.expressionEvaluator = CommonsCompilerTestSuite.this.forMode(
+                CommonsCompilerTestSuite.this.compilerFactory.newExpressionEvaluator()
+            );
         }
 
         @Override public void setSourceVersion(int sourceVersion)               { this.expressionEvaluator.setSourceVersion(sourceVersion);      }
@@ -259,9 +300,11 @@ class CommonsCompilerTestSuite {
         protected final IScriptEvaluator scriptEvaluator;
 
         public
-        ScriptTest(String script) {
+        ScriptTest(String script) throws Exception {
             this.script          = script;
-            this.scriptEvaluator = CommonsCompilerTestSuite.this.compilerFactory.newScriptEvaluator();
+            this.scriptEvaluator = CommonsCompilerTestSuite.this.forMode(
+                CommonsCompilerTestSuite.this.compilerFactory.newScriptEvaluator()
+            );
             this.scriptEvaluator.setThrownExceptions(new Class<?>[] { Exception.class });
         }
 
@@ -365,7 +408,9 @@ class CommonsCompilerTestSuite {
         public
         ClassBodyTest(String classBody) throws Exception {
             this.classBody          = classBody;
-            this.classBodyEvaluator = CommonsCompilerTestSuite.this.compilerFactory.newClassBodyEvaluator();
+            this.classBodyEvaluator = CommonsCompilerTestSuite.this.forMode(
+                CommonsCompilerTestSuite.this.compilerFactory.newClassBodyEvaluator()
+            );
         }
 
         @Override public void setSourceVersion(int sourceVersion)               { this.classBodyEvaluator.setSourceVersion(sourceVersion);      }
@@ -489,7 +534,9 @@ class CommonsCompilerTestSuite {
         SimpleCompilerTest(String compilationUnit, String className) throws Exception {
             this.compilationUnit = compilationUnit;
             this.className       = className;
-            this.simpleCompiler  = CommonsCompilerTestSuite.this.compilerFactory.newSimpleCompiler();
+            this.simpleCompiler  = CommonsCompilerTestSuite.this.forMode(
+                CommonsCompilerTestSuite.this.compilerFactory.newSimpleCompiler()
+            );
         }
 
         @Override public void setSourceVersion(int sourceVersion)               { this.simpleCompiler.setSourceVersion(sourceVersion);      }
@@ -529,7 +576,7 @@ class CommonsCompilerTestSuite {
      */
     protected void
     assertJavaSourceLoadable(final File sourceDirectory, final String className) throws Exception {
-        AbstractJavaSourceClassLoader loader = this.compilerFactory.newJavaSourceClassLoader();
+        AbstractJavaSourceClassLoader loader = this.forMode(this.compilerFactory.newJavaSourceClassLoader());
         loader.setSourcePath(new File[] { sourceDirectory });
         loader.loadClass(className);
     }

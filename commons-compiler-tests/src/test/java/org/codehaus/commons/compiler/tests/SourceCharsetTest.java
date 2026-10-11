@@ -71,11 +71,11 @@ class SourceCharsetTest extends CommonsCompilerTestSuite {
     /** Can be represented by ISO-8859-1, windows-1252 and UTF-8. */
     private static final String LATIN_1_TEXT = "äöü";
 
-    @Parameters(name = "CompilerFactory={0}") public static Collection<Object[]>
-    compilerFactories() throws Exception { return TestUtil.getCompilerFactoriesForParameters(); }
+    @Parameters(name = "{0}, {1}") public static Collection<Object[]>
+    compilerFactories() throws Exception { return TestUtil.getCompilerFactoriesAndModesForParameters(); }
 
     public
-    SourceCharsetTest(ICompilerFactory compilerFactory) { super(compilerFactory); }
+    SourceCharsetTest(ICompilerFactory compilerFactory, String mode) { super(compilerFactory, mode); }
 
     @Test public void
     testStringResourceWithCharset() throws Exception {

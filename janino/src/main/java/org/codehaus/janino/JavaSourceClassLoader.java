@@ -28,6 +28,7 @@ package org.codehaus.janino;
 import java.io.File;
 import java.io.Reader;
 import java.nio.charset.Charset;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -162,6 +163,26 @@ class JavaSourceClassLoader extends AbstractJavaSourceClassLoader {
 
     @Override public void
     setTargetVersion(int version) { this.iClassLoader.setTargetVersion(version); }
+
+    /**
+     * @return A reference to the currently effective compilation options of the underlying {@link
+     *         JavaSourceIClassLoader} (initially {@link JaninoOption#defaultOptions()}); changes to it take effect
+     *         immediately
+     * @see    JavaSourceIClassLoader#options()
+     */
+    public EnumSet<JaninoOption>
+    options() { return this.iClassLoader.options(); }
+
+    /**
+     * Sets the options for all future compilations of the underlying {@link JavaSourceIClassLoader}.
+     *
+     * @see JavaSourceIClassLoader#options(EnumSet)
+     */
+    public JavaSourceClassLoader
+    options(EnumSet<JaninoOption> options) {
+        this.iClassLoader.options(options);
+        return this;
+    }
 
     /**
      * @see UnitCompiler#setCompileErrorHandler

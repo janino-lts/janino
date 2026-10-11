@@ -1,0 +1,145 @@
+# Known differences between JANINO and JAVAC; see "NameResolutionDifferentialTest".
+# Format: <seed> <probe>[+ea] <WRONG|REJECTED|ACCEPTED|INVALID>
+
+# S-03: an "assert" statement always throws, also with assertions disabled, so the assert probes without "+ea"
+# report the AssertionError where JAVAC reports the values.
+20261012 p5 WRONG
+20261012 p7 WRONG
+20261012 p8 WRONG
+20261012 p9 WRONG
+20261014 p2 WRONG
+20261014 p6 WRONG
+20261015 p3 WRONG
+20261016 p4 WRONG
+20261016 p6 WRONG
+20261016 p7 WRONG
+20261017 p0 WRONG
+20261017 p3 WRONG
+20261017 p9 WRONG
+20261019 p2 WRONG
+20261019 p4 WRONG
+20261019 p9 WRONG
+20261021 p2 WRONG
+20261021 p3 WRONG
+20261021 p7 WRONG
+20261022 p6 WRONG
+20261022 p7 WRONG
+20261025 p2 WRONG
+20261025 p5 WRONG
+20261025 p6 WRONG
+20261025 p9 WRONG
+20261026 p0 WRONG
+20261026 p8 WRONG
+20261027 p2 WRONG
+20261028 p5 WRONG
+20261028 p8 WRONG
+20261029 p1 WRONG
+20261029 p2 WRONG
+20261030 p2 WRONG
+20261031 p0 WRONG
+20261032 p1 WRONG
+20261032 p4 WRONG
+20261033 p6 WRONG
+20261034 p6 WRONG
+20261040 p7 WRONG
+20261041 p2 WRONG
+20261041 p3 WRONG
+20261041 p7 WRONG
+20261041 p8 WRONG
+20261041 p9 WRONG
+20261042 p9 WRONG
+20261044 p1 WRONG
+20261045 p0 WRONG
+20261045 p5 WRONG
+20261046 p0 WRONG
+20261046 p6 WRONG
+20261049 p1 WRONG
+20261049 p9 WRONG
+20261050 p0 WRONG
+20261050 p2 WRONG
+20261051 p1 WRONG
+
+# S-11: in a subclass of P declared in P (the inner class Q, an anonymous subclass), "P.this" denotes "this", and
+# the private members of P are inherited, so a simple name or "P.this.x" reads the field of "this" instead of the
+# field of the enclosing instance.
+20261013 p3 WRONG
+20261013 p3+ea WRONG
+20261017 p5 WRONG
+20261017 p5+ea WRONG
+20261025 p5+ea WRONG
+20261027 p2+ea WRONG
+20261028 p7 WRONG
+20261028 p7+ea WRONG
+20261030 p2+ea WRONG
+20261035 p4 WRONG
+20261035 p4+ea WRONG
+20261035 p9 WRONG
+20261035 p9+ea WRONG
+20261038 p4 WRONG
+20261038 p4+ea WRONG
+20261041 p1 WRONG
+20261041 p1+ea WRONG
+20261041 p2+ea WRONG
+20261041 p8+ea WRONG
+20261049 p8 WRONG
+20261049 p8+ea WRONG
+
+# L-45: the access to a private member of the superclass P through "this" or "super" in a subclass of P declared
+# in P is accepted (JAVAC: "has private access", or "cannot find symbol" for "this.who()").
+20261018 p2 ACCEPTED
+20261018 p7 ACCEPTED
+20261021 p6 ACCEPTED
+20261024 p2 ACCEPTED
+20261027 p8 ACCEPTED
+20261030 p7 ACCEPTED
+20261031 p3 ACCEPTED
+20261033 p3 ACCEPTED
+20261043 p2 ACCEPTED
+20261043 p5 ACCEPTED
+20261043 p6 ACCEPTED
+20261043 p8 ACCEPTED
+20261050 p5 ACCEPTED
+
+# #137, scoping in local and anonymous classes: a parameter or local variable of the enclosing
+# method shadows a field that the local or anonymous class declares or inherits, where JLS 6.4.1 says the field
+# shadows the variable; the probe reads the variable (also as the condition of an "assert" statement), or, where a
+# field of the local class shadows a captured variable, the constructor of the local class gets a parameter for
+# the variable that the instance creation does not pass (NoSuchMethodError). Both modes, since 3.1.12.
+20261014 p9 WRONG
+20261014 p9+ea WRONG
+20261015 p1 WRONG
+20261015 p1+ea WRONG
+20261018 p4 WRONG
+20261018 p4+ea WRONG
+20261019 p0 WRONG
+20261019 p0+ea WRONG
+20261029 p9 WRONG
+20261034 p9 WRONG
+20261034 p9+ea WRONG
+20261037 p7 WRONG
+20261037 p7+ea WRONG
+20261039 p1 WRONG
+20261039 p4 WRONG
+20261039 p4+ea WRONG
+20261039 p6 WRONG
+20261039 p6+ea WRONG
+20261047 p6 WRONG
+20261047 p6+ea WRONG
+
+# #136, "super.who()" for a private method of the superclass P, in a subclass of P declared in P:
+# JAVAC compiles the invocation through a synthetic accessor; JANINO emits an invocation that the JVM
+# rejects with a NoSuchMethodError. Both modes, since 3.1.12.
+20261024 p7 WRONG
+20261024 p7+ea WRONG
+20261028 p4 WRONG
+20261028 p4+ea WRONG
+20261029 p7 WRONG
+20261029 p7+ea WRONG
+20261031 p8 WRONG
+20261031 p8+ea WRONG
+20261046 p7 WRONG
+20261046 p7+ea WRONG
+20261047 p1 WRONG
+20261047 p1+ea WRONG
+20261051 p9 WRONG
+20261051 p9+ea WRONG

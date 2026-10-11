@@ -121,7 +121,6 @@ class InvalidCodeTest extends CommonsCompilerTestSuite {
 
     private static final String RECOVERY = "recovery";
 
-    private final String mode;
     private final Case   testCase;
 
     @Parameters(name = "{0}, {1}, {2}") public static List<Object[]>
@@ -138,8 +137,7 @@ class InvalidCodeTest extends CommonsCompilerTestSuite {
 
     public
     InvalidCodeTest(ICompilerFactory compilerFactory, String mode, Case testCase) {
-        super(compilerFactory);
-        this.mode     = mode;
+        super(compilerFactory, mode);
         this.testCase = testCase;
     }
 

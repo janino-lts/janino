@@ -22,7 +22,7 @@
 #    scheduled workflow would run only on the default branch.
 # It does NOT run for pull requests. Before a release, start it manually for the release branch.
 #
-# On the development line, the input "javac-compliance" (off by default, and off in the weekly runs) runs the
+# On the development line, the input "javac-compliance" (off by default; "Weekly" also runs it on "master") runs the
 # candidate in JANINO's compliance mode (the system property "org.codehaus.janino.javacCompliance", set in every
 # test task by the init script); the baseline runs as always. The "compare" jobs then show every test that depends on
 # a behavior that the compliance mode changes. This needs a candidate that has the compliance mode, i.e. one built

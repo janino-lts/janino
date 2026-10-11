@@ -74,14 +74,14 @@ import util.TestUtil;
 @RunWith(Parameterized.class) public
 class ReportedBugsTest extends CommonsCompilerTestSuite {
 
-    @Parameters(name = "CompilerFactory={0}") public static Collection<Object[]>
+    @Parameters(name = "{0}, {1}") public static Collection<Object[]>
     compilerFactories() throws Exception {
-        return TestUtil.getCompilerFactoriesForParameters();
+        return TestUtil.getCompilerFactoriesAndModesForParameters();
     }
 
     public
-    ReportedBugsTest(ICompilerFactory compilerFactory) throws Exception {
-        super(compilerFactory);
+    ReportedBugsTest(ICompilerFactory compilerFactory, String mode) throws Exception {
+        super(compilerFactory, mode);
     }
 
     @SuppressWarnings("static-method") // JUNIT does not like it when "setUp()" is STATIC.

@@ -1,7 +1,8 @@
 # Builds JANINO and runs all tests.
 #
 # The code is compiled with JDK 25 (for Java 8, see "maven.compiler.release" in "janino-parent/pom.xml"), and the
-# tests are executed on Java 8, 17, 21 and 25 (through surefire's "jvm" parameter).
+# tests are executed on Java 8, 17, 21 and 25 (through surefire's "jvm" parameter). A separate job compiles the code
+# that Apache Spark generated for twelve TPC-DS queries (the corpus of "janino-benchmarks") in both modes of JANINO.
 #
 # The workflow runs
 #  * for pull requests, before they are merged: when a pull request is opened or reopened, and when new commits are
@@ -57,3 +58,29 @@ jobs:
 
       - name: Build and test
         run: mvn -B -f janino-parent/pom.xml install "-Djvm=${{ steps.test-java.outputs.path }}/bin/java"
+
+  # Compiles the code that Apache Spark generated for twelve TPC-DS queries, the corpus of the benchmarks, with the
+  # JANINO of this commit in the compatibility mode and in the compliance mode, and loads and instantiates every
+  # generated class ("SparkCorpusTest" in "janino-benchmarks"). The module is not part of the normal build (profile
+  # "benchmarks" of "janino-parent"), and its tests need the Spark runtime (about 250 MB), which is cached under a
+  # key of its own, so that it is not downloaded in every run.
+  spark-corpus:
+    name: Spark corpus in both modes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+          cache-dependency-path: janino-benchmarks/pom.xml
+
+      # The benchmarks resolve JANINO from the local Maven repository; the tests run in the matrix above.
+      - name: Build and install JANINO
+        run: mvn -B -f janino-parent/pom.xml install -DskipTests
+
+      - name: Compile the corpus in both modes
+        run: mvn -B -f janino-benchmarks/pom.xml test

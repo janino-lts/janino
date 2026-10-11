@@ -171,7 +171,8 @@ and the compliance mode, in which Janino behaves like `javac`. `master` has the 
 ([#103](https://github.com/janino-lts/janino/issues/103)).
 
 **The option.** `JaninoOption.JAVAC_COMPLIANCE`, set with `options(...)` of `SimpleCompiler`, `Compiler`,
-`JavaSourceIClassLoader` or the evaluators. The system property `org.codehaus.janino.javacCompliance=true` adds the
+`JavaSourceIClassLoader`, `JavaSourceClassLoader` (new: it delegates to its `JavaSourceIClassLoader`) or the evaluators.
+The system property `org.codehaus.janino.javacCompliance=true` adds the
 option to the initial options of every compiler that is created afterwards (`JaninoOption.defaultOptions()`), so
 that a whole application can be checked without code changes; an explicit `options(...)` call replaces the initial
 options, so that a library keeps control of its own compilers. The default is the compatibility mode, as before.
@@ -237,10 +238,16 @@ i, Object... a)` (D-08), which the compatibility mode accepts as well since 3.1.
 
 **Tests.** The record tests (`InvalidCodeTest`, `LanguageSupportTest`) run every case in both modes: a record
 describes the compatibility mode (`janino:`) and, where the compliance mode differs, the compliance mode
-(`compliant:`, with the `id:` of the deviation). `ExpressionDifferentialTest` and `ControlFlowDifferentialTest` run
-in both modes as well, with the known differences of each mode in its own file. The downstream workflows "Calcite",
-"Spark", "Fory" and "Drill" have the input "javac-compliance", which runs the tests of Calcite, Spark, Fory and Drill
-with the candidate in the compliance mode (and the baseline as always).
+(`compliant:`, with the `id:` of the deviation). `ExpressionDifferentialTest`, `ControlFlowDifferentialTest` and
+`InvocationDifferentialTest`, `NameResolutionDifferentialTest` and `ConstantExpressionDifferentialTest` (overload
+resolution, names in nested classes with `assert`, and constant expressions; all three new on the development line) run
+in both modes as well, with the known differences of each mode in its own file, and so do the tests on
+`CommonsCompilerTestSuite` (`JlsTest`, `ReportedBugsTest`, `EvaluatorTest`, ...) and the self-compilation of Janino
+(`CompilerTest`). `SparkCorpusTest` in
+`janino-benchmarks` compiles the code that Spark generated for twelve TPC-DS queries in both modes (job "Spark corpus
+in both modes" of the workflow "CI"). The downstream workflows "Calcite", "Spark", "Fory" and "Drill" have the input
+"javac-compliance", which runs the tests of Calcite, Spark, Fory and Drill with the candidate in the compliance mode
+(and the baseline as always); the workflow "Weekly" starts each of them on `master` in both modes.
 
 The reference of the compatibility mode is Janino 3.1.12 (see the contract in `JAVAC_COMPLIANCE.md`): code that
 3.1.12 compiled into loadable classes keeps its behavior, except where 3.1.12 miscompiled it. `LegacyDifferentialTest`

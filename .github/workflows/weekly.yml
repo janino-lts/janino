@@ -1,11 +1,14 @@
 # Starts the downstream workflows "Calcite", "Spark", "Fory" and "Drill" once a week on both release lines: on
 # "master" (the development line) and on "3.1.x" (the maintenance line, see "Release lines" in COMPATIBILITY.md).
+# On "master", each workflow is started twice: with the default values of its inputs, and with the input
+# "javac-compliance", which runs the candidate in JANINO's compliance mode (see "The compliance mode" in
+# DEVELOPMENT_LINE.md); the maintenance line has no compliance mode and no such input.
 #
 # Scheduled workflows run only on the default branch. Therefore these workflows have no schedule of their own;
 # instead, this workflow starts them with "workflow_dispatch" on each branch, exactly as if they were started manually
 # ("Actions" > "Calcite" > "Run workflow" > "Use workflow from: 3.1.x"). Each run uses the workflow file and the
-# sources of its branch, with the default values of its inputs. The results are the runs of "Calcite", "Spark",
-# "Fory" and "Drill", not this workflow.
+# sources of its branch. The results are the runs of "Calcite", "Spark", "Fory" and "Drill" (those in the compliance
+# mode are named "... (javac compliance)"), not this workflow.
 #
 # To add or remove a release line, change the list "ref" below.
 
@@ -21,15 +24,25 @@ permissions:
 
 jobs:
   dispatch:
-    name: Start ${{ matrix.workflow }} on ${{ matrix.ref }}
+    name: Start ${{ matrix.workflow }} on ${{ matrix.ref }}${{ matrix.compliance && ' (javac compliance)' || '' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         workflow: [ calcite.yml, spark.yml, fory.yml, drill.yml ]
         ref: [ master, 3.1.x ]
+        compliance: [ false, true ]
+        exclude:
+          - ref: 3.1.x   # the maintenance line has no compliance mode
+            compliance: true
     steps:
       - name: Start ${{ matrix.workflow }} on ${{ matrix.ref }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run "${{ matrix.workflow }}" --repo "${{ github.repository }}" --ref "${{ matrix.ref }}"
+          COMPLIANCE: ${{ matrix.compliance }}
+        run: |
+          field=
+          if [ "$COMPLIANCE" = true ]; then
+            field="-f javac-compliance=true"
+          fi
+          gh workflow run "${{ matrix.workflow }}" --repo "${{ github.repository }}" --ref "${{ matrix.ref }}" $field

@@ -1,0 +1,87 @@
+# Known differences between JANINO in the compliance mode and JAVAC; see "ConstantExpressionDifferentialTest".
+# Format: <seed> <probe> <WRONG|FOLDING|REJECTED|ACCEPTED|INVALID>
+
+# "&&" and "||" with a constant left operand (an issue is to be filed): JANINO folds "true || z" and "false && z"
+# to a constant although the right operand is not constant (JLS 15.28 requires both operands to be constant), so
+# the expression is a constant expression as the initializer of a "static final" field (ConstantValue, FOLDING),
+# as a "case" label, as the condition of a "while" statement (reachability) and in a string concatenation
+# (interning); JAVAC rejects the label and the "while" statement. Both modes, since 3.1.12.
+20261013 wh0 ACCEPTED
+20261023 f9String FOLDING
+20261023 id9 WRONG
+20261023 sw9 ACCEPTED
+20261048 f9boolean FOLDING
+20261048 wh9 ACCEPTED
+20261049 f1boolean FOLDING
+20261049 wh1 ACCEPTED
+
+# The identity of a non-constant string concatenation (an entry in JAVAC_DIFFERENCES.md is to be added): JANINO
+# compiles a concatenation with few operands through String.concat(), which returns its receiver if the argument
+# is empty, so a concatenation with an empty operand may yield the same object twice, where JAVAC creates a new
+# String each time (JLS 15.18.1). Both modes, since 3.1.12.
+20261024 id10 WRONG
+20261053 id4 WRONG
+20261054 id2 WRONG
+
+# L-35 and L-36: a "case" label whose constant is out of the range of the switch type, or of type long (JAVAC:
+# "possible lossy conversion"); JANINO accepts the label and truncates the value.
+20261033 sw0 ACCEPTED
+20261033 sw7 ACCEPTED
+20261048 sw1 ACCEPTED
+20261049 sw5 ACCEPTED
+20261050 sw4 ACCEPTED
+
+# L-35 and L-36: a "case" label whose constant is out of the range of the switch type, or of type long (JAVAC:
+# "possible lossy conversion"); JANINO accepts the label and truncates the value.
+20261014 sw4 ACCEPTED
+20261015 sw9 ACCEPTED
+20261017 sw3 ACCEPTED
+20261017 sw5 ACCEPTED
+20261017 sw6 ACCEPTED
+20261019 sw11 ACCEPTED
+20261020 sw11 ACCEPTED
+20261023 sw10 ACCEPTED
+20261023 sw2 ACCEPTED
+20261024 sw6 ACCEPTED
+20261025 sw1 ACCEPTED
+20261025 sw3 ACCEPTED
+20261026 sw10 ACCEPTED
+20261026 sw11 ACCEPTED
+20261026 sw9 ACCEPTED
+20261027 sw4 ACCEPTED
+20261027 sw8 ACCEPTED
+20261028 sw10 ACCEPTED
+20261031 sw4 ACCEPTED
+20261033 sw3 ACCEPTED
+20261034 sw4 ACCEPTED
+20261035 sw5 ACCEPTED
+20261036 sw1 ACCEPTED
+20261036 sw10 ACCEPTED
+20261037 sw0 ACCEPTED
+20261038 sw2 ACCEPTED
+20261040 sw9 ACCEPTED
+20261041 sw0 ACCEPTED
+20261041 sw3 ACCEPTED
+20261043 sw7 ACCEPTED
+20261043 sw9 ACCEPTED
+20261044 sw11 ACCEPTED
+20261044 sw3 ACCEPTED
+20261045 sw10 ACCEPTED
+20261045 sw11 ACCEPTED
+20261045 sw3 ACCEPTED
+20261046 sw9 ACCEPTED
+20261047 sw8 ACCEPTED
+20261049 sw3 ACCEPTED
+20261049 sw4 ACCEPTED
+20261049 sw8 ACCEPTED
+20261050 sw8 ACCEPTED
+20261051 sw1 ACCEPTED
+20261051 sw6 ACCEPTED
+20261053 sw0 ACCEPTED
+20261053 sw6 ACCEPTED
+20261058 sw0 ACCEPTED
+20261058 sw1 ACCEPTED
+20261059 sw6 ACCEPTED
+20261059 sw7 ACCEPTED
+20261061 sw0 ACCEPTED
+20261061 sw9 ACCEPTED

@@ -1,0 +1,33 @@
+# Known differences between JANINO in the compliance mode and JAVAC; see "InvocationDifferentialTest".
+# Format: <seed> <method> <WRONG|REJECTED|ACCEPTED|INVALID>
+
+# #135 (L-49, incompletely corrected): an invocation of two variable arity methods whose component types are a primitive
+# type and a reference type ("int..." and "Serializable...", "char..." and "Object...", "byte..." and "Object...")
+# is ambiguous for JAVAC, but JANINO selects the method with the primitive component type. (With "int..." and
+# "Number...", the compliance mode reports the ambiguity, like JAVAC.)
+20261011 p6 ACCEPTED
+20261011 p8 ACCEPTED
+20261032 p1 ACCEPTED
+20261032 p4 ACCEPTED
+20261032 p8 ACCEPTED
+20261032 p9 ACCEPTED
+20261042 p1 ACCEPTED
+20261042 p10 ACCEPTED
+
+# #134: internal compiler errors on invalid invocations with "null" arguments, like in the compatibility mode (see
+# "known-differences.txt"): JAVAC reports an ambiguity or a missing applicable method; JANINO fails with an
+# ArrayIndexOutOfBoundsException after overload resolution (20261019 p3), or with a StringIndexOutOfBoundsException
+# while the message of the ambiguity error formats the descriptor of the null type (the others). The two valid
+# invocations that fail in the compatibility mode (20261019 p5 and p9) compile correctly in the compliance mode.
+20261017 p11 INVALID
+20261019 p0 INVALID
+20261019 p3 INVALID
+20261020 p1 INVALID
+20261020 p5 INVALID
+20261027 p10 INVALID
+20261039 p4 INVALID
+20261045 p11 INVALID
+20261048 p6 INVALID
+20261048 p9 INVALID
+20261056 p3 INVALID
+20261058 p10 INVALID

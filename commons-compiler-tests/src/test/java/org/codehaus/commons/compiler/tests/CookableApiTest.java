@@ -75,11 +75,11 @@ class CookableApiTest extends CommonsCompilerTestSuite {
 
     private int fileCount;
 
-    @Parameters(name = "CompilerFactory={0}") public static Collection<Object[]>
-    compilerFactories() throws Exception { return TestUtil.getCompilerFactoriesForParameters(); }
+    @Parameters(name = "{0}, {1}") public static Collection<Object[]>
+    compilerFactories() throws Exception { return TestUtil.getCompilerFactoriesAndModesForParameters(); }
 
     public
-    CookableApiTest(ICompilerFactory compilerFactory) { super(compilerFactory); }
+    CookableApiTest(ICompilerFactory compilerFactory, String mode) { super(compilerFactory, mode); }
 
     @Test public void
     testCookableResults() throws Exception {

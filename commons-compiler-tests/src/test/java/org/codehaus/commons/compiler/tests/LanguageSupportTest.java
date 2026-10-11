@@ -106,7 +106,6 @@ class LanguageSupportTest extends CommonsCompilerTestSuite {
 
     private static final String JLS = "jls";
 
-    private final String mode;
     private final Case   testCase;
 
     @Parameters(name = "{0}, {1}, {2}") public static List<Object[]>
@@ -123,8 +122,7 @@ class LanguageSupportTest extends CommonsCompilerTestSuite {
 
     public
     LanguageSupportTest(ICompilerFactory compilerFactory, String mode, Case testCase) {
-        super(compilerFactory);
-        this.mode     = mode;
+        super(compilerFactory, mode);
         this.testCase = testCase;
     }
 

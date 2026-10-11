@@ -42,10 +42,10 @@ import util.TestUtil;
 class BaseClassTest extends CommonsCompilerTestSuite {
 
     public
-    BaseClassTest(ICompilerFactory compilerFactory) { super(compilerFactory); }
+    BaseClassTest(ICompilerFactory compilerFactory, String mode) { super(compilerFactory, mode); }
 
-    @Parameters(name = "CompilerFactory={0}") public static Collection<Object[]>
-    compilerFactories() throws Exception { return TestUtil.getCompilerFactoriesForParameters(); }
+    @Parameters(name = "{0}, {1}") public static Collection<Object[]>
+    compilerFactories() throws Exception { return TestUtil.getCompilerFactoriesAndModesForParameters(); }
 
     public static
     class BaseClass {

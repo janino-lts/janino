@@ -28,16 +28,27 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
+import org.codehaus.commons.compiler.CompileException;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
+import org.codehaus.commons.compiler.ICompiler;
 import org.codehaus.commons.compiler.ICompilerFactory;
 import org.codehaus.commons.compiler.ISimpleCompiler;
+import org.codehaus.commons.compiler.Location;
+import org.codehaus.commons.compiler.util.ResourceFinderClassLoader;
+import org.codehaus.commons.compiler.util.resource.MapResourceCreator;
+import org.codehaus.commons.compiler.util.resource.MapResourceFinder;
+import org.codehaus.commons.compiler.util.resource.Resource;
+import org.codehaus.commons.compiler.util.resource.StringResource;
 import org.junit.Assert;
 import org.junit.Assume;
 
@@ -80,6 +91,88 @@ class DifferentialTesting {
         ISimpleCompiler sc = TestUtil.newSimpleCompiler(compilerFactory, mode);
         sc.cook(source);
         return sc.getClassLoader();
+    }
+
+    /**
+     * Compiles the <var>source</var> (one or more classes, in the default package) with the given compiler, in the
+     * given mode, to class files.
+     *
+     * @return The class files, by resource name (e.g. {@code "P.class"})
+     * @see    #classLoader(Map)
+     */
+    static Map<String, byte[]>
+    compileToClassFiles(ICompilerFactory compilerFactory, String mode, String source) throws Exception {
+
+        ICompiler compiler = compilerFactory.newCompiler();
+        if (TestUtil.COMPLIANT.equals(mode)) TestUtil.setJavacCompliance(compiler);
+
+        Map<String, byte[]> result = new HashMap<>();
+        compiler.setClassFileFinder(new MapResourceFinder(result));
+        compiler.setClassFileCreator(new MapResourceCreator(result));
+        compiler.compile(new Resource[] { new StringResource("P.java", source) });
+        return result;
+    }
+
+    /**
+     * @return A class loader that loads the classes from the given class files (see {@link
+     *         #compileToClassFiles(ICompilerFactory, String, String)})
+     */
+    static ClassLoader
+    classLoader(Map<String, byte[]> classFiles) {
+        return new ResourceFinderClassLoader(
+            new MapResourceFinder(classFiles),
+            DifferentialTesting.class.getClassLoader()
+        );
+    }
+
+    /**
+     * Compiles the <var>source</var> with the JDK-based compiler and an error handler, so that one compilation
+     * reports all errors.
+     *
+     * @return The line numbers of the errors, each mapped to the first error message on that line; empty iff the
+     *         source compiles
+     */
+    static Map<Integer, String>
+    javacErrorsByLine(ICompilerFactory jdk, String source) throws Exception {
+
+        final Map<Integer, String> result = new TreeMap<>();
+        ISimpleCompiler sc = TestUtil.newSimpleCompiler(jdk, TestUtil.JAVAC);
+        sc.setCompileErrorHandler((String message, Location location) -> {
+            int line = location == null ? -1 : location.getLineNumber();
+            if (!result.containsKey(line)) result.put(line, message);
+        });
+        try {
+            sc.cook(source);
+        } catch (CompileException ce) {
+            if (result.isEmpty()) throw ce;
+        }
+        return result;
+    }
+
+    /**
+     * @return The result of the static method without parameters, converted to a string; "!" and the exception
+     *         that the method throws; or "?" and the exception that prevents its invocation (e.g. a {@link
+     *         VerifyError})
+     */
+    static String
+    invokeStatic(ClassLoader cl, String className, String methodName) {
+        try {
+            return String.valueOf(cl.loadClass(className).getDeclaredMethod(methodName).invoke(null));
+        } catch (InvocationTargetException ite) {
+            return "!" + ite.getCause();
+        } catch (Throwable t) {
+            return "?" + t;
+        }
+    }
+
+    /**
+     * @return The exception, and its root cause if it has one
+     */
+    static String
+    describe(Throwable t) {
+        Throwable cause = t;
+        while (cause.getCause() != null && cause.getCause() != cause) cause = cause.getCause();
+        return cause == t ? t.toString() : t + "\nCaused by: " + cause;
     }
 
     /**
