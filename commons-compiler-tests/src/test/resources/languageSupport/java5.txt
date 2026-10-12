@@ -484,6 +484,78 @@ public class P extends B {
     public static Object run() { return new P().new I().i(); }
 }
 
+=== varargs: super.m(...) for a method that the superclass implements from an interface
+jls: B2
+janino: OK
+legacy: REJECTED Assignment conversion not possible from type "P" to type "java.lang.Object[]"
+id: #157
+interface I { void a(Object o, Object... v); }
+class B implements I { public void a(Object o, Object... v) { P.r = "B" + v.length; } }
+public class P extends B {
+    static String r;
+    public void a(Object o, Object... v) { super.a(o, this, v); }
+    public static Object run() { new P().a(null); return r; }
+}
+
+=== varargs: super.m(...) with an array, for a method that the superclass implements from an interface
+jls: B2
+janino: OK
+legacy: INVALID VerifyError
+id: #160
+interface I { void a(Object o, Object... v); }
+class B implements I { public void a(Object o, Object... v) { P.r = "B" + v.length; } }
+public class P extends B {
+    static String r;
+    public void a(Object o, Object... v) { super.a(o, v); }
+    public static Object run() { new P().a(null, 1, 2); return r; }
+}
+
+=== varargs: super.m(...) for a method that the superclass implements from an interface of an abstract superclass
+jls: B2
+janino: OK
+legacy: REJECTED Assignment conversion not possible from type "P" to type "java.lang.Object[]"
+id: #157
+interface I { void a(Object o, Object... v); }
+abstract class A implements I { }
+class B extends A { public void a(Object o, Object... v) { P.r = "B" + v.length; } }
+public class P extends B {
+    static String r;
+    public void a(Object o, Object... v) { super.a(o, this, v); }
+    public static Object run() { new P().a(null); return r; }
+}
+
+=== varargs: super.m(...) for a method that the superclass declares and an interface declares as a default method
+jls: B2B0
+janino: OK
+legacy: REJECTED Assignment conversion not possible from type "int" to type "java.lang.Object[]"
+id: #157
+interface I { default String a(Object... v) { return "I" + v.length; } }
+class B implements I { public String a(Object... v) { return "B" + v.length; } }
+public class P extends B {
+    String g() { return super.a(1, 2) + super.a(); }
+    public static Object run() { return new P().g(); }
+}
+
+=== varargs: a method that a class implements from an interface, invoked through the class and the interface
+jls: B2B1
+janino: OK
+interface I { String a(Object o, Object... v); }
+class B implements I { public String a(Object o, Object... v) { return "B" + v.length; } }
+public class P {
+    public static Object run() { B b = new B(); I i = b; return b.a(null, 1, 2) + i.a(null, 1); }
+}
+
+=== varargs: the same method in two superinterfaces
+jls: X3
+janino: OK
+interface I1 { String a(Object... v); }
+interface I2 { String a(Object... v); }
+interface J extends I1, I2 { }
+public class P {
+    static class X implements J { public String a(Object... v) { return "X" + v.length; } }
+    public static Object run() { J j = new X(); return j.a(1, 2, 3); }
+}
+
 === autoboxing
 jls: 3
 janino: OK

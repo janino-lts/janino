@@ -1014,6 +1014,17 @@ class IClass implements ITypeVariableOrIClass {
                 final IClass[] thisParameterTypes = this.getParameterTypes();
                 final IClass[] thatParameterTypes = that.getParameterTypes();
 
+                // A method of a class and an abstract or interface method with the same parameter types, e.g. the
+                // interface method that the class method implements: neither is more specific than the other, like
+                // with fixed arity, so that the non-abstract method is selected (issue #160).
+                if (
+                    Arrays.equals(thisParameterTypes, thatParameterTypes)
+                    && this.isAbstractOrInterfaceMethod() != that.isAbstractOrInterfaceMethod()
+                ) {
+                    IClass.LOGGER.exiting(null, "isMoreSpecificThan", false);
+                    return false;
+                }
+
                 IClass[] t, u;
                 int      n, k;
 
@@ -1121,6 +1132,14 @@ class IClass implements ITypeVariableOrIClass {
          */
         public boolean
         isLessSpecificThan(IInvocable that) throws CompileException { return that.isMoreSpecificThan(this); }
+
+        /**
+         * @return Whether this {@link IInvocable} is a method that is abstract or declared in an interface
+         */
+        private boolean
+        isAbstractOrInterfaceMethod() {
+            return this instanceof IMethod && (((IMethod) this).isAbstract() || IClass.this.isInterface());
+        }
 
         @Override public abstract String
         toString();

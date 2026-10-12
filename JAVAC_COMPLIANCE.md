@@ -481,7 +481,10 @@ error (D); now the arguments are collected into an array, like with `javac`, and
 as the array. Only code that was rejected or failed with an internal compiler error changes. #150: `super.m()` for a
 `static` method of the superclass failed at run time with an `IncompatibleClassChangeError` (V4), and
 `Outer.super.m()` for it was an internal compiler error (D); now the method is invoked like with the simple name
-`m()`. Only code that failed changes.
+`m()`. Only code that failed changes. #160, found with the fix of #157: `super.m(...)` of a variable arity method
+that the superclass implements from an interface compiled into a class that the JVM rejects (D: of the class method
+and the interface method with the same parameter types, overload resolution selected the interface method); now the
+class method is selected, like with fixed arity. Only code that failed changes.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`

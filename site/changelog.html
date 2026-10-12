@@ -333,6 +333,17 @@ h5 {
         <code>s()</code> does, and yield the result that JAVAC's code yields. Only code that failed changes; the class
         files of all other code are unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/160">issue #160</a>: <code>super.a(o, v)</code>
+        for a variable arity method <code>a(Object o, Object... v)</code> that the superclass implements from an
+        interface, also from a default method, compiled into a class that the JVM rejects (<code>VerifyError: Bad
+        invokespecial instruction: interface method to invoke is not in a direct superinterface</code>): JANINO found
+        each of two variable arity methods with the same parameter types more specific than the other, so that
+        overload resolution selected the method of the interface instead of the method of the class. Now it selects
+        the method of the class, like with fixed arity and like JAVAC. Since the fix of issue #157, the same happened
+        with <code>super.a(o, this, v)</code>, which was rejected before. Only code that failed changes; the class
+        files of all other code are unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.19 2026-10-10</h4>

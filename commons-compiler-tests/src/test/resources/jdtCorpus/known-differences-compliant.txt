@@ -119,12 +119,6 @@ VarargsTest.test437973a REJECTED
 # ("No applicable constructor/method found"). Both modes, since 3.1.12.
 VarargsTest.test022 REJECTED
 
-# A superclass method invocation "super.m(...)" of a variable arity method that the superclass implements from an
-# interface: JANINO selects the abstract method of the interface, and the JVM rejects the "invokespecial" of an
-# interface method that is not in a direct superinterface (VerifyError). Both modes; since 3.1.12 with an array as the
-# variable arity argument, since #157 also with other arguments.
-VarargsTest.test049 WRONG
-
 # #152, item 11: A qualified class instance creation "x.new Y()" and a qualified superclass constructor invocation
 # "x.super()" with "x == null" throw no NullPointerException (JLS 15.9.4, 8.8.7.1). Both modes, since 3.1.12.
 Compliance_1_4.test035 WRONG
