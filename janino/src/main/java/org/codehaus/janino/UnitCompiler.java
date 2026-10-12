@@ -12256,6 +12256,18 @@ class UnitCompiler {
 
         if (!boxingPermitted) return null; // To try again.
 
+        // Two or more variable arity methods, none of which is more specific than the others by
+        // "isMoreSpecificThan()": select the one that is more specific than all others by JLS8 15.12.2.5, like JAVAC
+        // (issue #156). "isMoreSpecificThan()" stays as it is, because it also selects methods that JAVAC reports as
+        // ambiguous, e.g. "f(int...)" for "f(1, 2)" with "f(Object...)".
+        {
+            IClass.IInvocable ii = UnitCompiler.mostSpecificByVariableArity(
+                applicableIInvocables,
+                argumentTypes.length
+            );
+            if (ii != null) return ii;
+        }
+
         // JLS7 15.12.2.2.BL2.B2
         {
             StringBuilder sb = new StringBuilder("Invocation of constructor/method with argument type(s) \"");
@@ -12275,6 +12287,76 @@ class UnitCompiler {
         }
 
         return iInvocables[0];
+    }
+
+    /**
+     * Selects the most specific of the given invocables by JLS8 15.12.2.5, iff all of them are variable arity
+     * invocables that are applicable by variable arity invocation (JLS8 15.12.2.4) to <var>k</var> arguments.
+     *
+     * @return The invocable that is more specific than all others, while none of the others is more specific than it,
+     *         or {@code null}
+     */
+    @Nullable private static IClass.IInvocable
+    mostSpecificByVariableArity(List<IClass.IInvocable> invocables, int k) throws CompileException {
+
+        for (IClass.IInvocable ii : invocables) {
+            if (!ii.isVarargs() || !ii.argsNeedAdjust()) return null;
+        }
+
+        IClass.IInvocable result = null;
+        for (IClass.IInvocable ii : invocables) {
+            boolean mostSpecific = true;
+            for (IClass.IInvocable other : invocables) {
+                if (
+                    other != ii
+                    && (
+                        !UnitCompiler.isMoreSpecificByVariableArity(ii, other, k)
+                        || UnitCompiler.isMoreSpecificByVariableArity(other, ii, k)
+                    )
+                ) {
+                    mostSpecific = false;
+                    break;
+                }
+            }
+            if (mostSpecific) {
+                if (result != null) return null;
+                result = ii;
+            }
+        }
+        return result;
+    }
+
+    /**
+     * @return Whether <var>m1</var> is more specific than <var>m2</var> for an invocation with <var>k</var>
+     *         arguments, where both are applicable by variable arity invocation (JLS8 15.12.2.5): each of the first
+     *         <var>k</var> variable arity parameter types of <var>m1</var> is a subtype of that of <var>m2</var>, and
+     *         so is the (<var>k</var> + 1)th one iff <var>m2</var> has <var>k</var> + 1 parameters
+     */
+    private static boolean
+    isMoreSpecificByVariableArity(IClass.IInvocable m1, IClass.IInvocable m2, int k) throws CompileException {
+        int n = m2.getParameterTypes().length == k + 1 ? k + 1 : k;
+        for (int i = 0; i < n; i++) {
+            IClass t1 = UnitCompiler.variableArityParameterType(m1, i);
+            IClass t2 = UnitCompiler.variableArityParameterType(m2, i);
+
+            // Identity, widening primitive conversion (the subtypes among the primitive types, JLS8 4.10.1) and
+            // widening reference conversion; no boxing.
+            if (!t2.isAssignableFrom(t1)) return false;
+        }
+        return true;
+    }
+
+    /**
+     * @return The <var>i</var>th variable arity parameter type of the variable arity invocable <var>ii</var> (JLS8
+     *         15.12.2.4): the type of the <var>i</var>th parameter if it precedes the variable arity parameter,
+     *         otherwise the component type of the variable arity parameter
+     */
+    private static IClass
+    variableArityParameterType(IClass.IInvocable ii, int i) throws CompileException {
+        IClass[] parameterTypes = ii.getParameterTypes();
+        int      last           = parameterTypes.length - 1;
+        if (i < last) return parameterTypes[i];
+        return (IClass) UnitCompiler.assertNonNull(parameterTypes[last].getComponentType());
     }
 
     private static <T> T
