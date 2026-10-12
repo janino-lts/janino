@@ -111,7 +111,10 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 - 3.1.20: `super.m()` for a `private` method of the superclass `P`, in a subclass of `P` declared in `P`
   (inner, local, anonymous or static member class), also as `Q.super.m()` from a class nested in such a class
   `Q`, compiled into an invocation that failed at run time with a `NoSuchMethodError` ([#136]); the class files of
-  all other code are unchanged.
+  all other code are unchanged. Two local classes with the same name in one class, or a local class and a member
+  class with the same name, got the same binary name `P$L`, and only one class file was kept: a
+  `NoSuchMethodError`, or the wrong class was used. Now such a local class gets a number, like with `javac`:
+  `P$2L`, or `P$1L` next to a member class `L` ([#143]); the names of all other local classes are unchanged.
 
 **Arrays, expressions and literals** (3.1.17, 3.1.19, 3.1.20):
 
@@ -208,7 +211,7 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.19 needs 1.8 % less time and
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 516 language
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 524 language
   constructs, negative tests with 454 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
   suites of Apache Calcite, Spark Catalyst, Apache Fory and Apache Drill every week and before every release
@@ -268,4 +271,5 @@ affected.
 [#134]: https://github.com/janino-lts/janino/issues/134
 [#136]: https://github.com/janino-lts/janino/issues/136
 [#138]: https://github.com/janino-lts/janino/issues/138
+[#143]: https://github.com/janino-lts/janino/issues/143
 [#147]: https://github.com/janino-lts/janino/issues/147

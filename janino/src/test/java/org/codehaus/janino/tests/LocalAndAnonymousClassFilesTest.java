@@ -28,6 +28,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ObjectStreamClass;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeSet;
 
 import org.codehaus.commons.nullanalysis.Nullable;
 import org.codehaus.janino.Mod;
@@ -140,6 +141,42 @@ class LocalAndAnonymousClassFilesTest {
         for (Map.Entry<String, ClassFile> e : cfs.entrySet()) {
             Assert.assertEquals(e.getKey(), 0, ((ClassFile) e.getValue()).accessFlags & Mod.STRICTFP);
         }
+    }
+
+    /**
+     * A local class whose binary name has a number, because its name would collide (issue #143): the {@code
+     * InnerClasses} entry has the simple name of the class, and the {@code EnclosingMethod} attribute names its method.
+     */
+    @Test public void
+    testLocalClassesWithTheSameName() throws Exception {
+        SimpleCompiler sc = new SimpleCompiler();
+        sc.cook(
+            ""
+            + "public class P {\n"
+            + "    static class M { }\n"
+            + "    static Object a() { class L { } return new L(); }\n"
+            + "    static Object b() { class L { } return new L(); }\n"
+            + "    static Object c() { class M { } return new M(); }\n"
+            + "}\n"
+        );
+        Map<String, ClassFile> cfs = LocalAndAnonymousClassFilesTest.classFiles(sc.getBytecodes());
+        Assert.assertEquals(
+            "[P, P$1M, P$2L, P$L, P$M]",
+            new TreeSet<String>(cfs.keySet()).toString()
+        );
+
+        ClassFile p  = (ClassFile) cfs.get("P");
+        ClassFile l2 = (ClassFile) cfs.get("P$2L");
+        ClassFile m1 = (ClassFile) cfs.get("P$1M");
+        Assert.assertEquals(Mod.NONE, LocalAndAnonymousClassFilesTest.innerClassFlags(p, "P$2L", "L"));
+        Assert.assertEquals(Mod.NONE, LocalAndAnonymousClassFilesTest.innerClassFlags(l2, "P$2L", "L"));
+        Assert.assertEquals(Mod.NONE, LocalAndAnonymousClassFilesTest.innerClassFlags(m1, "P$1M", "M"));
+        LocalAndAnonymousClassFilesTest.assertEnclosingMethod(l2, "P", "b", "()Ljava/lang/Object;");
+        LocalAndAnonymousClassFilesTest.assertEnclosingMethod(m1, "P", "c", "()Ljava/lang/Object;");
+
+        Class<?> c = sc.getClassLoader().loadClass("P$2L");
+        Assert.assertEquals("L", c.getSimpleName());
+        Assert.assertTrue(c.isLocalClass());
     }
 
     private static Map<String, ClassFile>

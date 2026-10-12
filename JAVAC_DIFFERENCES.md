@@ -69,7 +69,7 @@ the compliance mode follows `javac` (where the column says so; "open" means not 
 | S-04 | `char c = 'a'; Object x = false ? c : (short) 66;` | `x` is an `Integer` | `x` is a `Character` | [#38](https://github.com/janino-lts/janino/issues/38) | like `javac` (development line) |
 | S-07 | `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`), kept for the default `serialVersionUID` | [#73](https://github.com/janino-lts/janino/issues/73) | open |
 | S-06 | `getEnclosingMethod()` of a class declared in a `private` instance method `p()` | `p` | `p$` (Janino compiles the method as a static method `p$`, see below) | | open |
-| S-08 | `getName()` of a local class `L` declared in a class `P` | `"P$1L"` | `"P$L"` | | open |
+| S-08 | `getName()` of a local class `L` declared in a class `P` (see below) | `"P$1L"` | `"P$L"` | | open |
 | S-11 | `P.this`, and the simple name of a `private` member of `P`, in `class Q extends P` that is declared in `P` (see below) | the enclosing instance of `Q` | `this` | [#101](https://github.com/janino-lts/janino/issues/101) | like `javac` (development line) |
 | S-12 | `String s = "x"; boolean x = ("a" + (true ? "b" : s)) == "ab";` (see below) | `x == false` | `x == true` | | like `javac` (development line) |
 | S-13 | `f(Object o)` and `f(int... i)`; `f(new int[] { 1 })` | invokes `f(int...)` | invokes `f(Object)` (a variable arity method is less specific than a fixed arity method) | [#126](https://github.com/janino-lts/janino/issues/126) | like `javac` (development line) |
@@ -78,6 +78,13 @@ the compliance mode follows `javac` (where the column says so; "open" means not 
 | S-15 | `String t3(final int c) { class L { int c = 10; String l() { return "" + c; } } return new L().l(); }` (see below) | `t3(8)` is `"10"` (the field) | `t3(8)` is `"8"` (the parameter) | [#137](https://github.com/janino-lts/janino/issues/137) | open |
 | S-16 | `String w = ""; boolean x = ("b" + w) == ("b" + w);` (see below) | `x == false` | `x == true` | | open |
 | S-17 | `final int k = 5; byte b = 1; Object x = z ? b : k;` (see below) | `x` is a `Byte` | `x` is an `Integer` | [#139](https://github.com/janino-lts/janino/issues/139) | open |
+
+**S-08, the binary names of local classes** ([#143](https://github.com/janino-lts/janino/issues/143), fixed in
+3.1.20): Janino names a local class `L` in a type `E` `E$L`, where `javac` inserts a number (`E$1L`, JLS 13.1). Since
+3.1.20, Janino inserts a number only where `E$L` is already taken: by a member type `L` of `E` (the local class is
+named `E$1L`), or by another local class `L` in `E` (the second one is named `E$2L`, the third one `E$3L`). Janino
+3.1.19 and earlier gave all of them the name `E$L` and kept only one class file, so that the code that used another
+one failed with a `NoSuchMethodError`, or used the wrong class. Both modes name local classes this way.
 
 **S-05, constant expressions that are not folded** ([#47](https://github.com/janino-lts/janino/issues/47)): Janino
 does not evaluate shifts, relational operators, `~`, operations with `char` operands, casts to and from `char`, `&`,

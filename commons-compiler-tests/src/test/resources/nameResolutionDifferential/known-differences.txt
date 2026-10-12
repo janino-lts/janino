@@ -9,6 +9,7 @@
 20261012 p9 WRONG
 20261014 p2 WRONG
 20261014 p6 WRONG
+20261015 p1 WRONG
 20261015 p3 WRONG
 20261016 p4 WRONG
 20261016 p6 WRONG
@@ -41,6 +42,7 @@
 20261032 p4 WRONG
 20261033 p6 WRONG
 20261034 p6 WRONG
+20261039 p6 WRONG
 20261040 p7 WRONG
 20261041 p2 WRONG
 20261041 p3 WRONG
@@ -104,13 +106,10 @@
 
 # S-15 (#137), scoping in local and anonymous classes: a parameter or local variable of the enclosing
 # method shadows a field that the local or anonymous class declares or inherits, where JLS 6.4.1 says the field
-# shadows the variable; the probe reads the variable (also as the condition of an "assert" statement), or, where a
-# field of the local class shadows a captured variable, the constructor of the local class gets a parameter for
-# the variable that the instance creation does not pass (NoSuchMethodError). Both modes, since 3.1.12.
+# shadows the variable; the probe reads the variable (also as the condition of an "assert" statement). Both
+# modes, since 3.1.12.
 20261014 p9 WRONG
 20261014 p9+ea WRONG
-20261015 p1 WRONG
-20261015 p1+ea WRONG
 20261018 p4 WRONG
 20261018 p4+ea WRONG
 20261019 p0 WRONG
@@ -123,7 +122,5 @@
 20261039 p1 WRONG
 20261039 p4 WRONG
 20261039 p4+ea WRONG
-20261039 p6 WRONG
-20261039 p6+ea WRONG
 20261047 p6 WRONG
 20261047 p6+ea WRONG

@@ -464,6 +464,9 @@ types of another, e.g. `m(int...)` and `m(int[], Serializable...)` for `m(ia)` (
 Only invocations that failed with an internal compiler error change. #136: `super.m()` for a `private` method of
 the superclass `P`, in a subclass of `P` declared in `P`, failed at run time with a `NoSuchMethodError` (V4); now
 it invokes the method like the simple name `m()` does. Only code that failed with a `NoSuchMethodError` changes.
+#143: two local classes with the same name in one class, or a local class and a member class with the same name,
+got the same binary name, and only one class file was kept (V3, V4); now such a local class gets a number, e.g.
+`P$2L`. The names of all other local classes are unchanged.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`
