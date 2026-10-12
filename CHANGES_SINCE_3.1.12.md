@@ -53,7 +53,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   `||`, compiled into class files that the JVM rejects ([#57]); a variable assigned in the condition of a loop or
   of a conditional expression could not be read in the body or the operands (all versions).
 
-**Constants and conversions** (3.1.15):
+**Constants and conversions** (3.1.15, 3.1.20):
 
 - The value of a compound assignment used as an expression, e.g. `a[i] += x` or `I += 2` with an `Integer I`,
   was wrong, failed verification or crashed the compiler ([#35]).
@@ -64,6 +64,9 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   rejected or caused a `ClassFormatError` ([#45]).
 - `boolean`, `byte`, `char` and `short` constants of fields from class files were treated as `int` ([#46]).
 - The constant folding of a string concatenation with `null` crashed the compiler ([#49]).
+- 3.1.20 (in development): An `if` statement whose branches are empty, with a condition of type `Boolean`,
+  e.g. `if (b) {}` or `if (b);`, was rejected ("Not a boolean expression") ([#153]); now the condition is
+  unboxed, like with a non-empty branch and with `javac`: with `b == null`, it throws a `NullPointerException`.
 
 **Conditional expressions** (3.1.16, 3.1.19):
 
@@ -148,8 +151,9 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   the parameter types of one maximally specific method are the leading parameter types of another, e.g.
   `m(int...)` and `m(int[], Serializable...)` for `m(ia)` ([#147]); now it is reported as ambiguous.
 - 3.1.20 (in development): `super.m(...)` of a variable arity method that the superclass implements from an
-  interface compiled into a class that the JVM rejects (`VerifyError`): of the method of the class and the method of
-  the interface with the same parameter types, overload resolution selected the method of the interface ([#160]).
+  interface compiled into a class that failed (`VerifyError` on Java 25, `IncompatibleClassChangeError` at the
+  invocation on older JVMs): of the method of the class and the method of the interface with the same parameter
+  types, overload resolution selected the method of the interface ([#160]).
   Now it selects the method of the class, like with fixed arity and with `javac`.
 
 **Imports** (3.1.20):
@@ -222,8 +226,8 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.19 needs 1.8 % less time and
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 553 language
-  constructs, negative tests with 454 cases of invalid code, differential tests that compile generated expressions
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 557 language
+  constructs, negative tests with 455 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
   suites of Apache Calcite, Spark Catalyst, Apache Fory and Apache Drill every week and before every release
   ([Compatibility](COMPATIBILITY.md)).
@@ -285,5 +289,6 @@ affected.
 [#143]: https://github.com/janino-lts/janino/issues/143
 [#147]: https://github.com/janino-lts/janino/issues/147
 [#150]: https://github.com/janino-lts/janino/issues/150
+[#153]: https://github.com/janino-lts/janino/issues/153
 [#157]: https://github.com/janino-lts/janino/issues/157
 [#160]: https://github.com/janino-lts/janino/issues/160

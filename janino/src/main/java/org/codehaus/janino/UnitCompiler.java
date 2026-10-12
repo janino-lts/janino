@@ -3172,7 +3172,16 @@ class UnitCompiler {
 
                 // if (<expression>) ; else ;
                 IType conditionType = this.compileGetValue(is.condition);
-                if (conditionType != IClass.BOOLEAN) this.compileError("Not a boolean expression", is.getLocation());
+                if (conditionType == this.iClassLoader.TYPE_java_lang_Boolean) {
+
+                    // Unbox a condition of type "Boolean" (JLS7 14.9), like "compileBoolean2()"; with "null", this
+                    // throws a NullPointerException, as with JAVAC (issue #153).
+                    this.unboxingConversion(is.condition, this.iClassLoader.TYPE_java_lang_Boolean, IClass.BOOLEAN);
+                    conditionType = IClass.BOOLEAN;
+                } else
+                if (conditionType != IClass.BOOLEAN) {
+                    this.compileError("Not a boolean expression", is.getLocation());
+                }
                 this.pop(is, conditionType);
                 return true;
             }

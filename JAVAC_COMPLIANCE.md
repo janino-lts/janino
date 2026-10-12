@@ -414,9 +414,12 @@ as the array. Only code that was rejected or failed with an internal compiler er
 `static` method of the superclass failed at run time with an `IncompatibleClassChangeError` (V4), and
 `Outer.super.m()` for it was an internal compiler error (D); now the method is invoked like with the simple name
 `m()`. Only code that failed changes. #160, found with the fix of #157: `super.m(...)` of a variable arity method
-that the superclass implements from an interface compiled into a class that the JVM rejects (D: of the class method
-and the interface method with the same parameter types, overload resolution selected the interface method); now the
-class method is selected, like with fixed arity. Only code that failed changes.
+that the superclass implements from an interface compiled into a class that failed (D: of the class method and the
+interface method with the same parameter types, overload resolution selected the interface method; `VerifyError`
+on Java 25, `IncompatibleClassChangeError` on older JVMs); now the class method is selected, like with fixed arity.
+Only code that failed changes. #153: an `if` statement whose branches are empty, with a condition of type
+`Boolean`, e.g. `if (b) {}`, was rejected (D); now the condition is unboxed, like with a non-empty branch, and
+`b == null` throws a `NullPointerException`, like with `javac`. Only code that was rejected changes.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`
