@@ -336,13 +336,24 @@ h5 {
       <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/160">issue #160</a>: <code>super.a(o, v)</code>
         for a variable arity method <code>a(Object o, Object... v)</code> that the superclass implements from an
-        interface, also from a default method, compiled into a class that the JVM rejects (<code>VerifyError: Bad
-        invokespecial instruction: interface method to invoke is not in a direct superinterface</code>): JANINO found
+        interface, also from a default method, compiled into a class that failed: the JVM of Java 25 rejects it
+        (<code>VerifyError: Bad invokespecial instruction: interface method to invoke is not in a direct
+        superinterface</code>), older JVMs throw an <code>IncompatibleClassChangeError</code> at the invocation. JANINO
+        found
         each of two variable arity methods with the same parameter types more specific than the other, so that
         overload resolution selected the method of the interface instead of the method of the class. Now it selects
         the method of the class, like with fixed arity and like JAVAC. Since the fix of issue #157, the same happened
         with <code>super.a(o, this, v)</code>, which was rejected before. Only code that failed changes; the class
         files of all other code are unchanged.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/153">issue #153</a>: An <code>if</code> statement
+        whose branches are empty, with a condition of type <code>Boolean</code>, e.g. <code>if (b) {}</code>,
+        <code>if (b);</code> or <code>if (b) {} else {}</code>, was rejected (<code>Not a boolean
+        expression</code>): JANINO evaluated the condition only for its side effects and did not unbox it. Now it
+        unboxes the condition, like with a non-empty branch and like JAVAC; with <code>b == null</code>, the
+        statement throws a <code>NullPointerException</code>. Only code that was rejected changes; the class files of
+        all other code are unchanged.
       </li>
     </ul>
 

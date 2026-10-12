@@ -356,8 +356,15 @@ passes `null` as the array, as before and as with `javac`.
 and `super.a(o, v)` in a subclass of `B`, also with a default method `a` in `I`, Janino 3.1.19 and earlier select
 the method of `I` instead of the method of `B`, because they find each of two variable arity methods with the same
 parameter types more specific than the other; `super.a(o, v)` then invokes `I.a` with `invokespecial`, and the JVM
-rejects the class (`VerifyError: Bad invokespecial instruction: interface method to invoke is not in a direct
-superinterface`). Since 3.1.20, the method of the class is selected, like with fixed arity and with `javac`.
+of Java 25 rejects the class (`VerifyError: Bad invokespecial instruction: interface method to invoke is not in a
+direct superinterface`), older JVMs throw an `IncompatibleClassChangeError` at the invocation. Since 3.1.20, the
+method of the class is selected, like with fixed arity and with `javac`.
+
+**`if (b) {}` with a condition of type `Boolean`** ([#153](https://github.com/janino-lts/janino/issues/153), fixed
+in 3.1.20): Janino 3.1.19 and earlier reject an `if` statement whose branches are empty, e.g. `if (b) {}`, `if (b);`
+or `if (b) {} else {}` with `Boolean b` (`Not a boolean expression`), because they evaluate the condition only for
+its side effects and do not unbox it; with a non-empty branch, the condition is unboxed. Since 3.1.20, it is
+unboxed in both cases, like with `javac`; with `b == null`, the statement throws a `NullPointerException`.
 
 ## 3. Invalid code that Janino accepts
 

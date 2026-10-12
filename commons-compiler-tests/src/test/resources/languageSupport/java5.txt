@@ -556,6 +556,57 @@ public class P {
     public static Object run() { J j = new X(); return j.a(1, 2, 3); }
 }
 
+=== if: a condition of type Boolean with empty branches (if (b) {}, if (b);, if (b) {} else {})
+jls: 3
+janino: OK
+legacy: REJECTED Not a boolean expression
+id: #153
+public class P {
+    static int n;
+    static Boolean b(Boolean v) { n++; return v; }
+    public static Object run() {
+        if (b(Boolean.TRUE)) {}
+        if (b(Boolean.FALSE));
+        if (b(Boolean.TRUE)) {} else {}
+        return String.valueOf(n);
+    }
+}
+
+=== if: a condition of type Boolean with empty branches, which is null (if (P.f) {})
+jls: npe
+janino: OK
+legacy: REJECTED Not a boolean expression
+id: #153
+public class P {
+    static Boolean f;
+    public static Object run() {
+        try { if (P.f) {} return "no exception"; } catch (NullPointerException e) { return "npe"; }
+    }
+}
+
+=== if: an array element of type Boolean with empty branches, which is null (if (a[0]) {})
+jls: npe
+janino: OK
+legacy: REJECTED Not a boolean expression
+id: #153
+public class P {
+    public static Object run() {
+        Boolean[] a = new Boolean[1];
+        try { if (a[0]) {} return "no exception"; } catch (NullPointerException e) { return "npe"; }
+    }
+}
+
+=== if: a conditional expression of type Boolean with empty branches (if (false ? true : null);)
+jls: npe
+janino: OK
+legacy: REJECTED Not a boolean expression
+id: #153
+public class P {
+    public static Object run() {
+        try { if (false ? true : null); return "no exception"; } catch (NullPointerException e) { return "npe"; }
+    }
+}
+
 === autoboxing
 jls: 3
 janino: OK

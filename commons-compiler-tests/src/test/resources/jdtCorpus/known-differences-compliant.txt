@@ -51,15 +51,6 @@ Compliance_1_4.test104 WRONG
 ConstantTest.testBug566332_01 REJECTED
 ConstantTest.testBug566332_02 REJECTED
 
-# #153: An "if" statement whose branches are empty, with a condition of type "Boolean", e.g. "if (b) {}", is rejected
-# ("Not a boolean expression"). Both modes, since 3.1.12.
-AutoBoxingTest.test130 REJECTED
-AutoBoxingTest.test131 REJECTED
-AutoBoxingTest.test132 REJECTED
-AutoBoxingTest.test133 REJECTED
-AutoBoxingTest.test134 REJECTED
-ConditionalExpressionTest.test484425 REJECTED
-
 # #152, item 8: A conditional expression with a boolean and a numeric operand, e.g. "z ? 3.0f : false", is rejected
 # ("Incompatible expression types"). Both modes, since 3.1.12.
 AutoBoxingTest.test125 REJECTED

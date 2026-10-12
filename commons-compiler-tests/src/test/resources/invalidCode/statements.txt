@@ -78,6 +78,12 @@ public class P {
     void f() { if (1) {} }
 }
 
+=== if condition of type Integer with empty branches
+janino: REJECTED Not a boolean expression
+public class P {
+    void f(Integer i) { if (i) {} }
+}
+
 === while condition is not boolean
 janino: REJECTED Not a boolean expression
 public class P {
