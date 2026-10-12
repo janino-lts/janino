@@ -86,7 +86,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   error ([#62]).
 - The class bodies of enum constants were ignored ([#44]).
 
-**Inner classes, scopes and access** (3.1.16, 3.1.17, 3.1.19):
+**Inner classes, scopes and access** (3.1.16, 3.1.17, 3.1.19, 3.1.20):
 
 - An anonymous or local class in a `catch` clause could access neither the `catch` parameter nor a local variable
   declared before the `try` statement ([#63]).
@@ -108,6 +108,10 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   `Outer.super.m()` in an inner class that itself extends `Outer`, in a class nested in it, or in an anonymous or
   local subclass of `Outer`, invoked the superclass method on the instance of the inner class instead of the
   enclosing instance ([#110], since 3.1.16).
+- 3.1.20: `super.m()` for a `private` method of the superclass `P`, in a subclass of `P` declared in `P`
+  (inner, local, anonymous or static member class), also as `Q.super.m()` from a class nested in such a class
+  `Q`, compiled into an invocation that failed at run time with a `NoSuchMethodError` ([#136]); the class files of
+  all other code are unchanged.
 
 **Arrays, expressions and literals** (3.1.17, 3.1.19, 3.1.20):
 
@@ -204,8 +208,8 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.19 needs 1.8 % less time and
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 508 language
-  constructs, negative tests with 453 cases of invalid code, differential tests that compile generated expressions
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 516 language
+  constructs, negative tests with 454 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
   suites of Apache Calcite, Spark Catalyst, Apache Fory and Apache Drill every week and before every release
   ([Compatibility](COMPATIBILITY.md)).
@@ -262,5 +266,6 @@ affected.
 [#127]: https://github.com/janino-lts/janino/issues/127
 [#133]: https://github.com/janino-lts/janino/issues/133
 [#134]: https://github.com/janino-lts/janino/issues/134
+[#136]: https://github.com/janino-lts/janino/issues/136
 [#138]: https://github.com/janino-lts/janino/issues/138
 [#147]: https://github.com/janino-lts/janino/issues/147

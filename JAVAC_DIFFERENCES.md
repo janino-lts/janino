@@ -83,6 +83,14 @@ longer by the number of prepended parameters, with each annotation at the index 
 of `R`, instead of the enclosing instance of `R`, as the enclosing instance to the constructor of `Q`, and the JVM
 rejects the class `P$R` (`VerifyError`).
 
+**`super.m()` for a `private` method of the enclosing superclass**
+([#136](https://github.com/janino-lts/janino/issues/136), fixed in 3.1.20): for
+`class P { private String who() { ... } class Q extends P { ... super.who() ... } }`, also in a local, anonymous or
+static member class that extends `P` and is declared in `P`, and for `Q.super.who()` from a class nested in `Q`,
+Janino 3.1.19 and earlier invoke `who()` by its original name and descriptor, although they compile it as a static
+method `who$(P)` (see above), and the invocation fails with a `NoSuchMethodError`. Since 3.1.20, Janino invokes
+`who$(P)` with the instance of `Q`, and the invocation yields what `javac`'s code yields.
+
 **An inner class that extends its enclosing class** ([#101](https://github.com/janino-lts/janino/issues/101)):
 in `class P { class Q extends P { ... } }`, two expressions in `Q` denote `Q` itself (`this`) instead of the
 enclosing instance of `Q`:
