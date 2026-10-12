@@ -77,6 +77,7 @@ the compliance mode follows `javac` (where the column says so; "open" means not 
 | S-14 | `static boolean z;`, `boolean x = ("a" + (true \|\| z)) == "atrue";` (also `false && z`; see below) | `x == false` | `x == true` | [#140](https://github.com/janino-lts/janino/issues/140) | open |
 | S-15 | `String t3(final int c) { class L { int c = 10; String l() { return "" + c; } } return new L().l(); }` (see below) | `t3(8)` is `"10"` (the field) | `t3(8)` is `"8"` (the parameter) | [#137](https://github.com/janino-lts/janino/issues/137) | open |
 | S-16 | `String w = ""; boolean x = ("b" + w) == ("b" + w);` (see below) | `x == false` | `x == true` | | open |
+| S-17 | `final int k = 5; byte b = 1; Object x = z ? b : k;` (see below) | `x` is a `Byte` | `x` is an `Integer` | [#139](https://github.com/janino-lts/janino/issues/139) | open |
 
 **S-05, constant expressions that are not folded** ([#47](https://github.com/janino-lts/janino/issues/47)): Janino
 does not evaluate shifts, relational operators, `~`, operations with `char` operands, casts to and from `char`, `&`,
@@ -198,6 +199,19 @@ returns its receiver if the argument is empty. A concatenation with an empty ope
 `String`: `("b" + w) == ("b" + w)` with `String w = ""` is `true`, where `javac` creates a new `String` each time. Only
 a comparison of references can tell the difference.
 
+**S-17, `final` local variables with a constant initializer** ([#139](https://github.com/janino-lts/janino/issues/139)):
+by JLS 4.12.4, a `final` local variable with a constant initializer, e.g. `final int k = 5;`, is a constant variable,
+and its simple name is a constant expression (JLS 15.28). Janino treats it like any other local variable, so valid
+code behaves differently:
+
+- the type of a conditional expression: `z ? b : k` with a `byte b` has the type `int` with Janino, the type `byte`
+  with `javac` (JLS 15.25.2, see S-04), which determines the class of the boxed value, overload resolution and string
+  conversion; with `static final int K = 5;` instead of `k`, both compilers give it the type `byte`;
+- the identity of string concatenations: with `final String u = "a";`, `(u + "b") == "ab"` is `false` with Janino,
+  `true` with `javac` (the concatenation is a constant, interned string).
+
+As a consequence, Janino rejects valid code where a constant expression is required (D-09).
+
 ## 2. Valid code that Janino rejects
 
 Class D: 3.1.12 did not compile the code into loadable classes either, so no program depends on it; a fix applies to
@@ -253,6 +267,14 @@ int[] { 1, 2 })` with `f(Integer i, Object... a)` (`Assignment conversion not po
 "java.lang.Object[]"`), and likewise with a parameter `Serializable...`, because they pass the `int[]` as the array
 itself instead of as its only element when another argument of the invocation needs boxing or unboxing; `javac` passes
 `new Object[] { new int[] { 1, 2 } }`. Since 3.1.20, both modes accept it, like `javac`.
+
+**D-09, a `final` local variable with a constant initializer where a constant expression is required**
+([#139](https://github.com/janino-lts/janino/issues/139)): with `final int k = 3;` and `final String u = "a";`,
+`case k:` (`Value of 'case' label does not pose a constant value`), `case u:` in a `switch` on a `String` (`Value of
+'case' label is not a string constant`), `byte b = k;` (`Assignment conversion not possible from type "int" to type
+"byte"`), and `int f() { final boolean y = true; while (y) { return 1; } }` (`Method must return a value`) are
+rejected, because Janino does not treat the variable as a constant (S-17). The compatibility mode cannot accept this
+code without giving up the rule of S-17 that it keeps for legacy code.
 
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions

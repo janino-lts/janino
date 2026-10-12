@@ -153,6 +153,7 @@ behavior. The compliance mode behaves like `javac`.
 | S-14 | `&&` and `\|\|` with a constant left operand that decides the value are constant expressions, also when the right operand is not: `("a" + (true \|\| z)) == "atrue"` is `true` | #140 |
 | S-15 | in a local or anonymous class, a parameter or local variable of the enclosing method shadows a field that the class declares or inherits | #137 |
 | S-16 | a non-constant string concatenation with an empty operand can yield an existing `String`: `("b" + w) == ("b" + w)` is `true` for `w = ""` | |
+| S-17 | a `final` local variable with a constant initializer is not a constant variable: `z ? b : k` with `final int k = 5;` and a `byte b` is an `Integer`; `case k:` is rejected (D-09) | #139 |
 
 ### 4.3 Class V: valid legacy code that is miscompiled
 
@@ -495,7 +496,7 @@ adds to it, as with #31 on the development line. The gates are those of 3.1.16.
 **Then:** S-11 (#101; done on the development line, 2026-10-09, which also rejects L-20, L-45 and L-46). S-04 (#38; done
 on the development line, 2026-10-09, which also rejects L-47 and accepts D-07), with S-12, which was found with it
 (rejects L-48); these were the last open deviations of class S that change the values of valid code, which is what users
-of the compliance mode notice first (the differential tests found three more later, S-14 to S-16, which are open).
+of the compliance mode notice first (the differential tests found four more later, S-14 to S-17, which are open).
 Next the cases of class L that need no data flow analysis, by area, one branch each: modifiers, declarations and
 annotations; overrides, hiding and `throws` clauses; `catch` clauses; imports and access; statements. In each branch, the `compliant:` entries of the area change from `ACCEPTED` to `REJECTED`. Then
 S-07, S-08 and S-09 (reflection and class file details) as needed, and the remaining areas of class L. S-05 (constant
