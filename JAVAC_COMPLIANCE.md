@@ -475,7 +475,13 @@ the superclass `P`, in a subclass of `P` declared in `P`, failed at run time wit
 it invokes the method like the simple name `m()` does. Only code that failed with a `NoSuchMethodError` changes.
 #143: two local classes with the same name in one class, or a local class and a member class with the same name,
 got the same binary name, and only one class file was kept (V3, V4); now such a local class gets a number, e.g.
-`P$2L`. The names of all other local classes are unchanged.
+`P$2L`. The names of all other local classes are unchanged. #157: `super.m(...)` for a variable arity method was
+rejected unless the variable arity argument was an array, and `super.m()` without arguments was an internal compiler
+error (D); now the arguments are collected into an array, like with `javac`, and `super.m(null)` still passes `null`
+as the array. Only code that was rejected or failed with an internal compiler error changes. #150: `super.m()` for a
+`static` method of the superclass failed at run time with an `IncompatibleClassChangeError` (V4), and
+`Outer.super.m()` for it was an internal compiler error (D); now the method is invoked like with the simple name
+`m()`. Only code that failed changes.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`

@@ -145,6 +145,14 @@ Janino 3.1.19 and earlier invoke `who()` by its original name and descriptor, al
 method `who$(P)` (S-06, see above), and the invocation fails with a `NoSuchMethodError`. Since 3.1.20, Janino invokes
 `who$(P)` with the instance of `Q`, and the invocation yields what `javac`'s code yields.
 
+**`super.m()` for a `static` method of the superclass**
+([#150](https://github.com/janino-lts/janino/issues/150), fixed in 3.1.20): for
+`class B { static String s() { ... } } class P extends B { ... super.s() ... }`, Janino 3.1.19 and earlier load
+`this` and invoke `s()` with `invokespecial`, which the JVM allows only for instance methods: the invocation fails
+with an `IncompatibleClassChangeError`. `P.super.s()` from an inner class of `P` is an internal compiler error
+(`ArrayIndexOutOfBoundsException`; Janino 3.1.12 rejects it, `Qualified superclass method invocation NYI`). Since
+3.1.20, Janino invokes the method like the simple name `s()` does, with `invokestatic`.
+
 **S-11, an inner class that extends its enclosing class** ([#101](https://github.com/janino-lts/janino/issues/101)):
 in `class P { class Q extends P { ... } }`, and likewise in an anonymous or local subclass of `P` that is declared in
 `P` (`return new P(...) { ... };`), expressions in `Q` denote `Q` itself (`this`) instead of the enclosing instance of
@@ -333,6 +341,14 @@ two methods without comparing their numbers. Since 3.1.20, the compatibility mod
 the message `Invocation of constructor/method with argument type(s) "int[]" is ambiguous`: `javac` applies
 `m(int...)` by fixed arity, the compatibility mode only by variable arity (S-13), where neither method is more
 specific than the other. The compliance mode selects `m(int...)`, like `javac`.
+
+**`super.m(...)` for a variable arity method** ([#157](https://github.com/janino-lts/janino/issues/157), fixed in
+3.1.20): with `void f(String... s)` in the superclass, Janino 3.1.19 and earlier reject `super.f("a", "b")`
+(`Assignment conversion not possible from type "String" to type "String[]"`), and `super.f()` is an internal
+compiler error (`Operand stack underflow`), because they pass the arguments without collecting the variable arity
+arguments into an array; likewise `Outer.super.f(...)` and `Interface.super.f(...)`. Only an array as the variable
+arity argument compiles. Since 3.1.20, the arguments are collected into an array, like with `javac`; `super.f(null)`
+passes `null` as the array, as before and as with `javac`.
 
 ## 3. Invalid code that Janino accepts
 
