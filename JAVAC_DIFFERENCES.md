@@ -74,6 +74,9 @@ the compliance mode follows `javac` (where the column says so; "open" means not 
 | S-12 | `String s = "x"; boolean x = ("a" + (true ? "b" : s)) == "ab";` (see below) | `x == false` | `x == true` | | like `javac` (development line) |
 | S-13 | `f(Object o)` and `f(int... i)`; `f(new int[] { 1 })` | invokes `f(int...)` | invokes `f(Object)` (a variable arity method is less specific than a fixed arity method) | [#126](https://github.com/janino-lts/janino/issues/126) | like `javac` (development line) |
 | S-13 | `f(Object... a)`; `f(null)` | `a` is `null` | `a` is an array with one element `null` (the arguments of a variable arity method are always expanded) | [#126](https://github.com/janino-lts/janino/issues/126) | like `javac` (development line) |
+| S-14 | `static boolean z;`, `boolean x = ("a" + (true \|\| z)) == "atrue";` (also `false && z`; see below) | `x == false` | `x == true` | [#140](https://github.com/janino-lts/janino/issues/140) | open |
+| S-15 | `String t3(final int c) { class L { int c = 10; String l() { return "" + c; } } return new L().l(); }` (see below) | `t3(8)` is `"10"` (the field) | `t3(8)` is `"8"` (the parameter) | [#137](https://github.com/janino-lts/janino/issues/137) | open |
+| S-16 | `String w = ""; boolean x = ("b" + w) == ("b" + w);` (see below) | `x == false` | `x == true` | | open |
 
 **S-05, constant expressions that are not folded** ([#47](https://github.com/janino-lts/janino/issues/47)): Janino
 does not evaluate shifts, relational operators, `~`, operations with `char` operands, casts to and from `char`, `&`,
@@ -162,6 +165,30 @@ condition as a constant expression if the selected operand is constant, also whe
 15.28 requires all three operands to be constant. `"a" + (true ? "b" : s)` with a variable `s` is therefore a
 constant, interned string with Janino (`== "ab"` is `true`), but not with `javac`. The compliance mode follows
 `javac`; as a consequence, it rejects such an expression where a constant expression is required (L-48).
+
+**S-14, `&&` and `||` with a constant left operand** ([#140](https://github.com/janino-lts/janino/issues/140)): Janino
+treats `true || z` and `false && z` as constant expressions for any right operand `z`, because the left operand
+decides the value; JLS 15.28 requires both operands to be constant. Such an expression is therefore a constant with
+Janino, but not with `javac`: in a string concatenation, `"a" + (true || z)` is an interned string (`== "atrue"` is
+`true`), and `static final boolean F = true || z;` gets a `ConstantValue` attribute instead of being initialized in
+the static initializer. As a consequence, Janino also accepts such an expression where a constant expression is
+required, and takes it for a constant in the reachability analysis (L-50). `z || true` and `z && false` are not
+constant with either compiler.
+
+**S-15, a field of a local or anonymous class and a variable of the enclosing method**
+([#137](https://github.com/janino-lts/janino/issues/137)): in a local or anonymous class, a simple name that denotes
+both a field of the class, declared or inherited, and a parameter or local variable of the enclosing method denotes
+the variable with Janino; by JLS 6.4.1, the field shadows the variable, and `javac` reads the field. For example,
+`new P() { int d = 20; String x() { return "" + d; } }.x()` in a method of `P` with a parameter `final int d` reads
+the parameter, and `new P() { String x() { return "" + d; } }.x()` reads the parameter instead of the field `d`
+that the anonymous class inherits from `P`.
+
+**S-16, the identity of a non-constant string concatenation**: JLS 15.18.1 requires the result of a string
+concatenation that is not a constant expression to be a newly created `String`. Janino compiles a concatenation of up
+to three operands (after merging adjacent constant operands) as `a.concat(b).concat(c)`, and `String.concat()`
+returns its receiver if the argument is empty. A concatenation with an empty operand can therefore yield an existing
+`String`: `("b" + w) == ("b" + w)` with `String w = ""` is `true`, where `javac` creates a new `String` each time. Only
+a comparison of references can tell the difference.
 
 ## 2. Valid code that Janino rejects
 
@@ -391,7 +418,12 @@ and assigns a parameterized type to a field with a different type argument
   rejects it, see S-12);
 - L-49: an invocation that is ambiguous in phase 3 of JLS 15.12.2, because neither of two variable arity methods is more
   specific: `f(4)` with `f(int...)` and `f(Number...)`; Janino invokes `f(int...)`, because it applies variable arity
-  methods before boxing (the compliance mode rejects it, see S-02).
+  methods before boxing (the compliance mode rejects it, see S-02);
+- L-50: `&&` or `||` with a constant left operand that decides the value and a right operand that is not constant
+  (S-14), where a constant expression is required, or as the condition of a `while` statement that must not complete
+  normally: `case (false && z) ? 1 : 2:` and `int f() { while (true || z) { return 1; } }` with a `boolean z`
+  (`javac`: `constant expression required`, `missing return statement`;
+  [#140](https://github.com/janino-lts/janino/issues/140)).
 
 **Generics, class G** (type arguments are not checked; outside the scope of both modes):
 

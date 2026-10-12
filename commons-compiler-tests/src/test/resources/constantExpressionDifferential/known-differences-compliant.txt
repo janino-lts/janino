@@ -1,7 +1,7 @@
 # Known differences between JANINO in the compliance mode and JAVAC; see "ConstantExpressionDifferentialTest".
 # Format: <seed> <probe> <WRONG|FOLDING|REJECTED|ACCEPTED|INVALID>
 
-# #140, "&&" and "||" with a constant left operand: JANINO folds "true || z" and "false && z"
+# S-14 (#140), "&&" and "||" with a constant left operand: JANINO folds "true || z" and "false && z"
 # to a constant although the right operand is not constant (JLS 15.28 requires both operands to be constant), so
 # the expression is a constant expression as the initializer of a "static final" field (ConstantValue, FOLDING),
 # as a "case" label, as the condition of a "while" statement (reachability) and in a string concatenation
@@ -15,7 +15,7 @@
 20261049 f1boolean FOLDING
 20261049 wh1 ACCEPTED
 
-# The identity of a non-constant string concatenation (an entry in JAVAC_DIFFERENCES.md is to be added): JANINO
+# S-16, the identity of a non-constant string concatenation: JANINO
 # compiles a concatenation with few operands through String.concat(), which returns its receiver if the argument
 # is empty, so a concatenation with an empty operand may yield the same object twice, where JAVAC creates a new
 # String each time (JLS 15.18.1). Both modes, since 3.1.12.

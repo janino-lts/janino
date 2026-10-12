@@ -1,7 +1,7 @@
 # Known differences between JANINO in the compliance mode and JAVAC; see "NameResolutionDifferentialTest".
 # Format: <seed> <probe>[+ea] <WRONG|REJECTED|ACCEPTED|INVALID>
 
-# #137, scoping in local and anonymous classes: a parameter or local variable of the enclosing
+# S-15 (#137), scoping in local and anonymous classes: a parameter or local variable of the enclosing
 # method shadows a field that the local or anonymous class declares or inherits, where JLS 6.4.1 says the field
 # shadows the variable; the probe reads the variable (also as the condition of an "assert" statement), or, where a
 # field of the local class shadows a captured variable, the constructor of the local class gets a parameter for
