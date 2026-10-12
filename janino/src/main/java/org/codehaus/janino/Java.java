@@ -1236,6 +1236,73 @@ class Java {
          * For naming local classes.
          */
         public int localClassCount;
+
+        /**
+         * The binary names of the local classes that this type declaration encloses, computed on first use; see
+         * {@link #getLocalClassName(LocalClassDeclaration)}.
+         */
+        @Nullable private Map<LocalClassDeclaration, String> localClassNames;
+
+        /**
+         * Returns the binary name of a local class that this type declaration encloses (not through a nested type):
+         * "<var>E</var>{@code $}<var>L</var>", where <var>E</var> is the binary name of this type declaration and
+         * <var>L</var> the simple name of the local class, unless that name is already taken by a member type of this
+         * type declaration, or by a local class with the same simple name that comes first; then
+         * "<var>E</var>{@code $}<var>n</var><var>L</var>", where <var>n</var> numbers the local classes with that
+         * simple name, starting with 1 (JLS 13.1). E.g., two local classes {@code L} are named {@code P$L} and {@code
+         * P$2L}, and a local class {@code L} next to a member class {@code L} is named {@code P$1L} (issue #143).
+         * The local classes are numbered in the order of the constructors, the field declarations and initializers,
+         * and the methods of this type declaration.
+         */
+        String
+        getLocalClassName(LocalClassDeclaration lcd) {
+
+            Map<LocalClassDeclaration, String> names = this.localClassNames;
+            if (names == null) this.localClassNames = (names = this.computeLocalClassNames());
+
+            String result = (String) names.get(lcd);
+            return result != null ? result : this.getClassName() + '$' + lcd.name;
+        }
+
+        private Map<LocalClassDeclaration, String>
+        computeLocalClassNames() {
+
+            final List<LocalClassDeclaration> lcds = new ArrayList<>();
+
+            AbstractTraverser<RuntimeException> traverser = new AbstractTraverser<RuntimeException>() {
+
+                @Override public void
+                traverseLocalClassDeclarationStatement(LocalClassDeclarationStatement lcds2) { lcds.add(lcds2.lcd); }
+
+                // Nested types name their own local classes.
+                @Override public void traverseAnonymousClassDeclaration(AnonymousClassDeclaration acd)             {}
+                @Override public void traverseMemberClassDeclaration(MemberClassDeclaration mcd)                   {}
+                @Override public void traverseMemberEnumDeclaration(MemberEnumDeclaration med)                     {}
+                @Override public void traverseMemberInterfaceDeclaration(MemberInterfaceDeclaration mid)           {}
+                @Override public void traverseMemberAnnotationTypeDeclaration(MemberAnnotationTypeDeclaration matd) {}
+                @Override public void traverseEnumConstant(EnumConstant ec)                                        {}
+            };
+            if (this instanceof AbstractClassDeclaration) {
+                traverser.traverseClassDeclaration((AbstractClassDeclaration) this);
+            } else
+            if (this instanceof InterfaceDeclaration) {
+                traverser.traverseInterfaceDeclaration((InterfaceDeclaration) this);
+            }
+
+            Map<LocalClassDeclaration, String> result = new HashMap<>();
+            Map<String, Integer>               counts = new HashMap<>();
+            for (LocalClassDeclaration lcd : lcds) {
+                Integer count = (Integer) counts.get(lcd.name);
+                int     n     = count == null ? 1 : count + 1;
+                counts.put(lcd.name, n);
+                result.put(lcd, (
+                    n == 1 && this.getMemberTypeDeclaration(lcd.name) == null
+                    ? this.getClassName() + '$' + lcd.name
+                    : this.getClassName() + '$' + n + lcd.name
+                ));
+            }
+            return result;
+        }
     }
 
     /**
@@ -1625,9 +1692,16 @@ class Java {
 
         // Implement TypeDeclaration.
 
+        /**
+         * @return The binary name of this local class; see {@link
+         *         AbstractTypeDeclaration#getLocalClassName(LocalClassDeclaration)}
+         */
         @Override public String
         getClassName() {
             for (Scope s = this.getEnclosingScope();; s = s.getEnclosingScope()) {
+                if (s instanceof Java.AbstractTypeDeclaration) {
+                    return ((Java.AbstractTypeDeclaration) s).getLocalClassName(this);
+                }
                 if (s instanceof Java.TypeDeclaration) {
                     return ((Java.TypeDeclaration) s).getClassName() + '$' + this.name;
                 }

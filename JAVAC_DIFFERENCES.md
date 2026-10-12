@@ -30,7 +30,14 @@ below remain for that reason, or because they have not been fixed yet.
 | `Byte B = 1; Object x = z ? B : 5;` | `x` is a `Byte` | `x` is an `Integer` | [#38](https://github.com/janino-lts/janino/issues/38) |
 | `char c = 'a'; Object x = false ? c : (short) 66;` | `x` is an `Integer` | `x` is a `Character` | [#38](https://github.com/janino-lts/janino/issues/38) |
 | `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`) | [#73](https://github.com/janino-lts/janino/issues/73) |
-| `getName()` of a local class `L` declared in a class `P` | `"P$1L"` | `"P$L"` | |
+| `getName()` of a local class `L` declared in a class `P` (see below) | `"P$1L"` | `"P$L"` | |
+
+**The binary names of local classes** ([#143](https://github.com/janino-lts/janino/issues/143), fixed in 3.1.20):
+Janino names a local class `L` in a type `E` `E$L`, where `javac` inserts a number (`E$1L`, JLS 13.1). Since 3.1.20,
+Janino inserts a number only where `E$L` is already taken: by a member type `L` of `E` (the local class is named
+`E$1L`), or by another local class `L` in `E` (the second one is named `E$2L`, the third one `E$3L`). Janino 3.1.19
+and earlier gave all of them the name `E$L` and kept only one class file, so that the code that used another one
+failed with a `NoSuchMethodError`, or used the wrong class.
 
 **Local and anonymous classes in the reflection API** ([#73](https://github.com/janino-lts/janino/issues/73)): their
 class files have no `InnerClasses` entry and no `EnclosingMethod` attribute, so the reflection API does not recognize

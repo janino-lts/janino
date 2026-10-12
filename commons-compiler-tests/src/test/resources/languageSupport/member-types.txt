@@ -196,3 +196,89 @@ public class P {
         return String.valueOf(new L().f());
     }
 }
+
+=== two local classes with the same name in two methods, capturing variables
+jls: 1:5|2:6,7
+janino: OK
+public class P {
+    static String t1(final int x) { class L { String l() { return "1:" + x; } } return new L().l(); }
+    static String t2(final int x, final int y) {
+        class L { String l() { return "2:" + x + "," + y; } }
+        return new L().l();
+    }
+    public static Object run() { return t1(5) + "|" + t2(6, 7); }
+}
+
+=== two local classes with the same name in two methods
+jls: one|two
+janino: OK
+public class P {
+    static String u1() { class L { String l() { return "one"; } } return new L().l(); }
+    static String u2() { class L { String l() { return "two"; } } return new L().l(); }
+    public static Object run() { return u1() + "|" + u2(); }
+}
+
+=== a local class with the name of a member class
+jls: local,member
+janino: OK
+public class P {
+    static class L { String l() { return "member"; } }
+    static String w() { class L { String l() { return "local"; } } return new L().l() + "," + new P.L().l(); }
+    public static Object run() { return w(); }
+}
+
+=== two local classes with the same name in two blocks of one method
+jls: a1b
+janino: OK
+public class P {
+    static String m(final int x) {
+        String r;
+        { class L { String l() { return "a" + x; } } r = new L().l(); }
+        { class L { String l() { return "b"; } } r += new L().l(); }
+        return r;
+    }
+    public static Object run() { return m(1); }
+}
+
+=== three local classes with the same name, invoked in the opposite order
+jls: CBA
+janino: OK
+public class P {
+    static String a() { class L { String l() { return "A"; } } return new L().l(); }
+    static String b() { class L { String l() { return "B"; } } return new L().l(); }
+    static String c() { class L { String l() { return "C"; } } return new L().l(); }
+    public static Object run() { return c() + b() + a(); }
+}
+
+=== a local class with the name of a member class of the enclosing member class
+jls: local,QM
+janino: OK
+public class P {
+    static class Q {
+        static class M { String m() { return "QM"; } }
+        static String f() { class M { String m() { return "local"; } } return new M().m() + "," + new Q.M().m(); }
+    }
+    public static Object run() { return Q.f(); }
+}
+
+=== two local classes with the same name in an anonymous class
+jls: xy
+janino: OK
+public class P {
+    public static Object run() {
+        return new Object() {
+            String a() { class L { String l() { return "x"; } } return new L().l(); }
+            String b() { class L { String l() { return "y"; } } return new L().l(); }
+            public String toString() { return a() + b(); }
+        }.toString();
+    }
+}
+
+=== local classes with the same name in a class and in its member class
+jls: PQ
+janino: OK
+public class P {
+    static String a() { class L { String l() { return "P"; } } return new L().l(); }
+    static class Q { static String b() { class L { String l() { return "Q"; } } return new L().l(); } }
+    public static Object run() { return a() + Q.b(); }
+}
