@@ -215,6 +215,15 @@ or `if (b) {} else {}` with `Boolean b` (`Not a boolean expression`), because th
 its side effects and do not unbox it; with a non-empty branch, the condition is unboxed. Since 3.1.20, it is
 unboxed in both cases, like with `javac`; with `b == null`, the statement throws a `NullPointerException`.
 
+**Two variable arity methods, one of which is more specific**
+([#156](https://github.com/janino-lts/janino/issues/156), fixed in 3.1.20): Janino 3.1.19 and earlier reject
+`g(1, 2, 3)` with `g(int...)` and `g(double...)`, `f("s", 1)` with `f(Object, int...)` and `f(String, int...)`,
+and the like (`Invocation of constructor/method with argument type(s) "int, int, int" is ambiguous`), because
+they compare the component type of the variable arity parameter of one method with the array type of the other.
+Since 3.1.20, when this comparison finds no most specific method, the rule of JLS 15.12.2.5 for an invocation
+by variable arity selects it, like with `javac`. The comparison itself is unchanged, because it also selects
+methods that `javac` reports as ambiguous (section 3).
+
 ## 3. Invalid code that Janino accepts
 
 `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it behaves
@@ -322,7 +331,11 @@ and assigns a parameterized type to a field with a different type argument
   `new java.util.AbstractMap$SimpleEntry<String, String>("a", "b")`;
 - on-demand import of a package that does not exist: `import foo.*;`;
 - static import of a member that does not exist, or is not static: `import static java.lang.Math.foo;`,
-  `import static java.lang.String.length;`.
+  `import static java.lang.String.length;`;
+- an invocation of variable arity methods that `javac` reports as ambiguous: `f(1, 2)` with `f(int...)` and
+  `f(Object...)` (`Object` is not a supertype of `int`, but Janino compares it with the array type `int[]`), or
+  with `f(int...)` and `f(Integer...)` (without boxing, only `f(int...)` is applicable); Janino invokes
+  `f(int...)` ([#156](https://github.com/janino-lts/janino/issues/156)).
 
 **Generics** (type arguments are not checked):
 

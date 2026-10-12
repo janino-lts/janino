@@ -181,6 +181,19 @@ h5 {
         statement throws a <code>NullPointerException</code>. Only code that was rejected changes; the class files of
         all other code are unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/156">issue #156</a>: An invocation of variable
+        arity methods, one of which is more specific than the others by JLS 15.12.2.5, was rejected as ambiguous,
+        e.g. <code>g(1, 2, 3)</code> with <code>g(int...)</code> and <code>g(double...)</code>,
+        <code>f("s", 1)</code> with <code>f(Object, int...)</code> and <code>f(String, int...)</code>, or
+        <code>new X(c, t)</code> with the constructors <code>X(IClass c, X t, IType... args)</code> and
+        <code>X(IClass c, IType... args)</code>: JANINO compared the component type of the variable arity parameter
+        of one method with the array type of the other. Now, when that comparison finds no most specific method,
+        the rule of JLS 15.12.2.5 for an invocation by variable arity selects it, like JAVAC. Invocations that
+        compiled before select the same method as before, also <code>g(1, 2)</code> with <code>g(int...)</code>
+        and <code>g(Object...)</code>, which JAVAC reports as ambiguous. Only code that was rejected changes; the
+        class files of all other code are unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.19 2026-10-10</h4>
