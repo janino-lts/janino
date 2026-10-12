@@ -147,6 +147,10 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 - 3.1.20 (in development): An invocation of overloaded variable arity methods was an internal compiler error when
   the parameter types of one maximally specific method are the leading parameter types of another, e.g.
   `m(int...)` and `m(int[], Serializable...)` for `m(ia)` ([#147]); now it is reported as ambiguous.
+- 3.1.20 (in development): `super.m(...)` of a variable arity method that the superclass implements from an
+  interface compiled into a class that the JVM rejects (`VerifyError`): of the method of the class and the method of
+  the interface with the same parameter types, overload resolution selected the method of the interface ([#160]).
+  Now it selects the method of the class, like with fixed arity and with `javac`.
 
 **Imports** (3.1.20):
 
@@ -218,7 +222,7 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.19 needs 1.8 % less time and
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 547 language
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 553 language
   constructs, negative tests with 454 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
   suites of Apache Calcite, Spark Catalyst, Apache Fory and Apache Drill every week and before every release
@@ -282,3 +286,4 @@ affected.
 [#147]: https://github.com/janino-lts/janino/issues/147
 [#150]: https://github.com/janino-lts/janino/issues/150
 [#157]: https://github.com/janino-lts/janino/issues/157
+[#160]: https://github.com/janino-lts/janino/issues/160
