@@ -121,7 +121,7 @@ points of the API as well:
   candidate before the release: once with the Janino that the project declares and once with this one, and
   compare the results. No release without all four being green.
 - **Recorded behavior.** The negative tests (`InvalidCodeTest`, 454 cases of invalid code) and the
-  characterization tests (`LanguageSupportTest`, 516 cases of valid code) record Janino's actual behavior, so that
+  characterization tests (`LanguageSupportTest`, 524 cases of valid code) record Janino's actual behavior, so that
   every change of it, intended or not, fails a test. Differential tests compile generated expressions and control
   flow with Janino and with `javac` and compare the results.
 - **Class files.** `CodeSizeReport` of the benchmarks compares the class files that two versions generate, byte

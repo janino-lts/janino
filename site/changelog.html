@@ -127,6 +127,17 @@ h5 {
         method like the simple name <code>m()</code> does, and yields the result that JAVAC's code yields. Only code
         that failed with a <code>NoSuchMethodError</code> changes; the class files of all other code are unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/143">issue #143</a>: Two local classes with the
+        same name in one class, e.g. a class <code>L</code> in each of two methods of <code>P</code>, or a local class
+        and a member class with the same name, got the same binary name <code>P$L</code>, and only one class file was
+        kept. The code that used the other class failed at run time with a <code>NoSuchMethodError</code>, or used the
+        wrong class without any error. Now a local class gets a number only where its name would collide, like with
+        JAVAC (JLS 13.1): the first local class <code>L</code> is still named <code>P$L</code>, the second one
+        <code>P$2L</code>, and a local class <code>L</code> next to a member class <code>L</code> is named
+        <code>P$1L</code>; the member class keeps its name. The names of all other local classes are unchanged, and so
+        are the class files of all other code.
+      </li>
     </ul>
 
     <h4>Version 3.1.19 2026-10-10</h4>
