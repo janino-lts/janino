@@ -199,6 +199,15 @@ arguments into an array; likewise `Outer.super.f(...)` and `Interface.super.f(..
 arity argument compiles. Since 3.1.20, the arguments are collected into an array, like with `javac`; `super.f(null)`
 passes `null` as the array, as before and as with `javac`.
 
+**`super.m(...)` for a variable arity method that the superclass implements from an interface**
+([#160](https://github.com/janino-lts/janino/issues/160), fixed in 3.1.20): for
+`interface I { void a(Object o, Object... v); } class B implements I { public void a(Object o, Object... v) { ... } }`
+and `super.a(o, v)` in a subclass of `B`, also with a default method `a` in `I`, Janino 3.1.19 and earlier select
+the method of `I` instead of the method of `B`, because they find each of two variable arity methods with the same
+parameter types more specific than the other; `super.a(o, v)` then invokes `I.a` with `invokespecial`, and the JVM
+rejects the class (`VerifyError: Bad invokespecial instruction: interface method to invoke is not in a direct
+superinterface`). Since 3.1.20, the method of the class is selected, like with fixed arity and with `javac`.
+
 ## 3. Invalid code that Janino accepts
 
 `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it behaves
