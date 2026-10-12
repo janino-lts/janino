@@ -675,6 +675,63 @@ class CompilerTest {
     }
 
     /**
+     * A public or protected member of a class that is not accessible, inherited through an accessible subclass, is
+     * accessible through that subclass (JLS 6.6.1), and is referenced through it in the class file (JLS 13.1); see
+     * <a href="https://github.com/janino-lts/janino/issues/154">issue #154</a>. All classes are compiled from source,
+     * so the accessible subclass has no bridge methods for the public methods of the class that is not accessible.
+     */
+    @Test public void
+    testMemberOfInaccessibleClassThroughAccessibleSubclass() throws Exception {
+
+        ICompiler compiler = this.compilerFactory.newCompiler();
+
+        Map<String, byte[]> classes = new HashMap<>();
+        compiler.setClassFileCreator(new MapResourceCreator(classes));
+
+        compiler.compile(new Resource[] {
+            new StringResource("pkg1/A.java", (
+                ""
+                + "package pkg1;\n"
+                + "class A {\n"
+                + "    public static String F = \"F\";\n"
+                + "    public String f = \"f\";\n"
+                + "    public static String m() { return \"m\"; }\n"
+                + "    public String i() { return \"i\"; }\n"
+                + "    protected String p() { return \"p\"; }\n"
+                + "}\n"
+            )),
+            new StringResource("pkg1/B.java", "package pkg1; public class B extends A { }"),
+            new StringResource("pkg1/I.java", "package pkg1; interface I { default String d() { return \"d\"; } }"),
+            new StringResource("pkg1/J.java", "package pkg1; public interface J extends I { }"),
+            new StringResource("pkg2/C.java", (
+                ""
+                + "package pkg2;\n"
+                + "public class C extends pkg1.B implements pkg1.J {\n"
+                + "    protected String p() { return \"C.p\"; }\n"
+                + "    public static String run() {\n"
+                + "        pkg1.B b = new pkg1.B();\n"
+                + "        pkg1.J j = new C();\n"
+                + "        b.f += \"!\";\n"
+                + "        return pkg1.B.F + pkg1.B.m() + b.f + b.i() + j.d() + new C().g();\n"
+                + "    }\n"
+                + "    String g() {\n"
+                + "        return F + m() + f + i() + super.i() + super.p() + new Object() {\n"
+                + "            public String toString() { return C.super.p() + C.this.p(); }\n"
+                + "        };\n"
+                + "    }\n"
+                + "}\n"
+            )),
+        });
+
+        ClassLoader cl = new ResourceFinderClassLoader(
+            new MapResourceFinder(classes),    // resourceFinder
+            ClassLoader.getSystemClassLoader() // parent
+        );
+
+        Assert.assertEquals("Fmf!idFmfiippC.p", cl.loadClass("pkg2.C").getDeclaredMethod("run").invoke(null));
+    }
+
+    /**
      * The constant values of fields that are read from class files must have the types of the fields (JLS 4.12.4,
      * 15.29); see <a href="https://github.com/janino-lts/janino/issues/46">issue #46</a>: JANINO folded the constants
      * of {@code boolean} and {@code char} fields as {@code int} values.

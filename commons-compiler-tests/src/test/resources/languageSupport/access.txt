@@ -424,3 +424,168 @@ public class P extends java.util.GregorianCalendar {
     class Q { String f() { time = 5L; long t = time; time++; return t + "-" + time; } }
     public static Object run() { return new P().new Q().f(); }
 }
+
+=== public static field of a package-private class, read through a public subclass in another package (issue #154)
+jls: publicStaticField
+janino: OK
+public class P {
+    public static Object run() { return other_package.PublicSubclass.publicStaticField; }
+}
+
+=== public static fields of a package-private class, assigned through a public subclass in another package
+jls: ab4
+janino: OK
+public class P {
+    public static Object run() {
+        other_package.PublicSubclass.assignedStaticField = "a";
+        other_package.PublicSubclass.assignedStaticField += "b";
+        other_package.PublicSubclass.assignedStaticInt = 1;
+        other_package.PublicSubclass.assignedStaticInt++;
+        other_package.PublicSubclass.assignedStaticInt += 2;
+        return other_package.PublicSubclass.assignedStaticField + other_package.PublicSubclass.assignedStaticInt;
+    }
+}
+
+=== public static method of a package-private class, invoked through a public subclass in another package
+jls: publicStaticMethod
+janino: OK
+public class P {
+    public static Object run() { return other_package.PublicSubclass.publicStaticMethod(); }
+}
+
+=== constant of a package-private class, read through a public subclass in another package
+jls: 7
+janino: OK
+public class P {
+    public static Object run() { return String.valueOf(other_package.PublicSubclass.PUBLIC_CONSTANT); }
+}
+
+=== public field of a package-private class, read and assigned through an instance of a public subclass
+jls: publicField!
+janino: OK
+public class P {
+    public static Object run() {
+        other_package.PublicSubclass s = new other_package.PublicSubclass();
+        s.publicField += "!";
+        return s.publicField;
+    }
+}
+
+=== public method of a package-private class, invoked through an instance of a public subclass (JAVAC bridge)
+jls: publicMethod
+janino: OK
+public class P {
+    public static Object run() { return new other_package.PublicSubclass().publicMethod(); }
+}
+
+=== static members of a package-private class, accessed by simple names from a subclass of a public subclass
+jls: publicStaticField,publicStaticMethod,protectedStaticField,protectedStaticMethod
+janino: OK
+public class P extends other_package.PublicSubclass {
+    public static Object run() {
+        return (
+            publicStaticField + "," + publicStaticMethod() + ","
+            + protectedStaticField + "," + protectedStaticMethod()
+        );
+    }
+}
+
+=== instance members of a package-private class, accessed by simple names from a subclass of a public subclass
+jls: publicField,protectedField,protectedMethod
+janino: OK
+public class P extends other_package.PublicSubclass {
+    String f() { return publicField + "," + protectedField + "," + protectedMethod(); }
+    public static Object run() { return new P().f(); }
+}
+
+=== members of a package-private class, accessed by simple names from an anonymous subclass of a public subclass
+jls: publicStaticField,publicStaticMethod,publicField
+janino: OK
+public class P {
+    private static final String publicStaticField = "P.publicStaticField";
+    public static Object run() {
+        return new other_package.PublicSubclass() {
+            public String toString() { return publicStaticField + "," + publicStaticMethod() + "," + publicField; }
+        }.toString();
+    }
+}
+
+=== members of a package-private class, accessed through super from a subclass of a public subclass
+jls: protectedMethod,protectedField,publicStaticMethod,publicStaticField
+janino: OK
+public class P extends other_package.PublicSubclass {
+    protected String protectedMethod() { return "P.protectedMethod"; }
+    String f() {
+        return (
+            super.protectedMethod() + "," + super.protectedField + ","
+            + super.publicStaticMethod() + "," + super.publicStaticField
+        );
+    }
+    public static Object run() { return new P().f(); }
+}
+
+=== protected method of a package-private class, invoked through P.super from an anonymous class
+jls: P.protectedMethod,protectedMethod
+janino: OK
+public class P extends other_package.PublicSubclass {
+    protected String protectedMethod() { return "P.protectedMethod"; }
+    String f() {
+        return new Object() {
+            public String toString() { return P.this.protectedMethod() + "," + P.super.protectedMethod(); }
+        }.toString();
+    }
+    public static Object run() { return new P().f(); }
+}
+
+=== protected instance members of a package-private class, accessed from an inner class of a subclass
+jls: protectedMethod,protectedField
+janino: OK
+public class P extends other_package.PublicSubclass {
+    class Q { String f() { return protectedMethod() + "," + protectedField; } }
+    public static Object run() { return new P().new Q().f(); }
+}
+
+=== members of a package-private interface, accessed through a public class and a public subinterface
+jls: defaultMethod,defaultMethod,CONSTANT,FIELD
+janino: OK
+public class P {
+    static class Q implements other_package.PublicSubinterface {}
+    public static Object run() {
+        other_package.PublicSubinterface s = new Q();
+        return (
+            new other_package.PublicImplementation().defaultMethod() + "," + s.defaultMethod() + ","
+            + other_package.PublicImplementation.CONSTANT + "," + other_package.PublicSubinterface.FIELD
+        );
+    }
+}
+
+=== default method of a package-private interface, invoked through super from a subclass of a public class
+jls: P+defaultMethod
+janino: OK
+public class P extends other_package.PublicImplementation {
+    public String defaultMethod() { return "P+" + super.defaultMethod(); }
+    public static Object run() { return new P().defaultMethod(); }
+}
+
+=== static method of a package-private class, overloaded in a public subclass
+jls: PackagePrivateBase.overloaded(String)
+janino: WRONG PublicSubclass.overloaded(Object)
+public class P {
+    public static Object run() { return other_package.PublicSubclass.overloaded("x"); }
+}
+
+=== protected static method of a package-private class, invoked from an inner class of a subclass
+jls: protectedStaticMethod
+janino: REJECTED No applicable constructor/method found for zero actual parameters
+public class P extends other_package.PublicSubclass {
+    class Q { String f() { return protectedStaticMethod(); } }
+    public static Object run() { return new P().new Q().f(); }
+}
+
+=== protected static field of a package-private class, read from an inner class of a subclass
+jls: protectedStaticField
+janino: REJECTED "other_package.PackagePrivateBase" is inaccessible from this package
+public class P extends other_package.PublicSubclass {
+    class Q { String f() { return protectedStaticField; } }
+    public static Object run() { return new P().new Q().f(); }
+}

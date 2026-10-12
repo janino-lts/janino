@@ -5724,16 +5724,36 @@ class UnitCompiler {
 
     private IType
     compileGet2(FieldAccess fa) throws CompileException {
-        this.checkAccessible(fa.field, fa.getEnclosingScope(), fa.getLocation());
+        IClass owner = this.checkFieldAccessible(fa);
         this.checkProtectedFieldAccessibleThroughReceiver(fa);
 
         AbstractClassDeclaration accessorClass = this.protectedFieldAccessorClass(fa);
         if (accessorClass != null) {
             this.invokeAccessor(fa, accessorClass, fa.field, UnitCompiler.ACCESSOR_READ);
         } else {
-            this.getfield(fa, fa.field);
+            this.getfield(fa, owner, fa.field.getName(), fa.field.getType(), fa.field.isStatic());
         }
         return fa.field.getType();
+    }
+
+    /**
+     * Checks that the field of the <var>fa</var> is accessible, like {@link #checkAccessible(IClass.IMember, Scope,
+     * Location)}; if the class that declares the field is not accessible, checks whether it is accessible through the
+     * type of the <var>fa</var>'s left-hand side (issue #154).
+     *
+     * @return The class through which the field is referenced in the class file
+     */
+    private IClass
+    checkFieldAccessible(FieldAccess fa) throws CompileException {
+        if (this.checkAccessibleIfDeclaringClassAccessible(fa.field, fa.getEnclosingScope(), fa.getLocation())) {
+            return fa.field.getDeclaringIClass();
+        }
+        return this.checkAccessibleThroughQualifyingType(
+            fa.field,                                     // member
+            UnitCompiler.rawTypeOf(this.getType(fa.lhs)), // qualifyingType
+            fa.getEnclosingScope(),                       // contextScope
+            fa.getLocation()                              // location
+        );
     }
 
     private IClass
@@ -6386,7 +6406,15 @@ class UnitCompiler {
             );
         }
         // Invoke!
-        this.checkAccessible(iMethod, mi.getEnclosingScope(), mi.getLocation());
+        IClass owner = iMethod.getDeclaringIClass();
+        if (!this.checkAccessibleIfDeclaringClassAccessible(iMethod, mi.getEnclosingScope(), mi.getLocation())) {
+            owner = this.checkAccessibleThroughQualifyingType(
+                iMethod,                                          // member
+                this.methodInvocationQualifyingType(mi, iMethod), // qualifyingType
+                mi.getEnclosingScope(),                           // contextScope
+                mi.getLocation()                                  // location
+            );
+        }
         if (receiverType != null) {
             this.checkProtectedMemberAccessibleThroughReceiver(
                 iMethod,
@@ -6428,7 +6456,7 @@ class UnitCompiler {
             );
         } else
         {
-            this.invokeMethod(mi, iMethod);
+            this.invokeMethod(mi, iMethod, owner);
         }
 
         // JLS 10.7: "clone()" of an array returns the array type; the JVM, however, resolves only the descriptor of
@@ -6440,6 +6468,27 @@ class UnitCompiler {
         }
 
         return iMethod.getReturnType();
+    }
+
+    /**
+     * @return The type through which the <var>mi</var> invokes the <var>iMethod</var> (JLS 13.1): The type of its
+     *         target, or, for an invocation by a simple name, the innermost enclosing type declaration of which the
+     *         <var>iMethod</var> is a member; {@code null} if there is none
+     */
+    @Nullable private IClass
+    methodInvocationQualifyingType(MethodInvocation mi, IMethod iMethod) throws CompileException {
+
+        Atom ot = mi.target;
+        if (ot != null) return UnitCompiler.rawTypeOf(this.getType(ot));
+
+        IClass declaringIClass = iMethod.getDeclaringIClass();
+        for (Scope s = mi.getEnclosingScope(); !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
+            if (s instanceof TypeDeclaration) {
+                IClass c = this.resolve((TypeDeclaration) s);
+                if (declaringIClass.isAssignableFrom(c)) return c;
+            }
+        }
+        return null;
     }
 
     /**
@@ -6588,6 +6637,23 @@ class UnitCompiler {
         IClass qualification = this.superclassMethodInvocationQualification(scmi);
         IClass currentClass  = this.resolve(fd.getDeclaringType());
 
+        // "findIMethod(SuperclassMethodInvocation)" has selected only methods that are accessible, or, if the class
+        // that declares the method is not accessible, methods that are accessible through the superclass (issue #154);
+        // in the latter case, reference the method through the superclass, like JAVAC.
+        IClass owner = iMethod.getDeclaringIClass();
+        if (
+            (qualification == null || !qualification.isInterface())
+            && !this.isAccessible(owner, scmi.getEnclosingScope())
+        ) {
+            IClass superclass = (qualification != null ? qualification : currentClass).getSuperclass();
+            owner = this.checkAccessibleThroughQualifyingType(
+                iMethod,                  // member
+                superclass,               // qualifyingType
+                scmi.getEnclosingScope(), // contextScope
+                scmi.getLocation()        // location
+            );
+        }
+
         if (iMethod.isStatic() && (qualification == null || !qualification.isInterface())) {
 
             // A static method has no target reference (JLS7 15.12.4.1), so "super.m()" and "ClassName.super.m()"
@@ -6608,13 +6674,13 @@ class UnitCompiler {
             if (accessorClass != null) {
                 this.invokeAccessor(scmi, accessorClass, iMethod, UnitCompiler.ACCESSOR_READ);
             } else {
-                this.invokeMethod(scmi, iMethod);
+                this.invokeMethod(scmi, iMethod, owner);
             }
             return iMethod.getReturnType();
         }
 
         int              opcode                = Opcode.INVOKESPECIAL;
-        IClass           declaringIClass       = iMethod.getDeclaringIClass();
+        IClass           declaringIClass       = owner;
         String           methodName            = iMethod.getName();
         MethodDescriptor methodDescriptor      = iMethod.getDescriptor();
         boolean          useInterfaceMethodref = false;
@@ -8289,7 +8355,7 @@ class UnitCompiler {
 
     private void
     compileSet2(FieldAccess fa) throws CompileException {
-        this.checkAccessible(fa.field, fa.getEnclosingScope(), fa.getLocation());
+        IClass owner = this.checkFieldAccessible(fa);
         this.checkProtectedFieldAccessibleThroughReceiver(fa);
 
         AbstractClassDeclaration accessorClass = this.protectedFieldAccessorClass(fa);
@@ -8299,7 +8365,7 @@ class UnitCompiler {
             this.invokeAccessor(fa, accessorClass, fa.field, UnitCompiler.ACCESSOR_WRITE);
             this.pop(fa, fa.field.getType());
         } else {
-            this.putfield(fa, fa.field);
+            this.putfield(fa, owner, fa.field);
         }
     }
     private void
@@ -9439,6 +9505,80 @@ class UnitCompiler {
         IClass declaringIClass = member.getDeclaringIClass();
         this.checkAccessible(declaringIClass, contextScope, location);
         this.checkMemberAccessible(declaringIClass, member, contextScope, location);
+    }
+
+    /**
+     * If the class that declares the given {@link IClass.IMember} is accessible in the given context, checks the
+     * member exactly like {@link #checkAccessible(IClass.IMember, Scope, Location)}.
+     *
+     * @return Whether the class that declares the <var>member</var> is accessible; if not, nothing is checked
+     */
+    private boolean
+    checkAccessibleIfDeclaringClassAccessible(IClass.IMember member, Scope contextScope, Location location)
+    throws CompileException {
+
+        IClass declaringIClass = member.getDeclaringIClass();
+        if (!this.isAccessible(declaringIClass, contextScope)) return false;
+        this.checkMemberAccessible(declaringIClass, member, contextScope, location);
+        return true;
+    }
+
+    /**
+     * Checks the accessibility of a member whose declaring class is not accessible in the given context: By JLS 6.6.1,
+     * the member is accessible if the type through which it is accessed, the <var>qualifyingType</var>, is accessible
+     * and the member permits the access (issue #154), e.g. {@code p.B.F} with {@code public class B extends A} and
+     * a class {@code A} that is not accessible. Otherwise, reports the error of {@link
+     * #checkAccessible(IClass.IMember, Scope, Location)}.
+     *
+     * @return The class through which the member is referenced in the class file (JLS 13.1): The
+     *         <var>qualifyingType</var> if the member is accessible through it, otherwise the class that declares the
+     *         member
+     */
+    private IClass
+    checkAccessibleThroughQualifyingType(
+        IClass.IMember   member,
+        @Nullable IClass qualifyingType,
+        Scope            contextScope,
+        Location         location
+    ) throws CompileException {
+
+        IClass result = this.accessibleQualifyingType(member, qualifyingType, contextScope);
+        if (result != null) return result;
+
+        this.checkAccessible(member, contextScope, location);
+        return member.getDeclaringIClass();
+    }
+
+    /**
+     * Determines whether a member whose declaring class is not accessible in the given context is accessible through
+     * the <var>qualifyingType</var> (JLS 6.6.1, issue #154): The <var>qualifyingType</var> is a class or an interface
+     * that inherits the member, it and the classes that enclose it are accessible, and the member permits the access.
+     * A static method of an interface is not inherited (JLS 8.4.8), so it is never accessible through another type.
+     *
+     * @return The <var>qualifyingType</var>, or {@code null}
+     */
+    @Nullable private IClass
+    accessibleQualifyingType(IClass.IMember member, @Nullable IClass qualifyingType, Scope contextScope)
+    throws CompileException {
+
+        if (qualifyingType == null || qualifyingType.isArray() || qualifyingType.isPrimitive()) return null;
+
+        IClass declaringIClass = member.getDeclaringIClass();
+        if (qualifyingType == declaringIClass || !declaringIClass.isAssignableFrom(qualifyingType)) return null;
+
+        if (
+            member instanceof IClass.IMethod
+            && ((IClass.IMethod) member).isStatic()
+            && declaringIClass.isInterface()
+        ) return null;
+
+        for (IClass c = qualifyingType; c != null; c = c.getDeclaringIClass()) {
+            if (!this.isAccessible(c, contextScope)) return null;
+        }
+
+        if (!this.isAccessible(declaringIClass, member.getAccess(), contextScope)) return null;
+
+        return qualifyingType;
     }
 
     /**
@@ -11666,7 +11806,8 @@ class UnitCompiler {
             invocation,                                                   // locatable
             (IClass.IMethod[]) ms.toArray(new IClass.IMethod[ms.size()]), // iInvocables
             invocation.arguments,                                         // arguments
-            invocation.getEnclosingScope()                                // contextScope
+            invocation.getEnclosingScope(),                               // contextScope
+            rawTargetType                                                 // qualifyingType
         );
     }
 
@@ -11882,6 +12023,24 @@ class UnitCompiler {
         final Rvalue[]     arguments,
         Scope              contextScope
     ) throws CompileException {
+        return this.findMostSpecificIInvocable(locatable, iInvocables, arguments, contextScope, null);
+    }
+
+    /**
+     * Like {@link #findMostSpecificIInvocable(Locatable, IClass.IInvocable[], Rvalue[], Scope)}, but if no accessible
+     * invocable is applicable, also considers invocables whose declaring class is not accessible, but which are
+     * accessible through the <var>qualifyingType</var> (issue #154).
+     *
+     * @param qualifyingType The type through which the invocables are accessed, or {@code null}
+     */
+    private IClass.IInvocable
+    findMostSpecificIInvocable(
+        Locatable          locatable,
+        final IInvocable[] iInvocables,
+        final Rvalue[]     arguments,
+        Scope              contextScope,
+        @Nullable IClass   qualifyingType
+    ) throws CompileException {
 
         // Determine arguments' types.
         final IClass[] argumentTypes = new IClass[arguments.length];
@@ -11894,6 +12053,32 @@ class UnitCompiler {
         // Determine most specific invocable WITH boxing.
         ii = this.findMostSpecificIInvocable(locatable, iInvocables, argumentTypes, true, contextScope);
         if (ii != null) return ii;
+
+        // No accessible invocable is applicable. By JLS 6.6.1, a member is also accessible if the class that declares
+        // it is not, but the type through which it is accessed is, e.g. "p.B.m()" with "public class B extends A"
+        // and a class "A" that is not accessible (issue #154). Consider such invocables only now, so that the
+        // selection among the accessible invocables stays as it was.
+        if (qualifyingType != null) {
+            ii = this.findMostSpecificIInvocable(
+                locatable,
+                iInvocables,
+                argumentTypes,
+                false,
+                contextScope,
+                qualifyingType
+            );
+            if (ii != null) return ii;
+
+            ii = this.findMostSpecificIInvocable(
+                locatable,
+                iInvocables,
+                argumentTypes,
+                true,
+                contextScope,
+                qualifyingType
+            );
+            if (ii != null) return ii;
+        }
 
         // Report a nice compile error.
         StringBuilder sb = new StringBuilder("No applicable constructor/method found for ");
@@ -11956,6 +12141,32 @@ class UnitCompiler {
         boolean            boxingPermitted,
         Scope              contextScope
     ) throws CompileException {
+        return this.findMostSpecificIInvocable(
+            locatable,
+            iInvocables,
+            argumentTypes,
+            boxingPermitted,
+            contextScope,
+            null
+        );
+    }
+
+    /**
+     * Like {@link #findMostSpecificIInvocable(Locatable, IClass.IInvocable[], IClass[], boolean, Scope)}, but with a
+     * <var>qualifyingType</var>, also considers the invocables whose declaring class is not accessible, but which are
+     * accessible through the <var>qualifyingType</var> (issue #154).
+     *
+     * @param qualifyingType The type through which the invocables are accessed, or {@code null}
+     */
+    @Nullable private IClass.IInvocable
+    findMostSpecificIInvocable(
+        Locatable          locatable,
+        final IInvocable[] iInvocables,
+        IClass[]           argumentTypes,
+        boolean            boxingPermitted,
+        Scope              contextScope,
+        @Nullable IClass   qualifyingType
+    ) throws CompileException {
         if (UnitCompiler.LOGGER.isLoggable(Level.FINER)) {
             UnitCompiler.LOGGER.entering(null, "findMostSpecificIInvocable", new Object[] {
                 locatable, Arrays.toString(iInvocables), Arrays.toString(argumentTypes), boxingPermitted, contextScope
@@ -11971,7 +12182,10 @@ class UnitCompiler {
             boolean argsNeedAdjust = false;
 
             // Ignore inaccessible invocables.
-            if (!this.isAccessible(ii, contextScope)) continue;
+            if (
+                !this.isAccessible(ii, contextScope)
+                && (qualifyingType == null || this.accessibleQualifyingType(ii, qualifyingType, contextScope) == null)
+            ) continue;
 
             // Check parameter count.
             final IClass[] parameterTypes   = ii.getParameterTypes();
@@ -15378,6 +15592,14 @@ class UnitCompiler {
 
     private void
     putfield(Locatable locatable, IField iField) throws CompileException {
+        this.putfield(locatable, iField.getDeclaringIClass(), iField);
+    }
+
+    /**
+     * Assigns the <var>iField</var>, referencing it through the <var>owner</var> in the class file (JLS 13.1).
+     */
+    private void
+    putfield(Locatable locatable, IClass owner, IField iField) throws CompileException {
         this.addLineNumberOffset(locatable);
         this.getCodeContext().popOperand();
         if (iField.isStatic()) {
@@ -15387,9 +15609,9 @@ class UnitCompiler {
             this.getCodeContext().popOperand();
         }
         this.writeConstantFieldrefInfo(
-            iField.getDeclaringIClass(), // iClass
-            iField.getName(),            // fieldName
-            iField.getType()             // fieldType
+            owner,            // iClass
+            iField.getName(), // fieldName
+            iField.getType()  // fieldType
         );
     }
 
@@ -15833,6 +16055,16 @@ class UnitCompiler {
      */
     private void
     invokeMethod(Locatable locatable, IMethod iMethod) throws CompileException {
+        this.invokeMethod(locatable, iMethod, iMethod.getDeclaringIClass());
+    }
+
+    /**
+     * Invokes the <var>iMethod</var>, referencing it through the <var>owner</var> in the class file (JLS 13.1); the
+     * opcode and the kind of the method reference follow from the <var>owner</var>. Assumes that {@code this} (unless
+     * <var>iMethod</var> is static) and the correct number and types of arguments are on the operand stack.
+     */
+    private void
+    invokeMethod(Locatable locatable, IMethod iMethod, IClass owner) throws CompileException {
 
         if (this.getTargetVersion() < 8 && iMethod.isStatic() && iMethod.getDeclaringIClass().isInterface()) {
             this.compileError(
@@ -15842,20 +16074,20 @@ class UnitCompiler {
         }
 
         int opcode = (
-            iMethod.isStatic()                         ? Opcode.INVOKESTATIC :
-            iMethod.getDeclaringIClass().isInterface() ? Opcode.INVOKEINTERFACE :
+            iMethod.isStatic()  ? Opcode.INVOKESTATIC :
+            owner.isInterface() ? Opcode.INVOKEINTERFACE :
             Opcode.INVOKEVIRTUAL
         );
 
-        boolean useInterfaceMethodref = iMethod.getDeclaringIClass().isInterface();
+        boolean useInterfaceMethodref = owner.isInterface();
 
         this.invoke(
-            locatable,                    // locatable
-            opcode,                       // opcode
-            iMethod.getDeclaringIClass(), // declaringIClass
-            iMethod.getName(),            // methodName
-            iMethod.getDescriptor(),      // methodMd
-            useInterfaceMethodref         // useInterfaceMethodref
+            locatable,               // locatable
+            opcode,                  // opcode
+            owner,                   // declaringIClass
+            iMethod.getName(),       // methodName
+            iMethod.getDescriptor(), // methodMd
+            useInterfaceMethodref    // useInterfaceMethodref
         );
     }
 

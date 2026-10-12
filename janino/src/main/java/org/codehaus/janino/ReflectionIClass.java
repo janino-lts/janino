@@ -489,6 +489,18 @@ class ReflectionIClass extends IClass {
                 try {
                     return this.field.get(null);
                 } catch (IllegalAccessException ex) {
+
+                    // A public field of a class that is not public, e.g. a constant that a public subclass inherits
+                    // (issue #154): Reflection checks the accessibility of the declaring class, the compiler checks
+                    // that of the class through which the field is accessed.
+                    if (Modifier.isPublic(mod)) {
+                        try {
+                            this.field.setAccessible(true);
+                            return this.field.get(null);
+                        } catch (Exception ex2) { // SUPPRESS CHECKSTYLE IllegalCatch
+                            ;
+                        }
+                    }
                     throw new CompileException( // SUPPRESS CHECKSTYLE AvoidHidingCause
                         "Field \"" + this.field.getName() + "\" is not accessible",
                         (Location) null
