@@ -63,7 +63,8 @@ import util.TestUtil;
  *   <dd>
  *     The behavior of JANINO 3.1.12 (the reference of the compatibility mode), in the format of the {@code janino}
  *     line, iff it differs from the {@code janino} line (see {@link LegacyDifferentialTest}); the message of a
- *     {@code REJECTED} may be omitted
+ *     {@code REJECTED} may be omitted; several behaviors, separated by " || ", iff the behavior depends on the JVM
+ *     (e.g. a class file that the JVM of Java 25 rejects, and older JVMs load)
  *   </dd>
  *   <dt>{@code id}</dt>
  *   <dd>

@@ -500,7 +500,7 @@ public class P extends B {
 === varargs: super.m(...) with an array, for a method that the superclass implements from an interface
 jls: B2
 janino: OK
-legacy: INVALID VerifyError
+legacy: INVALID VerifyError || WRONG throws java.lang.IncompatibleClassChangeError
 id: #160
 interface I { void a(Object o, Object... v); }
 class B implements I { public void a(Object o, Object... v) { P.r = "B" + v.length; } }

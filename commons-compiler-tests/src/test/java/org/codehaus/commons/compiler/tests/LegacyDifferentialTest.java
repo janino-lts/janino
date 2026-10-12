@@ -43,9 +43,10 @@ import org.junit.runners.Parameterized.Parameters;
  * <p>
  *   The two must be of the same kind (see {@link Records#kind(String)}; the message of a compile error is not
  *   behavior), unless the record has a "legacy" line, which states the behavior of 3.1.12 (see {@link
- *   Records#matches(String, String)}) and, with its "id" line, which correction (an issue, or an ID of {@code
- *   JAVAC_DIFFERENCES.md}) explains the difference. Thus every difference between the compatibility mode and 3.1.12
- *   is recorded and justified, and an unrecorded difference, e.g. a regression, makes a test fail.
+ *   Records#matches(String, String)}; several behaviors, separated by " || ", iff it depends on the JVM) and, with
+ *   its "id" line, which correction (an issue, or an ID of {@code JAVAC_DIFFERENCES.md}) explains the difference.
+ *   Thus every difference between the compatibility mode and 3.1.12 is recorded and justified, and an unrecorded
+ *   difference, e.g. a regression, makes a test fail.
  * </p>
  * <p>
  *   The JAR files of 3.1.12 are copied to {@code target/legacy} by the build; the system property {@code
@@ -97,8 +98,12 @@ class LegacyDifferentialTest {
 
         String  recorded = this.testCase.get(Records.LEGACY);
         String  expected = recorded != null ? recorded : Records.kind(janino);
+        boolean matches  = false;
+        for (String alternative : expected.split(" \\|\\| ")) {
+            if (Records.matches(alternative, actual)) matches = true;
+        }
         String  mismatch = (
-            Records.matches(expected, actual)
+            matches
             ? null
             : (
                 this.testCase
