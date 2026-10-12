@@ -581,9 +581,9 @@ public class P {
 === varargs: the more specific of two variable arity methods: constructors Q(I, P, J...) and Q(I, J...) for new Q(i, p)
 jls: 1
 janino: OK
-public class P {
-    interface J {}
-    interface I extends J {}
+interface J {}
+interface I extends J {}
+public class P implements I {
     static String r;
     static class Q {
         Q(I i, P p, J... j) { r = "1"; }
