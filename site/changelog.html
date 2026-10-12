@@ -138,6 +138,27 @@ h5 {
         <code>P$1L</code>; the member class keeps its name. The names of all other local classes are unchanged, and so
         are the class files of all other code.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/157">issue #157</a>: A superclass method
+        invocation of a variable arity method, e.g. <code>super.f("a", "b")</code> with <code>f(String... s)</code>,
+        was rejected (<code>Assignment conversion not possible from type "String" to type "String[]"</code>), and
+        <code>super.f()</code> without arguments made the compiler fail with an internal compiler error
+        (<code>Operand stack underflow</code>); likewise <code>Outer.super.f(...)</code> from an inner class and
+        <code>Interface.super.f(...)</code> for a default method. JANINO passed the arguments without collecting the
+        variable arity arguments into an array. Now it collects them, like JAVAC; <code>super.f(null)</code> still
+        passes <code>null</code> as the array, like JAVAC. Only code that was rejected or failed with an internal
+        compiler error changes; the class files of all other code are unchanged.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/150">issue #150</a>: <code>super.s()</code> for a
+        <code>static</code> method <code>s()</code> of the superclass compiled into an invocation that failed at run
+        time with an <code>IncompatibleClassChangeError</code> (<code>Expecting non-static method ...</code>): JANINO
+        invoked the method with <code>invokespecial</code> on <code>this</code>. <code>Outer.super.s()</code> from an
+        inner class made the compiler fail with an internal compiler error
+        (<code>ArrayIndexOutOfBoundsException</code>). Now both invoke the method like the simple name
+        <code>s()</code> does, and yield the result that JAVAC's code yields. Only code that failed changes; the class
+        files of all other code are unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.19 2026-10-10</h4>
