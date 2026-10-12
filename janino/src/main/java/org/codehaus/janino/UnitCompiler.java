@@ -7061,6 +7061,21 @@ class UnitCompiler {
             );
         }
 
+        if (
+            opcode == Opcode.INVOKESPECIAL
+            && !declaringIClass.isInterface()
+            && !iMethod.isStatic()
+            && iMethod.getAccess() == Access.PRIVATE
+        ) {
+
+            // A private instance method is compiled as a static method "name$" with the instance as the first
+            // parameter (see "compileGet2(MethodInvocation)"); the instance is already on the operand stack (issue
+            // #136).
+            opcode           = Opcode.INVOKESTATIC;
+            methodName       = iMethod.getName() + '$';
+            methodDescriptor = methodDescriptor.prependParameter(declaringIClass.getDescriptor());
+        }
+
         // Invoke!
         this.invoke(
             scmi,                 // locatable

@@ -570,6 +570,95 @@ public class P extends B {
     public static Object run() { return new P("outer").anon().g(); }
 }
 
+=== super.m() for a private method of the enclosing superclass, from an inner class
+jls: P.who
+janino: OK
+legacy: WRONG throws java.lang.NoSuchMethodError
+id: #136
+public class P {
+    private String who() { return "P.who"; }
+    class Q extends P { String q() { return super.who(); } }
+    public static Object run() { return new P().new Q().q(); }
+}
+
+=== super.m() for a private method of the enclosing superclass, from an anonymous class
+jls: P.who
+janino: OK
+legacy: WRONG throws java.lang.NoSuchMethodError
+id: #136
+public class P {
+    private String who() { return "P.who"; }
+    String an() { return new P() { public String toString() { return super.who(); } }.toString(); }
+    public static Object run() { return new P().an(); }
+}
+
+=== super.m() for a private method of the enclosing superclass, from a local class
+jls: P.who
+janino: OK
+legacy: WRONG throws java.lang.NoSuchMethodError
+id: #136
+public class P {
+    private String who() { return "P.who"; }
+    String lo() { class L extends P { String l() { return super.who(); } } return new L().l(); }
+    public static Object run() { return new P().lo(); }
+}
+
+=== super.m() for a private method of the enclosing superclass, from a static member class
+jls: P.who
+janino: OK
+legacy: WRONG throws java.lang.NoSuchMethodError
+id: #136
+public class P {
+    private String who() { return "P.who"; }
+    static class S extends P { String s() { return super.who(); } }
+    public static Object run() { return new S().s(); }
+}
+
+=== super.m() for a private method of the enclosing superclass: arguments and a primitive result
+jls: 13
+janino: OK
+legacy: WRONG throws java.lang.NoSuchMethodError
+id: #136
+public class P {
+    private int add(int a, long b) { return a + (int) b + 10; }
+    class Q extends P { int q() { return super.add(1, 2L); } }
+    public static Object run() { return new P().new Q().q(); }
+}
+
+=== super.m() for a private method of the enclosing superclass: the subclass declares a method with the same name
+jls: P.whoQ.who
+janino: OK
+legacy: WRONG throws java.lang.NoSuchMethodError
+id: #136
+public class P {
+    private String who() { return "P.who"; }
+    class Q extends P { String who() { return "Q.who"; } String q() { return super.who() + who(); } }
+    public static Object run() { return new P().new Q().q(); }
+}
+
+=== super.m() for a private method of the enclosing superclass: the method reads a field of the subclass instance
+jls: who of q
+janino: OK
+legacy: WRONG throws java.lang.NoSuchMethodError
+id: #136
+public class P {
+    String v = "p";
+    private String who() { return "who of " + v; }
+    class Q extends P { Q() { v = "q"; } String q() { return super.who(); } }
+    public static Object run() { return new P().new Q().q(); }
+}
+
+=== Outer.super.m() for a private method of the enclosing superclass, from an inner class of the subclass
+jls: P.who
+janino: OK
+legacy: REJECTED Qualified superclass method invocation NYI
+id: #136
+public class P {
+    private String who() { return "P.who"; }
+    class Q extends P { class R { String r() { return Q.super.who(); } } }
+    public static Object run() { return new P().new Q().new R().r(); }
+}
+
 === qualified superclass field access (Outer.super.f) from an inner class
 jls: basef
 janino: OK

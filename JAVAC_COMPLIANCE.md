@@ -460,7 +460,9 @@ ambiguity is reported. Only invocations that failed with an internal compiler er
 rejected as ambiguous only because of such a method. #147: an invocation of overloaded variable arity methods
 was an internal compiler error when the parameter types of one maximally specific method are the leading parameter
 types of another, e.g. `m(int...)` and `m(int[], Serializable...)` for `m(ia)` (D); now it is reported as ambiguous.
-Only invocations that failed with an internal compiler error change.
+Only invocations that failed with an internal compiler error change. #136: `super.m()` for a `private` method of
+the superclass `P`, in a subclass of `P` declared in `P`, failed at run time with a `NoSuchMethodError` (V4); now
+it invokes the method like the simple name `m()` does. Only code that failed with a `NoSuchMethodError` changes.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`

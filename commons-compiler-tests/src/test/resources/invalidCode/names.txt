@@ -187,6 +187,13 @@ public class P {
     void f(A a) { a.g(); }
 }
 
+=== private method of another top-level class, invoked through super
+janino: REJECTED No applicable constructor/method found for zero actual parameters
+class B { private String who() { return "B.who"; } }
+public class P {
+    static class Q extends B { String q() { return super.who(); } }
+}
+
 === private member type of another top-level class
 janino: ACCEPTED
 recovery: ACCEPTED
