@@ -116,6 +116,17 @@ h5 {
         the first one, which JANINO applies only by variable arity. Only invocations that failed with an internal
         compiler error change; the class files of all other code are unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/136">issue #136</a>: <code>super.m()</code> for a
+        <code>private</code> method <code>m()</code> of the superclass <code>P</code>, in an inner, local, anonymous
+        or static member class that extends <code>P</code> and is declared in <code>P</code>, also as
+        <code>Q.super.m()</code> from a class nested in such a class <code>Q</code>, compiled into an invocation that
+        failed at run time with a <code>NoSuchMethodError</code> (<code>'java.lang.String P.m()'</code>): JANINO
+        compiles a <code>private</code> instance method as a static method <code>m$</code>, but invoked
+        <code>m()</code> through <code>super</code> by its original name and descriptor. Now the invocation calls the
+        method like the simple name <code>m()</code> does, and yields the result that JAVAC's code yields. Only code
+        that failed with a <code>NoSuchMethodError</code> changes; the class files of all other code are unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.19 2026-10-10</h4>
