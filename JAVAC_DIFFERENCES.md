@@ -157,7 +157,8 @@ in `class P { class Q extends P { ... } }`, and likewise in an anonymous or loca
 
 Members that `Q` inherits from `P`, and `((P) this).f`, denote `this` with both compilers. The compliance mode
 follows `javac`; as a consequence, it rejects the access to a `private` member of a superclass through the subclass
-(L-20, L-45) and `B.this` for a superclass `B` of an enclosing class (L-46). Before the development line, compiling
+(L-20, L-45) and `B.this` for a superclass `B` of an enclosing class (L-46), and it correctly compiles valid code for
+which the compatibility mode generates a class that the JVM rejects (D-10). Before the development line, compiling
 `P.this` as a value of type `P` (e.g. `Object o = P.this;`) failed with an `InternalCompilerException` when the
 compiler's assertions were enabled (`-ea`).
 
@@ -282,6 +283,14 @@ itself instead of as its only element when another argument of the invocation ne
 "byte"`), and `int f() { final boolean y = true; while (y) { return 1; } }` (`Method must return a value`) are
 rejected, because Janino does not treat the variable as a constant (S-17). The compatibility mode cannot accept this
 code without giving up the rule of S-17 that it keeps for legacy code.
+
+**D-10, `P.this` or a `private` member of `P` before the superclass constructor of `Q` is invoked**
+([#101](https://github.com/janino-lts/janino/issues/101)): in `class P { class Q extends P { ... } }`, the explicit
+constructor invocations in `Q() { this(P.this.s); }`, `Q() { this(P.this.m()); }`, `Q() { super(P.this.s); }`, and
+`Q() { this(s); }` with a `private` field `s` of `P`, use the instance of `Q` under construction instead of the
+enclosing instance (S-11). The JVM does not allow that before the superclass constructor is invoked, and rejects the
+class `Q` (`VerifyError: Bad type on operand stack`). The compatibility mode cannot compile this code correctly without
+giving up the rule of S-11 that it keeps for legacy code; the compliance mode compiles it like `javac`.
 
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions
