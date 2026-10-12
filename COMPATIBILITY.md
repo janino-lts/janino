@@ -120,8 +120,8 @@ points of the API as well:
   [Apache Drill](.github/workflows/drill.yml) against the current sources every week, and against every release
   candidate before the release: once with the Janino that the project declares and once with this one, and
   compare the results. No release without all four being green.
-- **Recorded behavior.** The negative tests (`InvalidCodeTest`, 454 cases of invalid code) and the
-  characterization tests (`LanguageSupportTest`, 553 cases of valid code) record Janino's actual behavior, so that
+- **Recorded behavior.** The negative tests (`InvalidCodeTest`, 455 cases of invalid code) and the
+  characterization tests (`LanguageSupportTest`, 557 cases of valid code) record Janino's actual behavior, so that
   every change of it, intended or not, fails a test. Differential tests compile generated expressions and control
   flow with Janino and with `javac` and compare the results.
 - **Class files.** `CodeSizeReport` of the benchmarks compares the class files that two versions generate, byte
