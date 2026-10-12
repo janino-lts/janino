@@ -607,6 +607,138 @@ public class P {
     }
 }
 
+=== varargs: the more specific of two variable arity methods: g(int...) and g(double...) for g(1, 2, 3)
+jls: int...
+janino: OK
+legacy: REJECTED Invocation of constructor/method with argument type(s) "int, int, int" is ambiguous
+id: #156
+public class P {
+    static String g(int... i)    { return "int..."; }
+    static String g(double... d) { return "double..."; }
+    public static Object run() { return g(1, 2, 3); }
+}
+
+=== varargs: the more specific of two variable arity methods: f(Object, int...) and f(String, int...) for f("s", 1)
+jls: String
+janino: OK
+legacy: REJECTED Invocation of constructor/method with argument type(s) "java.lang.String, int" is ambiguous
+id: #156
+public class P {
+    static String f(Object o, int... i) { return "Object"; }
+    static String f(String s, int... i) { return "String"; }
+    public static Object run() { return f("s", 1); }
+}
+
+=== varargs: the more specific of two variable arity methods: count(int[], int...) and count(Object, int...)
+jls: int[]
+janino: OK
+legacy: REJECTED Invocation of constructor/method with argument type(s) "int[], int" is ambiguous
+id: #156
+public class P {
+    static String count(int[] a, int... v) { return "int[]"; }
+    static String count(Object o, int... v) { return "Object"; }
+    public static Object run() { return count(new int[0], 1); }
+}
+
+=== varargs: the more specific of two variable arity methods: foo(W, Y...) and foo(W...) with Y extends W
+jls: W,Y...|W,Y...
+janino: OK
+legacy: REJECTED Invocation of constructor/method with argument type(s) "P$Y, P$Y, P$Y" is ambiguous
+id: #156
+public class P {
+    static class W {}
+    static class Y extends W {}
+    static String foo(W w, Y... y) { return "W,Y..."; }
+    static String foo(W... w)      { return "W..."; }
+    public static Object run() { return foo(new Y(), new Y(), new Y()) + "|" + foo(new Y()); }
+}
+
+=== varargs: the more specific of two variable arity methods: constructors Q(I, P, J...) and Q(I, J...) for new Q(i, p)
+jls: 1
+janino: OK
+legacy: REJECTED Invocation of constructor/method with argument type(s) "I, P" is ambiguous
+id: #156
+interface J {}
+interface I extends J {}
+public class P implements I {
+    static String r;
+    static class Q {
+        Q(I i, P p, J... j) { r = "1"; }
+        Q(I i, J... j)      { r = "2"; }
+    }
+    public static Object run() { I i = null; P p = null; new Q(i, p); return r; }
+}
+
+=== varargs: the more specific of two variable arity methods: g(Integer...) and g(Number...) for g(1, 2), with boxing
+jls: Integer...
+janino: OK
+legacy: REJECTED Invocation of constructor/method with argument type(s) "int, int" is ambiguous
+id: #156
+public class P {
+    static String g(Integer... i) { return "Integer..."; }
+    static String g(Number... n)  { return "Number..."; }
+    public static Object run() { return g(1, 2); }
+}
+
+=== varargs: the more specific of two variable arity methods: g(int...) and g(double...) for g()
+jls: int...
+janino: OK
+legacy: REJECTED Invocation of constructor/method with argument type(s) "" is ambiguous
+id: #156
+public class P {
+    static String g(int... i)    { return "int..."; }
+    static String g(double... d) { return "double..."; }
+    public static Object run() { return g(); }
+}
+
+=== varargs: the more specific of two variable arity methods: g(int...), g(long...) and g(double...) for g(1, 2)
+jls: int...
+janino: OK
+legacy: REJECTED Invocation of constructor/method with argument type(s) "int, int" is ambiguous
+id: #156
+public class P {
+    static String g(int... i)    { return "int..."; }
+    static String g(long... l)   { return "long..."; }
+    static String g(double... d) { return "double..."; }
+    public static Object run() { return g(1, 2); }
+}
+
+=== varargs: the more specific of two variable arity methods: g(int...) and g(double...) next to g(int, int)
+jls: fixed|int...
+janino: OK
+legacy: REJECTED Invocation of constructor/method with argument type(s) "int, int, int" is ambiguous
+id: #156
+public class P {
+    static String g(int i, int j) { return "fixed"; }
+    static String g(int... i)     { return "int..."; }
+    static String g(double... d)  { return "double..."; }
+    public static Object run() { return g(1, 2) + "|" + g(1, 2, 3); }
+}
+
+=== varargs: the more specific of two variable arity methods: an inherited g(double...) and g(int...)
+jls: B.int...|A.double...
+janino: OK
+legacy: REJECTED Invocation of constructor/method with argument type(s) "int, int" is ambiguous
+id: #156
+public class P {
+    static class A { String g(double... d) { return "A.double..."; } }
+    static class B extends A { String g(int... i) { return "B.int..."; } }
+    public static Object run() { return new B().g(1, 2) + "|" + new B().g(1.0); }
+}
+
+=== varargs: the more specific of two variable arity methods: the arguments are evaluated in order
+jls: int212
+janino: OK
+legacy: REJECTED Invocation of constructor/method with argument type(s) "int, int" is ambiguous
+id: #156
+public class P {
+    static int n;
+    static int next() { return ++n; }
+    static String g(int... i)    { return "int" + i.length + i[0] + i[1]; }
+    static String g(double... d) { return "double"; }
+    public static Object run() { return g(next(), next()); }
+}
+
 === autoboxing
 jls: 3
 janino: OK

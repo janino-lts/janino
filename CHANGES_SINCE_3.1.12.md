@@ -155,6 +155,11 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   invocation on older JVMs): of the method of the class and the method of the interface with the same parameter
   types, overload resolution selected the method of the interface ([#160]).
   Now it selects the method of the class, like with fixed arity and with `javac`.
+- 3.1.20 (in development): An invocation of variable arity methods, one of which is more specific than the
+  others by JLS 15.12.2.5, was rejected as ambiguous, e.g. `g(1, 2, 3)` with `g(int...)` and `g(double...)`, or
+  `f("s", 1)` with `f(Object, int...)` and `f(String, int...)` ([#156]); now that method is selected, like with
+  `javac`. Invocations that compiled before select the same method as before, also `g(1, 2)` with `g(int...)`
+  and `g(Object...)`, which `javac` reports as ambiguous.
 
 **Imports** (3.1.20):
 
@@ -226,8 +231,8 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.19 needs 1.8 % less time and
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 557 language
-  constructs, negative tests with 455 cases of invalid code, differential tests that compile generated expressions
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 568 language
+  constructs, negative tests with 458 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
   suites of Apache Calcite, Spark Catalyst, Apache Fory and Apache Drill every week and before every release
   ([Compatibility](COMPATIBILITY.md)).
@@ -290,5 +295,6 @@ affected.
 [#147]: https://github.com/janino-lts/janino/issues/147
 [#150]: https://github.com/janino-lts/janino/issues/150
 [#153]: https://github.com/janino-lts/janino/issues/153
+[#156]: https://github.com/janino-lts/janino/issues/156
 [#157]: https://github.com/janino-lts/janino/issues/157
 [#160]: https://github.com/janino-lts/janino/issues/160

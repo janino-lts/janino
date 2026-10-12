@@ -134,17 +134,6 @@ LookupTest.test067 REJECTED
 LookupTest.test058 REJECTED
 LookupTest.test098 REJECTED
 
-# #156: Two variable arity methods, of which JLS 15.12.2.5 makes one more specific, e.g. f(int...) and f(double...)
-# for f(1, 2, 3): JANINO reports the invocation as ambiguous. Both modes, since 3.1.12.
-VarargsTest.test014 REJECTED
-VarargsTest.test070 REJECTED
-VarargsTest.test070_tolerate REJECTED
-VarargsTest.test070a REJECTED
-VarargsTest.test070a_tolerate REJECTED
-VarargsTest.test071 REJECTED
-VarargsTest.test437973 REJECTED
-VarargsTest.test437973a REJECTED
-
 # #152, item 3: An anonymous class whose superclass has a variable arity constructor: the arguments are not expanded
 # ("No applicable constructor/method found"). Both modes, since 3.1.12.
 VarargsTest.test022 REJECTED

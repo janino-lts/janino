@@ -366,6 +366,15 @@ or `if (b) {} else {}` with `Boolean b` (`Not a boolean expression`), because th
 its side effects and do not unbox it; with a non-empty branch, the condition is unboxed. Since 3.1.20, it is
 unboxed in both cases, like with `javac`; with `b == null`, the statement throws a `NullPointerException`.
 
+**Two variable arity methods, one of which is more specific**
+([#156](https://github.com/janino-lts/janino/issues/156), fixed in 3.1.20): Janino 3.1.19 and earlier reject
+`g(1, 2, 3)` with `g(int...)` and `g(double...)`, `f("s", 1)` with `f(Object, int...)` and `f(String, int...)`,
+and the like (`Invocation of constructor/method with argument type(s) "int, int, int" is ambiguous`), because
+they compare the component type of the variable arity parameter of one method with the array type of the other.
+Since 3.1.20, when this comparison finds no most specific method, the rule of JLS 15.12.2.5 for an invocation
+by variable arity selects it, like with `javac`. The comparison itself is unchanged, because it also selects
+methods that `javac` reports as ambiguous (L-49).
+
 ## 3. Invalid code that Janino accepts
 
 Class L: `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it
@@ -496,7 +505,10 @@ and assigns a parameterized type to a field with a different type argument
   rejects it, see S-12);
 - L-49: an invocation that is ambiguous in phase 3 of JLS 15.12.2, because neither of two variable arity methods is more
   specific: `f(4)` with `f(int...)` and `f(Number...)`; Janino invokes `f(int...)`, because it applies variable arity
-  methods before boxing (the compliance mode rejects it, see S-02);
+  methods before boxing (the compliance mode rejects it, see S-02); likewise `f(1, 2)` with `f(int...)` and
+  `f(Integer...)` (the compliance mode rejects it), and `f(1, 2)` with `f(int...)` and `f(Object...)`, where Janino
+  compares `Object` with the array type `int[]` (also in the compliance mode;
+  [#135](https://github.com/janino-lts/janino/issues/135), [#156](https://github.com/janino-lts/janino/issues/156));
 - L-50: `&&` or `||` with a constant left operand that decides the value and a right operand that is not constant
   (S-14), where a constant expression is required, or as the condition of a `while` statement that must not complete
   normally: `case (false && z) ? 1 : 2:` and `int f() { while (true || z) { return 1; } }` with a `boolean z`

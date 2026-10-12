@@ -487,7 +487,11 @@ interface method with the same parameter types, overload resolution selected the
 on Java 25, `IncompatibleClassChangeError` on older JVMs); now the class method is selected, like with fixed arity.
 Only code that failed changes. #153: an `if` statement whose branches are empty, with a condition of type
 `Boolean`, e.g. `if (b) {}`, was rejected (D); now the condition is unboxed, like with a non-empty branch, and
-`b == null` throws a `NullPointerException`, like with `javac`. Only code that was rejected changes.
+`b == null` throws a `NullPointerException`, like with `javac`. Only code that was rejected changes. #156: an
+invocation of variable arity methods, one of which is more specific than the others by JLS 15.12.2.5, e.g.
+`g(1, 2, 3)` with `g(int...)` and `g(double...)`, was rejected as ambiguous (D); now that method is selected,
+like with `javac`. Only code that was rejected changes; `g(1, 2)` with `g(int...)` and `g(Object...)`, which
+`javac` rejects, still selects `g(int...)`.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`

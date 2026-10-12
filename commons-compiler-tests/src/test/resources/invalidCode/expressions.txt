@@ -363,6 +363,35 @@ public class P {
     void f() { m(new Object[0], (byte) 1, 1L); }
 }
 
+=== ambiguous invocation of variable arity methods, none of which is more specific
+janino: REJECTED Invocation of constructor/method with argument type(s) "int, int" is ambiguous
+public class P {
+    static void h(int i, long... l) {}
+    static void h(long l, int... i) {}
+    void f() { h(1, 2); }
+}
+
+=== ambiguous invocation of variable arity methods: f(int...) and f(Object...) for f(1, 2)
+janino: ACCEPTED
+recovery: ACCEPTED
+id: L-49
+public class P {
+    static void m(int... i) {}
+    static void m(Object... o) {}
+    void f() { m(1, 2); }
+}
+
+=== ambiguous invocation of variable arity methods: f(int...) and f(Integer...) for f(1, 2)
+janino: ACCEPTED
+compliant: REJECTED Invocation of constructor/method with argument type(s) "int, int" is ambiguous
+recovery: ACCEPTED
+id: L-49
+public class P {
+    static void m(int... i) {}
+    static void m(Integer... o) {}
+    void f() { m(1, 2); }
+}
+
 === constructor invocation with wrong arguments
 janino: REJECTED No applicable constructor/method found for actual parameters "int, int"
 public class P {
