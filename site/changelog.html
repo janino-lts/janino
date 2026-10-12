@@ -368,6 +368,19 @@ h5 {
         and <code>g(Object...)</code>, which JAVAC reports as ambiguous. Only code that was rejected changes; the
         class files of all other code are unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/154">issue #154</a>: A <code>public</code> or
+        <code>protected</code> member of a class that is not accessible, inherited through an accessible subclass,
+        was rejected from another package, e.g. <code>p.B.F</code>, <code>p.B.m()</code>, <code>super.m()</code> or
+        the simple name <code>F</code> in a subclass of <code>B</code>, with <code>public class B extends A</code>
+        and a package-private class <code>A</code> (<code>"p.A" is inaccessible from this package</code>, <code>No
+        applicable constructor/method found</code>): JANINO required the class that declares the member to be
+        accessible. Now, by JLS 6.6.1, the type through which the member is accessed counts, and the class file
+        references the member through that type (JLS 13.1), like JAVAC. Invocations that compiled before select the
+        same method as before, also <code>p.B.s("x")</code> with <code>B.s(Object)</code> and
+        <code>A.s(String)</code>, where JAVAC selects <code>A.s(String)</code>. Only code that was rejected changes;
+        the class files of all other code are unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.19 2026-10-10</h4>

@@ -82,13 +82,6 @@ InnerEmulationTest.test101 REJECTED
 InnerEmulationTest.test119 REJECTED
 InnerEmulationTest.test120#1 REJECTED
 
-# #154: A member of a class that is not accessible from the current package, inherited through an accessible subclass
-# (e.g. "p.B.F" with "public class B extends A" and a package-private class "A" in "p"), is rejected, because JANINO
-# requires the class that declares the member to be accessible ("is inaccessible from this package", "No applicable
-# constructor/method found"). Both modes, since 3.1.12.
-InnerEmulationTest.test169 REJECTED
-LookupTest.test067 REJECTED
-
 # #152, item 5: A field that is not accessible from the current class makes another member ambiguous, or hides it: a
 # field of an interface and an inaccessible field of a superclass, a member type and an inaccessible field with the
 # same name. Both modes, since 3.1.12.

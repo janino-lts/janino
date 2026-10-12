@@ -78,6 +78,7 @@ the compliance mode follows `javac` (where the column says so; "open" means not 
 | S-15 | `String t3(final int c) { class L { int c = 10; String l() { return "" + c; } } return new L().l(); }` (see below) | `t3(8)` is `"10"` (the field) | `t3(8)` is `"8"` (the parameter) | [#137](https://github.com/janino-lts/janino/issues/137) | open |
 | S-16 | `String w = ""; boolean x = ("b" + w) == ("b" + w);` (see below) | `x == false` | `x == true` | | open |
 | S-17 | `final int k = 5; byte b = 1; Object x = z ? b : k;` (see below) | `x` is a `Byte` | `x` is an `Integer` | [#139](https://github.com/janino-lts/janino/issues/139) | open |
+| S-18 | `B.s("x")` with `static s(Object)` in a public class `B` and `static s(String)` in its package-private superclass `A`, from another package (see below) | invokes `A.s(String)` | invokes `B.s(Object)` (the methods of `A` are considered only if no accessible method is applicable) | [#154](https://github.com/janino-lts/janino/issues/154) | open |
 
 **S-08, the binary names of local classes** ([#143](https://github.com/janino-lts/janino/issues/143), fixed in
 3.1.20): Janino names a local class `L` in a type `E` `E$L`, where `javac` inserts a number (`E$1L`, JLS 13.1). Since
@@ -374,6 +375,22 @@ they compare the component type of the variable arity parameter of one method wi
 Since 3.1.20, when this comparison finds no most specific method, the rule of JLS 15.12.2.5 for an invocation
 by variable arity selects it, like with `javac`. The comparison itself is unchanged, because it also selects
 methods that `javac` reports as ambiguous (L-49).
+
+**A member of a class that is not accessible, inherited through an accessible subclass**
+([#154](https://github.com/janino-lts/janino/issues/154), fixed in 3.1.20): for `public class B extends A` with a
+package-private class `A` in a package `p`, Janino 3.1.19 and earlier reject the access to the `public` and
+`protected` members of `A` through `B` from another package, e.g. `p.B.F`, `p.B.m()`, `new p.B().f`, `super.m()`,
+the simple name `F` in a subclass of `B`, and `X.super.m()` (`"p.A" is inaccessible from this package`, `No
+applicable constructor/method found`), because they require the class that declares the member to be accessible.
+By JLS 6.6.1, the type through which the member is accessed must be accessible. Since 3.1.20, Janino checks that
+type when the declaring class is not accessible, and references the member through it in the class file (JLS
+13.1), like `javac`; otherwise, the JVM would throw an `IllegalAccessError`. An instance method of `A` worked before
+when `B` was read from a class file that `javac` generated, because `javac` adds a public bridge method to `B`. To
+keep the selection among the overloads that compiled before, the methods of `A` are considered only if no accessible
+method is applicable; so `p.B.s("x")` still invokes `B.s(Object)` when `A` declares `s(String)` (S-18).
+Still rejected: a `protected static` member of `A` accessed from an inner class of a subclass of `B` (the
+synthetic accessor method references the member through `A`), and a resource of type `B` in a try-with-resources
+statement when `close()` is declared in `A`: Janino selects `AutoCloseable.close()`, which throws `Exception`.
 
 ## 3. Invalid code that Janino accepts
 

@@ -154,6 +154,7 @@ behavior. The compliance mode behaves like `javac`.
 | S-15 | in a local or anonymous class, a parameter or local variable of the enclosing method shadows a field that the class declares or inherits | #137 |
 | S-16 | a non-constant string concatenation with an empty operand can yield an existing `String`: `("b" + w) == ("b" + w)` is `true` for `w = ""` | |
 | S-17 | a `final` local variable with a constant initializer is not a constant variable: `z ? b : k` with `final int k = 5;` and a `byte b` is an `Integer`; `case k:` is rejected (D-09) | #139 |
+| S-18 | the methods of a class that is not accessible, inherited through an accessible subclass, are considered only if no accessible method is applicable: `p.B.s("x")` invokes `B.s(Object)`, not `A.s(String)` of the package-private superclass `A` | #154 |
 
 ### 4.3 Class V: valid legacy code that is miscompiled
 
@@ -491,7 +492,12 @@ Only code that failed changes. #153: an `if` statement whose branches are empty,
 invocation of variable arity methods, one of which is more specific than the others by JLS 15.12.2.5, e.g.
 `g(1, 2, 3)` with `g(int...)` and `g(double...)`, was rejected as ambiguous (D); now that method is selected,
 like with `javac`. Only code that was rejected changes; `g(1, 2)` with `g(int...)` and `g(Object...)`, which
-`javac` rejects, still selects `g(int...)`.
+`javac` rejects, still selects `g(int...)`. #154: a `public` or `protected` member of a class that is not
+accessible, inherited through an accessible subclass, e.g. `p.B.F` or `p.B.m()` with `public class B extends A` and
+a package-private class `A`, was rejected from another package (D); now the accessibility of the type through which
+the member is accessed counts (JLS 6.6.1), and the class file references the member through that type (JLS 13.1),
+like with `javac`. Only code that was rejected changes; the methods of `A` are considered only if no accessible
+method is applicable, so `p.B.s("x")` still selects `B.s(Object)` where `javac` selects `A.s(String)`.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`

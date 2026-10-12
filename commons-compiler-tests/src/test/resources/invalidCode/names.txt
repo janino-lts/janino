@@ -556,6 +556,54 @@ public class P extends java.util.ArrayList {
     static void f() { class L { void g() { removeRange(0, 0); } } }
 }
 
+=== member of a package-private class in another package, accessed through that class (issue #154)
+janino: REJECTED "other_package.PackagePrivateBase" is inaccessible from this package
+public class P {
+    Object f() { return other_package.PackagePrivateBase.publicStaticField; }
+}
+
+=== package-private field of a package-private class, accessed through a public subclass in another package
+janino: REJECTED "other_package.PackagePrivateBase" is inaccessible from this package
+public class P {
+    Object f() { return new other_package.PublicSubclass().packageField; }
+}
+
+=== package-private method of a package-private class, invoked through a public subclass in another package
+janino: REJECTED No applicable constructor/method found for zero actual parameters
+public class P {
+    Object f() { return new other_package.PublicSubclass().packageMethod(); }
+}
+
+=== protected static method of a package-private class, invoked through a public subclass from an unrelated class
+janino: REJECTED No applicable constructor/method found for zero actual parameters
+public class P {
+    Object f() { return other_package.PublicSubclass.protectedStaticMethod(); }
+}
+
+=== protected method of a package-private class, invoked through an instance of the public subclass
+janino: REJECTED Protected member cannot be accessed through an expression of type "other_package.PublicSubclass"
+public class P extends other_package.PublicSubclass {
+    Object f() { return new other_package.PublicSubclass().protectedMethod(); }
+}
+
+=== static method of a package-private interface, invoked through a public class that implements it
+janino: REJECTED No applicable constructor/method found for zero actual parameters
+public class P {
+    Object f() { return other_package.PublicImplementation.staticMethod(); }
+}
+
+=== static method of a package-private interface, invoked through a public subinterface
+janino: REJECTED No applicable constructor/method found for zero actual parameters
+public class P {
+    Object f() { return other_package.PublicSubinterface.staticMethod(); }
+}
+
+=== member of a package-private class, accessed through a public member class of another package-private class
+janino: REJECTED "other_package.PackagePrivateBase" is inaccessible from this package
+public class P {
+    Object f() { return other_package.PackagePrivateOuter.PublicNested.publicStaticField; }
+}
+
 === local variable assigned after an anonymous class captured it
 janino: REJECTED Cannot access non-final local variable "x" from inner class
 public class P {
