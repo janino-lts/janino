@@ -123,8 +123,13 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   `Interface.super.m(...)` ([#157]). Now the arguments are collected into an array, like with `javac`;
   `super.m(null)` still passes `null` as the array. `super.m()` for a `static` method of the superclass compiled
   into an invocation that failed at run time with an `IncompatibleClassChangeError`, and `Outer.super.m()` for it
-  was an internal compiler error ([#150]); now the method is invoked like with the simple name `m()`. The class
-  files of all other code are unchanged.
+  was an internal compiler error ([#150]); now the method is invoked like with the simple name `m()`. A `public`
+  or `protected` member of a class that is not accessible, inherited through an accessible subclass, was rejected,
+  e.g. `p.B.F`, `p.B.m()` or `super.m()` with `public class B extends A` and a package-private class `A`, from
+  another package ([#154]); now it is accessible, like with `javac` (JLS 6.6.1), and the class file references it
+  through the subclass (JLS 13.1). Invocations that compiled before select the same method as before, also
+  `p.B.s("x")` with `p.B.s(Object)` and `p.A.s(String)`, where `javac` selects `p.A.s(String)`. The class files of
+  all other code are unchanged.
 
 **Arrays, expressions and literals** (3.1.17, 3.1.19, 3.1.20):
 
@@ -231,8 +236,8 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.19 needs 1.8 % less time and
   allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 568 language
-  constructs, negative tests with 458 cases of invalid code, differential tests that compile generated expressions
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 585 language
+  constructs, negative tests with 466 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
   suites of Apache Calcite, Spark Catalyst, Apache Fory and Apache Drill every week and before every release
   ([Compatibility](COMPATIBILITY.md)).
@@ -295,6 +300,7 @@ affected.
 [#147]: https://github.com/janino-lts/janino/issues/147
 [#150]: https://github.com/janino-lts/janino/issues/150
 [#153]: https://github.com/janino-lts/janino/issues/153
+[#154]: https://github.com/janino-lts/janino/issues/154
 [#156]: https://github.com/janino-lts/janino/issues/156
 [#157]: https://github.com/janino-lts/janino/issues/157
 [#160]: https://github.com/janino-lts/janino/issues/160
