@@ -450,6 +450,73 @@ public class P {
     public static Object run() { return new P().new Q().new R().r(); }
 }
 
+=== super.m() for a static method of the superclass
+jls: B.s
+janino: OK
+class B { static String s() { return "B.s"; } }
+public class P extends B {
+    String f() { return super.s(); }
+    public static Object run() { return new P().f(); }
+}
+
+=== super.m() for a private static method of the enclosing superclass, from an inner class
+jls: P.s
+janino: OK
+public class P {
+    private static String s() { return "P.s"; }
+    class Q extends P { String q() { return super.s(); } }
+    public static Object run() { return new P().new Q().q(); }
+}
+
+=== super.m() for a static method of the superclass: arguments and a primitive result
+jls: 13
+janino: OK
+class B { static int add(int a, long b) { return a + (int) b; } }
+public class P extends B {
+    int f() { return super.add(1, 2L) + 10; }
+    public static Object run() { return String.valueOf(new P().f()); }
+}
+
+=== super.m() for a static void method of the superclass
+jls: B.v
+janino: OK
+class B { static String r = "none"; static void v() { r = "B.v"; } }
+public class P extends B {
+    void f() { super.v(); }
+    public static Object run() { new P().f(); return r; }
+}
+
+=== super.m() for a static method of the superclass: the subclass declares a static method with the same name
+jls: B.sP.s
+janino: OK
+class B { static String s() { return "B.s"; } }
+public class P extends B {
+    static String s() { return "P.s"; }
+    String f() { return super.s() + s(); }
+    public static Object run() { return new P().f(); }
+}
+
+=== super.m() for a static method of the superclass: the arguments are evaluated from left to right
+jls: 12:12
+janino: OK
+class B { static String s(String a, String b) { return a + b; } }
+public class P extends B {
+    static StringBuilder log = new StringBuilder();
+    static String t(String x) { log.append(x); return x; }
+    String f() { return super.s(t("1"), t("2")); }
+    public static Object run() { return new P().f() + ":" + log; }
+}
+
+=== Outer.super.m() for a static method of the superclass, from an inner class
+jls: B.s
+janino: OK
+class B { static String s() { return "B.s"; } }
+public class P extends B {
+    static String s() { return "P.s"; }
+    class I { String i() { return P.super.s(); } }
+    public static Object run() { return new P().new I().i(); }
+}
+
 === qualified superclass field access (Outer.super.f) from an inner class
 jls: basef
 janino: OK

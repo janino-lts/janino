@@ -283,6 +283,156 @@ public class P {
     public static Object run() { return String.valueOf(n("a", "b", "c")); }
 }
 
+=== varargs: super.m(...) with two arguments
+jls: B.f:2
+janino: OK
+class B { String f(String... s) { return "B.f:" + s.length; } }
+public class P extends B {
+    String g() { return super.f("a", "b"); }
+    public static Object run() { return new P().g(); }
+}
+
+=== varargs: super.m() without arguments
+jls: B.f:0
+janino: OK
+class B { String f(String... s) { return "B.f:" + s.length; } }
+public class P extends B {
+    String g() { return super.f(); }
+    public static Object run() { return new P().g(); }
+}
+
+=== varargs: super.m(...) with one argument
+jls: B.f:1:a
+janino: OK
+class B { String f(String... s) { return "B.f:" + s.length + ":" + s[0]; } }
+public class P extends B {
+    String g() { return super.f("a"); }
+    public static Object run() { return new P().g(); }
+}
+
+=== varargs: super.m(...) with an array
+jls: B.f:1
+janino: OK
+class B { String f(String... s) { return "B.f:" + s.length; } }
+public class P extends B {
+    String g() { return super.f(new String[] { "a" }); }
+    public static Object run() { return new P().g(); }
+}
+
+=== varargs: super.m(null) passes null as the array
+jls: B.f:null,B.g:1:null
+janino: OK
+class B {
+    String f(Object... s) { return "B.f:" + (s == null ? "null" : String.valueOf(s.length)); }
+    String g(int i, String... s) { return "B.g:" + i + ":" + (s == null ? "null" : String.valueOf(s.length)); }
+}
+public class P extends B {
+    String h() { return super.f(null) + "," + super.g(1, null); }
+    public static Object run() { return new P().h(); }
+}
+
+=== varargs: super.m(...) with null arguments that are elements of the array
+jls: B.f:2,B.f:1
+janino: OK
+class B { String f(String... s) { return "B.f:" + s.length; } }
+public class P extends B {
+    String g() { return super.f(null, null) + "," + super.f((String) null); }
+    public static Object run() { return new P().g(); }
+}
+
+=== varargs: super.m(...) with a fixed and a variable arity parameter
+jls: B.f:1:2
+janino: OK
+class B { String f(int i, Object... s) { return "B.f:" + i + ":" + s.length; } }
+public class P extends B {
+    String g() { return super.f(1, "b", "c"); }
+    public static Object run() { return new P().g(); }
+}
+
+=== varargs: super.m(...) with a primitive component type
+jls: 6
+janino: OK
+class B { int f(int... v) { int r = 0; for (int x : v) r += x; return r; } }
+public class P extends B {
+    int g() { return super.f(1, 2, 3); }
+    public static Object run() { return String.valueOf(new P().g()); }
+}
+
+=== varargs: super.m(...) with boxing
+jls: B.f:2:2
+janino: OK
+class B { String f(Integer... v) { return "B.f:" + v.length + ":" + v[1]; } }
+public class P extends B {
+    String g() { return super.f(1, 2); }
+    public static Object run() { return new P().g(); }
+}
+
+=== varargs: super.m(...) as an argument of super.m(...)
+jls: B.f:3
+janino: OK
+class B { String f(String... s) { return "B.f:" + s.length; } }
+public class P extends B {
+    String g() { return super.f(super.f("a", "b"), "c", "d"); }
+    public static Object run() { return new P().g(); }
+}
+
+=== varargs: super.m(...) in an anonymous class
+jls: B.f:2
+janino: OK
+class B { String f(Object... s) { return "B.f:" + s.length; } }
+public class P extends B {
+    String g() { return new P() { String h() { return super.f(1, "x"); } }.h(); }
+    public static Object run() { return new P().g(); }
+}
+
+=== varargs: super.m(...) for a private method of the enclosing superclass, from an inner class
+jls: P.f:2P.f:0
+janino: OK
+public class P {
+    private String f(String... s) { return "P.f:" + s.length; }
+    class Q extends P { String q() { return super.f("a", "b") + super.f(); } }
+    public static Object run() { return new P().new Q().q(); }
+}
+
+=== varargs: Outer.super.m(...) from an inner class
+jls: B.f:2B.f:0B.f:2
+janino: OK
+class B { String f(String... s) { return "B.f:" + s.length; } }
+public class P extends B {
+    String f(String... s) { return "P.f"; }
+    class I { String i() { return P.super.f("a", "b") + P.super.f() + P.super.f(null, null); } }
+    public static Object run() { return new P().new I().i(); }
+}
+
+=== varargs: InterfaceName.super.m(...) for a default method
+jls: I.f:0I.f:3
+janino: OK
+interface I { default String f(int... v) { return "I.f:" + v.length; } }
+public class P implements I {
+    public String f(int... v) { return "P.f"; }
+    String g() { return I.super.f() + I.super.f(1, 2, 3); }
+    public static Object run() { return new P().g(); }
+}
+
+=== varargs: super.m(...) for a static method of the superclass
+jls: B.s:2
+janino: OK
+class B { static String s(String... v) { return "B.s:" + v.length; } }
+public class P extends B {
+    String g() { return super.s("a", "b"); }
+    public static Object run() { return new P().g(); }
+}
+
+=== varargs: Outer.super.m(...) for a static method of the superclass, from an inner class
+jls: B.s:3B.s:0
+janino: OK
+class B { static String s(String... v) { return "B.s:" + v.length; } }
+public class P extends B {
+    static String s(String... v) { return "P.s"; }
+    class I { String i() { return P.super.s("a", "b", "c") + P.super.s(); } }
+    public static Object run() { return new P().new I().i(); }
+}
+
 === autoboxing
 jls: 3
 janino: OK

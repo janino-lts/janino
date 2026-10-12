@@ -6546,8 +6546,63 @@ class UnitCompiler {
             this.compileError("Cannot invoke superclass method in static context", scmi.getLocation());
         }
 
+        // Collect the variable arity arguments into an array, like "compileGet2(MethodInvocation)" (issue #157); do
+        // this before anything else is compiled, because "argsNeedAdjust()" reflects the latest method resolution.
+        // An invocation with as many arguments as parameters and a last argument of the null type, e.g.
+        // "super.f(null)", passes the null as the array, as before.
+        IClass[] parameterTypes = iMethod.getParameterTypes();
+        Rvalue[] arguments      = scmi.arguments;
+        if (
+            iMethod.isVarargs()
+            && iMethod.argsNeedAdjust()
+            && !(
+                arguments.length == parameterTypes.length
+                && this.getType(arguments[arguments.length - 1]) == IClass.NULL
+            )
+        ) {
+            Rvalue[] adjustedArgs = new Rvalue[parameterTypes.length];
+            Rvalue[] lastArgs     = new Rvalue[arguments.length - parameterTypes.length + 1];
+            for (int i = 0, j = parameterTypes.length - 1; i < lastArgs.length; ++i, ++j) {
+                lastArgs[i] = arguments[j];
+            }
+            for (int i = parameterTypes.length - 2; i >= 0; --i) {
+                adjustedArgs[i] = arguments[i];
+            }
+            adjustedArgs[adjustedArgs.length - 1] = new NewInitializedArray(
+                scmi.getLocation(),                                 // location
+                parameterTypes[parameterTypes.length - 1],          // arrayIClass
+                new ArrayInitializer(scmi.getLocation(), lastArgs) // arrayInitializer
+            );
+            arguments = adjustedArgs;
+        }
+
         IClass qualification = this.superclassMethodInvocationQualification(scmi);
         IClass currentClass  = this.resolve(fd.getDeclaringType());
+
+        if (iMethod.isStatic() && (qualification == null || !qualification.isInterface())) {
+
+            // A static method has no target reference (JLS7 15.12.4.1), so "super.m()" and "ClassName.super.m()"
+            // invoke it like the simple name "m()" does (issue #150).
+            for (int i = 0; i < arguments.length; ++i) {
+                this.assignmentConversion(
+                    scmi,                               // locatable
+                    this.compileGetValue(arguments[i]), // sourceType
+                    parameterTypes[i],                  // targetType
+                    this.getConstantValue(arguments[i]) // constantValue
+                );
+            }
+            AbstractClassDeclaration accessorClass = this.protectedMemberAccessorClass(
+                iMethod,
+                null,
+                scmi.getEnclosingScope()
+            );
+            if (accessorClass != null) {
+                this.invokeAccessor(scmi, accessorClass, iMethod, UnitCompiler.ACCESSOR_READ);
+            } else {
+                this.invokeMethod(scmi, iMethod);
+            }
+            return iMethod.getReturnType();
+        }
 
         int              opcode                = Opcode.INVOKESPECIAL;
         IClass           declaringIClass       = iMethod.getDeclaringIClass();
@@ -6604,14 +6659,12 @@ class UnitCompiler {
         }
 
         // Evaluate method parameters.
-        // TODO: adjust args
-        IClass[] parameterTypes = iMethod.getParameterTypes();
-        for (int i = 0; i < scmi.arguments.length; ++i) {
+        for (int i = 0; i < arguments.length; ++i) {
             this.assignmentConversion(
-                scmi,                                    // locatable
-                this.compileGetValue(scmi.arguments[i]), // sourceType
-                parameterTypes[i],                       // targetType
-                this.getConstantValue(scmi.arguments[i]) // constantValue
+                scmi,                               // locatable
+                this.compileGetValue(arguments[i]), // sourceType
+                parameterTypes[i],                  // targetType
+                this.getConstantValue(arguments[i]) // constantValue
             );
         }
 
