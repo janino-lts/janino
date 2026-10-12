@@ -245,8 +245,10 @@ in both modes as well, with the known differences of each mode in its own file, 
 `CommonsCompilerTestSuite` (`JlsTest`, `ReportedBugsTest`, `EvaluatorTest`, ...) and the self-compilation of Janino
 (`CompilerTest`). `SparkCorpusTest` in
 `janino-benchmarks` compiles the code that Spark generated for twelve TPC-DS queries in both modes (job "Spark corpus
-in both modes" of the workflow "CI"). The downstream workflows "Calcite", "Spark", "Fory" and "Drill" have the input
-"javac-compliance", which runs the tests of Calcite, Spark, Fory and Drill with the candidate in the compliance mode
+in both modes" of the workflow "CI"), and `JdtCorpusTest` compiles and runs the programs of regression tests of the
+Eclipse compiler with `javac` and in both modes (job "JDT corpus in both modes"; new on the development line). The
+downstream workflows "Calcite", "Spark", "Fory" and "Drill" have the input "javac-compliance", which runs the tests of
+Calcite, Spark, Fory and Drill with the candidate in the compliance mode
 (and the baseline as always); the workflow "Weekly" starts each of them on `master` in both modes.
 
 The reference of the compatibility mode is Janino 3.1.12 (see the contract in `JAVAC_COMPLIANCE.md`): code that

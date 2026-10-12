@@ -147,7 +147,7 @@ behavior. The compliance mode behaves like `javac`.
 | S-04 | the type of a conditional expression with operands of different primitive or wrapper types, where the code compiles today: `z ? B : 5` is an `Integer`; `false ? c : (short) 66` is a `Character` | #38 |
 | S-05 | the consequences of the incomplete constant folding: which fields are constant variables (`ConstantValue` attribute, class initialization), and the reachability analysis | #47 |
 | S-06 | `private` members are compiled without the `private` flag, `private` instance methods as static methods `m$(P, ...)` | |
-| S-11 | in an inner class `Q extends P` declared in `P`, `P.this` and the simple name of a `private` member of `P` denote `this` instead of the enclosing instance | #101 |
+| S-11 | in an inner class `Q extends P` declared in `P`, `P.this` and the simple name of a `private` member of `P` denote `this` instead of the enclosing instance; before the superclass constructor is invoked, the JVM rejects the class (D-10) | #101 |
 | S-12 | a conditional expression with a constant condition is a constant expression if the selected operand is, also when the other operand is not: `("a" + (true ? "b" : s)) == "ab"` is `true` | |
 | S-13 | a variable arity method is less specific than a fixed arity method, and its arguments are always expanded: `f(new int[] { 1 })` invokes `f(Object)`, not `f(int...)`; `f(null)` passes `new Object[] { null }` to `f(Object...)`, not `null` | #126 |
 | S-14 | `&&` and `\|\|` with a constant left operand that decides the value are constant expressions, also when the right operand is not: `("a" + (true \|\| z)) == "atrue"` is `true` | #140 |
@@ -285,9 +285,9 @@ logic has no error path, but silently does something else, the finding is of cla
 - Every mode-dependent place carries a comment with the ID of the deviation (`// Compliance S-01: ...`), so that each
   ID can be found in the code.
 - IDs are stable: a number is never reused or reassigned; new cases get the next number of their class.
-- Implemented so far: S-01, S-02, which also rejects L-49; S-03; S-11, which also rejects L-20, L-45 and L-46; S-04,
-  which also rejects L-47 and accepts D-07; S-12, which also rejects L-48; and S-13, which also accepts D-08, fixed
-  in both modes since 3.1.20 (the development line); see
+- Implemented so far: S-01, S-02, which also rejects L-49; S-03; S-11, which also rejects L-20, L-45 and L-46 and
+  corrects D-10; S-04, which also rejects L-47 and accepts D-07; S-12, which also rejects L-48; and S-13, which also
+  accepts D-08, fixed in both modes since 3.1.20 (the development line); see
   [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md) for what they do.
 
 ### 7.4 The system property
@@ -341,6 +341,15 @@ register is the public list; a deviation that is not in it is an unknown defect,
 - `SparkCorpusTest` (`janino-benchmarks`, job "Spark corpus in both modes" of the workflow "CI") compiles the code
   that Spark generated for twelve TPC-DS queries (342 class bodies) in both modes, and loads and instantiates every
   generated class: real generated code, with the constructs that a code generator actually produces.
+- `JdtCorpusTest` (`commons-compiler-tests`, job "JDT corpus in both modes" of the workflow "CI") compiles and runs
+  the programs of eight regression test classes of the Eclipse compiler (ECJ: variable arity methods, boxing, the
+  conditional operator, constants, inner classes, `assert`, name lookup, the rules of Java 1.4) with `javac` and in
+  both modes, and compares their output: programs written by others, from 25 years of bug reports, for the areas of
+  S-02, S-03, S-11 and S-13. The oracle is `javac`, not ECJ (section 2): a program counts only if `javac` compiles it
+  and prints the output that the ECJ test expects (434 programs), and a program that the ECJ test expects to be
+  rejected counts only if `javac` rejects it too (220 programs; there, only an internal compiler error of Janino is
+  a difference). The programs are not part of the repository (Eclipse Public License 2.0): the job checks out the
+  test classes at a fixed tag, and `.github/jdt/JdtCorpusExtractor.java` extracts the programs.
 - The downstream workflows "Calcite", "Spark", "Fory" and "Drill" run the tests of those projects with the candidate
   in the compliance mode when started with the input "javac-compliance"; the workflow "Weekly" starts each of them
   on `master` in both modes, so that a regression of the compliance mode in generated code shows up within a week.

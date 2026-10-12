@@ -1,0 +1,167 @@
+# Known differences between JANINO in the compliance mode and JAVAC; see "JdtCorpusTest".
+# Format: <test class>.<test method>[#<n>] <REJECTED|CRASH|WRONG|TIMEOUT>
+
+# F-01, method references, a language feature that JANINO does not implement (JAVAC_DIFFERENCES.md, section 2).
+ConditionalExpressionTest.test009 REJECTED
+ConditionalExpressionTest.test010 REJECTED
+ConditionalExpressionTest.test011 REJECTED
+ConditionalExpressionTest.test012 REJECTED
+ConditionalExpressionTest.test013 REJECTED
+
+# G-01 to G-03, generics: expressions of a parameterized type have their erased type (also the array for a variable
+# arity parameter of a type variable), overload resolution uses the erased types, and there are no bridge methods.
+AutoBoxingTest.test029 REJECTED
+AutoBoxingTest.test059 REJECTED
+AutoBoxingTest.test060 REJECTED
+AutoBoxingTest.test061 REJECTED
+AutoBoxingTest.test062 REJECTED
+AutoBoxingTest.test063 REJECTED
+AutoBoxingTest.test064 REJECTED
+AutoBoxingTest.test070 REJECTED
+AutoBoxingTest.test080 REJECTED
+AutoBoxingTest.test081 REJECTED
+AutoBoxingTest.test091 REJECTED
+AutoBoxingTest.test104 REJECTED
+AutoBoxingTest.test135 REJECTED
+AutoBoxingTest.test136 REJECTED
+AutoBoxingTest.test137 REJECTED
+AutoBoxingTest.test138 REJECTED
+AutoBoxingTest.test139 REJECTED
+AutoBoxingTest.test144 REJECTED
+AutoBoxingTest.test146 REJECTED
+AutoBoxingTest.test154 REJECTED
+AutoBoxingTest.test155 REJECTED
+AutoBoxingTest.test160 REJECTED
+AutoBoxingTest.test161 REJECTED
+VarargsTest.test026 REJECTED
+VarargsTest.test031 REJECTED
+VarargsTest.test032 WRONG
+VarargsTest.test035 WRONG
+VarargsTest.test436474 REJECTED
+
+# S-06, private members in the class files: the constructor of a private class has package access, so
+# "Class.newInstance()" succeeds from another class. Both modes.
+InnerEmulationTest.test124 WRONG
+
+# S-08, the binary names of local classes: "X$1$1$Y" instead of "X$1$1$1Y". Both modes.
+Compliance_1_4.test104 WRONG
+
+# D-09 (#139), a "final" local variable with a constant initializer is not a constant: "case u:" in a "switch" on a
+# "String" is rejected. Both modes.
+ConstantTest.testBug566332_01 REJECTED
+ConstantTest.testBug566332_02 REJECTED
+
+# #153: An "if" statement whose branches are empty, with a condition of type "Boolean", e.g. "if (b) {}", is rejected
+# ("Not a boolean expression"). Both modes, since 3.1.12.
+AutoBoxingTest.test130 REJECTED
+AutoBoxingTest.test131 REJECTED
+AutoBoxingTest.test132 REJECTED
+AutoBoxingTest.test133 REJECTED
+AutoBoxingTest.test134 REJECTED
+ConditionalExpressionTest.test484425 REJECTED
+
+# #152, item 8: A conditional expression with a boolean and a numeric operand, e.g. "z ? 3.0f : false", is rejected
+# ("Incompatible expression types"). Both modes, since 3.1.12.
+AutoBoxingTest.test125 REJECTED
+
+# #152, item 13 (compare #140): "null == null" is a constant expression for JANINO, so that the statement after "while
+# (null == null);" is rejected as unreachable. Both modes, since 3.1.12.
+ConstantTest.test008 REJECTED
+
+# #152, item 4: A member type that a class inherits, and a member type of an enclosing class with the same name:
+# JANINO reports the simple name as ambiguous, where the inherited type shadows the other one (JLS 6.4.1). Both modes,
+# since 3.1.12.
+Compliance_1_4.test014 REJECTED
+Compliance_1_4.test053 REJECTED
+Compliance_1_4.test054 REJECTED
+
+# #152, item 1: A local variable of the enclosing method, accessed from a member class of a local class (or of a
+# member class of it), is rejected ("Expression is not an rvalue", "Unknown variable or type"). Both modes, since
+# 3.1.12.
+InnerEmulationTest.test007 REJECTED
+InnerEmulationTest.test008 REJECTED
+InnerEmulationTest.test009 REJECTED
+InnerEmulationTest.test010 REJECTED
+InnerEmulationTest.test062 REJECTED
+InnerEmulationTest.test062a REJECTED
+
+# #152, item 2: An anonymous class in the arguments of an explicit constructor invocation ("this(...)", "super(...)")
+# of an inner class is rejected ("is not enclosed by"). Both modes, since 3.1.12.
+InnerEmulationTest.test101 REJECTED
+InnerEmulationTest.test119 REJECTED
+InnerEmulationTest.test120#1 REJECTED
+
+# #154: A member of a class that is not accessible from the current package, inherited through an accessible subclass
+# (e.g. "p.B.F" with "public class B extends A" and a package-private class "A" in "p"), is rejected, because JANINO
+# requires the class that declares the member to be accessible ("is inaccessible from this package", "No applicable
+# constructor/method found"). Both modes, since 3.1.12.
+InnerEmulationTest.test169 REJECTED
+LookupTest.test067 REJECTED
+
+# #152, item 5: A field that is not accessible from the current class makes another member ambiguous, or hides it: a
+# field of an interface and an inaccessible field of a superclass, a member type and an inaccessible field with the
+# same name. Both modes, since 3.1.12.
+LookupTest.test058 REJECTED
+LookupTest.test098 REJECTED
+
+# #156: Two variable arity methods, of which JLS 15.12.2.5 makes one more specific, e.g. f(int...) and f(double...)
+# for f(1, 2, 3): JANINO reports the invocation as ambiguous. Both modes, since 3.1.12.
+VarargsTest.test014 REJECTED
+VarargsTest.test070 REJECTED
+VarargsTest.test070_tolerate REJECTED
+VarargsTest.test070a REJECTED
+VarargsTest.test070a_tolerate REJECTED
+VarargsTest.test071 REJECTED
+VarargsTest.test437973 REJECTED
+VarargsTest.test437973a REJECTED
+
+# #152, item 3: An anonymous class whose superclass has a variable arity constructor: the arguments are not expanded
+# ("No applicable constructor/method found"). Both modes, since 3.1.12.
+VarargsTest.test022 REJECTED
+
+# #157: A superclass method invocation "super.m(...)" of a variable arity method: JANINO passes the arguments without
+# creating the array for the variable arity parameter ("Assignment conversion not possible"; "super.m()" without
+# arguments fails with an internal compiler error). Both modes, since 3.1.12.
+VarargsTest.test049 REJECTED
+
+# #152, item 11: A qualified class instance creation "x.new Y()" and a qualified superclass constructor invocation
+# "x.super()" with "x == null" throw no NullPointerException (JLS 15.9.4, 8.8.7.1). Both modes, since 3.1.12.
+Compliance_1_4.test035 WRONG
+Compliance_1_4.test036 WRONG
+
+# #152, item 12: A static method invoked through an expression, e.g. "X2.Root.foo()" with a static field "Root":
+# JANINO does not evaluate the expression, so the class X2 is not initialized (JLS 15.12.4.1). Both modes, since
+# 3.1.12.
+Compliance_1_4.test097 WRONG
+
+# #152, item 10: A signature polymorphic method ("VarHandle.compareAndSet()", JLS 15.12.3): JANINO passes the
+# arguments as an array, and the invocation throws a WrongMethodTypeException. Both modes, since 3.1.12.
+LookupTest.testBug577350_002 WRONG
+
+# #152, item 6: Internal compiler error "SNO: Synthetic field ... neither maps a synthetic field of an enclosing
+# instance nor a local variable": an anonymous subclass of a local class that captures a variable, created in another
+# local class. Both modes, since 3.1.12.
+InnerEmulationTest.test015 CRASH
+InnerEmulationTest.test016 CRASH
+InnerEmulationTest.test017 CRASH
+InnerEmulationTest.test019 CRASH
+
+# #152, item 7: Internal compiler error "Invalid local variable index": a blank "final" local variable, assigned in
+# the arguments of an anonymous class instance creation and accessed in the anonymous class. Both modes, since 3.1.12.
+InnerEmulationTest.test069 CRASH
+InnerEmulationTest.test070 CRASH
+
+# #155: A package-private method of a superclass in another package, e.g. "m()" in "class C extends q.B" with "q.B
+# extends p.X": JANINO takes it for a member of the subclass, where it is not inherited (JLS 8.4.8), and invokes it on
+# "this" instead of the enclosing instance; in a constructor, the JVM rejects the class (VerifyError). Both modes,
+# since 3.1.12.
+InnerEmulationTest.test081 WRONG
+
+# #152, item 14: Invalid code, "super(B.this)" in a constructor of "B": an AssertionError ("uninitializedThis")
+# instead of a compile error. Both modes, since 3.1.12.
+InnerEmulationTest.test107 CRASH
+
+# #152, item 9: A constructor with type parameters, e.g. "<A> Z(A a)", is rejected ("IDENTIFIER expected instead of
+# '('"). Both modes, since 3.1.12.
+AutoBoxingTest.test148 REJECTED
+AutoBoxingTest.test149 REJECTED
