@@ -518,12 +518,13 @@ method is applicable, so `p.B.s("x")` still selects `B.s(Object)` where `javac` 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`
 entries and the `EnclosingMethod` attribute of local and anonymous classes, so that the reflection API recognizes
-them (V4; it changes the class files of correct code); #74, the `ACC_STRICT` bit of `strictfp` classes, and #87,
-part 2, the other class flags of member types (class file defects without behavior); #76, completely, and #88:
-`AbstractTraverser` descends into initializers and visits enum constants (public API, not the compiler); #31,
-misleading compile error messages: each improved message keeps its old text and adds an explanation, except for a
-typo and for cyclic inheritance, which was reported as a stack overflow ("Compilation unit is nested too deeply") and
-is now reported as a class circularity (the same code is rejected as before).
+them (V4; it changes the class files of correct code); #74, the `ACC_STRICT` bit of `strictfp` classes, #87, part 2, the
+other class flags of member types, and #107, the access flags of `<clinit>` (class file defects without behavior); #76,
+completely, and #88: `AbstractTraverser` descends into initializers and visits enum constants (public API, not the
+compiler); #31, misleading compile error messages: each improved message keeps its old text and adds an explanation,
+except for a typo and for cyclic inheritance, which was reported as a stack overflow ("Compilation unit is nested too
+deeply") and is now reported as a class circularity (the same code is rejected as before); and #108, which names the
+kind of the static context ("static initializer", "static field initializer") where the message said "static method".
 
 **Backlog without a target version:** #23 (above).
 

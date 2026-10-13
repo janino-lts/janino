@@ -35,13 +35,16 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#140](https://github.com/janino-lts/janino/issues/140) | The compliance mode: `&&`, `\|\|` and `null` in constant expressions like `javac` (S-14, S-19) | unchanged | only with the option |
 | [#135](https://github.com/janino-lts/janino/issues/135) | The compliance mode: the most specific of two variable arity methods like `javac` (L-49) | unchanged | only with the option |
 | [#137](https://github.com/janino-lts/janino/issues/137) | The compliance mode: a field of a local or anonymous class shadows a variable of the enclosing method, like `javac` (S-15) | unchanged | only with the option |
+| [#107](https://github.com/janino-lts/janino/issues/107) | `<clinit>` with the access flags of `javac` (`ACC_STATIC`) | changed | unchanged |
+| [#108](https://github.com/janino-lts/janino/issues/108) | The compile error message for an instance member in a static initializer names the context | unchanged | message texts |
 
 ### Compile error messages (#31)
 
 **Behavior.** Some compile error messages pointed in the wrong direction; now they explain the error. Janino rejects
 the same code as before, at the same locations. Applications and their tests match message texts, so each message
 keeps the text that it had in 3.1.x, at its beginning, and the explanation is appended (`...` in the table); a check
-with `contains()` or `startsWith()` still matches. The exceptions are a typo and cyclic inheritance (see below).
+with `contains()` or `startsWith()` still matches. The exceptions are a typo, cyclic inheritance (see below)
+and the static context of #108 (see there).
 
 | Code | 3.1.x | `master` |
 |---|---|---|
@@ -166,6 +169,34 @@ same as before: the effectively final analysis (an assignment to a field in the 
 would otherwise count against a local variable of the same name, and code that compiles in 3.1.x would be rejected),
 and `ExpressionEvaluator.guessParameterNames()` and `ScriptEvaluator.guessParameterNames()` (a name in an enum
 constant cannot denote a parameter).
+
+### The flags of `<clinit>` (#107)
+
+**Class files.** The class and interface initialization method `<clinit>` has the access flags `ACC_STATIC` (`0x0008`)
+only, like with `javac` (JVMS 4.6); in 3.1.x, it has `ACC_PUBLIC, ACC_STATIC` (`0x0009`), and in an interface
+`ACC_PUBLIC, ACC_STATIC, ACC_ABSTRACT` (`0x0409`). This changes the class file of every class and interface with a
+static initializer, an initialized static field or enum constants, in these two bytes; the size does not change. Of
+Janino's own sources, 47 class files change (41 classes, 6 interfaces); the code that Apache Spark 4.2.0 generates for
+twelve TPC-DS queries has no `<clinit>` and is unchanged.
+
+**Behavior.** Unchanged. The JVM requires `ACC_STATIC` and ignores the other flags of `<clinit>`, the reflection API
+does not expose the method, and the default `serialVersionUID` hashes it with the fixed modifier `static`.
+
+### The static context in compile error messages (#108)
+
+**Behavior.** An instance field, a qualified `this` or the instantiation of an inner class in a static initializer or
+in the initializer of a static field is rejected as before, but the message now names the context, like the message
+for `this`:
+
+| Code | 3.1.x | `master` |
+|---|---|---|
+| `int x; static { int y = x; }` (also `x = 1;`, `P.this`, `new I()`) | `No current instance available in static method` | `No current instance available in static initializer` |
+| `int x; static int y = x;` (also `P.this`, `new I()`) | `No current instance available in static method` | `No current instance available in static field initializer` |
+
+The old text named a method that does not exist there, so it is not kept; the common beginning `No current instance
+available in static` stays. In a static method, the message is unchanged.
+
+**Class files.** Unchanged.
 
 ### The compliance mode (#103)
 

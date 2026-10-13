@@ -246,6 +246,55 @@ class CompileErrorMessagesTest {
     }
 
     /**
+     * An instance field, a qualified "this" or an instance of an inner class in a static initializer or in the
+     * initializer of a static field: the message names the kind of the static context, like for "this" (issue #108);
+     * before, it said "static method". In a static method, the message is unchanged.
+     */
+    @Test public void
+    testNoCurrentInstanceInStaticContext() throws Exception {
+        CompileErrorMessagesTest.assertMessage(
+            "Line 1, Column 42: No current instance available in static initializer",
+            "public class P { int x; static { int y = x; } }"
+        );
+        CompileErrorMessagesTest.assertMessage(
+            "Line 1, Column 34: No current instance available in static initializer",
+            "public class P { int x; static { x = 1; } }"
+        );
+        CompileErrorMessagesTest.assertMessage(
+            "Line 1, Column 44: No current instance available in static initializer",
+            "public class P { int x; static { int y = P.this.x; } }"
+        );
+        CompileErrorMessagesTest.assertMessage(
+            "Line 1, Column 49: No current instance available in static initializer",
+            "public class P { class I {} static { Object o = new I(); } }"
+        );
+        CompileErrorMessagesTest.assertMessage(
+            "Line 1, Column 40: No current instance available in static field initializer",
+            "public class P { int x; static int y = x; }"
+        );
+        CompileErrorMessagesTest.assertMessage(
+            "Line 1, Column 45: No current instance available in static field initializer",
+            "public class P { int x; static Object y = P.this; }"
+        );
+        CompileErrorMessagesTest.assertMessage(
+            "Line 1, Column 47: No current instance available in static field initializer",
+            "public class P { class I {} static Object o = new I(); }"
+        );
+        CompileErrorMessagesTest.assertMessage(
+            "Line 1, Column 42: No current instance available in static field initializer",
+            "public enum P { A; int x; static int y = x; }"
+        );
+        CompileErrorMessagesTest.assertMessage(
+            "Line 1, Column 54: No current instance available in static method",
+            "public class P { int x; static Object f() { return P.this; } }"
+        );
+        CompileErrorMessagesTest.assertMessage(
+            "Line 1, Column 56: No current instance available in static method",
+            "public class P { class I {} static Object f() { return new I(); } }"
+        );
+    }
+
+    /**
      * Messages that issue #31 does not change; Apache Spark's tests expect the message about the simple type name.
      */
     @Test public void
