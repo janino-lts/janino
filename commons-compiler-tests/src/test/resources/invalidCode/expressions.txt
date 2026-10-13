@@ -649,7 +649,7 @@ public class P {
 janino: REJECTED Value of 'case' label is not a string constant
 compliant: REJECTED Duplicate case label "a"
 recovery: INVALID InternalCompilerException
-id: D-09
+id: D-09, #167
 public class P {
     void f() { final String u = "a"; switch ("a") { case u: case "a": } }
 }

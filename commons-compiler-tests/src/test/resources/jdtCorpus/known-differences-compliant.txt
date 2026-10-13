@@ -46,8 +46,8 @@ InnerEmulationTest.test124 WRONG
 # S-08, the binary names of local classes: "X$1$1$Y" instead of "X$1$1$1Y". Both modes.
 Compliance_1_4.test104 WRONG
 
-# D-12, a comparison of two expressions of the null type, "(null == null ? null : null) == (null == null ? null :
-# null)", is rejected ("Cannot compare types"). Compliance mode only: the compatibility mode folds the conditions
+# D-12 (#166), a comparison of two expressions of the null type, "(null == null ? null : null) == (null == null ? null
+# : null)", is rejected ("Cannot compare types"). Compliance mode only: the compatibility mode folds the conditions
 # (S-19) and compares the null literals.
 ConstantTest.test009 REJECTED
 

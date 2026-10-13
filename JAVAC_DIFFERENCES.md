@@ -324,12 +324,13 @@ the `while` statement cannot complete normally (JLS 14.22). The compatibility mo
 giving up the rule of S-19 that it keeps for legacy code; the compliance mode accepts it, like `javac` (development
 line).
 
-**D-12, a comparison of two expressions of the null type**: `(z ? null : null) == (z ? null : null)` with a `boolean
-z` is rejected (`Cannot compare types "(null type)" and "(null type)"`), where `javac` accepts the comparison (JLS
-15.21.3; it is `true`): Janino compares only references and primitive values, and the null type is neither. Only a
-conditional expression whose operands are both `null` has the null type, so this code is rare. Both modes; in the
-compliance mode also `(null == null ? null : null) == (null == null ? null : null)`, whose conditions the compatibility
-mode folds (S-19).
+**D-12, a comparison with an expression of the null type** ([#166](https://github.com/janino-lts/janino/issues/166)):
+`(z ? null : null) == (z ? null : null)` with a `boolean z` is rejected (`Cannot compare types "(null type)" and "(null
+type)"`), and so are `(z ? null : null) != null` and `null == (z ? null : null)` (`Cannot compare primitive type "(null
+type)" with "null"`), where `javac` accepts the comparisons (JLS 15.21.3): Janino treats the null type as a primitive
+type here. Only a conditional expression whose operands are both `null` has the null type, so this code is rare. Both
+modes, since 3.1.12; in the compliance mode also `(null == null ? null : null) == (null == null ? null : null)`, whose
+conditions the compatibility mode folds (S-19).
 
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions

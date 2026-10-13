@@ -1125,7 +1125,7 @@ public class P {
 === comparison of two conditional expressions whose operands are null (the null type)
 jls: true
 janino: REJECTED Cannot compare types "(null type)" and "(null type)"
-id: D-12
+id: D-12, #166
 public class P {
     static boolean z = false;
     public static Object run() { return (z ? null : null) == (z ? null : null); }
