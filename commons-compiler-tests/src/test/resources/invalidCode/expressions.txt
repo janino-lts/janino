@@ -363,6 +363,30 @@ public class P {
     void f() { m(1, 2); }
 }
 
+=== ambiguous invocation of variable arity methods: f(int, Object...) and f(int...) for f(1)
+janino: REJECTED Invocation of constructor/method with argument type(s) "int" is ambiguous
+public class P {
+    static void m(int i, Object... o) {}
+    static void m(int... i) {}
+    void f() { m(1); }
+}
+
+=== ambiguous invocation of variable arity methods: f(Double, String, String[]...) and f(Double, CharSequence...)
+janino: REJECTED argument type(s) "java.lang.Double, java.lang.String" is ambiguous
+public class P {
+    static void m(Double d, String s, String[]... a) {}
+    static void m(Double d, CharSequence... a) {}
+    void f(Double d) { m(d, "s"); }
+}
+
+=== ambiguous invocation of variable arity constructors: P(int, Object...) and P(int...) for new P(1)
+janino: REJECTED Invocation of constructor/method with argument type(s) "int" is ambiguous
+public class P {
+    P(int... i) {}
+    P(int i, Object... o) {}
+    static Object f() { return new P(1); }
+}
+
 === constructor invocation with wrong arguments
 janino: REJECTED No applicable constructor/method found for actual parameters "int, int"
 public class P {

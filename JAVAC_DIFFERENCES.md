@@ -222,8 +222,10 @@ unboxed in both cases, like with `javac`; with `b == null`, the statement throws
 and the like (`Invocation of constructor/method with argument type(s) "int, int, int" is ambiguous`), because
 they compare the component type of the variable arity parameter of one method with the array type of the other.
 Since 3.1.20, when this comparison finds no most specific method, the rule of JLS 15.12.2.5 for an invocation
-by variable arity selects it, like with `javac`. The comparison itself is unchanged, because it also selects
-methods that `javac` reports as ambiguous (section 3).
+by variable arity selects it, like with `javac`: it compares the variable arity parameter types for as many
+parameters as the longer parameter list or the arguments have, so that `m(1)` with `m(int, Object...)` and
+`m(int...)` stays ambiguous ([#169](https://github.com/janino-lts/janino/issues/169)). The comparison itself is
+unchanged, because it also selects methods that `javac` reports as ambiguous (section 3).
 
 **A member of a class that is not accessible, inherited through an accessible subclass**
 ([#154](https://github.com/janino-lts/janino/issues/154), fixed in 3.1.20): for `public class B extends A` with a
