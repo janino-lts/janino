@@ -31,6 +31,8 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#101](https://github.com/janino-lts/janino/issues/101) | The compliance mode: enclosing instances like `javac` (S-11) | unchanged | only with the option |
 | [#38](https://github.com/janino-lts/janino/issues/38) | The compliance mode: conditional expressions like `javac` (S-04, S-12) | unchanged | only with the option |
 | [#126](https://github.com/janino-lts/janino/issues/126) | The compliance mode: variable arity methods like `javac` (S-02, S-13) | unchanged | only with the option |
+| [#139](https://github.com/janino-lts/janino/issues/139) | The compliance mode: `final` local variables with a constant initializer are constant variables, like `javac` (S-17) | unchanged | only with the option |
+| [#140](https://github.com/janino-lts/janino/issues/140) | The compliance mode: `&&`, `\|\|` and `null` in constant expressions like `javac` (S-14, S-19) | unchanged | only with the option |
 
 ### Compile error messages (#31)
 
@@ -181,7 +183,7 @@ options, so that a library keeps control of its own compilers. The default is th
 and javac](JAVAC_DIFFERENCES.md) is authoritative for what it corrects, so "compiles in the compliance mode" does not
 mean "is valid Java". Language features that Janino does not implement, and everything that depends on the typing of
 generics, remain outside its scope; the other options apply in both modes. So far, the compliance mode corrects
-seven deviations, each a consistent rule of Janino's that programs could rely on (class S of the contract):
+ten deviations, each a consistent rule of Janino's that programs could rely on (class S of the contract):
 
 | ID | Code | Compatibility mode | Compliance mode (like `javac`) |
 |---|---|---|---|
@@ -192,6 +194,9 @@ seven deviations, each a consistent rule of Janino's that programs could rely on
 | S-11 | `P.this`, and the simple name of a `private` member of `P`, in `class Q extends P` declared in `P` | `this` | the enclosing instance of `Q` ([#101](https://github.com/janino-lts/janino/issues/101)) |
 | S-12 | `String s = "x"; boolean x = ("a" + (true ? "b" : s)) == "ab";` | `x == true` | `x == false` (the expression is not a constant expression) |
 | S-13 | `f(Object o)` and `f(int... i)`; `f(new int[] { 1 })`; `f(Object... a)`; `f(null)` | invokes `f(Object)`; `a` is `{ null }` | invokes `f(int...)`; `a` is `null` ([#126](https://github.com/janino-lts/janino/issues/126)) |
+| S-14 | `static boolean z;`, `boolean x = ("a" + (true \|\| z)) == "atrue";` (also `false && z`) | `x == true` | `x == false` (the expression is not a constant expression; [#140](https://github.com/janino-lts/janino/issues/140)) |
+| S-17 | `final int k = 5; byte b = 1; Object x = z ? b : k;`; `final String u = "a"; boolean x = (u + "b") == "ab";` | `x` is an `Integer`; `x == false` | `x` is a `Byte`; `x == true` (`k` and `u` are constant variables; [#139](https://github.com/janino-lts/janino/issues/139)) |
+| S-19 | `boolean x = ("a" + null) == "anull";` (also `null == null`) | `x == true` | `x == false` (the expression is not a constant expression; [#140](https://github.com/janino-lts/janino/issues/140)) |
 
 For S-03, the compliance mode declares a synthetic field `static final boolean $assertionsDisabled` in every class that
 contains an `assert` statement, initialized with `!Outermost.class.desiredAssertionStatus()` as the first statement of
@@ -233,6 +238,23 @@ with its parameter types, so that `f(new int[] { 1 })` invokes `f(int...)` rathe
 that `f(1)` invokes `f(Object)` rather than `f(int...)`. As a consequence, the compliance mode rejects `f(4)` with
 `f(int...)` and `f(Number...)` as ambiguous (L-49), like `javac`, and accepts `f(1, new int[] { 1, 2 })` with `f(Integer
 i, Object... a)` (D-08), which the compatibility mode accepts as well since 3.1.20 (#127).
+
+For S-17, the compliance mode treats a `final` local variable of a primitive type or of type `String` with a constant
+initializer as a constant variable (JLS 4.12.4), so that its simple name is a constant expression (JLS 15.28), like
+`javac`: `(u + "b") == "ab"` with `final String u = "a";` is `true` (an interned constant), and `z ? b : k` with a
+`byte b` and `final int k = 5;` has the type `byte`. The variable stays a constant in a local or anonymous class that
+uses it. As a consequence, the compliance mode accepts valid code that the compatibility mode rejects: `case k:`,
+`case u:` in a `switch` on a `String`, `byte b = k;` and `while (y) { return 1; }` with `final boolean y = true;`
+(D-09); and it treats the body of `while (y)` with `final boolean y = false;` as unreachable, which Janino accepts like
+`while (false)` (L-28). `ConstantExpressionDifferentialTest` generates such variables in the compliance mode.
+
+For S-14 and S-19, the compliance mode requires both operands of `&&` and `||` to be constant (JLS 15.28), so that
+`true || z` and `false && z` with a variable `z` are not constant expressions, and it does not take the `null` literal
+for a constant, so that `null == null` and `"a" + null` are not constant expressions either, like `javac`: `"a" +
+(true || z)` and `"a" + null` are new strings instead of interned constants, and `static final boolean F = true || z;`
+is initialized in the static initializer instead of getting a `ConstantValue` attribute. As a consequence, the
+compliance mode rejects `case (false && z) ? 1 : 2:` and `int f() { while (true || z) { return 1; } }` (L-50), like
+`javac`, and accepts a statement after `while (null == null);` (D-11).
 
 **Class files.** Unchanged in the compatibility mode.
 

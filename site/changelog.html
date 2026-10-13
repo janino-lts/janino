@@ -221,6 +221,29 @@ h5 {
         effectively final analysis and <code>guessParameterNames()</code>) do not look into enum constants, so that
         their results are unchanged. The class files are unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/139">issue #139</a> in the compliance mode: A
+        <code>final</code> local variable of a primitive type or of type <code>String</code> with a constant
+        initializer is now a constant variable (JLS 4.12.4), like with JAVAC, so that <code>case k:</code>,
+        <code>byte b = k;</code> and <code>while (y) { return 1; }</code> with <code>final int k = 3;</code> and
+        <code>final boolean y = true;</code> compile, <code>(u + "b") == "ab"</code> with
+        <code>final String u = "a";</code> is <code>true</code>, and <code>z ? b : k</code> with a <code>byte b</code>
+        has the type <code>byte</code> (deviations S-17 and D-09). The variable stays a constant in a local or anonymous
+        class that uses it. The compatibility mode is unchanged. <code>ConstantExpressionDifferentialTest</code> now
+        generates such variables in the compliance mode.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/140">issue #140</a> in the compliance mode:
+        <code>true || z</code> and <code>false &amp;&amp; z</code> with a variable <code>z</code> are no longer
+        constant expressions (JLS 15.28 requires both operands to be constant), and neither are
+        <code>null == null</code> and <code>"a" + null</code> (the <code>null</code> literal is not a constant
+        expression), like with JAVAC: such
+        string concatenations are new strings instead of interned constants, <code>static final boolean F = true ||
+        z;</code> is initialized in the static initializer instead of getting a <code>ConstantValue</code> attribute,
+        <code>case (false &amp;&amp; z) ? 1 : 2:</code> and <code>while (true || z) { return 1; }</code> without a
+        return after it are rejected, and a statement after <code>while (null == null);</code> compiles (deviations
+        S-14, S-19, L-50 and D-11). The compatibility mode is unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.20 (unreleased)</h4>

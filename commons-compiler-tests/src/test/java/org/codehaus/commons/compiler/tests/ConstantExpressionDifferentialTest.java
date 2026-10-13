@@ -114,9 +114,10 @@ class ConstantExpressionDifferentialTest {
         S05,
 
         /**
-         * JANINO does not treat a {@code final} local variable with a constant initializer as a constant variable
-         * (JLS 4.12.4, S-17 and D-09 of {@code JAVAC_DIFFERENCES.md}, #139), so e.g. {@code case k:} with {@code
-         * final int k = 3;} is rejected (both modes). The generator avoids such variables.
+         * The compatibility mode does not treat a {@code final} local variable with a constant initializer as a
+         * constant variable (JLS 4.12.4, S-17 and D-09 of {@code JAVAC_DIFFERENCES.md}, #139), so e.g. {@code case
+         * k:} with {@code final int k = 3;} is rejected. The generator avoids such variables in the compatibility
+         * mode; the compliance mode treats them like {@code javac}, so the generator uses them there.
          */
         LOCAL_CONSTANTS,
     }
@@ -140,6 +141,7 @@ class ConstantExpressionDifferentialTest {
         int    classes = soak == null ? ConstantExpressionDifferentialTest.CLASSES : Integer.parseInt(soak);
 
         Set<Defect> avoided = EnumSet.allOf(Defect.class);
+        if (TestUtil.COMPLIANT.equals(this.mode)) avoided.remove(Defect.LOCAL_CONSTANTS);
         String      avoid   = System.getProperty("constantExpression.differential.avoid");
         if (avoid != null) {
             avoided.clear();

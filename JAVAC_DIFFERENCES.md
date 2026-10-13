@@ -74,11 +74,12 @@ the compliance mode follows `javac` (where the column says so; "open" means not 
 | S-12 | `String s = "x"; boolean x = ("a" + (true ? "b" : s)) == "ab";` (see below) | `x == false` | `x == true` | | like `javac` (development line) |
 | S-13 | `f(Object o)` and `f(int... i)`; `f(new int[] { 1 })` | invokes `f(int...)` | invokes `f(Object)` (a variable arity method is less specific than a fixed arity method) | [#126](https://github.com/janino-lts/janino/issues/126) | like `javac` (development line) |
 | S-13 | `f(Object... a)`; `f(null)` | `a` is `null` | `a` is an array with one element `null` (the arguments of a variable arity method are always expanded) | [#126](https://github.com/janino-lts/janino/issues/126) | like `javac` (development line) |
-| S-14 | `static boolean z;`, `boolean x = ("a" + (true \|\| z)) == "atrue";` (also `false && z`; see below) | `x == false` | `x == true` | [#140](https://github.com/janino-lts/janino/issues/140) | open |
+| S-14 | `static boolean z;`, `boolean x = ("a" + (true \|\| z)) == "atrue";` (also `false && z`; see below) | `x == false` | `x == true` | [#140](https://github.com/janino-lts/janino/issues/140) | like `javac` (development line) |
 | S-15 | `String t3(final int c) { class L { int c = 10; String l() { return "" + c; } } return new L().l(); }` (see below) | `t3(8)` is `"10"` (the field) | `t3(8)` is `"8"` (the parameter) | [#137](https://github.com/janino-lts/janino/issues/137) | open |
 | S-16 | `String w = ""; boolean x = ("b" + w) == ("b" + w);` (see below) | `x == false` | `x == true` | | open |
-| S-17 | `final int k = 5; byte b = 1; Object x = z ? b : k;` (see below) | `x` is a `Byte` | `x` is an `Integer` | [#139](https://github.com/janino-lts/janino/issues/139) | open |
+| S-17 | `final int k = 5; byte b = 1; Object x = z ? b : k;` (see below) | `x` is a `Byte` | `x` is an `Integer` | [#139](https://github.com/janino-lts/janino/issues/139) | like `javac` (development line) |
 | S-18 | `B.s("x")` with `static s(Object)` in a public class `B` and `static s(String)` in its package-private superclass `A`, from another package (see below) | invokes `A.s(String)` | invokes `B.s(Object)` (the methods of `A` are considered only if no accessible method is applicable) | [#154](https://github.com/janino-lts/janino/issues/154) | open |
+| S-19 | `boolean x = ("a" + null) == "anull";` (also `null == null`; see below) | `x == false` | `x == true` | [#140](https://github.com/janino-lts/janino/issues/140) | like `javac` (development line) |
 
 **S-08, the binary names of local classes** ([#143](https://github.com/janino-lts/janino/issues/143), fixed in
 3.1.20): Janino names a local class `L` in a type `E` `E$L`, where `javac` inserts a number (`E$1L`, JLS 13.1). Since
@@ -199,7 +200,9 @@ Janino, but not with `javac`: in a string concatenation, `"a" + (true || z)` is 
 `true`), and `static final boolean F = true || z;` gets a `ConstantValue` attribute instead of being initialized in
 the static initializer. As a consequence, Janino also accepts such an expression where a constant expression is
 required, and takes it for a constant in the reachability analysis (L-50). `z || true` and `z && false` are not
-constant with either compiler.
+constant with either compiler. The compliance mode follows `javac` (development line); as a consequence, it rejects
+such an expression where a constant expression is required, and `int f() { while (true || z) { return 1; } }` for the
+missing return (L-50).
 
 **S-15, a field of a local or anonymous class and a variable of the enclosing method**
 ([#137](https://github.com/janino-lts/janino/issues/137)): in a local or anonymous class, a simple name that denotes
@@ -227,7 +230,19 @@ code behaves differently:
 - the identity of string concatenations: with `final String u = "a";`, `(u + "b") == "ab"` is `false` with Janino,
   `true` with `javac` (the concatenation is a constant, interned string).
 
-As a consequence, Janino rejects valid code where a constant expression is required (D-09).
+As a consequence, Janino rejects valid code where a constant expression is required (D-09). The compliance mode
+follows `javac` (development line), also in a local or anonymous class that uses the variable; the body of `while (y)`
+with `final boolean y = false;` is then unreachable, which Janino accepts like `while (false)` (L-28), and after an
+assignment to the variable (L-04) the compliance mode reads the constant value, the compatibility mode the assigned
+value.
+
+**S-19, the `null` literal in constant expressions** ([#140](https://github.com/janino-lts/janino/issues/140),
+[#152](https://github.com/janino-lts/janino/issues/152) item 13): by JLS 15.28, a constant expression has a primitive
+type or the type `String`, so the `null` literal is not a constant expression, and neither is an expression with a
+`null` operand. Janino folds `==` and `!=` with `null` operands and string concatenations with a `null` operand:
+`("x" + (null == null)) == "xtrue"` and `("a" + null) == "anull"` are `true` with Janino (the concatenations are
+interned strings), `false` with `javac`. As a consequence, Janino rejects a statement after `while (null == null);` as
+unreachable, where `javac` compiles it (D-11). The compliance mode follows `javac` (development line).
 
 ## 2. Valid code that Janino rejects
 
@@ -291,7 +306,8 @@ itself instead of as its only element when another argument of the invocation ne
 'case' label is not a string constant`), `byte b = k;` (`Assignment conversion not possible from type "int" to type
 "byte"`), and `int f() { final boolean y = true; while (y) { return 1; } }` (`Method must return a value`) are
 rejected, because Janino does not treat the variable as a constant (S-17). The compatibility mode cannot accept this
-code without giving up the rule of S-17 that it keeps for legacy code.
+code without giving up the rule of S-17 that it keeps for legacy code; the compliance mode accepts it, like `javac`
+(development line).
 
 **D-10, `P.this` or a `private` member of `P` before the superclass constructor of `Q` is invoked**
 ([#101](https://github.com/janino-lts/janino/issues/101)): in `class P { class Q extends P { ... } }`, the explicit
@@ -300,6 +316,20 @@ constructor invocations in `Q() { this(P.this.s); }`, `Q() { this(P.this.m()); }
 enclosing instance (S-11). The JVM does not allow that before the superclass constructor is invoked, and rejects the
 class `Q` (`VerifyError: Bad type on operand stack`). The compatibility mode cannot compile this code correctly without
 giving up the rule of S-11 that it keeps for legacy code; the compliance mode compiles it like `javac`.
+
+**D-11, a statement after `while (null == null);`** ([#140](https://github.com/janino-lts/janino/issues/140),
+[#152](https://github.com/janino-lts/janino/issues/152) item 13): `int f() { while (null == null); return 1; }` is
+rejected (`Statement is unreachable`), because Janino takes `null == null` for a constant expression (S-19), so that
+the `while` statement cannot complete normally (JLS 14.22). The compatibility mode cannot accept this code without
+giving up the rule of S-19 that it keeps for legacy code; the compliance mode accepts it, like `javac` (development
+line).
+
+**D-12, a comparison of two expressions of the null type**: `(z ? null : null) == (z ? null : null)` with a `boolean
+z` is rejected (`Cannot compare types "(null type)" and "(null type)"`), where `javac` accepts the comparison (JLS
+15.21.3; it is `true`): Janino compares only references and primitive values, and the null type is neither. Only a
+conditional expression whose operands are both `null` has the null type, so this code is rare. Both modes; in the
+compliance mode also `(null == null ? null : null) == (null == null ? null : null)`, whose conditions the compatibility
+mode folds (S-19).
 
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions
@@ -398,11 +428,12 @@ Class L: `javac` rejects the following code, Janino compiles it, and the JVM loa
 behaves as the source suggests (e.g. an assignment to a `final` local variable assigns it). See [issue
 #33](https://github.com/janino-lts/janino/issues/33) for the compatibility considerations. The compatibility mode keeps
 accepting all of it; the compliance mode rejects it once the respective check is implemented (today, it rejects L-20,
-L-45 and L-46, see S-11, L-47, see S-04, L-48, see S-12, and L-49, see S-02; all other entries of this section are
-open). One exception, registered as A-05 (section 5): the access to a `protected` member of a class in another package
-through an expression whose type is neither the accessing class nor a subclass of it (`((Object) this).clone()`, `Object
-o = new P(); o.clone()`) is rejected since 3.1.16, like by `javac`, although the JVM loaded such classes when the
-verifier could infer the type `P` from the bytecode ([#54](https://github.com/janino-lts/janino/issues/54)); it rejected
+L-45 and L-46, see S-11, L-47, see S-04, L-48, see S-12, L-49, see S-02, and L-50, see S-14; all other entries of this
+section are open). One exception, registered as A-05 (section 5): the access to a `protected` member of a class in
+another package through an expression whose type is neither the accessing class nor a subclass of it (`((Object)
+this).clone()`, `Object o = new P(); o.clone()`) is rejected since 3.1.16, like by `javac`, although the JVM loaded
+such classes when the verifier could infer the type `P` from the bytecode
+([#54](https://github.com/janino-lts/janino/issues/54)); it rejected
 them for a parameter, a field or a method result of type `Object`.
 
 Code generators rely on some of these leniencies. The code that Apache Spark generates for SQL queries, for
@@ -465,7 +496,8 @@ and assigns a parameterized type to a field with a different type argument
 **Statements:**
 
 - L-27: duplicate label: `L: while (true) { L: while (true) { break L; } }`;
-- L-28: unreachable body of `while (false) { ... }` and `for (; false; ) { ... }`;
+- L-28: unreachable body of `while (false) { ... }` and `for (; false; ) { ... }`, in the compliance mode also with a
+  constant variable as the condition (`final boolean y = false; while (y) { ... }`, S-17);
 - L-29: `synchronized (null) {}`;
 - L-30: `catch` of a checked exception that the `try` block cannot throw: `try { } catch (java.io.IOException e) { }`,
   also as an alternative of a multi-catch clause: `catch (IOException | SQLException e)` with a `try` block that
@@ -529,7 +561,7 @@ and assigns a parameterized type to a field with a different type argument
 - L-50: `&&` or `||` with a constant left operand that decides the value and a right operand that is not constant
   (S-14), where a constant expression is required, or as the condition of a `while` statement that must not complete
   normally: `case (false && z) ? 1 : 2:` and `int f() { while (true || z) { return 1; } }` with a `boolean z`
-  (`javac`: `constant expression required`, `missing return statement`;
+  (`javac`: `constant expression required`, `missing return statement`; the compliance mode rejects it, see S-14;
   [#140](https://github.com/janino-lts/janino/issues/140)).
 
 **Generics, class G** (type arguments are not checked; outside the scope of both modes):

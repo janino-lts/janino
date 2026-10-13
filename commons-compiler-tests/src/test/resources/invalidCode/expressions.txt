@@ -598,6 +598,76 @@ public class P {
     void f(byte b) { byte x = false ? b : 'a'; }
 }
 
+=== "&&" with a constant left operand and a variable right operand as a case label
+janino: ACCEPTED
+compliant: REJECTED Value of 'case' label does not pose a constant value
+recovery: ACCEPTED
+id: L-50
+public class P {
+    void f(boolean z) { switch (5) { case (false && z) ? 1 : 2: } }
+}
+
+=== "||" with a constant left operand and a variable right operand as a case label
+janino: ACCEPTED
+compliant: REJECTED Value of 'case' label does not pose a constant value
+recovery: ACCEPTED
+id: L-50
+public class P {
+    void f(boolean z) { switch (5) { case (true || z) ? 1 : 2: } }
+}
+
+=== "||" with a constant left operand and a variable right operand as a while condition without a return after it
+janino: ACCEPTED
+compliant: REJECTED Method must return a value
+recovery: ACCEPTED
+id: L-50
+public class P {
+    int f(boolean z) { while (true || z) { return 1; } }
+}
+
+=== final local variable of a wrapper type as a case label
+janino: REJECTED Value of 'case' label does not pose a constant value
+public class P {
+    void f() { final Integer boxed = 5; switch (5) { case boxed: } }
+}
+
+=== blank final local variable as a case label
+janino: REJECTED Value of 'case' label does not pose a constant value
+public class P {
+    void f() { final int k; k = 3; switch (3) { case k: } }
+}
+
+=== final local variable initialized with itself
+janino: REJECTED Local variable "a" is not initialized
+legacy: INVALID InternalCompilerException
+id: #32
+public class P {
+    void f() { final int a = a + 1; switch (3) { case a: } }
+}
+
+=== final local variable with a constant initializer as a duplicate case label of a switch on a String
+janino: REJECTED Value of 'case' label is not a string constant
+compliant: REJECTED Duplicate case label "a"
+recovery: INVALID InternalCompilerException
+id: D-09
+public class P {
+    void f() { final String u = "a"; switch ("a") { case u: case "a": } }
+}
+
+=== body of a while statement whose condition is a final local variable initialized with false
+janino: ACCEPTED
+recovery: ACCEPTED
+id: L-28
+public class P {
+    void f(int x) { final boolean y = false; while (y) { x++; } }
+}
+
+=== "null + null"
+janino: REJECTED Binary numeric promotion not possible on types "(null type)" and "(null type)"
+public class P {
+    void f() { Object o = null + null; }
+}
+
 === constant conditional expression of type long assigned to a byte variable
 janino: REJECTED Assignment conversion not possible from type "long" to type "byte"
 legacy: ACCEPTED

@@ -86,7 +86,7 @@ VarargsTest.test040 WRONG
 VarargsTest.test055 WRONG
 
 # D-09 (#139), a "final" local variable with a constant initializer is not a constant: "case u:" in a "switch" on a
-# "String" is rejected. Both modes.
+# "String" is rejected. Compatibility mode only (the compliance mode accepts it, S-17).
 ConstantTest.testBug566332_01 REJECTED
 ConstantTest.testBug566332_02 REJECTED
 
@@ -94,8 +94,9 @@ ConstantTest.testBug566332_02 REJECTED
 # ("Incompatible expression types"). Both modes, since 3.1.12.
 AutoBoxingTest.test125 REJECTED
 
-# #152, item 13 (compare #140): "null == null" is a constant expression for JANINO, so that the statement after "while
-# (null == null);" is rejected as unreachable. Both modes, since 3.1.12.
+# #152, item 13, D-11 (#140): "null == null" is a constant expression for JANINO, so that the statement after "while
+# (null == null);" is rejected as unreachable. Compatibility mode only, since 3.1.12 (the compliance mode accepts it,
+# S-19).
 ConstantTest.test008 REJECTED
 
 # #152, item 4: A member type that a class inherits, and a member type of an enclosing class with the same name:
