@@ -207,6 +207,15 @@ h5 {
         <code>A.s(String)</code>, where JAVAC selects <code>A.s(String)</code>. Only code that was rejected changes;
         the class files of all other code are unchanged.
       </li>
+      <li>
+        The JAR files are no longer signed with the dummy certificate with which JANINO has signed them since 2.5.7
+        (<code>META-INF/DUMMY.SF</code>, <code>META-INF/DUMMY.DSA</code>). The signature proved nothing, because the
+        certificate and its key are public, but the JVM verified it whenever it loaded JANINO: on each start of a
+        JVM, that took about 110 to 140 ms, a third of the time until JANINO had compiled its first class. Projects
+        that put JANINO into a fat JAR no longer need to exclude the signature files. The classes, the OSGi headers
+        and the automatic module names are unchanged; to check the integrity of the files, see
+        <a href="index.html#security_integrity">Security / integrity</a>.
+      </li>
     </ul>
 
     <h4>Version 3.1.19 2026-10-10</h4>
