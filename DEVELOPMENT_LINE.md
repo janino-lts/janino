@@ -33,6 +33,8 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#126](https://github.com/janino-lts/janino/issues/126) | The compliance mode: variable arity methods like `javac` (S-02, S-13) | unchanged | only with the option |
 | [#139](https://github.com/janino-lts/janino/issues/139) | The compliance mode: `final` local variables with a constant initializer are constant variables, like `javac` (S-17) | unchanged | only with the option |
 | [#140](https://github.com/janino-lts/janino/issues/140) | The compliance mode: `&&`, `\|\|` and `null` in constant expressions like `javac` (S-14, S-19) | unchanged | only with the option |
+| [#135](https://github.com/janino-lts/janino/issues/135) | The compliance mode: the most specific of two variable arity methods like `javac` (L-49) | unchanged | only with the option |
+| [#137](https://github.com/janino-lts/janino/issues/137) | The compliance mode: a field of a local or anonymous class shadows a variable of the enclosing method, like `javac` (S-15) | unchanged | only with the option |
 
 ### Compile error messages (#31)
 
@@ -183,7 +185,7 @@ options, so that a library keeps control of its own compilers. The default is th
 and javac](JAVAC_DIFFERENCES.md) is authoritative for what it corrects, so "compiles in the compliance mode" does not
 mean "is valid Java". Language features that Janino does not implement, and everything that depends on the typing of
 generics, remain outside its scope; the other options apply in both modes. So far, the compliance mode corrects
-ten deviations, each a consistent rule of Janino's that programs could rely on (class S of the contract):
+eleven deviations, each a consistent rule of Janino's that programs could rely on (class S of the contract):
 
 | ID | Code | Compatibility mode | Compliance mode (like `javac`) |
 |---|---|---|---|
@@ -195,6 +197,7 @@ ten deviations, each a consistent rule of Janino's that programs could rely on (
 | S-12 | `String s = "x"; boolean x = ("a" + (true ? "b" : s)) == "ab";` | `x == true` | `x == false` (the expression is not a constant expression) |
 | S-13 | `f(Object o)` and `f(int... i)`; `f(new int[] { 1 })`; `f(Object... a)`; `f(null)` | invokes `f(Object)`; `a` is `{ null }` | invokes `f(int...)`; `a` is `null` ([#126](https://github.com/janino-lts/janino/issues/126)) |
 | S-14 | `static boolean z;`, `boolean x = ("a" + (true \|\| z)) == "atrue";` (also `false && z`) | `x == true` | `x == false` (the expression is not a constant expression; [#140](https://github.com/janino-lts/janino/issues/140)) |
+| S-15 | `String t3(final int c) { class L { int c = 10; String l() { return "" + c; } } return new L().l(); }`; `t3(8)` | `"8"` (the parameter) | `"10"` (the field; [#137](https://github.com/janino-lts/janino/issues/137)) |
 | S-17 | `final int k = 5; byte b = 1; Object x = z ? b : k;`; `final String u = "a"; boolean x = (u + "b") == "ab";` | `x` is an `Integer`; `x == false` | `x` is a `Byte`; `x == true` (`k` and `u` are constant variables; [#139](https://github.com/janino-lts/janino/issues/139)) |
 | S-19 | `boolean x = ("a" + null) == "anull";` (also `null == null`) | `x == true` | `x == false` (the expression is not a constant expression; [#140](https://github.com/janino-lts/janino/issues/140)) |
 
@@ -237,7 +240,13 @@ with its parameter types, so that `f(new int[] { 1 })` invokes `f(int...)` rathe
 `null` to `f(Object...)`; only in phase 3, after the phase with boxing, the arguments are expanded into an array, so
 that `f(1)` invokes `f(Object)` rather than `f(int...)`. As a consequence, the compliance mode rejects `f(4)` with
 `f(int...)` and `f(Number...)` as ambiguous (L-49), like `javac`, and accepts `f(1, new int[] { 1, 2 })` with `f(Integer
-i, Object... a)` (D-08), which the compatibility mode accepts as well since 3.1.20 (#127).
+i, Object... a)` (D-08), which the compatibility mode accepts as well since 3.1.20 (#127). In phase 3, a variable arity
+method is more specific than another only by its variable arity parameter types (JLS 15.12.2.5), not by the array type,
+so that the compliance mode also rejects `f(1, 2)` with `f(int...)` and `f(Object...)`, and `f()` with `f(char...)` and
+`f(Object...)`, as ambiguous (L-49, #135); the compatibility mode selects `f(int...)` and `f(char...)`. Like `javac`, it
+compares the variable arity parameter types for as many parameters as the longer parameter list or the arguments have,
+so that `foo("a")` with `foo(String, Object...)` and `foo(String...)` invokes `foo(String...)`, and `f(1)` with `f(int,
+Object...)` and `f(int...)` is ambiguous.
 
 For S-17, the compliance mode treats a `final` local variable of a primitive type or of type `String` with a constant
 initializer as a constant variable (JLS 4.12.4), so that its simple name is a constant expression (JLS 15.28), like
@@ -255,6 +264,13 @@ for a constant, so that `null == null` and `"a" + null` are not constant express
 is initialized in the static initializer instead of getting a `ConstantValue` attribute. As a consequence, the
 compliance mode rejects `case (false && z) ? 1 : 2:` and `int f() { while (true || z) { return 1; } }` (L-50), like
 `javac`, and accepts a statement after `while (null == null);` (D-11).
+
+For S-15, a field that a local or anonymous class declares or inherits shadows a parameter or local variable of the
+enclosing method with the same name (JLS 6.4.1), like `javac`: in `String t3(final int c) { class L { int c = 10; String
+l() { return "" + c; } } ... }`, `c` is the field. This holds for a field inherited from a superclass or an interface,
+in a field initializer of the class, and for a local class in a method of another local class; a `private` field of a
+superclass is not inherited, so it does not shadow the variable. As a consequence, the compliance mode accepts such code
+where the variable is not effectively final, which the compatibility mode rejects (D-13).
 
 **Class files.** Unchanged in the compatibility mode.
 

@@ -1,15 +1,2 @@
 # Known differences between JANINO in the compliance mode and JAVAC; see "InvocationDifferentialTest".
 # Format: <seed> <method> <WRONG|REJECTED|ACCEPTED|INVALID>
-
-# #135 (L-49, incompletely corrected): an invocation of two variable arity methods whose component types are a primitive
-# type and a reference type ("int..." and "Serializable...", "char..." and "Object...", "byte..." and "Object...")
-# is ambiguous for JAVAC, but JANINO selects the method with the primitive component type. (With "int..." and
-# "Number...", the compliance mode reports the ambiguity, like JAVAC.)
-20261011 p6 ACCEPTED
-20261011 p8 ACCEPTED
-20261032 p1 ACCEPTED
-20261032 p4 ACCEPTED
-20261032 p8 ACCEPTED
-20261032 p9 ACCEPTED
-20261042 p1 ACCEPTED
-20261042 p10 ACCEPTED

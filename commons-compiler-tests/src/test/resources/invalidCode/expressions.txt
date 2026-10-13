@@ -373,8 +373,9 @@ public class P {
 
 === ambiguous invocation of variable arity methods: f(int...) and f(Object...) for f(1, 2)
 janino: ACCEPTED
+compliant: REJECTED Invocation of constructor/method with argument type(s) "int, int" is ambiguous
 recovery: ACCEPTED
-id: L-49
+id: L-49, #135
 public class P {
     static void m(int... i) {}
     static void m(Object... o) {}
@@ -390,6 +391,85 @@ public class P {
     static void m(int... i) {}
     static void m(Integer... o) {}
     void f() { m(1, 2); }
+}
+
+=== ambiguous invocation of variable arity methods: f(int...) and f(Serializable...) for f(1)
+janino: ACCEPTED
+compliant: REJECTED Invocation of constructor/method with argument type(s) "int" is ambiguous
+recovery: ACCEPTED
+id: L-49, #135
+public class P {
+    static void m(int... i) {}
+    static void m(java.io.Serializable... s) {}
+    void f() { m(1); }
+}
+
+=== ambiguous invocation of variable arity methods: f(char...) and f(Object...) for f()
+janino: ACCEPTED
+compliant: REJECTED Invocation of constructor/method with argument type(s) "" is ambiguous
+recovery: ACCEPTED
+id: L-49, #135
+public class P {
+    static void m(char... c) {}
+    static void m(Object... o) {}
+    void f() { m(); }
+}
+
+=== ambiguous invocation of variable arity methods: f(byte...) and f(Object...) for f((byte) 1)
+janino: ACCEPTED
+compliant: REJECTED Invocation of constructor/method with argument type(s) "byte" is ambiguous
+recovery: ACCEPTED
+id: L-49, #135
+public class P {
+    static void m(byte... b) {}
+    static void m(Object... o) {}
+    void f() { m((byte) 1); }
+}
+
+=== ambiguous invocation of variable arity constructors: P(int...) and P(Object...) for new P(1)
+janino: ACCEPTED
+compliant: REJECTED Invocation of constructor/method with argument type(s) "int" is ambiguous
+recovery: ACCEPTED
+id: L-49, #135
+public class P {
+    P(int... i) {}
+    P(Object... o) {}
+    static Object f() { return new P(1); }
+}
+
+=== ambiguous invocation of variable arity methods: f(int, Object...) and f(int...) for f(1)
+janino: ACCEPTED
+compliant: REJECTED Invocation of constructor/method with argument type(s) "int" is ambiguous
+legacy: REJECTED Invocation of constructor/method with argument type(s) "int" is ambiguous
+recovery: ACCEPTED
+id: L-49, #135, #156
+public class P {
+    static void m(int i, Object... o) {}
+    static void m(int... i) {}
+    void f() { m(1); }
+}
+
+=== ambiguous invocation of variable arity methods: f(Object...) and f(Object, Object...) for f(1)
+janino: ACCEPTED
+compliant: REJECTED Invocation of constructor/method with argument type(s) "int" is ambiguous
+recovery: ACCEPTED
+id: L-49, #135
+public class P {
+    static void m(Object... o) {}
+    static void m(Object a, Object... o) {}
+    void f() { m(1); }
+}
+
+=== ambiguous invocation of variable arity methods: f(Double, String, String[]...) and f(Double, CharSequence...)
+janino: ACCEPTED
+compliant: REJECTED argument type(s) "java.lang.Double, java.lang.String" is ambiguous
+legacy: REJECTED argument type(s) "java.lang.Double, java.lang.String" is ambiguous
+recovery: ACCEPTED
+id: L-49, #135, #156
+public class P {
+    static void m(Double d, String s, String[]... a) {}
+    static void m(Double d, CharSequence... a) {}
+    void f(Double d) { m(d, "s"); }
 }
 
 === constructor invocation with wrong arguments

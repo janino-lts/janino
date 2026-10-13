@@ -289,8 +289,8 @@ logic has no error path, but silently does something else, the finding is of cla
 - IDs are stable: a number is never reused or reassigned; new cases get the next number of their class.
 - Implemented so far: S-01, S-02, which also rejects L-49; S-03; S-11, which also rejects L-20, L-45 and L-46 and
   corrects D-10; S-04, which also rejects L-47 and accepts D-07; S-12, which also rejects L-48; S-13, which also
-  accepts D-08, fixed in both modes since 3.1.20 (the development line); S-14, which also rejects L-50; S-17, which
-  also accepts D-09; and S-19, which also accepts D-11; see
+  accepts D-08, fixed in both modes since 3.1.20 (the development line); S-14, which also rejects L-50; S-15, which
+  also accepts D-13; S-17, which also accepts D-09; and S-19, which also accepts D-11; see
   [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md) for what they do.
 
 ### 7.4 The system property
@@ -327,7 +327,8 @@ register is the public list; a deviation that is not in it is an unknown defect,
   private and constant fields of the outer class, fields of an inner subclass, of a static nested class, of a local
   class and of an anonymous subclass, parameters and local variables, and probes that read them (simple names,
   `this.x`, `P.this.x`, `super.x`, a private and an overridden method, `assert` conditions with assertions enabled
-  and disabled): the area of S-03, S-11, L-45 and L-46, and of #101 and #124. It runs in both modes as well.
+  and disabled): the area of S-03, S-11, S-15, L-45 and L-46, and of #101, #124 and #137. It runs in both modes as
+  well.
   `ConstantExpressionDifferentialTest` generates expressions over literals, constant variables, variables (also of
   the wrapper types), casts, conditional expressions with constant and with non-constant conditions and string
   concatenations, and uses each of them where the language decides by whether it is a constant expression: as the
@@ -381,6 +382,12 @@ compliance mode, 43 open; D, 12 IDs, 2 fixed (D-04 in 3.1.19 except for one form
 corrected in the compliance mode only (D-07, see S-04; D-09, see S-17; D-10, see S-11; D-11, see S-19), 6 open; G, 9
 and F, 11 (outside the scope); A, 8. Of the 1177 recorded cases, the compliance mode agrees with `javac` on 1030 (the
 compatibility mode on 940).
+
+The development line, 2026-10-13, after #135 and #137: S, 19 IDs, 11 corrected in the compliance mode; L, 50 IDs, 7
+rejected in the compliance mode (L-49 now in all its forms), 43 open; D, 13 IDs, 2 fixed (D-04 in 3.1.19 except for one
+form, see there; D-08 in 3.1.20), 5 corrected in the compliance mode only (D-07, see S-04; D-09, see S-17; D-10, see
+S-11; D-11, see S-19; D-13, see S-15), 6 open; G, 9 and F, 11 (outside the scope); A, 8. Of the 1198 recorded cases, the
+compliance mode agrees with `javac` on 1052 (the compatibility mode on 945).
 
 ## 8. Registered exceptions
 
@@ -540,7 +547,7 @@ adds to it, as with #31 on the development line. The gates are those of 3.1.16.
 on the development line, 2026-10-09, which also rejects L-47 and accepts D-07), with S-12, which was found with it
 (rejects L-48); these were the last open deviations of class S that change the values of valid code, which is what users
 of the compliance mode notice first (the differential tests found four more later, S-14 to S-17; S-14 and S-17 were
-done on the development line, 2026-10-13, with S-19, which was found with them; S-15 and S-16 are open).
+done on the development line, 2026-10-13, with S-19, which was found with them, and S-15; S-16 is open).
 Next the cases of class L that need no data flow analysis, by area, one branch each: modifiers, declarations and
 annotations; overrides, hiding and `throws` clauses; `catch` clauses; imports and access; statements. In each branch, the `compliant:` entries of the area change from `ACCEPTED` to `REJECTED`. Then
 S-07, S-08 and S-09 (reflection and class file details) as needed, and the remaining areas of class L. S-05 (constant

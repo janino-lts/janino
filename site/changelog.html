@@ -244,6 +244,24 @@ h5 {
         return after it are rejected, and a statement after <code>while (null == null);</code> compiles (deviations
         S-14, S-19, L-50 and D-11). The compatibility mode is unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/135">issue #135</a> in the compliance mode: Of two
+        variable arity methods, one is more specific than the other only by its variable arity parameter types (JLS
+        15.12.2.5), not by the array type, like with JAVAC, so that <code>f(1)</code> with <code>f(int...)</code> and
+        <code>f(Object...)</code> or <code>f(Serializable...)</code>, and <code>f()</code> with
+        <code>f(char...)</code> and <code>f(Object...)</code>, are rejected as ambiguous (deviation L-49). Like JAVAC,
+        the compliance mode compares the variable arity parameter types for as many parameters as the longer parameter
+        list or the arguments have, so that <code>f(1)</code> with <code>f(int, Object...)</code> and
+        <code>f(int...)</code> is ambiguous as well. The compatibility mode is unchanged.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/137">issue #137</a> in the compliance mode: In a
+        local or anonymous class, a field that the class declares or inherits shadows a parameter or local variable of
+        the enclosing method with the same name (JLS 6.4.1), like with JAVAC, so that <code>t3(8)</code> with
+        <code>String t3(final int c) { class L { int c = 10; String l() { return "" + c; } } ... }</code> reads the
+        field (<code>"10"</code>) instead of the parameter, and such code compiles where the variable is not
+        effectively final (deviations S-15 and D-13). The compatibility mode is unchanged.
+      </li>
     </ul>
 
     <h4>Version 3.1.20 (unreleased)</h4>
