@@ -414,9 +414,11 @@ unboxed in both cases, like with `javac`; with `b == null`, the statement throws
 and the like (`Invocation of constructor/method with argument type(s) "int, int, int" is ambiguous`), because
 they compare the component type of the variable arity parameter of one method with the array type of the other.
 Since 3.1.20, when this comparison finds no most specific method, the rule of JLS 15.12.2.5 for an invocation
-by variable arity selects it, like with `javac`. The comparison itself is unchanged, because it also selects
-methods that `javac` reports as ambiguous (L-49); the compliance mode of the development line applies only the rule of
-JLS 15.12.2.5 ([#135](https://github.com/janino-lts/janino/issues/135)).
+by variable arity selects it, like with `javac`: it compares the variable arity parameter types for as many
+parameters as the longer parameter list or the arguments have, so that `m(1)` with `m(int, Object...)` and
+`m(int...)` stays ambiguous ([#169](https://github.com/janino-lts/janino/issues/169)). The comparison itself is
+unchanged, because it also selects methods that `javac` reports as ambiguous (L-49); the compliance mode of the
+development line applies only the rule of JLS 15.12.2.5 ([#135](https://github.com/janino-lts/janino/issues/135)).
 
 **A member of a class that is not accessible, inherited through an accessible subclass**
 ([#154](https://github.com/janino-lts/janino/issues/154), fixed in 3.1.20): for `public class B extends A` with a
@@ -570,8 +572,8 @@ and assigns a parameterized type to a field with a different type argument
   `f(Integer...)`, and `f(1, 2)` with `f(int...)` and `f(Object...)`, `f(1)` with `f(int...)` and
   `f(Serializable...)`, and `f()` with `f(char...)` and `f(Object...)`, where Janino compares `Object` or
   `Serializable` with the array type `int[]` or `char[]`
-  ([#156](https://github.com/janino-lts/janino/issues/156)), and `f(1)` with `f(int, Object...)` and `f(int...)`,
-  or with `f(Object...)` and `f(Object, Object...)`; the compliance mode rejects all of them, like `javac`
+  ([#156](https://github.com/janino-lts/janino/issues/156)), and `f(1)` with `f(Object...)` and
+  `f(Object, Object...)`; the compliance mode rejects all of them, like `javac`
   ([#135](https://github.com/janino-lts/janino/issues/135), development line): like `javac`, it compares the
   variable arity parameter types of two such methods for as many parameters as the longer parameter list or the
   arguments have;

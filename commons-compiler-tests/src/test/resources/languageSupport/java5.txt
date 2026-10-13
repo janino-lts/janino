@@ -766,6 +766,53 @@ public class P {
     public static Object run() { return g(next(), next()); }
 }
 
+=== varargs: the more specific of two variable arity methods: m(int, long...) and m(int...) for m(1) and m(1, 2)
+jls: int...|int...|int...
+janino: OK
+id: #169
+public class P {
+    static String m(int i, long... l) { return "int,long..."; }
+    static String m(int... i)         { return "int..."; }
+    static String n(int... i)         { return "int..."; }
+    static String n(long l, int... i) { return "long,int..."; }
+    public static Object run() { return m(1) + "|" + m(1, 2) + "|" + n(1); }
+}
+
+=== varargs: the more specific of two variable arity methods: m(Object, String...) and m(Object...) for m("a")
+jls: Object,String...
+janino: OK
+id: #169
+public class P {
+    static String m(Object o, String... s) { return "Object,String..."; }
+    static String m(Object... o)           { return "Object..."; }
+    public static Object run() { return m("a"); }
+}
+
+=== varargs: the more specific of two variable arity methods: constructors Q(int, long...) and Q(int...) for new Q(1)
+jls: int...
+janino: OK
+id: #169
+public class P {
+    static String r;
+    static class Q {
+        Q(int i, long... l) { r = "int,long..."; }
+        Q(int... i)         { r = "int..."; }
+    }
+    public static Object run() { new Q(1); return r; }
+}
+
+=== varargs: the most specific of three variable arity methods: m(int, long...), m(int...) and m(long...) for m(1)
+jls: int...
+janino: OK
+legacy: REJECTED Invocation of constructor/method with argument type(s) "int" is ambiguous
+id: #169
+public class P {
+    static String m(int i, long... l) { return "int,long..."; }
+    static String m(int... i)         { return "int..."; }
+    static String m(long... l)        { return "long..."; }
+    public static Object run() { return m(1); }
+}
+
 === autoboxing
 jls: 3
 janino: OK

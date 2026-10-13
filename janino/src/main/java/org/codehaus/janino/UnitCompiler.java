@@ -13158,12 +13158,11 @@ class UnitCompiler {
 
         // Two or more variable arity methods, none of which is more specific than the others by
         // "isMoreSpecificThan()": select the one that is more specific than all others by JLS8 15.12.2.5, like JAVAC
-        // (issue #156). "isMoreSpecificThan()" stays as it is, because it also selects methods that JAVAC reports as
-        // ambiguous, e.g. "f(int...)" for "f(1, 2)" with "f(Object...)".
+        // (issues #156 and #169). "isMoreSpecificThan()" stays as it is, because it also selects methods that JAVAC
+        // reports as ambiguous, e.g. "f(int...)" for "f(1, 2)" with "f(Object...)".
         //
-        // Compliance S-02: Not in the compliance mode, which compares the variable arity methods like JAVAC above, so
-        // that the rule of issue #156, which compares fewer parameters, does not select a method that JAVAC reports
-        // as ambiguous (issue #135).
+        // Compliance S-02: Not in the compliance mode, which compares the variable arity methods like JAVAC above
+        // already (issue #135).
         if (!compareVariableArity) {
             IClass.IInvocable ii = UnitCompiler.mostSpecificByVariableArity(
                 applicableIInvocables,
@@ -13240,13 +13239,7 @@ class UnitCompiler {
         for (IClass.IInvocable ii : invocables) {
             boolean mostSpecific = true;
             for (IClass.IInvocable other : invocables) {
-                if (
-                    other != ii
-                    && (
-                        !UnitCompiler.isMoreSpecificByVariableArity(ii, other, k)
-                        || UnitCompiler.isMoreSpecificByVariableArity(other, ii, k)
-                    )
-                ) {
+                if (other != ii && !UnitCompiler.isStrictlyMoreSpecificByVariableArity(ii, other, k)) {
                     mostSpecific = false;
                     break;
                 }
@@ -13279,25 +13272,13 @@ class UnitCompiler {
      */
     private static boolean
     isStrictlyMoreSpecificByVariableArity(IClass.IInvocable m1, IClass.IInvocable m2, int k) throws CompileException {
+
+        // With fewer parameters, e.g. "f(int, Object...)" would be more specific than "f(int...)" for "f(1)", which
+        // JAVAC reports as ambiguous (issue #169).
         int n = Math.max(Math.max(m1.getParameterTypes().length, m2.getParameterTypes().length), k);
         return (
             UnitCompiler.hasMoreSpecificVariableArityParameterTypes(m1, m2, n)
             && !UnitCompiler.hasMoreSpecificVariableArityParameterTypes(m2, m1, n)
-        );
-    }
-
-    /**
-     * @return Whether <var>m1</var> is more specific than <var>m2</var> for an invocation with <var>k</var>
-     *         arguments, where both are applicable by variable arity invocation (JLS8 15.12.2.5): each of the first
-     *         <var>k</var> variable arity parameter types of <var>m1</var> is a subtype of that of <var>m2</var>, and
-     *         so is the (<var>k</var> + 1)th one iff <var>m2</var> has <var>k</var> + 1 parameters
-     */
-    private static boolean
-    isMoreSpecificByVariableArity(IClass.IInvocable m1, IClass.IInvocable m2, int k) throws CompileException {
-        return UnitCompiler.hasMoreSpecificVariableArityParameterTypes(
-            m1,
-            m2,
-            m2.getParameterTypes().length == k + 1 ? k + 1 : k
         );
     }
 

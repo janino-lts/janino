@@ -277,7 +277,8 @@ so that the compliance mode also rejects `f(1, 2)` with `f(int...)` and `f(Objec
 `f(Object...)`, as ambiguous (L-49, #135); the compatibility mode selects `f(int...)` and `f(char...)`. Like `javac`, it
 compares the variable arity parameter types for as many parameters as the longer parameter list or the arguments have,
 so that `foo("a")` with `foo(String, Object...)` and `foo(String...)` invokes `foo(String...)`, and `f(1)` with `f(int,
-Object...)` and `f(int...)` is ambiguous.
+Object...)` and `f(int...)` is ambiguous; since #169 (3.1.20), the compatibility mode compares them like this as well,
+where it selects the method by this rule (#156).
 
 For S-17, the compliance mode treats a `final` local variable of a primitive type or of type `String` with a constant
 initializer as a constant variable (JLS 4.12.4), so that its simple name is a constant expression (JLS 15.28), like
