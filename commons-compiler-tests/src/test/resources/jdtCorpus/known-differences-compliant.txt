@@ -46,18 +46,14 @@ InnerEmulationTest.test124 WRONG
 # S-08, the binary names of local classes: "X$1$1$Y" instead of "X$1$1$1Y". Both modes.
 Compliance_1_4.test104 WRONG
 
-# D-09 (#139), a "final" local variable with a constant initializer is not a constant: "case u:" in a "switch" on a
-# "String" is rejected. Both modes.
-ConstantTest.testBug566332_01 REJECTED
-ConstantTest.testBug566332_02 REJECTED
+# D-12 (#166), a comparison of two expressions of the null type, "(null == null ? null : null) == (null == null ? null
+# : null)", is rejected ("Cannot compare types"). Compliance mode only: the compatibility mode folds the conditions
+# (S-19) and compares the null literals.
+ConstantTest.test009 REJECTED
 
 # #152, item 8: A conditional expression with a boolean and a numeric operand, e.g. "z ? 3.0f : false", is rejected
 # ("Incompatible expression types"). Both modes, since 3.1.12.
 AutoBoxingTest.test125 REJECTED
-
-# #152, item 13 (compare #140): "null == null" is a constant expression for JANINO, so that the statement after "while
-# (null == null);" is rejected as unreachable. Both modes, since 3.1.12.
-ConstantTest.test008 REJECTED
 
 # #152, item 4: A member type that a class inherits, and a member type of an enclosing class with the same name:
 # JANINO reports the simple name as ambiguous, where the inherited type shadows the other one (JLS 6.4.1). Both modes,

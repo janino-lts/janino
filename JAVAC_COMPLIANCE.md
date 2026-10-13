@@ -155,6 +155,7 @@ behavior. The compliance mode behaves like `javac`.
 | S-16 | a non-constant string concatenation with an empty operand can yield an existing `String`: `("b" + w) == ("b" + w)` is `true` for `w = ""` | |
 | S-17 | a `final` local variable with a constant initializer is not a constant variable: `z ? b : k` with `final int k = 5;` and a `byte b` is an `Integer`; `case k:` is rejected (D-09) | #139 |
 | S-18 | the methods of a class that is not accessible, inherited through an accessible subclass, are considered only if no accessible method is applicable: `p.B.s("x")` invokes `B.s(Object)`, not `A.s(String)` of the package-private superclass `A` | #154 |
+| S-19 | the `null` literal is a constant expression: `("a" + null) == "anull"` and `("x" + (null == null)) == "xtrue"` are `true`; a statement after `while (null == null);` is rejected as unreachable (D-11) | #140 |
 
 ### 4.3 Class V: valid legacy code that is miscompiled
 
@@ -287,8 +288,9 @@ logic has no error path, but silently does something else, the finding is of cla
   ID can be found in the code.
 - IDs are stable: a number is never reused or reassigned; new cases get the next number of their class.
 - Implemented so far: S-01, S-02, which also rejects L-49; S-03; S-11, which also rejects L-20, L-45 and L-46 and
-  corrects D-10; S-04, which also rejects L-47 and accepts D-07; S-12, which also rejects L-48; and S-13, which also
-  accepts D-08, fixed in both modes since 3.1.20 (the development line); see
+  corrects D-10; S-04, which also rejects L-47 and accepts D-07; S-12, which also rejects L-48; S-13, which also
+  accepts D-08, fixed in both modes since 3.1.20 (the development line); S-14, which also rejects L-50; S-17, which
+  also accepts D-09; and S-19, which also accepts D-11; see
   [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md) for what they do.
 
 ### 7.4 The system property
@@ -331,8 +333,9 @@ register is the public list; a deviation that is not in it is an unknown defect,
   concatenations, and uses each of them where the language decides by whether it is a constant expression: as the
   initializer of a `static final` field (the `ConstantValue` attribute of the class file is compared), as a `case`
   label, as the condition of a `while` statement, in a reference comparison of two evaluations (the interning of
-  constant strings) and as an `Object` (the type of the expression): the area of S-04, S-12, L-47, L-48 and D-07.
-  The generator avoids the constructs that S-05 does not fold (`Defect`). It runs in both modes as well.
+  constant strings) and as an `Object` (the type of the expression): the area of S-04, S-12, S-14, S-17, L-47, L-48,
+  L-50, D-07 and D-09. The generator avoids the constructs that S-05 does not fold (`Defect`), and in the
+  compatibility mode the `final` local variables of S-17. It runs in both modes as well.
 - `LegacyDifferentialTest` runs the recorded cases through 3.1.12, loaded from Maven Central into a class loader of
   its own (as `janino-benchmarks` loads its baseline), and compares its behavior with the recorded behavior of the
   compatibility mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction
@@ -372,6 +375,12 @@ The development line, 2026-10-10: S, 13 IDs, 7 corrected in the compliance mode;
 mode, 43 open; D, 8 IDs, 2 fixed (D-04 in 3.1.19 except for one form, see there; D-08 in 3.1.20), 1 corrected in the
 compliance mode only (D-07, see S-04), 5 open; G, 9 and F, 11 (outside the scope); A, 8. Of the 1025 recorded cases, the
 compliance mode agrees with `javac` on 885 (the compatibility mode on 822).
+
+The development line, 2026-10-13: S, 19 IDs, 10 corrected in the compliance mode; L, 50 IDs, 7 rejected in the
+compliance mode, 43 open; D, 12 IDs, 2 fixed (D-04 in 3.1.19 except for one form, see there; D-08 in 3.1.20), 4
+corrected in the compliance mode only (D-07, see S-04; D-09, see S-17; D-10, see S-11; D-11, see S-19), 6 open; G, 9
+and F, 11 (outside the scope); A, 8. Of the 1177 recorded cases, the compliance mode agrees with `javac` on 1030 (the
+compatibility mode on 940).
 
 ## 8. Registered exceptions
 
@@ -530,7 +539,8 @@ adds to it, as with #31 on the development line. The gates are those of 3.1.16.
 **Then:** S-11 (#101; done on the development line, 2026-10-09, which also rejects L-20, L-45 and L-46). S-04 (#38; done
 on the development line, 2026-10-09, which also rejects L-47 and accepts D-07), with S-12, which was found with it
 (rejects L-48); these were the last open deviations of class S that change the values of valid code, which is what users
-of the compliance mode notice first (the differential tests found four more later, S-14 to S-17, which are open).
+of the compliance mode notice first (the differential tests found four more later, S-14 to S-17; S-14 and S-17 were
+done on the development line, 2026-10-13, with S-19, which was found with them; S-15 and S-16 are open).
 Next the cases of class L that need no data flow analysis, by area, one branch each: modifiers, declarations and
 annotations; overrides, hiding and `throws` clauses; `catch` clauses; imports and access; statements. In each branch, the `compliant:` entries of the area change from `ACCEPTED` to `REJECTED`. Then
 S-07, S-08 and S-09 (reflection and class file details) as needed, and the remaining areas of class L. S-05 (constant

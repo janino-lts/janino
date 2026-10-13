@@ -3700,10 +3700,60 @@ class UnitCompiler {
 
         // Ignore "lvds.modifiers.annotations".
 
-        return (vd.localVariable = new LocalVariable(
+        LocalVariable lv = (vd.localVariable = new LocalVariable(
             lvds.isFinal(),            // finaL
             this.getType(variableType) // type
         ));
+
+        // Compliance S-17: A "final" local variable of a primitive type or of type "String" with a constant
+        // initializer is a constant variable (JLS 4.12.4), and its simple name is a constant expression (JLS 15.28),
+        // e.g. "final int k = 3;" allows "case k:" and "byte b = k;" (issue #139). The compatibility mode treats it
+        // like any other local variable. The initializer is evaluated on demand (see "constantVariableValue()"),
+        // because the names in it cannot be resolved before the local variable map of the statement is built.
+        if (
+            this.compliant()
+            && lvds.isFinal()
+            && vd.initializer instanceof Rvalue
+            && this.isConstantVariableType(lv.type)
+        ) this.constantVariables.put(lv, vd.initializer);
+
+        return lv;
+    }
+
+    /**
+     * In the compliance mode: the {@code final} local variables with a constant initializer (compliance S-17); the
+     * value is the initializer ({@link Rvalue}) until it is evaluated, then the constant value or {@link
+     * #NOT_CONSTANT}; see {@link #constantVariableValue(LocalVariable)}.
+     */
+    private final Map<LocalVariable, Object> constantVariables = new HashMap<>();
+
+    /**
+     * Compliance S-17: Determines the value of a constant variable (JLS 4.12.4) in the compliance mode.
+     *
+     * @return The constant value of the initializer, converted to the type of the local variable, or {@link
+     *         #NOT_CONSTANT} iff the <var>lv</var> is not a constant variable (also for the initializer {@code null},
+     *         which is not a constant expression, JLS 15.28)
+     */
+    private Object
+    constantVariableValue(LocalVariable lv) throws CompileException {
+
+        Object v = this.constantVariables.get(lv);
+        if (v == null) return UnitCompiler.NOT_CONSTANT;
+        if (!(v instanceof Rvalue)) return v;
+
+        // Guards against the recursion of "final int a = a + 1;".
+        this.constantVariables.put(lv, UnitCompiler.NOT_CONSTANT);
+
+        Object cv = this.getConstantValue((Rvalue) v);
+        if (cv != UnitCompiler.NOT_CONSTANT && cv != null) {
+            cv = this.convertConstant(cv, lv.type);
+            if (cv == UnitCompiler.NOT_CONVERTIBLE) cv = UnitCompiler.NOT_CONSTANT;
+        } else {
+            cv = UnitCompiler.NOT_CONSTANT;
+        }
+        assert cv != null;
+        this.constantVariables.put(lv, cv);
+        return cv;
     }
 
     /**
@@ -8046,6 +8096,11 @@ class UnitCompiler {
             for (Iterator<Rvalue> it = bo.unrollLeftAssociation(); it.hasNext();) {
                 Object cv = this.getConstantValue((Rvalue) it.next());
                 if (cv == UnitCompiler.NOT_CONSTANT) return UnitCompiler.NOT_CONSTANT;
+
+                // Compliance S-19: The null literal is not a constant expression (JLS 15.28), so "null == null" and
+                // "a" + null are not constant expressions, like with JAVAC; the compatibility mode folds them.
+                if (cv == null && this.compliant()) return UnitCompiler.NOT_CONSTANT;
+
                 cvs.add(cv);
             }
 
@@ -8180,6 +8235,14 @@ class UnitCompiler {
         if (bo.operator == "&&" || bo.operator == "||") { // SUPPRESS CHECKSTYLE StringLiteralEquality
             Object lhsValue = this.getConstantValue(bo.lhs);
             if (lhsValue instanceof Boolean) {
+
+                // Compliance S-14: The compatibility mode treats "true || z" and "false && z" as constant expressions
+                // for any right operand "z", because the left operand decides the value; the compliance mode
+                // requires both operands to be constant (JLS 15.28), like JAVAC (issue #140).
+                if (this.compliant() && this.getConstantValue(bo.rhs) == UnitCompiler.NOT_CONSTANT) {
+                    return UnitCompiler.NOT_CONSTANT;
+                }
+
                 boolean lhsBv = ((Boolean) lhsValue).booleanValue();
                 return (
                     bo.operator == "&&" // SUPPRESS CHECKSTYLE StringLiteralEquality
@@ -8217,6 +8280,12 @@ class UnitCompiler {
 
     private @Nullable Object
     getConstantValue2(LocalVariableAccess lva) throws CompileException {
+
+        // Compliance S-17: A constant variable (JLS 4.12.4) is a constant expression (issue #139).
+        if (this.compliant()) {
+            Object cv = this.constantVariableValue(lva.localVariable);
+            if (cv != UnitCompiler.NOT_CONSTANT) return cv;
+        }
 
         // An optimization for the (very special case)
         //
@@ -10770,7 +10839,11 @@ class UnitCompiler {
         List<Rvalue> tmp = new ArrayList<>();
         for (Rvalue nextOperand = secondOperand; nextOperand != null;) {
             Object cv = this.getConstantValue(nextOperand);
-            if (cv == UnitCompiler.NOT_CONSTANT) {
+
+            // Compliance S-19: A "null" operand is not merged with its constant neighbors into one string constant,
+            // because "a" + null is not a constant expression (JLS 15.28); it is converted at run time, like with
+            // JAVAC, so that the result is a new string.
+            if (cv == UnitCompiler.NOT_CONSTANT || (cv == null && this.compliant())) {
 
                 // Non-constant operand.
                 tmp.add(nextOperand);
@@ -11788,10 +11861,15 @@ class UnitCompiler {
                             ), location);
                         }
                         final IType   lvType = lv.type;
+
+                        // Compliance S-17: A constant variable (JLS 4.12.4) stays a constant expression in the local
+                        // or anonymous class; JAVAC inlines its value, here the synthetic field keeps it as well
+                        // (issue #139).
                         IClass.IField iField = new SimpleIField(
                             this.resolve(icd),
                             "val$" + identifier,
-                            UnitCompiler.rawTypeOf(lvType)
+                            UnitCompiler.rawTypeOf(lvType),
+                            this.compliant() ? this.constantVariableValue(lv) : UnitCompiler.NOT_CONSTANT
                         );
                         icd.defineSyntheticField(iField);
                         FieldAccess fa = new FieldAccess(
@@ -16952,15 +17030,25 @@ class UnitCompiler {
 
         private final String name;
         private final IClass type;
+        private final Object constantValue;
 
         public
         SimpleIField(IClass declaringIClass, String name, IClass type) {
-            declaringIClass.super();
-            this.name = name;
-            this.type = type;
+            this(declaringIClass, name, type, UnitCompiler.NOT_CONSTANT);
         }
 
-        @Override public Object        getConstantValue() { return UnitCompiler.NOT_CONSTANT; }
+        /**
+         * @param constantValue The constant value of the field, or {@link UnitCompiler#NOT_CONSTANT}
+         */
+        public
+        SimpleIField(IClass declaringIClass, String name, IClass type, Object constantValue) {
+            declaringIClass.super();
+            this.name          = name;
+            this.type          = type;
+            this.constantValue = constantValue;
+        }
+
+        @Override public Object        getConstantValue() { return this.constantValue;        }
         @Override public String        getName()          { return this.name;                 }
         @Override public IClass        getType()          { return this.type;                 }
         @Override public boolean       isStatic()         { return false;                     }

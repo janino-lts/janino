@@ -868,3 +868,265 @@ janino: OK
 public class P {
     public static Object run() { switch (5) { case true ? 5 : 0: return "five"; default: return "default"; } }
 }
+
+=== final local variable with a constant initializer as a case label
+jls: three
+janino: REJECTED Value of 'case' label does not pose a constant value
+compliant: OK
+id: D-09
+public class P {
+    public static Object run() { final int k = 3; switch (3) { case k: return "three"; default: return "default"; } }
+}
+
+=== final local variable with a constant initializer as a case label of a switch on a String
+jls: a
+janino: REJECTED Value of 'case' label is not a string constant
+compliant: OK
+id: D-09
+public class P {
+    public static Object run() { final String u = "a"; switch ("a") { case u: return "a"; default: return "default"; } }
+}
+
+=== final local variable with a constant initializer as a case label, in a nested block
+jls: a
+janino: REJECTED Value of 'case' label is not a string constant
+compliant: OK
+id: D-09
+public class P {
+    public static Object run() {
+        final String u = "a"; { switch ("a") { case u: return "a"; default: return "default"; } }
+    }
+}
+
+=== final local variable with a constant initializer assigned to a byte variable
+jls: 3
+janino: REJECTED Assignment conversion not possible from type "int" to type "byte"
+compliant: OK
+id: D-09
+public class P {
+    public static Object run() { final int k = 3; byte b = k; return b; }
+}
+
+=== final local variable with a constant initializer returned from a method with a return type of byte
+jls: 3
+janino: REJECTED Assignment conversion not possible from type "int" to type "byte"
+compliant: OK
+id: D-09
+public class P {
+    static byte f() { final int k = 3; return k; }
+    public static Object run() { return f(); }
+}
+
+=== final local variable with a constant initializer as the condition of a while statement without a return after it
+jls: 1
+janino: REJECTED Method must return a value
+compliant: OK
+id: D-09
+public class P {
+    static int f() { final boolean y = true; while (y) { return 1; } }
+    public static Object run() { return f(); }
+}
+
+=== final local variables with constant initializers of the types byte, long, double, char and int (converted)
+jls: ByteLong1.0 c k
+janino: REJECTED Value of 'case' label does not pose a constant value
+compliant: OK
+id: D-09
+public class P {
+    public static Object run() {
+        final char c = 'A'; final int k = 'a'; final byte b8 = 3; final long l = 1; final double d = 1;
+        Object ob = b8, ol = l, od = d;
+        String r = ob.getClass().getSimpleName() + ol.getClass().getSimpleName() + od;
+        switch (65) { case c: r += " c"; break; default: }
+        switch (97) { case k: r += " k"; break; default: }
+        return r;
+    }
+}
+
+=== final local variable initialized with another final local variable, as a case label
+jls: six
+janino: REJECTED Value of 'case' label does not pose a constant value
+compliant: OK
+id: D-09
+public class P {
+    public static Object run() {
+        final int k = 3; final int m = k * 2; switch (6) { case m: return "six"; default: return "default"; }
+    }
+}
+
+=== final local variable with a constant initializer, declared in the init part of a for statement, as a case label
+jls: zero
+janino: REJECTED Value of 'case' label does not pose a constant value
+compliant: OK
+id: D-09
+public class P {
+    public static Object run() {
+        for (final int i = 0; ; ) { switch (0) { case i: return "zero"; default: return "default"; } }
+    }
+}
+
+=== final local variable with a constant initializer, as a case label and in a string comparison in an anonymous class
+jls: true
+janino: REJECTED Value of 'case' label does not pose a constant value
+compliant: OK
+id: D-09, S-17
+public class P {
+    interface F { Object f(); }
+    public static Object run() {
+        final int k = 3; final String u = "a";
+        return new F() {
+            public Object f() { switch (3) { case k: return (u + "b") == "ab"; default: return "default"; } }
+        }.f();
+    }
+}
+
+=== final local variable with a constant initializer as a case label in a local class
+jls: three
+janino: REJECTED Value of 'case' label does not pose a constant value
+compliant: OK
+id: D-09
+public class P {
+    public static Object run() {
+        final int k = 3;
+        class L { Object f() { switch (3) { case k: return "three"; default: return "default"; } } }
+        return new L().f();
+    }
+}
+
+=== final local variable with a constant initializer in a string comparison
+jls: true
+janino: WRONG false
+compliant: OK
+id: S-17
+public class P {
+    public static Object run() { final String u = "a"; return (u + "b") == "ab"; }
+}
+
+=== final local variable with a constant initializer as the operand of a conditional expression with a byte operand
+jls: Byte 1
+janino: WRONG Integer 1
+compliant: OK
+legacy: REJECTED Assignment conversion not possible
+id: S-17, #56
+public class P {
+    public static Object run() {
+        boolean z = true; final int k = 5; byte b = 1; Object o = z ? b : k;
+        return o.getClass().getSimpleName() + " " + o;
+    }
+}
+
+=== final local variable initialized with null in a string comparison (not a constant variable)
+jls: false
+janino: OK
+public class P {
+    public static Object run() { final String s = null; return (s + "b") == "nullb"; }
+}
+
+=== final local variable with a constant initializer in an assert statement
+jls: 1
+janino: OK
+public class P {
+    public static Object run() { final boolean y = true; assert y; return 1; }
+}
+
+=== "||" with a constant left operand and a variable right operand, in a string comparison
+jls: false
+janino: WRONG true
+compliant: OK
+id: S-14
+public class P {
+    static boolean z = false;
+    public static Object run() { return ("a" + (true || z)) == "atrue"; }
+}
+
+=== "&&" with a constant left operand and a variable right operand, in a string comparison
+jls: false
+janino: WRONG true
+compliant: OK
+id: S-14
+public class P {
+    static boolean z = false;
+    public static Object run() { return ("a" + (false && z)) == "afalse"; }
+}
+
+=== "||" with constant operands, and with a variable left operand, in string comparisons
+jls: true false
+janino: OK
+public class P {
+    static boolean z = false;
+    public static Object run() { return (("a" + (true || true)) == "atrue") + " " + (("a" + (z || true)) == "atrue"); }
+}
+
+=== "||" and "&&" with a constant left operand and a variable right operand, as values
+jls: true false truefalse
+janino: OK
+public class P {
+    static boolean z = false;
+    public static Object run() {
+        boolean b = true || z; boolean c = false && z; return b + " " + c + " " + (true || z) + (false && z);
+    }
+}
+
+=== "null == null" in a string comparison
+jls: false
+janino: WRONG true
+compliant: OK
+id: S-19
+public class P {
+    public static Object run() { return ("x" + (null == null)) == "xtrue"; }
+}
+
+=== string concatenation with the null literal, in a string comparison
+jls: false
+janino: WRONG true
+compliant: OK
+id: S-19
+public class P {
+    public static Object run() { return ("a" + null) == "anull"; }
+}
+
+=== string concatenations with the null literal as the first, last and a middle operand
+jls: anull nulla anullb
+janino: OK
+legacy: INVALID InternalCompilerException
+id: #49
+public class P {
+    public static Object run() { return ("a" + null) + " " + (null + "a") + " " + ("a" + null + "b"); }
+}
+
+=== conditional expression with the null literal as the selected operand, in a string comparison
+jls: false
+janino: WRONG true
+compliant: OK
+id: S-19
+public class P {
+    public static Object run() { return ("x" + (true ? null : "a")) == "xnull"; }
+}
+
+=== "null == null" and "null != null" as values and as the condition of an if statement
+jls: true false
+janino: OK
+public class P {
+    public static Object run() {
+        boolean b = null == null; boolean c = null != null; if (null == null) return b + " " + c; return "default";
+    }
+}
+
+=== statement after "while (null == null);" (the condition is not a constant expression)
+jls: compiled
+janino: REJECTED Statement is unreachable
+compliant: OK
+id: D-11
+public class P {
+    static int f() { while (null == null); return 1; }
+    public static Object run() { return "compiled"; }
+}
+
+=== comparison of two conditional expressions whose operands are null (the null type)
+jls: true
+janino: REJECTED Cannot compare types "(null type)" and "(null type)"
+id: D-12, #166
+public class P {
+    static boolean z = false;
+    public static Object run() { return (z ? null : null) == (z ? null : null); }
+}
