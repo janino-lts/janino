@@ -189,7 +189,12 @@ h5 {
         <code>new X(c, t)</code> with the constructors <code>X(IClass c, X t, IType... args)</code> and
         <code>X(IClass c, IType... args)</code>: JANINO compared the component type of the variable arity parameter
         of one method with the array type of the other. Now, when that comparison finds no most specific method,
-        the rule of JLS 15.12.2.5 for an invocation by variable arity selects it, like JAVAC. Invocations that
+        the rule of JLS 15.12.2.5 for an invocation by variable arity selects it, like JAVAC. Like JAVAC, it compares
+        the variable arity parameter types for as many parameters as the longer parameter list or the arguments
+        have, so that <code>m(1)</code> with <code>m(int, Object...)</code> and <code>m(int...)</code> is reported
+        as ambiguous, as before, and <code>m(1)</code> with <code>m(int, long...)</code>, <code>m(int...)</code> and
+        <code>m(long...)</code> selects <code>m(int...)</code>
+        (<a href="https://github.com/janino-lts/janino/issues/169">issue #169</a>). Invocations that
         compiled before select the same method as before, also <code>g(1, 2)</code> with <code>g(int...)</code>
         and <code>g(Object...)</code>, which JAVAC reports as ambiguous. Only code that was rejected changes; the
         class files of all other code are unchanged.

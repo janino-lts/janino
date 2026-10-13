@@ -12472,8 +12472,8 @@ class UnitCompiler {
 
         // Two or more variable arity methods, none of which is more specific than the others by
         // "isMoreSpecificThan()": select the one that is more specific than all others by JLS8 15.12.2.5, like JAVAC
-        // (issue #156). "isMoreSpecificThan()" stays as it is, because it also selects methods that JAVAC reports as
-        // ambiguous, e.g. "f(int...)" for "f(1, 2)" with "f(Object...)".
+        // (issues #156 and #169). "isMoreSpecificThan()" stays as it is, because it also selects methods that JAVAC
+        // reports as ambiguous, e.g. "f(int...)" for "f(1, 2)" with "f(Object...)".
         {
             IClass.IInvocable ii = UnitCompiler.mostSpecificByVariableArity(
                 applicableIInvocables,
@@ -12542,13 +12542,16 @@ class UnitCompiler {
 
     /**
      * @return Whether <var>m1</var> is more specific than <var>m2</var> for an invocation with <var>k</var>
-     *         arguments, where both are applicable by variable arity invocation (JLS8 15.12.2.5): each of the first
-     *         <var>k</var> variable arity parameter types of <var>m1</var> is a subtype of that of <var>m2</var>, and
-     *         so is the (<var>k</var> + 1)th one iff <var>m2</var> has <var>k</var> + 1 parameters
+     *         arguments, where both are applicable by variable arity invocation, like JAVAC decides it (JLS8
+     *         15.12.2.5): each variable arity parameter type of <var>m1</var> is a subtype of that of <var>m2</var>,
+     *         for as many parameters as the longer parameter list or the arguments have
      */
     private static boolean
     isMoreSpecificByVariableArity(IClass.IInvocable m1, IClass.IInvocable m2, int k) throws CompileException {
-        int n = m2.getParameterTypes().length == k + 1 ? k + 1 : k;
+
+        // With fewer parameters, e.g. "f(int, Object...)" would be more specific than "f(int...)" for "f(1)", which
+        // JAVAC reports as ambiguous (issue #169).
+        int n = Math.max(Math.max(m1.getParameterTypes().length, m2.getParameterTypes().length), k);
         for (int i = 0; i < n; i++) {
             IClass t1 = UnitCompiler.variableArityParameterType(m1, i);
             IClass t2 = UnitCompiler.variableArityParameterType(m2, i);

@@ -422,8 +422,9 @@ Only code that failed changes. #153: an `if` statement whose branches are empty,
 `b == null` throws a `NullPointerException`, like with `javac`. Only code that was rejected changes. #156: an
 invocation of variable arity methods, one of which is more specific than the others by JLS 15.12.2.5, e.g.
 `g(1, 2, 3)` with `g(int...)` and `g(double...)`, was rejected as ambiguous (D); now that method is selected,
-like with `javac`. Only code that was rejected changes; `g(1, 2)` with `g(int...)` and `g(Object...)`, which
-`javac` rejects, still selects `g(int...)`. #154: a `public` or `protected` member of a class that is not
+like with `javac`, comparing as many parameters as the longer parameter list or the arguments have (#169). Only
+code that was rejected changes; `g(1, 2)` with `g(int...)` and `g(Object...)`, which `javac` rejects, still selects
+`g(int...)`. #154: a `public` or `protected` member of a class that is not
 accessible, inherited through an accessible subclass, e.g. `p.B.F` or `p.B.m()` with `public class B extends A` and
 a package-private class `A`, was rejected from another package (D); now the accessibility of the type through which
 the member is accessed counts (JLS 6.6.1), and the class file references the member through that type (JLS 13.1),

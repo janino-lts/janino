@@ -168,7 +168,10 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 - 3.1.20 (in development): An invocation of variable arity methods, one of which is more specific than the
   others by JLS 15.12.2.5, was rejected as ambiguous, e.g. `g(1, 2, 3)` with `g(int...)` and `g(double...)`, or
   `f("s", 1)` with `f(Object, int...)` and `f(String, int...)` ([#156]); now that method is selected, like with
-  `javac`. Invocations that compiled before select the same method as before, also `g(1, 2)` with `g(int...)`
+  `javac`. Like `javac`, the variable arity parameter types are compared for as many parameters as the longer
+  parameter list or the arguments have, so that `m(1)` with `m(int, Object...)` and `m(int...)` is reported as
+  ambiguous, as before, and `m(1)` with `m(int, long...)`, `m(int...)` and `m(long...)` selects `m(int...)`
+  ([#169]). Invocations that compiled before select the same method as before, also `g(1, 2)` with `g(int...)`
   and `g(Object...)`, which `javac` reports as ambiguous.
 
 **Imports** (3.1.20):
@@ -309,3 +312,4 @@ affected.
 [#156]: https://github.com/janino-lts/janino/issues/156
 [#157]: https://github.com/janino-lts/janino/issues/157
 [#160]: https://github.com/janino-lts/janino/issues/160
+[#169]: https://github.com/janino-lts/janino/issues/169
