@@ -75,7 +75,7 @@ the compliance mode follows `javac` (where the column says so; "open" means not 
 | S-13 | `f(Object o)` and `f(int... i)`; `f(new int[] { 1 })` | invokes `f(int...)` | invokes `f(Object)` (a variable arity method is less specific than a fixed arity method) | [#126](https://github.com/janino-lts/janino/issues/126) | like `javac` (development line) |
 | S-13 | `f(Object... a)`; `f(null)` | `a` is `null` | `a` is an array with one element `null` (the arguments of a variable arity method are always expanded) | [#126](https://github.com/janino-lts/janino/issues/126) | like `javac` (development line) |
 | S-14 | `static boolean z;`, `boolean x = ("a" + (true \|\| z)) == "atrue";` (also `false && z`; see below) | `x == false` | `x == true` | [#140](https://github.com/janino-lts/janino/issues/140) | like `javac` (development line) |
-| S-15 | `String t3(final int c) { class L { int c = 10; String l() { return "" + c; } } return new L().l(); }` (see below) | `t3(8)` is `"10"` (the field) | `t3(8)` is `"8"` (the parameter) | [#137](https://github.com/janino-lts/janino/issues/137) | open |
+| S-15 | `String t3(final int c) { class L { int c = 10; String l() { return "" + c; } } return new L().l(); }` (see below) | `t3(8)` is `"10"` (the field) | `t3(8)` is `"8"` (the parameter) | [#137](https://github.com/janino-lts/janino/issues/137) | like `javac` (development line) |
 | S-16 | `String w = ""; boolean x = ("b" + w) == ("b" + w);` (see below) | `x == false` | `x == true` | | open |
 | S-17 | `final int k = 5; byte b = 1; Object x = z ? b : k;` (see below) | `x` is a `Byte` | `x` is an `Integer` | [#139](https://github.com/janino-lts/janino/issues/139) | like `javac` (development line) |
 | S-18 | `B.s("x")` with `static s(Object)` in a public class `B` and `static s(String)` in its package-private superclass `A`, from another package (see below) | invokes `A.s(String)` | invokes `B.s(Object)` (the methods of `A` are considered only if no accessible method is applicable) | [#154](https://github.com/janino-lts/janino/issues/154) | open |
@@ -210,7 +210,11 @@ both a field of the class, declared or inherited, and a parameter or local varia
 the variable with Janino; by JLS 6.4.1, the field shadows the variable, and `javac` reads the field. For example,
 `new P() { int d = 20; String x() { return "" + d; } }.x()` in a method of `P` with a parameter `final int d` reads
 the parameter, and `new P() { String x() { return "" + d; } }.x()` reads the parameter instead of the field `d`
-that the anonymous class inherits from `P`.
+that the anonymous class inherits from `P`. As a consequence, Janino rejects such code if the variable is not
+effectively final (D-13). The compliance mode follows `javac` (development line), also for a field that a class
+inherits from an interface, in a field initializer of the class, and for a local class declared in a method of
+another local class; a `private` field of a superclass is not inherited (JLS 8.2), so it does not shadow the
+variable, with either compiler.
 
 **S-16, the identity of a non-constant string concatenation**: JLS 15.18.1 requires the result of a string
 concatenation that is not a constant expression to be a newly created `String`. Janino compiles a concatenation of up
@@ -332,6 +336,12 @@ type here. Only a conditional expression whose operands are both `null` has the 
 modes, since 3.1.12; in the compliance mode also `(null == null ? null : null) == (null == null ? null : null)`, whose
 conditions the compatibility mode folds (S-19).
 
+**D-13, a field of a local or anonymous class with the name of a variable that is not effectively final**
+([#137](https://github.com/janino-lts/janino/issues/137)): `void f(int c) { c = 2; class L { int c = 10; int g() {
+return c; } } }` is rejected (`Cannot access non-final local variable "c" from inner class`), because Janino takes
+`c` for the parameter (S-15); `javac` reads the field. The compatibility mode cannot accept this code without giving
+up the rule of S-15 that it keeps for legacy code; the compliance mode accepts it, like `javac` (development line).
+
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions
 and method references; F-02 `switch` expressions, arrow labels and multiple labels in a `case`; F-03 pattern
@@ -405,7 +415,8 @@ and the like (`Invocation of constructor/method with argument type(s) "int, int,
 they compare the component type of the variable arity parameter of one method with the array type of the other.
 Since 3.1.20, when this comparison finds no most specific method, the rule of JLS 15.12.2.5 for an invocation
 by variable arity selects it, like with `javac`. The comparison itself is unchanged, because it also selects
-methods that `javac` reports as ambiguous (L-49).
+methods that `javac` reports as ambiguous (L-49); the compliance mode of the development line applies only the rule of
+JLS 15.12.2.5 ([#135](https://github.com/janino-lts/janino/issues/135)).
 
 **A member of a class that is not accessible, inherited through an accessible subclass**
 ([#154](https://github.com/janino-lts/janino/issues/154), fixed in 3.1.20): for `public class B extends A` with a
@@ -556,9 +567,14 @@ and assigns a parameterized type to a field with a different type argument
 - L-49: an invocation that is ambiguous in phase 3 of JLS 15.12.2, because neither of two variable arity methods is more
   specific: `f(4)` with `f(int...)` and `f(Number...)`; Janino invokes `f(int...)`, because it applies variable arity
   methods before boxing (the compliance mode rejects it, see S-02); likewise `f(1, 2)` with `f(int...)` and
-  `f(Integer...)` (the compliance mode rejects it), and `f(1, 2)` with `f(int...)` and `f(Object...)`, where Janino
-  compares `Object` with the array type `int[]` (also in the compliance mode;
-  [#135](https://github.com/janino-lts/janino/issues/135), [#156](https://github.com/janino-lts/janino/issues/156));
+  `f(Integer...)`, and `f(1, 2)` with `f(int...)` and `f(Object...)`, `f(1)` with `f(int...)` and
+  `f(Serializable...)`, and `f()` with `f(char...)` and `f(Object...)`, where Janino compares `Object` or
+  `Serializable` with the array type `int[]` or `char[]`
+  ([#156](https://github.com/janino-lts/janino/issues/156)), and `f(1)` with `f(int, Object...)` and `f(int...)`,
+  or with `f(Object...)` and `f(Object, Object...)`; the compliance mode rejects all of them, like `javac`
+  ([#135](https://github.com/janino-lts/janino/issues/135), development line): like `javac`, it compares the
+  variable arity parameter types of two such methods for as many parameters as the longer parameter list or the
+  arguments have;
 - L-50: `&&` or `||` with a constant left operand that decides the value and a right operand that is not constant
   (S-14), where a constant expression is required, or as the condition of a `while` statement that must not complete
   normally: `case (false && z) ? 1 : 2:` and `int f() { while (true || z) { return 1; } }` with a `boolean z`

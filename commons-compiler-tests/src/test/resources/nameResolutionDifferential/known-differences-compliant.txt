@@ -1,24 +1,2 @@
 # Known differences between JANINO in the compliance mode and JAVAC; see "NameResolutionDifferentialTest".
 # Format: <seed> <probe>[+ea] <WRONG|REJECTED|ACCEPTED|INVALID>
-
-# S-15 (#137), scoping in local and anonymous classes: a parameter or local variable of the enclosing
-# method shadows a field that the local or anonymous class declares or inherits, where JLS 6.4.1 says the field
-# shadows the variable; the probe reads the variable (also as the condition of an "assert" statement). Both
-# modes, since 3.1.12.
-20261014 p9 WRONG
-20261014 p9+ea WRONG
-20261015 p1 WRONG
-20261018 p4 WRONG
-20261018 p4+ea WRONG
-20261019 p0 WRONG
-20261019 p0+ea WRONG
-20261029 p9 WRONG
-20261034 p9 WRONG
-20261034 p9+ea WRONG
-20261037 p7 WRONG
-20261037 p7+ea WRONG
-20261039 p1 WRONG
-20261039 p4 WRONG
-20261039 p4+ea WRONG
-20261047 p6 WRONG
-20261047 p6+ea WRONG

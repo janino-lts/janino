@@ -11851,6 +11851,11 @@ class UnitCompiler {
                     s = s.getEnclosingScope().getEnclosingScope();
                 }
                 while (s instanceof BlockStatement) {
+
+                    // Compliance S-15: A field that the local or anonymous class declares or inherits shadows a
+                    // variable of the enclosing method (JLS 6.4.1); the field lookup below finds it (issue #137).
+                    if (this.compliant() && this.findIField(this.resolve(icd), identifier, location) != null) break;
+
                     LocalVariable lv = ((BlockStatement) s).findLocalVariable(identifier);
                     if (lv != null) {
                         if (!lv.finaL && !this.isEffectivelyFinal(identifier, (BlockStatement) s)) {
@@ -12944,6 +12949,12 @@ class UnitCompiler {
         if (applicableIInvocables.size() == 0) return null;
 
         // 15.12.2.5. Determine the "maximally specific invocables".
+        //
+        // Compliance S-02: In phase 3, a variable arity method is more specific by its variable arity parameter types
+        // (JLS 15.12.2.5), not by the array type, so that neither "f(int...)" nor "f(Object...)" is more specific
+        // than the other (issue #135).
+        boolean compareVariableArity = !byFixedArity && this.compliant();
+        assert !compareVariableArity || UnitCompiler.allArgsNeedAdjust(applicableIInvocables);
         List<IClass.IInvocable> maximallySpecificIInvocables = new ArrayList<>();
         for (IClass.IInvocable applicableIInvocable : applicableIInvocables) {
             int moreSpecific = 0, lessSpecific = 0;
@@ -12957,14 +12968,26 @@ class UnitCompiler {
                     && (applicableIInvocable.isVarargs() || mostSpecificIInvocable.isVarargs())
                 );
                 if (
-                    compareParameterTypes
+                    compareVariableArity
+                    ? UnitCompiler.isStrictlyMoreSpecificByVariableArity(
+                        applicableIInvocable,
+                        mostSpecificIInvocable,
+                        argumentTypes.length
+                    )
+                    : compareParameterTypes
                     ? UnitCompiler.hasMoreSpecificParameterTypes(applicableIInvocable, mostSpecificIInvocable)
                     : applicableIInvocable.isMoreSpecificThan(mostSpecificIInvocable)
                 ) {
                     ++moreSpecific;
                 } else
                 if (
-                    compareParameterTypes
+                    compareVariableArity
+                    ? UnitCompiler.isStrictlyMoreSpecificByVariableArity(
+                        mostSpecificIInvocable,
+                        applicableIInvocable,
+                        argumentTypes.length
+                    )
+                    : compareParameterTypes
                     ? UnitCompiler.hasMoreSpecificParameterTypes(mostSpecificIInvocable, applicableIInvocable)
                     : applicableIInvocable.isLessSpecificThan(mostSpecificIInvocable)
                 ) {
@@ -13109,7 +13132,7 @@ class UnitCompiler {
 
             // Return a "dummy" method.
             final IClass[]       tes = (IClass[]) s.toArray(new IClass[s.size()]);
-            return im.getDeclaringIClass().new IMethod() {
+            IClass.IMethod       result = im.getDeclaringIClass().new IMethod() {
 
                 @Override public IAnnotation[] getAnnotations()                             { return im.getAnnotations();    }
                 @Override public Access        getAccess()                                  { return im.getAccess();         }
@@ -13122,6 +13145,11 @@ class UnitCompiler {
                 @Override public boolean       isVarargs()                                  { return im.isVarargs();         }
                 @Override public IClass[]      getThrownExceptions2()                       { return tes;                    }
             };
+
+            // The arguments of a variable arity invocation are expanded into an array like for "im", e.g. for the
+            // same variable arity method in two superinterfaces in the compliance mode (issue #135).
+            result.setArgsNeedAdjust(im.argsNeedAdjust());
+            return result;
         }
 
         if (!boxingPermitted) return null; // To try again.
@@ -13130,7 +13158,11 @@ class UnitCompiler {
         // "isMoreSpecificThan()": select the one that is more specific than all others by JLS8 15.12.2.5, like JAVAC
         // (issue #156). "isMoreSpecificThan()" stays as it is, because it also selects methods that JAVAC reports as
         // ambiguous, e.g. "f(int...)" for "f(1, 2)" with "f(Object...)".
-        {
+        //
+        // Compliance S-02: Not in the compliance mode, which compares the variable arity methods like JAVAC above, so
+        // that the rule of issue #156, which compares fewer parameters, does not select a method that JAVAC reports
+        // as ambiguous (issue #135).
+        if (!compareVariableArity) {
             IClass.IInvocable ii = UnitCompiler.mostSpecificByVariableArity(
                 applicableIInvocables,
                 argumentTypes.length
@@ -13200,9 +13232,7 @@ class UnitCompiler {
     @Nullable private static IClass.IInvocable
     mostSpecificByVariableArity(List<IClass.IInvocable> invocables, int k) throws CompileException {
 
-        for (IClass.IInvocable ii : invocables) {
-            if (!ii.isVarargs() || !ii.argsNeedAdjust()) return null;
-        }
+        if (!UnitCompiler.allArgsNeedAdjust(invocables)) return null;
 
         IClass.IInvocable result = null;
         for (IClass.IInvocable ii : invocables) {
@@ -13228,6 +13258,33 @@ class UnitCompiler {
     }
 
     /**
+     * @return Whether all of the <var>invocables</var> are variable arity invocables that are applicable by variable
+     *         arity invocation (JLS8 15.12.2.4)
+     */
+    private static boolean
+    allArgsNeedAdjust(List<IClass.IInvocable> invocables) {
+        for (IClass.IInvocable ii : invocables) {
+            if (!ii.isVarargs() || !ii.argsNeedAdjust()) return false;
+        }
+        return true;
+    }
+
+    /**
+     * @return Whether <var>m1</var> is strictly more specific than <var>m2</var> for an invocation with <var>k</var>
+     *         arguments, where both are applicable by variable arity invocation, like JAVAC decides it (JLS8
+     *         15.12.2.5): the variable arity parameter types of <var>m1</var> are subtypes of those of <var>m2</var>,
+     *         and not vice versa, for as many parameters as the longer parameter list or the arguments have
+     */
+    private static boolean
+    isStrictlyMoreSpecificByVariableArity(IClass.IInvocable m1, IClass.IInvocable m2, int k) throws CompileException {
+        int n = Math.max(Math.max(m1.getParameterTypes().length, m2.getParameterTypes().length), k);
+        return (
+            UnitCompiler.hasMoreSpecificVariableArityParameterTypes(m1, m2, n)
+            && !UnitCompiler.hasMoreSpecificVariableArityParameterTypes(m2, m1, n)
+        );
+    }
+
+    /**
      * @return Whether <var>m1</var> is more specific than <var>m2</var> for an invocation with <var>k</var>
      *         arguments, where both are applicable by variable arity invocation (JLS8 15.12.2.5): each of the first
      *         <var>k</var> variable arity parameter types of <var>m1</var> is a subtype of that of <var>m2</var>, and
@@ -13235,7 +13292,20 @@ class UnitCompiler {
      */
     private static boolean
     isMoreSpecificByVariableArity(IClass.IInvocable m1, IClass.IInvocable m2, int k) throws CompileException {
-        int n = m2.getParameterTypes().length == k + 1 ? k + 1 : k;
+        return UnitCompiler.hasMoreSpecificVariableArityParameterTypes(
+            m1,
+            m2,
+            m2.getParameterTypes().length == k + 1 ? k + 1 : k
+        );
+    }
+
+    /**
+     * @return Whether each of the first <var>n</var> variable arity parameter types of <var>m1</var> is a subtype of
+     *         that of <var>m2</var>
+     */
+    private static boolean
+    hasMoreSpecificVariableArityParameterTypes(IClass.IInvocable m1, IClass.IInvocable m2, int n)
+    throws CompileException {
         for (int i = 0; i < n; i++) {
             IClass t1 = UnitCompiler.variableArityParameterType(m1, i);
             IClass t2 = UnitCompiler.variableArityParameterType(m2, i);

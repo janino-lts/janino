@@ -726,6 +726,33 @@ public class P {
     public static Object run() { return new B().g(1, 2) + "|" + new B().g(1.0); }
 }
 
+=== varargs: the more specific of two variable arity methods: g(String...) and g(Object...) for g("a") and g()
+jls: String...|String...|Object...
+janino: OK
+public class P {
+    static String g(String... s) { return "String..."; }
+    static String g(Object... o) { return "Object..."; }
+    public static Object run() { return g("a") + "|" + g() + "|" + g(1); }
+}
+
+=== varargs: the more specific of two variable arity methods: g(Integer...) and g(Object...) for g(1), with boxing
+jls: Integer...|Integer...
+janino: OK
+public class P {
+    static String g(Integer... i) { return "Integer..."; }
+    static String g(Object... o)  { return "Object..."; }
+    public static Object run() { return g(1) + "|" + g(1, 2); }
+}
+
+=== varargs: the more specific of two variable arity methods: foo(String...) and foo(String, Object...) for foo("a")
+jls: String...
+janino: OK
+public class P {
+    static String foo(String s, Object... o) { return "String, Object..."; }
+    static String foo(String... s)           { return "String..."; }
+    public static Object run() { return foo("a"); }
+}
+
 === varargs: the more specific of two variable arity methods: the arguments are evaluated in order
 jls: int212
 janino: OK

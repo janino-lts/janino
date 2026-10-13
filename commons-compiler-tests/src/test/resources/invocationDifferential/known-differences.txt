@@ -22,7 +22,7 @@
 20261066 p3 WRONG
 
 # L-49: an invocation that JAVAC rejects as ambiguous, because neither of two variable arity methods is more
-# specific, is accepted; JANINO selects one of them.
+# specific, is accepted; JANINO selects one of them. Compatibility mode only (the compliance mode rejects it).
 20261011 p5 ACCEPTED
 20261011 p6 ACCEPTED
 20261011 p7 ACCEPTED

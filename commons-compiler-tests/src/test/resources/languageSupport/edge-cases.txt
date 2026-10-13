@@ -1,4 +1,5 @@
-# Overload resolution, constants, conversions and string concatenation. See "LanguageSupportTest" for the format.
+# Overload resolution, constants, conversions, string concatenation and scoping. See "LanguageSupportTest" for the
+# format.
 
 === overload resolution: f(long) is preferred over f(Integer) for f(1)
 jls: long
@@ -1129,4 +1130,130 @@ id: D-12, #166
 public class P {
     static boolean z = false;
     public static Object run() { return (z ? null : null) == (z ? null : null); }
+}
+
+=== field of an anonymous class and a parameter of the enclosing method with the same name (the field shadows it)
+jls: 20
+janino: WRONG 18
+compliant: OK
+id: S-15
+public class P {
+    static int d = 4;
+    String an1(final int d) { return new P() { int d = 20; String x() { return "" + d; } }.x(); }
+    public static Object run() { return new P().an1(18); }
+}
+
+=== field that an anonymous class inherits and a parameter of the enclosing method with the same name
+jls: 4
+janino: WRONG 28
+compliant: OK
+id: S-15
+public class P {
+    static int d = 4;
+    String an2(final int d) { return new P() { String x() { return "" + d; } }.x(); }
+    public static Object run() { return new P().an2(28); }
+}
+
+=== field of a local class and a parameter of the enclosing method with the same name
+jls: 10
+janino: WRONG 8
+compliant: OK
+id: S-15
+public class P {
+    static String t3(final int c) { class L { int c = 10; String l() { return "" + c; } } return new L().l(); }
+    public static Object run() { return t3(8); }
+}
+
+=== field of an anonymous class and a local variable of the enclosing method with the same name
+jls: 10
+janino: WRONG 8
+compliant: OK
+id: S-15
+public class P {
+    interface F { int f(); }
+    public static Object run() { final int c = 8; return new F() { int c = 10; public int f() { return c; } }.f(); }
+}
+
+=== field of a local class with the name of a parameter, read in a field initializer of the local class
+jls: 11
+janino: WRONG 9
+compliant: OK
+id: S-15
+public class P {
+    static int g(final int c) { class L { int c = 10; int e = c + 1; } return new L().e; }
+    public static Object run() { return g(8); }
+}
+
+=== field that an anonymous class inherits from an interface and a parameter with the same name
+jls: 30
+janino: WRONG 8
+compliant: OK
+id: S-15
+public class P {
+    interface I { int c = 30; int f(); }
+    static int g(final int c) { return new I() { public int f() { return c; } }.f(); }
+    public static Object run() { return g(8); }
+}
+
+=== field of a local class, read from a local class in its method, and a parameter of the outer method
+jls: 107
+janino: WRONG 87
+compliant: OK
+id: S-15
+public class P {
+    static String t(final int c) {
+        class L1 {
+            int c = 10;
+            String m(final int e) { class L2 { String g() { return "" + c + e; } } return new L2().g(); }
+        }
+        return new L1().m(7);
+    }
+    public static Object run() { return t(8); }
+}
+
+=== field of a local class with the name of a parameter, next to another captured variable
+jls: 11,12
+janino: WRONG 11,10
+compliant: OK
+id: S-15
+public class P {
+    static String t4(final int a) {
+        final int b = 11;
+        class L { int a = 12; String l() { return "" + b + "," + a; } }
+        return new L().l();
+    }
+    public static Object run() { return t4(10); }
+}
+
+=== field of a local class with the name of a parameter that is not effectively final
+jls: 12
+janino: REJECTED Cannot access non-final local variable "c" from inner class
+compliant: OK
+id: D-13
+public class P {
+    static int g(int c) { c = 2; class L { int c = 10; int l() { return c; } } return new L().l() + c; }
+    public static Object run() { return g(8); }
+}
+
+=== private field of the superclass of a local class (not inherited) and a parameter with the same name
+jls: 8
+janino: OK
+public class P {
+    static class B { private int c = 50; }
+    static int g(final int c) { class L extends B { int l() { return c; } } return new L().l(); }
+    public static Object run() { return g(8); }
+}
+
+=== parameter of a method of a local class with the name of a field of the local class (the parameter shadows it)
+jls: 7
+janino: OK
+public class P {
+    static String t(final int c) {
+        class L1 {
+            int c = 10;
+            String m(final int c) { class L2 { String g() { return "" + c; } } return new L2().g(); }
+        }
+        return new L1().m(7);
+    }
+    public static Object run() { return t(8); }
 }
