@@ -16,6 +16,8 @@ Janino, not against `javac`; this page is written for them.
   finds one exception, which came in with the last upstream pull request: the two constructors of the AST class
   `Java.Wildcard` gained a parameter for the annotations of the wildcard (3.1.13). The other thing that changed
   is the Maven group ID, `io.github.janino-lts` since 3.1.15 (see the [README](README.md) for the consequences).
+  Since 3.1.20, the JAR files are no longer signed with the dummy certificate of earlier releases; the classes, the
+  manifest attributes and the OSGi headers are unchanged.
 - **Java 8.** Janino runs on Java 8 and later (3.1.12: Java 7) and is tested on Java 8, 17, 21 and 25. The class
   files that it generates have the class file version of Java 8 by default (since 3.1.13; before, Java 6); the
   target version can be set, as before.
