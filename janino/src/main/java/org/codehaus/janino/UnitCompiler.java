@@ -1763,12 +1763,13 @@ class UnitCompiler {
         List<BlockStatement> statements
     ) throws CompileException {
 
-        // Create class/interface initialization method iff there is any initialization code.
+        // Create class/interface initialization method iff there is any initialization code. Its only access flag is
+        // "ACC_STATIC", like with JAVAC (JVMS 4.6, issue #107).
         if (this.generatesCode2(statements)) {
             MethodDeclarator md = new MethodDeclarator(
                 td.getLocation(),                                                   // location
                 null,                                                               // docComment
-                UnitCompiler.accessModifiers(td.getLocation(), "static", "public"), // modifiers
+                UnitCompiler.accessModifiers(td.getLocation(), "static"),           // modifiers
                 null,                                                               // typeParameters
                 new PrimitiveType(td.getLocation(), Primitive.VOID),                // type
                 "<clinit>",                                                         // name
@@ -4596,11 +4597,12 @@ class UnitCompiler {
             if (fd.formalParameters.variableArity) accessFlags |= Mod.VARARGS;
             if (this.accessors.contains(fd)) accessFlags |= Mod.SYNTHETIC;
 
-            if (fd.getDeclaringType() instanceof InterfaceDeclaration) {
+            // The interface initialization method "<clinit>" is neither "ACC_PUBLIC" nor "ACC_ABSTRACT" (issue #107).
+            if (fd.getDeclaringType() instanceof InterfaceDeclaration && !"<clinit>".equals(fd.name)) {
 
                 accessFlags |= Mod.PUBLIC;
 
-                if (Mod.isStatic(accessFlags) && !"<clinit>".equals(fd.name)) {
+                if (Mod.isStatic(accessFlags)) {
                     if (this.getTargetVersion() < 8) {
                         this.compileError("Static interface methods only available for target version 8+", fd.getLocation());
                     }
@@ -17018,8 +17020,13 @@ class UnitCompiler {
         );
         TypeBodyDeclaration result = (TypeBodyDeclaration) s;
 
+        // The message names the kind of the static context, like for "this" (issue #108).
         if (UnitCompiler.isStaticContext(result)) {
-            this.compileError("No current instance available in static method", qtr.getLocation());
+            this.compileError((
+                result instanceof Initializer      ? "No current instance available in static initializer" :
+                result instanceof FieldDeclaration ? "No current instance available in static field initializer" :
+                "No current instance available in static method"
+            ), qtr.getLocation());
         }
 
         // Determine declaring type.

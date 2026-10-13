@@ -262,6 +262,24 @@ h5 {
         field (<code>"10"</code>) instead of the parameter, and such code compiles where the variable is not
         effectively final (deviations S-15 and D-13). The compatibility mode is unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/107">issue #107</a>: The class and interface
+        initialization method <code>&lt;clinit&gt;</code> had the access flags <code>ACC_PUBLIC, ACC_STATIC</code>
+        (<code>0x0009</code>), in an interface <code>ACC_PUBLIC, ACC_STATIC, ACC_ABSTRACT</code>
+        (<code>0x0409</code>); now it has <code>ACC_STATIC</code> (<code>0x0008</code>) only, like with JAVAC (JVMS
+        4.6). The JVM ignored the other flags, and neither the reflection API nor the default
+        <code>serialVersionUID</code> sees them, so the behavior is unchanged. The class files of all classes and
+        interfaces with a static initializer, an initialized static field or enum constants change in these two
+        bytes; their size does not.
+      </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/108">issue #108</a>: An instance field, a qualified
+        <code>this</code> or the instantiation of an inner class in a static initializer or in the initializer of a
+        static field was reported as <code>No current instance available in static method</code>, although there is
+        no method; now the message names the context, <code>No current instance available in static
+        initializer</code> or <code>... in static field initializer</code>, like for <code>this</code>. In a static
+        method, the message is unchanged. The same code is rejected as before.
+      </li>
     </ul>
 
     <h4>Version 3.1.20 (unreleased)</h4>

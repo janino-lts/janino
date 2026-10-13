@@ -82,6 +82,42 @@ public class P {
     static { o = this; }
 }
 
+=== instance field in static initializer
+janino: REJECTED No current instance available in static initializer
+legacy: REJECTED No current instance available in static method
+id: #108
+public class P {
+    int x;
+    static { int y = x; }
+}
+
+=== instance field in static field initializer
+janino: REJECTED No current instance available in static field initializer
+legacy: REJECTED No current instance available in static method
+id: #108
+public class P {
+    int x;
+    static int y = x;
+}
+
+=== qualified this in static initializer
+janino: REJECTED No current instance available in static initializer
+legacy: REJECTED No current instance available in static method
+id: #108
+public class P {
+    int x;
+    static { int y = P.this.x; }
+}
+
+=== instantiation of an inner class in static field initializer
+janino: REJECTED No current instance available in static field initializer
+legacy: REJECTED No current instance available in static method
+id: #108
+public class P {
+    class I {}
+    static Object o = new I();
+}
+
 === super method invocation in static method
 janino: REJECTED Superclass method cannot be invoked in static context
 public class P {
