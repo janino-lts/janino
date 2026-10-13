@@ -30,6 +30,11 @@ marked with the version.
 - **Maven group ID** `io.github.janino-lts` since 3.1.15 (3.1.13 and 3.1.14 are GitHub releases only). The
   packages are unchanged. Where another dependency brings in the original `org.codehaus.janino` artifacts, exclude
   them; see the [README](README.md).
+- **Unsigned JAR files** since 3.1.20: the JAR files are no longer signed with the dummy certificate of earlier
+  releases, whose key is public. The JVM no longer verifies that signature when it loads Janino, which saves about
+  110 to 140 ms on each start of a JVM, and a fat JAR no longer needs to exclude `META-INF/DUMMY.SF` and
+  `META-INF/DUMMY.DSA`. The classes and the manifest attributes are unchanged; the integrity of the files is
+  checked with the checksums of the GitHub releases and the PGP signatures on Maven Central.
 - **The security-manager-based `Sandbox`** is deprecated since 3.1.13, but still present. Its replacement, sandbox
   policies and the `SandboxExecutor`, works on Java 8 and later without a security manager; see
   [Restricting Untrusted Code with a Sandbox Policy](SANDBOX.md).

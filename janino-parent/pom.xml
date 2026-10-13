@@ -138,32 +138,6 @@
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jarsigner-plugin</artifactId>
-        <version>1.4</version>
-        <executions>
-          <execution>
-            <id>sign</id>
-            <goals>
-              <goal>sign</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <keystore>../janino-parent/dummy-keystore</keystore>
-          <alias>dummy</alias>
-          <storepass>storepass</storepass>
-          <keypass>keypass</keypass>
-
-          <!-- The digest algorithm of 3.1.12 (built with JDK 11); later JDKs default to SHA-384. -->
-          <arguments>
-            <argument>-digestalg</argument>
-            <argument>SHA-256</argument>
-          </arguments>
-        </configuration>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
         <version>3.11.2</version>
         <configuration>

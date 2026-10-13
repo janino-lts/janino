@@ -692,6 +692,12 @@ sha256sum -c SHA256SUMS</pre></div>
           <a href="pgp_key3.txt">Key #3</a>
         </p>
 
+        <p>
+          Since version 3.1.20, the JAR files themselves are not signed (with <code>jarsigner</code>). Those of
+          3.1.19 and earlier carry a signature with a dummy certificate whose key is public, so that it proves nothing;
+          use the checksums and the PGP signatures above instead.
+        </p>
+
         <h3>
           <a id="installation" class="anchor" href="#installation" aria-hidden="true"><span aria-hidden="true"
           class="octicon octicon-link"></span></a>Installation
