@@ -3,7 +3,7 @@
 For projects that depend on Janino 3.1.12, the last release of the original project, and consider an upgrade:
 what the releases 3.1.13 to 3.1.20 of this continuation change, in short. The
 [change log](https://janino-lts.github.io/janino/changelog.html) has the complete entries, with details and
-examples; this page summarizes it. State: 3.1.20 is in preparation. The entries of 3.1.17 and later are
+examples; this page summarizes it. State: 3.1.20, released on 2026-10-14. The entries of 3.1.17 and later are
 marked with the version.
 
 ## What stays the same
@@ -31,8 +31,7 @@ marked with the version.
   packages are unchanged. Where another dependency brings in the original `org.codehaus.janino` artifacts, exclude
   them; see the [README](README.md).
 - **Unsigned JAR files** since 3.1.20: the JAR files are no longer signed with the dummy certificate of earlier
-  releases, whose key is public. The JVM no longer verifies that signature when it loads Janino, which saves about
-  110 to 140 ms on each start of a JVM, and a fat JAR no longer needs to exclude `META-INF/DUMMY.SF` and
+  releases, whose key is public. A fat JAR no longer needs to exclude `META-INF/DUMMY.SF` and
   `META-INF/DUMMY.DSA`. The classes and the manifest attributes are unchanged; the integrity of the files is
   checked with the checksums of the GitHub releases and the PGP signatures on Maven Central.
 - **The security-manager-based `Sandbox`** is deprecated since 3.1.13, but still present. Its replacement, sandbox

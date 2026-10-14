@@ -385,7 +385,7 @@ e.g. `09.5`, was rejected (D); now it compiles, except with an underscore direct
 `9`, e.g. `0_9.5`; invalid octal integer literals keep their messages, and the class files of all other code are
 unchanged.
 
-**3.1.20 (in preparation):** #127, found with #126 on the development line: an array of a primitive type as the
+**3.1.20 (released):** #127, found with #126 on the development line: an array of a primitive type as the
 only variable arity argument of a parameter `Object...` or `Serializable...` was rejected when another argument
 needs boxing, e.g. `f(1, new int[] { 1, 2 })` with `f(Integer i, Object... a)` (D); now the array is passed as the
 only element, like with `javac`. Only invocations that were rejected change; where `javac` rejects the invocation
