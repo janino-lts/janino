@@ -50,6 +50,18 @@ h5 {
     <a href="index.html">Back to the JANINO home page</a>
 
     <h4>Version 3.1.20 (unreleased)</h4>
+    <p>
+      Fourteen fixes in the compiler, and JAR files without the dummy signature. The most important fixes concern
+      code that compiled, but did not run as written: two local classes with the same name in one class got the same
+      binary name, so that the code used the wrong class, without any error (issue #143); <code>super.m()</code> for
+      a <code>private</code> or <code>static</code> method of the superclass failed at run time (issues #136 and
+      #150), and so did <code>super.a(o, v)</code> for a variable arity method that the superclass implements from an
+      interface (issue #160). The other fixes concern code that was rejected or crashed the compiler: invocations of
+      overloaded and variable arity methods (issues #127, #134, #147, #156 and #157), array types of parameterized
+      types (issue #138), static methods imported twice (issue #133), <code>if</code> statements with empty branches
+      and a condition of type <code>Boolean</code> (issue #153), and members inherited through an accessible subclass
+      (issue #154). No code that 3.1.19 compiled is rejected now.
+    </p>
     <ul>
       <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/127">issue #127</a>: An invocation that passes an
@@ -220,6 +232,20 @@ h5 {
         that put JANINO into a fat JAR no longer need to exclude the signature files. The classes, the OSGi headers
         and the automatic module names are unchanged; to check the integrity of the files, see
         <a href="index.html#security_integrity">Security / integrity</a>.
+      </li>
+      <li>
+        New test cases: 104 cases of valid code and 29 cases of invalid code for the fixes of this release; the
+        characterization tests now record 589 cases of valid code, the negative tests 469 cases of invalid code.
+      </li>
+      <li>
+        Compatibility: The class files change only for code that did not run correctly before: for the invocations of
+        issues #136, #150 and #160, which failed at run time, and for local classes whose binary names collided
+        (issue #143); the first local class of a name keeps its name. The code of the other issues did not compile
+        before. For all workloads of the benchmarks, including JANINO's own sources and the code that Apache Spark
+        generates, the class files are the same as with 3.1.19, byte for byte, and the compile time and the allocated
+        memory are the same as with 3.1.19 within the measurement error. The test suites of Apache Calcite, Spark
+        Catalyst and Apache Fory, and about 4800 tests of Apache Drill, pass with this release as with the JANINO that
+        the projects declare.
       </li>
     </ul>
 

@@ -30,8 +30,8 @@ Janino, not against `javac`; this page is written for them.
   was clearly wrong: a wrong value, an exception, a class file that the JVM rejects. Otherwise the class files
   are unchanged, byte for byte; where a fix changes them, the change log says so, and the release notes report the
   result of the class file comparison of the [benchmarks](janino-benchmarks/README.md) (`CodeSizeReport`). For the
-  code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.19 differ from
-  those of 3.1.12 only in the class file version, and are identical to those of 3.1.18.
+  code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.20 differ from
+  those of 3.1.12 only in the class file version, and are identical to those of 3.1.19.
 - **Class resolution.** The compiler resolves the classes that the compiled code references through the parent
   class loader that the application sets (`setParentClassLoader()`), by reflection: also classes that exist only
   in that class loader and nowhere as a file, e.g. the classes of a REPL session, and also by their binary names
@@ -122,8 +122,8 @@ points of the API as well:
   [Apache Drill](.github/workflows/drill.yml) against the current sources every week, and against every release
   candidate before the release: once with the Janino that the project declares and once with this one, and
   compare the results. No release without all four being green.
-- **Recorded behavior.** The negative tests (`InvalidCodeTest`, 466 cases of invalid code) and the
-  characterization tests (`LanguageSupportTest`, 585 cases of valid code) record Janino's actual behavior, so that
+- **Recorded behavior.** The negative tests (`InvalidCodeTest`, 469 cases of invalid code) and the
+  characterization tests (`LanguageSupportTest`, 589 cases of valid code) record Janino's actual behavior, so that
   every change of it, intended or not, fails a test. Differential tests compile generated expressions and control
   flow with Janino and with `javac` and compare the results.
 - **Class files.** `CodeSizeReport` of the benchmarks compares the class files that two versions generate, byte
