@@ -1,9 +1,9 @@
 # Changes since 3.1.12
 
 For projects that depend on Janino 3.1.12, the last release of the original project, and consider an upgrade:
-what the releases 3.1.13 to 3.1.19 of this continuation change, in short. The
+what the releases 3.1.13 to 3.1.20 of this continuation change, in short. The
 [change log](https://janino-lts.github.io/janino/changelog.html) has the complete entries, with details and
-examples; this page summarizes it. State: 3.1.19, released on 2026-10-10. The entries of 3.1.17 and later are
+examples; this page summarizes it. State: 3.1.20, released on 2026-10-14. The entries of 3.1.17 and later are
 marked with the version.
 
 ## What stays the same
@@ -16,7 +16,7 @@ marked with the version.
   [#33]), with the exceptions listed under "Code that is now rejected" below.
 - Code that compiled correctly with 3.1.12 compiles into the same class files, except where a fix changes them
   (the change log names these cases) and except for the class file version (below). For the code that Apache
-  Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.19 differ from those of 3.1.12
+  Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.20 differ from those of 3.1.12
   only in the class file version ([benchmarks](janino-benchmarks/README.md)).
 
 ## What changes for every user
@@ -31,8 +31,7 @@ marked with the version.
   packages are unchanged. Where another dependency brings in the original `org.codehaus.janino` artifacts, exclude
   them; see the [README](README.md).
 - **Unsigned JAR files** since 3.1.20: the JAR files are no longer signed with the dummy certificate of earlier
-  releases, whose key is public. The JVM no longer verifies that signature when it loads Janino, which saves about
-  110 to 140 ms on each start of a JVM, and a fat JAR no longer needs to exclude `META-INF/DUMMY.SF` and
+  releases, whose key is public. A fat JAR no longer needs to exclude `META-INF/DUMMY.SF` and
   `META-INF/DUMMY.DSA`. The classes and the manifest attributes are unchanged; the integrity of the files is
   checked with the checksums of the GitHub releases and the PGP signatures on Maven Central.
 - **The security-manager-based `Sandbox`** is deprecated since 3.1.13, but still present. Its replacement, sandbox
@@ -69,7 +68,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   rejected or caused a `ClassFormatError` ([#45]).
 - `boolean`, `byte`, `char` and `short` constants of fields from class files were treated as `int` ([#46]).
 - The constant folding of a string concatenation with `null` crashed the compiler ([#49]).
-- 3.1.20 (in development): An `if` statement whose branches are empty, with a condition of type `Boolean`,
+- 3.1.20: An `if` statement whose branches are empty, with a condition of type `Boolean`,
   e.g. `if (b) {}` or `if (b);`, was rejected ("Not a boolean expression") ([#153]); now the condition is
   unboxed, like with a non-empty branch and with `javac`: with `b == null`, it throws a `NullPointerException`.
 
@@ -144,28 +143,28 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 - 3.1.19: A floating-point literal with a leading zero, e.g. `09.5`, `07e1` or `07f`, was
   rejected ([#96]); except for `0_9.5` and the like, with an underscore directly before the first digit `8` or `9`.
   An integer literal with a leading zero and the digit `8` or `9`, e.g. `09`, is still rejected with the same message.
-- 3.1.20 (in development): An array of a primitive type as the only variable arity argument of a parameter
+- 3.1.20: An array of a primitive type as the only variable arity argument of a parameter
   `Object...` or `Serializable...` was rejected when another argument needs boxing, e.g. `f(1, new int[] { 1, 2 })`
   with `f(Integer i, Object... a)` ([#127]); now the array is the only element of `a`, like with `javac`.
-- 3.1.20 (in development): An array type of a parameterized type, e.g. `List<Object>[]`, was rejected as the type
+- 3.1.20: An array type of a parameterized type, e.g. `List<Object>[]`, was rejected as the type
   of a local variable in a script, in the first statement of a constructor and in a `for` statement, as the target
   type of a cast, and as the first type argument of the type of a local variable or of a cast, e.g.
   `Map<List<String>[], String> m` ([#138]); now these compile, like with `javac`.
-- 3.1.20 (in development): Some invocations of overloaded methods or constructors with a `null` argument were an
+- 3.1.20: Some invocations of overloaded methods or constructors with a `null` argument were an
   internal compiler error: a variable arity method counted as applicable against the leading arguments only, e.g.
   `m(int...)` for `m(null, (short) 1, 'c')`, and the message "... is ambiguous" failed for a `null` argument
   ([#134]). Now `m(null, (short) 1, 'c')` selects `m(Integer[], Short, int)`, like with `javac`, and the ambiguity
   is reported with the type `(null type)`. An invocation that was rejected as ambiguous only because of such a
   method compiles now.
-- 3.1.20 (in development): An invocation of overloaded variable arity methods was an internal compiler error when
+- 3.1.20: An invocation of overloaded variable arity methods was an internal compiler error when
   the parameter types of one maximally specific method are the leading parameter types of another, e.g.
   `m(int...)` and `m(int[], Serializable...)` for `m(ia)` ([#147]); now it is reported as ambiguous.
-- 3.1.20 (in development): `super.m(...)` of a variable arity method that the superclass implements from an
+- 3.1.20: `super.m(...)` of a variable arity method that the superclass implements from an
   interface compiled into a class that failed (`VerifyError` on Java 25, `IncompatibleClassChangeError` at the
   invocation on older JVMs): of the method of the class and the method of the interface with the same parameter
   types, overload resolution selected the method of the interface ([#160]).
   Now it selects the method of the class, like with fixed arity and with `javac`.
-- 3.1.20 (in development): An invocation of variable arity methods, one of which is more specific than the
+- 3.1.20: An invocation of variable arity methods, one of which is more specific than the
   others by JLS 15.12.2.5, was rejected as ambiguous, e.g. `g(1, 2, 3)` with `g(int...)` and `g(double...)`, or
   `f("s", 1)` with `f(Object, int...)` and `f(String, int...)` ([#156]); now that method is selected, like with
   `javac`. Like `javac`, the variable arity parameter types are compared for as many parameters as the longer
@@ -176,7 +175,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 
 **Imports** (3.1.20):
 
-- 3.1.20 (in development): A static method that the compilation unit imports twice, e.g. with
+- 3.1.20: A static method that the compilation unit imports twice, e.g. with
   `import static java.lang.Math.abs;` twice or `import static java.lang.Math.*;` twice, was an internal compiler
   error when it was invoked ([#133]); now the code compiles, like with `javac`.
 
@@ -240,12 +239,12 @@ affected.
 - The compilation of Janino's own sources is about 6 % faster than with 3.1.12 and allocates about 16 % less
   memory ([#26], 3.1.15). Code with many nested `try` / `finally` statements compiles somewhat slower, because the
   code that Janino generates for them since 3.1.14 is correct, but larger.
-- On the code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, 3.1.19 and 3.1.12 compile
-  equally fast within the measurement error; without the JIT compiler, 3.1.19 needs 1.8 % less time and
-  allocates 4.6 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
+- On the code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, 3.1.20 and 3.1.12 compile
+  equally fast within the measurement error; without the JIT compiler, 3.1.20 needs 1.2 % less time and
+  allocates 4.5 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 585 language
-  constructs, negative tests with 466 cases of invalid code, differential tests that compile generated expressions
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 589 language
+  constructs, negative tests with 469 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
   suites of Apache Calcite, Spark Catalyst, Apache Fory and Apache Drill every week and before every release
   ([Compatibility](COMPATIBILITY.md)).
