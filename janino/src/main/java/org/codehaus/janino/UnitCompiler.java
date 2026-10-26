@@ -931,6 +931,9 @@ class UnitCompiler {
                 // Re-compilation of the constructors cannot possibly create even more synthetic fields!
                 assert syntheticFieldCount == cd.syntheticFields.size();
             }
+
+            // Compliance L-37: Like JAVAC, reject a recursive constructor invocation (JLS8 8.8.7).
+            if (this.compliant()) this.checkRecursiveConstructorInvocations(ctords);
         }
 
         // A side effect of this call may create synthetic functions to access protected parent variables.
@@ -2358,6 +2361,12 @@ class UnitCompiler {
                 } else
                 {
                     this.warning("FSNR", "FOR statement never repeats", fs.getLocation());
+
+                    // Compliance L-28: Like JAVAC, reject the body of "for (...; false; ...)" as unreachable (JLS8
+                    // 14.21).
+                    if (this.compliant() && Boolean.FALSE.equals(cvc)) {
+                        this.compileError("Statement is unreachable", fs.body.getLocation());
+                    }
                 }
             }
 
@@ -2612,6 +2621,11 @@ class UnitCompiler {
             } else
             {
                 this.warning("WSNR", "WHILE statement never repeats", ws.getLocation());
+
+                // Compliance L-28: Like JAVAC, reject the body of "while (false)" as unreachable (JLS8 14.21).
+                if (this.compliant() && Boolean.FALSE.equals(cvc)) {
+                    this.compileError("Statement is unreachable", ws.body.getLocation());
+                }
             }
         }
 
@@ -2735,6 +2749,21 @@ class UnitCompiler {
 
         assert ls.whereToBreak == null;
 
+        // Compliance L-27: Like JAVAC, reject a label that is already in use by an enclosing labeled statement of
+        // the same method or initializer (JLS8 14.7).
+        if (this.compliant()) {
+            for (
+                Scope s = ls.getEnclosingScope();
+                s instanceof Statement || s instanceof CatchClause;
+                s = s.getEnclosingScope()
+            ) {
+                if (s instanceof LabeledStatement && ((LabeledStatement) s).label.equals(ls.label)) {
+                    this.compileError("Duplicate label \"" + ls.label + "\"", ls.getLocation());
+                    break;
+                }
+            }
+        }
+
         this.getCodeContext().saveLocalVariables();
         try {
 
@@ -2851,6 +2880,12 @@ class UnitCompiler {
                                 caseLabel.getLocation()
                             );
                             civ = Integer.valueOf(99);
+                        }
+
+                        // Compliance L-35, L-36: Like JAVAC, the case constant must be assignable to the type of the
+                        // selector (JLS8 14.11), e.g. not "case 1000:" for a "byte" selector, and not "case 1L:".
+                        if (this.compliant() && (cv instanceof Number || cv instanceof Character)) {
+                            this.checkCaseConstantAssignable(caseLabel, cv, switchExpressionType);
                         }
                     }
 
@@ -3024,6 +3059,63 @@ class UnitCompiler {
         ss.whereToBreak = null;
 
         return true;
+    }
+
+    /**
+     * Reports a compile error unless the constant value of the given case label is assignable to the type of the
+     * selector of an "int" switch, like JAVAC does: by identity or boxing conversion, by widening primitive conversion
+     * (not followed by boxing), or, for a constant of type {@code byte}, {@code short}, {@code char} or {@code int}, by
+     * a narrowing primitive conversion to {@code byte}, {@code short} or {@code char}, optionally followed by boxing.
+     * For an invalid selector type, it reports nothing; that is reported elsewhere.
+     *
+     * @param cv The constant value of the case label, a {@link Number} or a {@link Character}
+     */
+    private void
+    checkCaseConstantAssignable(Rvalue caseLabel, Object cv, IType switchExpressionType) throws CompileException {
+
+        IType unboxedType = this.getUnboxedType(switchExpressionType);
+        if (
+            unboxedType != IClass.BYTE
+            && unboxedType != IClass.SHORT
+            && unboxedType != IClass.CHAR
+            && unboxedType != IClass.INT
+        ) return;
+
+        IType labelType = this.getType(caseLabel);
+
+        // Identity conversion, or boxing conversion.
+        if (this.isIdentityConvertible(labelType, unboxedType)) return;
+
+        // Widening primitive conversion.
+        if (
+            unboxedType == switchExpressionType
+            && labelType instanceof IClass
+            && ((IClass) labelType).isPrimitive()
+            && this.isWideningPrimitiveConvertible((IClass) labelType, unboxedType)
+        ) return;
+
+        // Narrowing primitive conversion of a constant, optionally followed by boxing. (The target type is primitive,
+        // so no code is generated.)
+        if (
+            (
+                labelType == IClass.BYTE
+                || labelType == IClass.SHORT
+                || labelType == IClass.CHAR
+                || labelType == IClass.INT
+            )
+            && this.tryConstantAssignmentConversion(caseLabel, cv, unboxedType)
+        ) return;
+
+        this.compileError(
+            (
+                "Assignment conversion not possible from type \""
+                + labelType
+                + "\" to type \""
+                + switchExpressionType
+                + "\""
+            ),
+            caseLabel.getLocation()
+        );
     }
 
     private boolean
@@ -3856,11 +3948,18 @@ class UnitCompiler {
     compile2(SynchronizedStatement ss) throws CompileException {
 
         // Evaluate monitor object expression.
-        if (!UnitCompiler.isAssignableFrom(this.iClassLoader.TYPE_java_lang_Object, this.compileGetValue(ss.expression))) {
+        IType monitorType = this.compileGetValue(ss.expression);
+        if (!UnitCompiler.isAssignableFrom(this.iClassLoader.TYPE_java_lang_Object, monitorType)) {
             this.compileError(
                 "Monitor object of \"synchronized\" statement is not a subclass of \"Object\"",
                 ss.getLocation()
             );
+        } else
+        if (monitorType == IClass.NULL && this.compliant()) {
+
+            // Compliance L-29: Like JAVAC, reject a monitor expression of the null type, e.g. "synchronized (null)"
+            // (JLS8 14.19).
+            this.compileError("Monitor object of \"synchronized\" statement has the null type", ss.getLocation());
         }
 
         this.getCodeContext().saveLocalVariables();
@@ -5504,14 +5603,64 @@ class UnitCompiler {
 
         this.load(aci, declaringIClass, 0);
         if (declaringIClass.getOuterIClass() != null) this.load(aci, declaringIClass.getOuterIClass(), 1);
-        this.invokeConstructor(
+        IClass.IConstructor invokedIConstructor = this.invokeConstructor(
             aci,                  // locatable
             declaringConstructor, // scope
             (Rvalue) null,        // enclosingInstance
             declaringIClass,      // targetClass
             aci.arguments         // arguments
         );
+
+        // Compliance L-37: Note the invoked constructor, for the check for recursive constructor invocations; see
+        // "checkRecursiveConstructorInvocations()". (The declared IConstructors are in the order of the constructor
+        // declarators.)
+        if (this.compliant()) {
+            IClass.IConstructor[] iConstructors = declaringIClass.getDeclaredIConstructors();
+            for (int i = 0; i < iConstructors.length; i++) {
+                if (iConstructors[i] == invokedIConstructor) {
+                    this.alternateConstructorInvocations.put(
+                        declaringConstructor,
+                        declaringConstructor.getDeclaringClass().getConstructors()[i]
+                    );
+                    break;
+                }
+            }
+        }
         return true;
+    }
+
+    /**
+     * In the compliance mode: the constructor that the alternate constructor invocation ("{@code this(...)}") of a
+     * constructor invokes; see {@link #checkRecursiveConstructorInvocations(ConstructorDeclarator[])}.
+     */
+    private final Map<ConstructorDeclarator, ConstructorDeclarator> alternateConstructorInvocations = new HashMap<>();
+
+    /**
+     * Reports a compile error for each cycle of alternate constructor invocations ("{@code this(...)}") among the
+     * given constructors of a class, like JAVAC does, at the first constructor of the cycle (in the order of
+     * declaration).
+     */
+    private void
+    checkRecursiveConstructorInvocations(ConstructorDeclarator[] ctords) throws CompileException {
+
+        Set<ConstructorDeclarator> reported = new HashSet<>();
+        for (ConstructorDeclarator ctord : ctords) {
+            if (reported.contains(ctord)) continue;
+
+            // Follow the chain of alternate constructor invocations, until it ends or repeats.
+            List<ConstructorDeclarator> chain = new ArrayList<>();
+            for (
+                ConstructorDeclarator c = (ConstructorDeclarator) this.alternateConstructorInvocations.get(ctord);
+                c != null && !chain.contains(c);
+                c = (ConstructorDeclarator) this.alternateConstructorInvocations.get(c)
+            ) chain.add(c);
+
+            // Is the constructor part of a cycle?
+            if (!chain.contains(ctord)) continue;
+
+            reported.addAll(chain);
+            this.compileError("Recursive constructor invocation", ctord.getLocation());
+        }
     }
 
     /**
@@ -10981,8 +11130,9 @@ class UnitCompiler {
      * </p>
      *
      * @param enclosingInstance Used if the target class is an inner class
+     * @return                  The invoked constructor
      */
-    private void
+    private IClass.IConstructor
     invokeConstructor(
         Locatable        locatable,
         Scope            scope,
@@ -11289,6 +11439,8 @@ class UnitCompiler {
         // Invoke!
         // Notice that the method descriptor is "iConstructor.getDescriptor()", prepended with the synthetic parameters.
         this.invokeConstructor(locatable, iConstructor);
+
+        return iConstructor;
     }
 
     /**

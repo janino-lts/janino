@@ -739,6 +739,7 @@ public class P {
 
 === body of a while statement whose condition is a final local variable initialized with false
 janino: ACCEPTED
+compliant: REJECTED Statement is unreachable
 recovery: ACCEPTED
 id: L-28
 public class P {
@@ -761,6 +762,7 @@ public class P {
 
 === constant conditional expression of type long as a case label
 janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "long" to type "int"
 recovery: ACCEPTED
 id: L-36
 public class P {

@@ -570,3 +570,141 @@ public class P {
     static <T extends Exception> void m(boolean b) throws T, X { if (b) throw new X(); }
     public static Object run() { try { m(true); return "-"; } catch (X e) { return "X"; } }
 }
+
+=== same label on two consecutive statements
+jls: 3
+janino: OK
+public class P {
+    public static Object run() { int n = 0; L: { n++; } L: { n += 2; } return String.valueOf(n); }
+}
+
+=== same label in a method of an anonymous class that is declared in a labeled statement
+jls: 1
+janino: OK
+public class P {
+    static int n;
+    public static Object run() {
+        L: { new Runnable() { public void run() { L: { n++; } } }.run(); }
+        return String.valueOf(n);
+    }
+}
+
+=== same label in a method of a local class that is declared in a labeled statement
+jls: 2
+janino: OK
+public class P {
+    public static Object run() {
+        L: {
+            class C { int f() { L: { return 2; } } }
+            return String.valueOf(new C().f());
+        }
+    }
+}
+
+=== label with the same name as a local variable
+jls: 2
+janino: OK
+public class P {
+    public static Object run() { int L = 0; L: while (L < 3) { L++; if (L == 2) break L; } return String.valueOf(L); }
+}
+
+=== synchronized on null cast to Object
+jls: throws java.lang.NullPointerException
+janino: OK
+public class P {
+    public static Object run() { synchronized ((Object) null) { return "-"; } }
+}
+
+=== synchronized on a conditional expression with a null operand
+jls: x
+janino: OK
+public class P {
+    public static Object run() { boolean b = false; synchronized (b ? null : "x") { return "x"; } }
+}
+
+=== case labels of type int and char in a switch on a byte
+jls: a
+janino: OK
+public class P {
+    public static Object run() {
+        byte b = 97;
+        switch (b) { case 127: return "x"; case -128: return "y"; case 'a': return "a"; }
+        return "-";
+    }
+}
+
+=== case labels of type byte, short and char in a switch on an int
+jls: s
+janino: OK
+public class P {
+    public static Object run() {
+        int i = 4;
+        switch (i) { case (byte) 3: return "b"; case (short) 4: return "s"; case 'c': return "c"; }
+        return "-";
+    }
+}
+
+=== case labels of type int, short and char in a switch on a Byte, a Short and a Character
+jls: abc
+janino: OK
+public class P {
+    public static Object run() {
+        String r = "";
+        Byte b = 1;
+        switch (b) { case 1: r += "a"; break; case 'b': r += "-"; }
+        Short s = 98;
+        switch (s) { case 'b': r += "b"; break; case (byte) 1: r += "-"; }
+        Character c = 'c';
+        switch (c) { case 99: r += "c"; break; case (short) 1: r += "-"; }
+        return r;
+    }
+}
+
+=== while statement whose condition "false && z" is not a constant expression
+jls: 0
+janino: OK
+public class P {
+    public static Object run() { boolean z = true; int n = 0; while (false && z) { n++; } return String.valueOf(n); }
+}
+
+=== while statement whose condition is Boolean.FALSE
+jls: 0
+janino: OK
+public class P {
+    public static Object run() { int n = 0; while (Boolean.FALSE) { n++; } return String.valueOf(n); }
+}
+
+=== for statement whose condition "false && z" is not a constant expression
+jls: 0
+janino: OK
+public class P {
+    public static Object run() { boolean z = true; int n = 0; for (; false && z; ) { n++; } return String.valueOf(n); }
+}
+
+=== do statement with the condition false
+jls: 1
+janino: OK
+public class P {
+    public static Object run() { int n = 0; do { n++; } while (false); return String.valueOf(n); }
+}
+
+=== chain of alternate constructor invocations
+jls: c1
+janino: OK
+public class P {
+    final String s;
+    P() { this(1); }
+    P(int i) { this("c" + i); }
+    P(String s) { this.s = s; }
+    public static Object run() { return new P().s; }
+}
+
+=== alternate constructor invocation of an overloaded constructor
+jls: long
+janino: OK
+public class P {
+    final String s;
+    P(int i) { this((long) i); }
+    P(long l) { this.s = "long"; }
+    public static Object run() { return new P(1).s; }
+}

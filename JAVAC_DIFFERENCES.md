@@ -442,9 +442,10 @@ Class L: `javac` rejects the following code, Janino compiles it, and the JVM loa
 behaves as the source suggests (e.g. an assignment to a `final` local variable assigns it). See [issue
 #33](https://github.com/janino-lts/janino/issues/33) for the compatibility considerations. The compatibility mode keeps
 accepting all of it; the compliance mode rejects it once the respective check is implemented (today, it rejects L-20,
-L-45 and L-46, see S-11, L-47, see S-04, L-48, see S-12, L-49, see S-02, and L-50, see S-14; all other entries of this
-section are open). One exception, registered as A-05 (section 5): the access to a `protected` member of a class in
-another package through an expression whose type is neither the accessing class nor a subclass of it (`((Object)
+L-27 to L-29 and L-35 to L-37 ([#177](https://github.com/janino-lts/janino/issues/177)), L-45 and L-46, see S-11, L-47,
+see S-04, L-48, see S-12, L-49, see S-02, and L-50, see S-14; all other entries of this section are open). One
+exception, registered as A-05 (section 5): the access to a `protected` member of a class in another package through an
+expression whose type is neither the accessing class nor a subclass of it (`((Object)
 this).clone()`, `Object o = new P(); o.clone()`) is rejected since 3.1.16, like by `javac`, although the JVM loaded
 such classes when the verifier could infer the type `P` from the bytecode
 ([#54](https://github.com/janino-lts/janino/issues/54)); it rejected
@@ -509,10 +510,15 @@ and assigns a parameterized type to a field with a different type argument
 
 **Statements:**
 
-- L-27: duplicate label: `L: while (true) { L: while (true) { break L; } }`;
+- L-27: duplicate label: `L: while (true) { L: while (true) { break L; } }` (the compliance mode rejects it,
+  [#177](https://github.com/janino-lts/janino/issues/177), development line; not in a `catch` clause of a `try`
+  statement with an empty `try` block, which Janino does not compile, see L-32);
 - L-28: unreachable body of `while (false) { ... }` and `for (; false; ) { ... }`, in the compliance mode also with a
-  constant variable as the condition (`final boolean y = false; while (y) { ... }`, S-17);
-- L-29: `synchronized (null) {}`;
+  constant variable as the condition (`final boolean y = false; while (y) { ... }`, S-17) (the compliance mode rejects
+  it, [#177](https://github.com/janino-lts/janino/issues/177), development line; not with a condition that Janino does
+  not fold, S-05, e.g. `while (1 > 2)`);
+- L-29: `synchronized (null) {}`, also with another expression of the null type, e.g. `b ? null : null` (the
+  compliance mode rejects it, [#177](https://github.com/janino-lts/janino/issues/177), development line);
 - L-30: `catch` of a checked exception that the `try` block cannot throw: `try { } catch (java.io.IOException e) { }`,
   also as an alternative of a multi-catch clause: `catch (IOException | SQLException e)` with a `try` block that
   throws only `IOException`;
@@ -532,10 +538,16 @@ and assigns a parameterized type to a field with a different type argument
   ([#65](https://github.com/janino-lts/janino/issues/65); before 3.1.17, such a type was taken for a type parameter
   and ignored; a `throw` statement and a constructor invocation are checked); a `throws` clause with an
   all-uppercase name that denotes no type (`void m() throws T` without a type parameter `T`), which is ignored;
-- L-35: case label out of the range of the switch type: `switch (b) { case 1000: }` with `byte b`;
+- L-35: case label out of the range of the switch type: `switch (b) { case 1000: }` with `byte b`, also with a
+  selector of a wrapper type: `case 128:` with `Byte b`, and `case 'a':` with `Integer i` (`javac`: `char cannot be
+  converted to Integer`) (the compliance mode rejects it, [#177](https://github.com/janino-lts/janino/issues/177),
+  development line);
 - L-36: case label of type `long`, `float` or `double`, whose value is truncated to `int`: `case 1L:`, `case 1.0:`,
-  `case 4294967297L:` (which matches the value 1);
-- L-37: recursive constructor invocation: `P() { this(); }`.
+  `case 4294967297L:` (which matches the value 1) (the compliance mode rejects it,
+  [#177](https://github.com/janino-lts/janino/issues/177), development line);
+- L-37: recursive constructor invocation: `P() { this(); }`, also through other constructors (`P() { this(1); }
+  P(int i) { this(); }`) (the compliance mode rejects it, [#177](https://github.com/janino-lts/janino/issues/177),
+  development line).
 
 **Expressions, names and imports:**
 

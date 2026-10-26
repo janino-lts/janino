@@ -35,6 +35,7 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#140](https://github.com/janino-lts/janino/issues/140) | The compliance mode: `&&`, `\|\|` and `null` in constant expressions like `javac` (S-14, S-19) | unchanged | only with the option |
 | [#135](https://github.com/janino-lts/janino/issues/135) | The compliance mode: the most specific of two variable arity methods like `javac` (L-49) | unchanged | only with the option |
 | [#137](https://github.com/janino-lts/janino/issues/137) | The compliance mode: a field of a local or anonymous class shadows a variable of the enclosing method, like `javac` (S-15) | unchanged | only with the option |
+| [#177](https://github.com/janino-lts/janino/issues/177) | The compliance mode: statements like `javac` (L-27 to L-29, L-35 to L-37) | unchanged | only with the option |
 | [#107](https://github.com/janino-lts/janino/issues/107) | `<clinit>` with the access flags of `javac` (`ACC_STATIC`) | changed | unchanged |
 | [#108](https://github.com/janino-lts/janino/issues/108) | The compile error message for an instance member in a static initializer names the context | unchanged | message texts |
 
@@ -286,8 +287,9 @@ initializer as a constant variable (JLS 4.12.4), so that its simple name is a co
 `byte b` and `final int k = 5;` has the type `byte`. The variable stays a constant in a local or anonymous class that
 uses it. As a consequence, the compliance mode accepts valid code that the compatibility mode rejects: `case k:`,
 `case u:` in a `switch` on a `String`, `byte b = k;` and `while (y) { return 1; }` with `final boolean y = true;`
-(D-09); and it treats the body of `while (y)` with `final boolean y = false;` as unreachable, which Janino accepts like
-`while (false)` (L-28). `ConstantExpressionDifferentialTest` generates such variables in the compliance mode.
+(D-09); and it treats the body of `while (y)` with `final boolean y = false;` as unreachable, like the body of
+`while (false)`, which the compliance mode rejects since #177 (L-28). `ConstantExpressionDifferentialTest` generates
+such variables in the compliance mode.
 
 For S-14 and S-19, the compliance mode requires both operands of `&&` and `||` to be constant (JLS 15.28), so that
 `true || z` and `false && z` with a variable `z` are not constant expressions, and it does not take the `null` literal
@@ -303,6 +305,17 @@ l() { return "" + c; } } ... }`, `c` is the field. This holds for a field inheri
 in a field initializer of the class, and for a local class in a method of another local class; a `private` field of a
 superclass is not inherited, so it does not shadow the variable. As a consequence, the compliance mode accepts such code
 where the variable is not effectively final, which the compatibility mode rejects (D-13).
+
+With #177, the compliance mode rejects six forms of invalid statements that the compatibility mode accepts, like
+`javac`; they are the first checks of class L of their own: a label that an enclosing labeled statement of the same
+method already uses (`L: while (true) { L: ... }`, L-27); the body of `while (false)` and of `for (...; false; ...)`,
+which is unreachable (L-28; a condition that Janino does not fold, e.g. `1 > 2`, see S-05, is not recognized); a
+`synchronized` statement on an expression of the null type (`synchronized (null)`, L-29); a `case` constant that is
+not assignable to the type of the selector: out of its range (`case 1000:` in a `switch` on a `byte`, L-35), of type
+`long`, `float` or `double` (`case 1L:`, L-36), or of another type than `int` for a selector of type `Integer`
+(`case 'a':`), like the assignment `Integer i = 'a';`; and a recursive constructor invocation (`P() { this(1); }
+P(int i) { this(); }`, L-37). `ConstantExpressionDifferentialTest` has no known differences of L-35 and L-36 any
+more.
 
 **Class files.** Unchanged in the compatibility mode.
 
