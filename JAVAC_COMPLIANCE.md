@@ -290,7 +290,8 @@ logic has no error path, but silently does something else, the finding is of cla
 - Implemented so far: S-01, S-02, which also rejects L-49; S-03; S-11, which also rejects L-20, L-45 and L-46 and
   corrects D-10; S-04, which also rejects L-47 and accepts D-07; S-12, which also rejects L-48; S-13, which also
   accepts D-08, fixed in both modes since 3.1.20 (the development line); S-14, which also rejects L-50; S-15, which
-  also accepts D-13; S-17, which also accepts D-09; and S-19, which also accepts D-11; see
+  also accepts D-13; S-17, which also accepts D-09; and S-19, which also accepts D-11; and, as the first checks of
+  class L of their own, L-27, L-28, L-29, L-35, L-36 and L-37 (the statements); see
   [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md) for what they do.
 
 ### 7.4 The system property
@@ -392,6 +393,11 @@ compliance mode agrees with `javac` on 1052 (the compatibility mode on 945).
 The development line, 2026-10-13, after #108 and #169: the IDs unchanged; L-49 has fewer forms in the compatibility
 mode (#169: `f(1)` with `f(int, Object...)` and `f(int...)` is ambiguous in both modes). Of the 1207 recorded cases,
 the compliance mode agrees with `javac` on 1061 (the compatibility mode on 956).
+
+The development line, after #177 (the statements of class L): S, 19 IDs, 11 corrected in the compliance
+mode; L, 50 IDs, 13 rejected in the compliance mode, 37 open; D, 13 IDs, unchanged; G, 9 and F, 11 (outside the
+scope); A, 8. Of the 1240 recorded cases, the compliance mode agrees with `javac` on 1105 (the compatibility mode on
+971).
 
 ## 8. Registered exceptions
 
@@ -555,7 +561,9 @@ on the development line, 2026-10-09, which also rejects L-47 and accepts D-07), 
 of the compliance mode notice first (the differential tests found four more later, S-14 to S-17; S-14 and S-17 were
 done on the development line, 2026-10-13, with S-19, which was found with them, and S-15; S-16 is open).
 Next the cases of class L that need no data flow analysis, by area, one branch each: modifiers, declarations and
-annotations; overrides, hiding and `throws` clauses; `catch` clauses; imports and access; statements. In each branch, the `compliant:` entries of the area change from `ACCEPTED` to `REJECTED`. Then
+annotations; overrides, hiding and `throws` clauses; `catch` clauses; imports and access; statements (done first, on
+the development line: L-27 to L-29 and L-35 to L-37, #177). In each branch, the `compliant:` entries of
+the area change from `ACCEPTED` to `REJECTED`. Then
 S-07, S-08 and S-09 (reflection and class file details) as needed, and the remaining areas of class L. S-05 (constant
 folding, #47) and S-06 with S-10 (the class file layout of `private` members) come last, because they are the largest.
 

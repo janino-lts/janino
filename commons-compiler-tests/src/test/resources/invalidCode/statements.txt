@@ -66,10 +66,47 @@ public class P {
 
 === duplicate label
 janino: ACCEPTED
+compliant: REJECTED Duplicate label "L"
 recovery: ACCEPTED
 id: L-27
 public class P {
     void f() { L: while (true) { L: while (true) { break L; } } }
+}
+
+=== duplicate label, with another labeled statement in between
+janino: ACCEPTED
+compliant: REJECTED Duplicate label "L"
+recovery: ACCEPTED
+id: L-27
+public class P {
+    void f() { L: { M: { L: { } } } }
+}
+
+=== duplicate label in a catch clause
+janino: ACCEPTED
+compliant: REJECTED Duplicate label "L"
+recovery: ACCEPTED
+id: L-27
+public class P {
+    void f() { L: try { f(); } catch (RuntimeException e) { L: ; } }
+}
+
+=== duplicate label in a switch statement
+janino: ACCEPTED
+compliant: REJECTED Duplicate label "L"
+recovery: ACCEPTED
+id: L-27
+public class P {
+    void f() { L: switch (0) { default: L: ; } }
+}
+
+=== duplicate label in an instance initializer
+janino: ACCEPTED
+compliant: REJECTED Duplicate label "L"
+recovery: ACCEPTED
+id: L-27
+public class P {
+    { L: { L: ; } }
 }
 
 === if condition is not boolean
@@ -142,10 +179,20 @@ public class P {
 
 === synchronized on null
 janino: ACCEPTED
+compliant: REJECTED Monitor object of "synchronized" statement has the null type
 recovery: ACCEPTED
 id: L-29
 public class P {
     void f() { synchronized (null) {} }
+}
+
+=== synchronized on a conditional expression of the null type
+janino: ACCEPTED
+compliant: REJECTED Monitor object of "synchronized" statement has the null type
+recovery: ACCEPTED
+id: L-29
+public class P {
+    void f(boolean b) { synchronized (b ? null : null) {} }
 }
 
 === catch of checked exception that is never thrown
@@ -287,10 +334,47 @@ public class P {
 
 === case label out of range of the switch type
 janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "int" to type "byte"
 recovery: ACCEPTED
 id: L-35
 public class P {
     void f(byte b) { switch (b) { case 1000: } }
+}
+
+=== negative case label in a switch on a char
+janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "int" to type "char"
+recovery: ACCEPTED
+id: L-35
+public class P {
+    void f(char c) { switch (c) { case -1: } }
+}
+
+=== char case label out of range of a switch on a byte
+janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "char" to type "byte"
+recovery: ACCEPTED
+id: L-35
+public class P {
+    void f(byte b) { switch (b) { case 'È': } }
+}
+
+=== case label out of range of a switch on a Byte
+janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "int" to type "java.lang.Byte"
+recovery: ACCEPTED
+id: L-35
+public class P {
+    void f(Byte b) { switch (b) { case 128: } }
+}
+
+=== char case label in a switch on an Integer
+janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "char" to type "java.lang.Integer"
+recovery: ACCEPTED
+id: L-35
+public class P {
+    void f(Integer i) { switch (i) { case 'a': } }
 }
 
 === duplicate case label
@@ -349,10 +433,70 @@ public class P {
 
 === recursive constructor invocation
 janino: ACCEPTED
+compliant: REJECTED Recursive constructor invocation
 recovery: ACCEPTED
 id: L-37
 public class P {
     P() { this(); }
+}
+
+=== recursive constructor invocation through another constructor
+janino: ACCEPTED
+compliant: REJECTED Recursive constructor invocation
+recovery: ACCEPTED
+id: L-37
+public class P {
+    P() { this(1); }
+    P(int i) { this(); }
+}
+
+=== recursive constructor invocation through overloaded constructors
+janino: ACCEPTED
+compliant: REJECTED Recursive constructor invocation
+recovery: ACCEPTED
+id: L-37
+public class P {
+    P(int i) { this((long) i); }
+    P(long l) { this((int) l); }
+}
+
+=== recursive constructor invocation that the first constructor enters
+janino: ACCEPTED
+compliant: REJECTED Recursive constructor invocation
+recovery: ACCEPTED
+id: L-37
+public class P {
+    P() { this(1); }
+    P(int i) { this(""); }
+    P(String s) { this(1); }
+}
+
+=== recursive constructor invocation in an inner class
+janino: ACCEPTED
+compliant: REJECTED Recursive constructor invocation
+recovery: ACCEPTED
+id: L-37
+public class P {
+    class I {
+        I() { this(1); }
+        I(int i) { this(); }
+    }
+}
+
+=== recursive constructor invocation in a local class that uses a local variable
+janino: ACCEPTED
+compliant: REJECTED Recursive constructor invocation
+recovery: ACCEPTED
+id: L-37
+public class P {
+    void f() {
+        final int x = 1;
+        class L {
+            L() { this(1); }
+            L(int i) { this(); }
+            int g() { return x; }
+        }
+    }
 }
 
 === try with resources of non-closeable type
@@ -449,6 +593,7 @@ public class P {
 
 === body of while (false) is unreachable
 janino: ACCEPTED
+compliant: REJECTED Statement is unreachable
 recovery: ACCEPTED
 id: L-28
 public class P {
@@ -457,10 +602,48 @@ public class P {
 
 === body of for (; false; ) is unreachable
 janino: ACCEPTED
+compliant: REJECTED Statement is unreachable
 recovery: ACCEPTED
 id: L-28
 public class P {
     void f() { for (; false; ) { int x = 1; } }
+}
+
+=== empty statement as the body of while (false) is unreachable
+janino: ACCEPTED
+compliant: REJECTED Statement is unreachable
+recovery: ACCEPTED
+id: L-28
+public class P {
+    void f() { while (false); }
+}
+
+=== body of a for statement with init, update and the condition false is unreachable
+janino: ACCEPTED
+compliant: REJECTED Statement is unreachable
+recovery: ACCEPTED
+id: L-28
+public class P {
+    void f() { for (int i = 0; false; i++) { } }
+}
+
+=== body of a while statement whose condition is a static final field initialized with false
+janino: ACCEPTED
+compliant: REJECTED Statement is unreachable
+recovery: ACCEPTED
+id: L-28
+public class P {
+    static final boolean F = false;
+    void f() { while (F) { } }
+}
+
+=== body of a while statement whose condition is the constant expression !true
+janino: ACCEPTED
+compliant: REJECTED Statement is unreachable
+recovery: ACCEPTED
+id: L-28
+public class P {
+    void f() { while (!true) { } }
 }
 
 === local variable assigned only in the body of a for statement
@@ -473,6 +656,7 @@ public class P {
 
 === case label of type long
 janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "long" to type "int"
 recovery: ACCEPTED
 id: L-36
 public class P {
@@ -481,6 +665,7 @@ public class P {
 
 === case label of type long, value out of the range of int
 janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "long" to type "int"
 recovery: ACCEPTED
 id: L-36
 public class P {
@@ -489,6 +674,7 @@ public class P {
 
 === case label of type double
 janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "double" to type "int"
 recovery: ACCEPTED
 id: L-36
 public class P {

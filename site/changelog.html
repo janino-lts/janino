@@ -263,6 +263,16 @@ h5 {
         effectively final (deviations S-15 and D-13). The compatibility mode is unchanged.
       </li>
       <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/177">issue #177</a> in the compliance mode: Six
+        forms of invalid statements are rejected, like with JAVAC: a duplicate label (<code>L: while (true) { L:
+        ... }</code>), the unreachable body of <code>while (false)</code> and <code>for (...; false; ...)</code>,
+        <code>synchronized (null)</code>, a <code>case</code> constant that is not assignable to the type of the
+        selector (<code>case 1000:</code> in a <code>switch</code> on a <code>byte</code>, <code>case 1L:</code>,
+        <code>case 'a':</code> in a <code>switch</code> on an <code>Integer</code>), and a recursive constructor
+        invocation (<code>P() { this(); }</code>) (deviations L-27, L-28, L-29, L-35, L-36 and L-37). The
+        compatibility mode is unchanged.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/107">issue #107</a>: The class and interface
         initialization method <code>&lt;clinit&gt;</code> had the access flags <code>ACC_PUBLIC, ACC_STATIC</code>
         (<code>0x0009</code>), in an interface <code>ACC_PUBLIC, ACC_STATIC, ACC_ABSTRACT</code>
