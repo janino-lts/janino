@@ -249,6 +249,14 @@ Janino 3.1.20 and earlier fail with an internal compiler error on `enum E { A, B
 parameters of the enum constant on to the constructor that `this(...)` invokes. Since 3.1.21, they are passed on, like
 with `javac`.
 
+**A `catch` clause for a superclass after a `catch` clause for the thrown exception**
+([#181](https://github.com/janino-lts/janino/issues/181), fixed in 3.1.21): Janino 3.1.20 and earlier reject
+`try { new FileInputStream(file); } catch (FileNotFoundException e) { } catch (IOException e) { }`, where the `try`
+block throws only `FileNotFoundException` (`Catch clause is unreachable`), because they mark only the first `catch`
+clause that catches a thrown exception as reachable. By JLS 14.21, the second clause is reachable: the exception is
+assignable to its type, and no preceding clause catches `IOException` or a superclass of it; `javac` only warns.
+Since 3.1.21, such a clause is accepted, like by `javac`.
+
 ## 3. Invalid code that Janino accepts
 
 `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it behaves

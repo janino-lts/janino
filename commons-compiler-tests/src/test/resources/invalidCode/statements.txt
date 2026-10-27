@@ -784,6 +784,30 @@ public class P {
     void f() { try { f(); } catch (X e) { } }
 }
 
+=== catch clause for a subclass after a catch clause for its superclass, which the try block throws (issue #181)
+janino: REJECTED Catch clause is unreachable
+public class P {
+    static void m() throws java.io.FileNotFoundException { }
+    void f() { try { m(); } catch (java.io.IOException e) { } catch (java.io.FileNotFoundException e) { } }
+}
+
+=== catch clause for a class after a catch clause for its superclass, after one for the thrown exception (issue #181)
+janino: REJECTED Catch clause is unreachable
+public class P {
+    static class A extends Exception { }
+    static class B extends A { }
+    static class C extends B { }
+    static void m() throws C { }
+    void f() { try { m(); } catch (C e) { } catch (A e) { } catch (B e) { } }
+}
+
+=== catch clause for a class that the try block cannot throw, after a catch clause for the thrown exception (issue #181)
+janino: REJECTED Catch clause is unreachable
+public class P {
+    static void m() throws java.io.FileNotFoundException { }
+    void f() { try { m(); } catch (java.io.FileNotFoundException e) { } catch (java.sql.SQLException e) { } }
+}
+
 === checked exception with an all-uppercase class name thrown by a throw statement, neither caught nor declared
 janino: REJECTED Thrown exception of type "P$X" is neither caught
 public class P {
