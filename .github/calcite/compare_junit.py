@@ -12,9 +12,10 @@ Usage: compare_junit.py <baseline-dir> <candidate-dir>
 Both directories are searched recursively for "*.xml" files in the JUnit XML format (as Gradle writes them to
 "build/test-results", and Maven's surefire to "target/surefire-reports"). A test is identified by its module (the
 path of the XML file relative to the directory, up to "build" or "target", e.g. "core", "example/csv" or
-"fory-core"), its class, its name without identity hash codes and TestNG's invocation numbers, and the number of the
-execution among equally named tests. The script prints a summary and the differences (also to the GitHub job summary,
-if the environment variable GITHUB_STEP_SUMMARY is set) and exits with status 1 if
+"fory-core"), its class, its name without identity hash codes, TestNG's invocation numbers and the indexes of JUnit's
+parameterized tests, and the number of the execution among equally named tests. The script prints a summary and the
+differences (also to the GitHub job summary, if the environment variable GITHUB_STEP_SUMMARY is set) and exits with
+status 1 if
  * a test passed with the baseline, but failed with the candidate,
  * a test that ran with the baseline did not run with the candidate (e.g. because the test JVM crashed), or
  * one of the runs contains no test at all.
@@ -34,6 +35,10 @@ IDENTITY_HASH = re.compile(r"@[0-9a-f]{1,8}\b")
 # TestNG (Fory) appends the number of the invocation by a data provider, e.g. "testItem[false](2)", which depends on
 # the order of the invocations and differs between the runs.
 INVOCATION_NUMBER = re.compile(r"\(\d+\)$")
+# JUnit 5 prefixes the display names of parameterized tests with the index of the invocation, e.g.
+# "[3] sql/basic.iq". Calcite's Quidem tests take their parameters from a directory listing, whose order differs
+# between the runs; the index is removed if a name follows it.
+INVOCATION_INDEX = re.compile(r"^\[\d+\] (?=\S)")
 
 
 def module_name(directory, xml_dir):
@@ -68,7 +73,7 @@ def read_results(directory):
                 print("WARNING: cannot parse " + path + ": " + str(e))
                 continue
             for case in tree.getroot().iter("testcase"):
-                test = INVOCATION_NUMBER.sub("", IDENTITY_HASH.sub("", case.get("name", "")))
+                test = INVOCATION_INDEX.sub("", INVOCATION_NUMBER.sub("", IDENTITY_HASH.sub("", case.get("name", ""))))
                 name = (module, case.get("classname", ""), test)
                 n = executions.get(name, 0)
                 executions[name] = n + 1
