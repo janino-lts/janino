@@ -334,6 +334,11 @@ not compile, are checked like all others, without generating their code: a type 
 an exception class with an all-uppercase name in a `throws` clause (L-34) and a `catch` parameter with the name of a
 local variable (L-14).
 
+The code that Spark generates for a `ScalaUDF` throws an undeclared `Throwable` in a `catch` clause (`catch (Throwable
+e) { throw QueryExecutionErrors.failedExecuteUserDefinedFunctionError(..., e); }`, L-33), which `javac` rejects; the
+compliance mode rejects it as well, the compatibility mode compiles it. The workflow "Spark" lists the six tests of
+`ScalaUDFSuite` that fail for this reason in the compliance mode as known failures.
+
 **Class files.** Unchanged in the compatibility mode.
 
 **Tests.** The record tests (`InvalidCodeTest`, `LanguageSupportTest`) run every case in both modes: a record

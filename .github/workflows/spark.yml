@@ -25,7 +25,8 @@
 # candidate in JANINO's compliance mode (the system property "org.codehaus.janino.javacCompliance", see
 # "run_suites.sh"); the baseline runs as always. The "compare" jobs then show every test that depends on a behavior
 # that the compliance mode changes. This needs a candidate that has the compliance mode, i.e. one built from the
-# development line.
+# development line. The tests whose generated code the compliance mode rejects, like "javac" does, are listed in
+# ".github/spark/known-failures-javac-compliance.txt"; the "compare" jobs do not count them as regressions.
 
 name: Spark
 run-name: ${{ inputs.javac-compliance && 'Spark (javac compliance)' || 'Spark' }}
@@ -194,7 +195,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          sparse-checkout: .github/calcite
+          sparse-checkout: |
+            .github/calcite
+            .github/spark
 
       - uses: actions/download-artifact@v8
         if: env.BASELINE != 'none'
@@ -209,8 +212,12 @@ jobs:
 
       - name: Compare the results
         run: |
+          known=()
+          if [ "$JAVAC_COMPLIANCE" = true ]; then
+            known=(--known-failures .github/spark/known-failures-javac-compliance.txt)
+          fi
           if [ "$BASELINE" != none ]; then
-            python3 .github/calcite/compare_junit.py baseline candidate
+            python3 .github/calcite/compare_junit.py "${known[@]}" baseline candidate
           else
-            python3 .github/calcite/compare_junit.py candidate
+            python3 .github/calcite/compare_junit.py "${known[@]}" candidate
           fi

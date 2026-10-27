@@ -6,8 +6,15 @@ that uses JANINO are executed with the JANINO that the project declares (the bas
 repository (the candidate). A test that passes with the baseline and fails with the candidate is a regression; a test
 that fails with both is not.
 
-Usage: compare_junit.py <baseline-dir> <candidate-dir>
-       compare_junit.py <candidate-dir>      (no baseline: the run must contain tests, and none may have failed)
+Usage: compare_junit.py [--known-failures <file>] <baseline-dir> <candidate-dir>
+       compare_junit.py [--known-failures <file>] <candidate-dir>
+                                             (no baseline: the run must contain tests, and none may have failed)
+
+The file of "--known-failures" lists the tests that are expected to fail with the candidate, one per line, as the
+script prints them ("<module>: <class> > <name>", without the module if it is empty); empty lines and lines that start
+with "#" are ignored. Such a test is not a regression; the script lists it separately, and also lists the known
+failures that passed or did not run, so that the file can be kept current. The Spark workflow uses it for the tests
+whose generated code the compliance mode of JANINO rejects, like "javac" does.
 
 Both directories are searched recursively for "*.xml" files in the JUnit XML format (as Gradle writes them to
 "build/test-results", and Maven's surefire to "target/surefire-reports"). A test is identified by its module (the
@@ -131,9 +138,38 @@ def report(lines, problems):
     return 1 if problems else 0
 
 
-def check(candidate):
-    """Checks a single run: it must contain tests, and none of them may have failed."""
-    failed = [k for k, s in candidate.items() if s == FAILED]
+def read_known_failures(path):
+    """Returns the set of test names in the file (see "--known-failures"), or an empty set if "path" is None."""
+    if path is None:
+        return set()
+    with open(path, encoding="utf-8") as f:
+        return {line.strip() for line in f if line.strip() and not line.strip().startswith("#")}
+
+
+def split_known(failed, known_failures):
+    """Returns the failed tests that are not known failures, and those that are."""
+    return ([k for k in failed if test_name(k) not in known_failures],
+            [k for k in failed if test_name(k) in known_failures])
+
+
+def known_but_not_failed(candidate, known_failures, lines):
+    """Lists the known failures that did not fail with the candidate (they passed, were skipped or did not run)."""
+    failed_names = {test_name(k) for k, s in candidate.items() if s == FAILED}
+    names = sorted(known_failures - failed_names)
+    if not names:
+        return
+    lines.append("")
+    lines.append("### Known failures that did not fail with the candidate; update the list (" + str(len(names)) + ")")
+    lines.append("")
+    for name in names[:MAX_LISTED]:
+        lines.append("- `" + name + "`")
+    if len(names) > MAX_LISTED:
+        lines.append("- ... and " + str(len(names) - MAX_LISTED) + " more")
+
+
+def check(candidate, known_failures):
+    """Checks a single run: it must contain tests, and none of them may have failed, except the known failures."""
+    failed, known = split_known([k for k, s in candidate.items() if s == FAILED], known_failures)
     lines = ["## Tests of the candidate", ""]
     table(lines, [("candidate", candidate)])
     problems = []
@@ -141,21 +177,31 @@ def check(candidate):
         problems.append("the candidate run contains no test")
     if failed:
         problems.append(str(len(failed)) + " test(s) failed")
-    verdict(lines, problems, "every test passed.")
+    verdict(lines, problems, "every test passed" + (", except the known failures." if known else "."))
     listing("Failed", failed, lines)
+    listing("Known failures", known, lines)
+    known_but_not_failed(candidate, known_failures, lines)
     return report(lines, problems)
 
 
 def main(argv):
+    known_failures_file = None
+    if len(argv) >= 3 and argv[1] == "--known-failures":
+        known_failures_file = argv[2]
+        argv = argv[:1] + argv[3:]
     if len(argv) not in (2, 3):
-        print("usage: compare_junit.py [<baseline-dir>] <candidate-dir>")
+        print("usage: compare_junit.py [--known-failures <file>] [<baseline-dir>] <candidate-dir>")
         return 2
+    known_failures = read_known_failures(known_failures_file)
     if len(argv) == 2:
-        return check(read_results(argv[1]))
+        return check(read_results(argv[1]), known_failures)
     baseline = read_results(argv[1])
     candidate = read_results(argv[2])
 
-    regressions = [k for k, s in candidate.items() if s == FAILED and baseline.get(k) == PASSED]
+    regressions, known = split_known(
+        [k for k, s in candidate.items() if s == FAILED and baseline.get(k) == PASSED],
+        known_failures
+    )
     missing = [k for k in baseline if k not in candidate]
     fixed = [k for k, s in candidate.items() if s == PASSED and baseline.get(k) == FAILED]
     failing_in_both = [k for k, s in candidate.items() if s == FAILED and baseline.get(k) == FAILED]
@@ -175,10 +221,13 @@ def main(argv):
     if missing:
         problems.append(str(len(missing)) + " test(s) ran with the baseline, but not with the candidate")
 
-    verdict(lines, problems, "every test that passed with the baseline passed with the candidate, and every test"
-            " that ran with the baseline ran with the candidate.")
+    verdict(lines, problems, "every test that passed with the baseline passed with the candidate"
+            + (", except the known failures," if known else ",")
+            + " and every test that ran with the baseline ran with the candidate.")
 
     listing("Regressions: passed with the baseline, failed with the candidate", regressions, lines)
+    listing("Known failures: passed with the baseline, failed with the candidate as expected", known, lines)
+    known_but_not_failed(candidate, known_failures, lines)
     listing("Missing: ran with the baseline, but not with the candidate", missing, lines)
     listing("Skipped with the candidate, passed with the baseline", newly_skipped, lines)
     listing("Failed with both", failing_in_both, lines)

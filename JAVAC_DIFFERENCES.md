@@ -582,7 +582,9 @@ and assigns a parameterized type to a field with a different type argument
   e` with a final or effectively final `catch` parameter `e` to throw the checked exceptions that the `try` block can
   throw and that the clause catches, minus those of the preceding clauses (JLS 11.2.2), so that `catch (Exception e) {
   throw e; }` stays valid in a method that declares them; not in a local or anonymous class in the `catch` clause, see
-  D-16);
+  D-16); Spark relies on it: for a `ScalaUDF`, it generates `catch (Throwable e) { throw
+  QueryExecutionErrors.failedExecuteUserDefinedFunctionError(..., e); }`, which throws an undeclared `Throwable`, so
+  that the compliance mode rejects this code;
 - L-34: an invocation of a method that declares a checked exception whose class name is all uppercase (`void m() throws
   X`, `throws IOEXC`), without catching or declaring the exception
   ([#65](https://github.com/janino-lts/janino/issues/65); before 3.1.17, such a type was taken for a type parameter
