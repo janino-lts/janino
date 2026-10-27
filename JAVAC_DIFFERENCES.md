@@ -243,6 +243,12 @@ Still rejected: a `protected static` member of `A` accessed from an inner class 
 synthetic accessor method references the member through `A`), and a resource of type `B` in a try-with-resources
 statement when `close()` is declared in `A`: Janino selects `AutoCloseable.close()`, which throws `Exception`.
 
+**`this(...)` in an enum constructor** ([#178](https://github.com/janino-lts/janino/issues/178), fixed in 3.1.21):
+Janino 3.1.20 and earlier fail with an internal compiler error on `enum E { A, B(2); E() { this(1); } E(int i) { } }`
+(`AssertionError: uninitializedThis`, also without `-ea`), because they do not pass the synthetic name and ordinal
+parameters of the enum constant on to the constructor that `this(...)` invokes. Since 3.1.21, they are passed on, like
+with `javac`.
+
 ## 3. Invalid code that Janino accepts
 
 `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it behaves

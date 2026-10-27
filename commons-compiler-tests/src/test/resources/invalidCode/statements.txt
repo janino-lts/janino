@@ -341,6 +341,13 @@ public class P {
     P() { this(); }
 }
 
+=== recursive constructor invocation in an enum (issue #178)
+janino: ACCEPTED
+recovery: ACCEPTED
+public class P {
+    enum E { ; E() { this(); } }
+}
+
 === try with resources of non-closeable type
 janino: REJECTED A method named "close" is not declared in any enclosing class nor any supertype, nor through a static import
 public class P {
