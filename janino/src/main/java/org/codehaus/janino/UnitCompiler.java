@@ -13592,22 +13592,27 @@ class UnitCompiler {
 
                             // This catch clause definitely catches the exception.
                             cc.reachable = true;
+
+                            // A following catch clause for a superclass of the exception is reachable as well, unless
+                            // a preceding catch clause catches that superclass (JLS8 14.21; issue #181): "catch
+                            // (FileNotFoundException e) { } catch (IOException e) { }".
+                            for (int k = i + 1; k < ts.catchClauses.size(); ++k) {
+                                CatchClause cc2 = (CatchClause) ts.catchClauses.get(k);
+                                for (Type ct2 : cc2.catchParameter.types) {
+                                    IClass caughtType2 = this.getRawType(ct2);
+                                    if (
+                                        caughtType2.isAssignableFrom(rawType)
+                                        && !this.isCaughtByPrecedingCatchClause(ts, k, caughtType2)
+                                    ) cc2.reachable = true;
+                                }
+                            }
                             return;
                         }
 
-                        CATCH_SUBTYPE:
-                        if (rawType.isAssignableFrom(caughtType)) {
-
-                            // This catch clause catches only a subtype of the exception type.
-                            for (int j = 0; j < i; ++j) {
-                                for (Type ct2 : ((CatchClause) ts.catchClauses.get(j)).catchParameter.types) {
-                                    if (this.getRawType(ct2).isAssignableFrom(caughtType)) {
-
-                                        // A preceding catch clause is more general than this catch clause.
-                                        break CATCH_SUBTYPE;
-                                    }
-                                }
-                            }
+                        if (
+                            rawType.isAssignableFrom(caughtType)
+                            && !this.isCaughtByPrecedingCatchClause(ts, i, caughtType)
+                        ) {
 
                             // This catch clause catches PART OF the actual exceptions.
                             cc.reachable = true;
@@ -13638,6 +13643,20 @@ class UnitCompiler {
             + "\" is neither caught by a \"try...catch\" block "
             + "nor declared in the \"throws\" clause of the declaring function"
         ), locatable.getLocation());
+    }
+
+    /**
+     * @return Whether one of the CATCH clauses of the <var>tryStatement</var> that precede the one with the given
+     *         <var>index</var> catches the given <var>type</var>, i.e. declares the type or a superclass of it
+     */
+    private boolean
+    isCaughtByPrecedingCatchClause(TryStatement tryStatement, int index, IClass type) throws CompileException {
+        for (int j = 0; j < index; ++j) {
+            for (Type ct : ((CatchClause) tryStatement.catchClauses.get(j)).catchParameter.types) {
+                if (this.getRawType(ct).isAssignableFrom(type)) return true;
+            }
+        }
+        return false;
     }
 
     private IType

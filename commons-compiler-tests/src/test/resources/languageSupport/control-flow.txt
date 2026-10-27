@@ -272,6 +272,93 @@ public class P {
     public static Object run() { return parse("x") + "/" + parse("7"); }
 }
 
+=== catch clause for a superclass after a catch clause for the only exception that the try block throws (issue #181)
+jls: F-
+janino: OK
+legacy: REJECTED Catch clause is unreachable
+id: D-15
+public class P {
+    static void m(boolean b) throws java.io.FileNotFoundException { if (b) throw new java.io.FileNotFoundException(); }
+    static String f(boolean b) {
+        try {
+            m(b);
+            return "-";
+        } catch (java.io.FileNotFoundException e) {
+            return "F";
+        } catch (java.io.IOException e) {
+            return "I";
+        }
+    }
+    public static Object run() { return f(true) + f(false); }
+}
+
+=== catch clause for a superclass after a catch clause for an exception of a throw statement (issue #181)
+jls: F-
+janino: OK
+legacy: REJECTED Catch clause is unreachable
+id: D-15
+public class P {
+    static String f(boolean b) {
+        try {
+            if (b) throw new java.io.FileNotFoundException();
+            return "-";
+        } catch (java.io.FileNotFoundException e) {
+            return "F";
+        } catch (java.io.IOException e) {
+            return "I";
+        }
+    }
+    public static Object run() { return f(true) + f(false); }
+}
+
+=== catch clauses for two superclasses after a catch clause for the exception of a constructor (issue #181)
+jls: C-
+janino: OK
+legacy: REJECTED Catch clause is unreachable
+id: D-15
+public class P {
+    static class A extends Exception { }
+    static class B extends A { }
+    static class C extends B { }
+    P(boolean b) throws C { if (b) throw new C(); }
+    static String f(boolean b) {
+        try {
+            new P(b);
+            return "-";
+        } catch (C e) {
+            return "C";
+        } catch (B e) {
+            return "B";
+        } catch (A e) {
+            return "A";
+        }
+    }
+    public static Object run() { return f(true) + f(false); }
+}
+
+=== multi-catch clause with a superclass after a catch clause for the exception that it catches (issue #181)
+jls: -FS
+janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: D-15, #21
+public class P {
+    static void m(int x) throws java.io.FileNotFoundException, java.sql.SQLException {
+        if (x == 1) throw new java.io.FileNotFoundException();
+        if (x == 2) throw new java.sql.SQLException();
+    }
+    static String f(int x) {
+        try {
+            m(x);
+            return "-";
+        } catch (java.io.FileNotFoundException e) {
+            return "F";
+        } catch (java.io.IOException | java.sql.SQLException e) {
+            return e instanceof java.sql.SQLException ? "S" : "I";
+        }
+    }
+    public static Object run() { return f(0) + f(1) + f(2); }
+}
+
 === do statement that assigns a local variable which is read after it
 jls: 1
 janino: OK

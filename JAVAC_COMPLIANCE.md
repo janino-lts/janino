@@ -404,6 +404,11 @@ in the compliance mode, 37 open; D, 14 IDs, 3 fixed (D-04 in 3.1.19 except for o
 D-14 in 3.1.21), 5 corrected in the compliance mode only, 6 open; G, 9 and F, 11 (outside the scope); A, 8. Of the
 1247 recorded cases, the compliance mode agrees with `javac` on 1112 (the compatibility mode on 977).
 
+The development line, after #181 (from 3.1.x): S and L unchanged; D, 16 IDs, 4 fixed (D-04 in 3.1.19 except for one
+form, see there; D-08 in 3.1.20; D-14 and D-15 in 3.1.21), 5 corrected in the compliance mode only, 7 open (with D-16,
+found with #182); G, 9 and F, 11 (outside the scope); A, 8. Of the 1254 recorded cases, the compliance mode agrees with
+`javac` on 1119 (the compatibility mode on 984).
+
 ## 8. Registered exceptions
 
 | ID | Change | Since | Compatibility mode per contract |
@@ -534,7 +539,12 @@ method is applicable, so `p.B.s("x")` still selects `B.s(Object)` where `javac` 
 **3.1.21 (in development):** #178, found with #177 on the development line: an alternate constructor invocation
 `this(...)` in a constructor of an enum, e.g. `enum E { A, B(2); E() { this(1); } E(int i) { } }`, was an internal
 compiler error (D-14: `AssertionError: uninitializedThis`); now the synthetic name and ordinal parameters are passed on
-to the invoked constructor, like with `javac`. Only code that failed with an internal compiler error changes.
+to the invoked constructor, like with `javac`. Only code that failed with an internal compiler error changes. #181,
+found with #182 (the `catch` clauses of the compliance mode, development line): a `catch` clause for an exception class
+after a `catch` clause for a subclass, e.g. `catch (FileNotFoundException e) { } catch (IOException e) { }` with a
+`try` block that throws only `FileNotFoundException`, was rejected as unreachable (D-15); now it is accepted, like by
+`javac` (JLS 14.21), unless a preceding clause catches that class or a superclass of it. Only code that was rejected
+changes.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`

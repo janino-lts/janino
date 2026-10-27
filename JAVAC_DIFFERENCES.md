@@ -349,6 +349,24 @@ also without `-ea`), because they do not pass the synthetic name and ordinal par
 constructor that `this(...)` invokes; `javac` passes them on. Since 3.1.21, both modes compile it like `javac`, also a
 chain of `this(...)` invocations and an enum constant with a class body.
 
+**D-15, a `catch` clause for a superclass after a `catch` clause for the thrown exception**
+([#181](https://github.com/janino-lts/janino/issues/181), found with
+[#182](https://github.com/janino-lts/janino/issues/182), fixed in 3.1.21): Janino 3.1.20 and earlier reject
+`try { new FileInputStream(file); } catch (FileNotFoundException e) { } catch (IOException e) { }`, where the `try`
+block throws only `FileNotFoundException` (`Catch clause is unreachable`), because they mark only the first `catch`
+clause that catches a thrown exception as reachable; by JLS 14.21, the second clause is reachable, and `javac` only
+warns. Since 3.1.21, both modes accept it, like `javac`, unless a preceding clause catches `IOException` or a
+superclass of it.
+
+**D-16, `throw e` of a `catch` parameter in a local or anonymous class in the `catch` clause**
+([#182](https://github.com/janino-lts/janino/issues/182)): `try { r(); } catch (Exception e) { new Object() { void h()
+{ throw e; } }.h(); }`, where the `try` block throws no checked exception, is rejected (`Thrown exception of type
+"java.lang.Exception" is neither caught ...`), because Janino takes the type of the parameter for the type of the
+thrown exception; `javac` applies the rule of JLS 11.2.2 for the rethrow of a final or effectively final `catch`
+parameter (it throws only the exceptions that the `try` block can throw) also in the class body. Both modes; 3.1.12
+rejects the access to `e` (`Cannot access non-final local variable "e" from inner class`), which is not effectively
+final for it (D-03).
+
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions
 and method references; F-02 `switch` expressions, arrow labels and multiple labels in a `case`; F-03 pattern
@@ -448,6 +466,14 @@ statement when `close()` is declared in `A`: Janino selects `AutoCloseable.close
 i) { } }` (`AssertionError: uninitializedThis`, also without `-ea`), because they do not pass the synthetic name and
 ordinal parameters of the enum constant on to the constructor that `this(...)` invokes. Since 3.1.21, they are passed
 on, like with `javac`.
+
+**A `catch` clause for a superclass after a `catch` clause for the thrown exception**
+(D-15, [#181](https://github.com/janino-lts/janino/issues/181), fixed in 3.1.21): Janino 3.1.20 and earlier reject
+`try { new FileInputStream(file); } catch (FileNotFoundException e) { } catch (IOException e) { }`, where the `try`
+block throws only `FileNotFoundException` (`Catch clause is unreachable`), because they mark only the first `catch`
+clause that catches a thrown exception as reachable. By JLS 14.21, the second clause is reachable: the exception is
+assignable to its type, and no preceding clause catches `IOException` or a superclass of it; `javac` only warns.
+Since 3.1.21, such a clause is accepted, like by `javac`.
 
 ## 3. Invalid code that Janino accepts
 

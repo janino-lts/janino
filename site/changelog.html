@@ -303,6 +303,14 @@ h5 {
         invocations and for constants with class bodies. Only code that failed with an internal error changes. The
         class files of all other code are unchanged.
       </li>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/181">issue #181</a>: A <code>catch</code> clause
+        for an exception class after a <code>catch</code> clause for a subclass was rejected as unreachable when the
+        <code>try</code> block throws only the subclass, e.g. <code>try { new FileInputStream(file); } catch
+        (FileNotFoundException e) { } catch (IOException e) { }</code> ("Catch clause is unreachable"). Now it is
+        accepted, like by JAVAC (which warns), unless a preceding <code>catch</code> clause catches that class or a
+        superclass of it. Only code that was rejected changes.
+      </li>
     </ul>
 
     <h4>Version 3.1.20 2026-10-14</h4>
