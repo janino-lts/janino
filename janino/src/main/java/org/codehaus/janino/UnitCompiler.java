@@ -38,6 +38,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -4022,6 +4023,26 @@ class UnitCompiler {
     compile2(ThrowStatement ts) throws CompileException {
         IType expressionType = this.compileGetValue(ts.expression);
 
+        // Compliance L-33: "throw e;" with a final or effectively final CATCH parameter "e" throws the checked
+        // exceptions that the TRY block can throw and that the CATCH clause catches, minus those that the preceding
+        // CATCH clauses catch (JLS8 11.2.2, the "precise rethrow"), like JAVAC; so "catch (Exception e) { throw e; }"
+        // is valid in a method that declares the checked exceptions of the TRY block.
+        if (this.compliant()) {
+            Collection<IClass> rethrownExceptions = this.preciselyRethrownExceptions(ts.expression);
+            if (rethrownExceptions != null) {
+                for (IClass rethrownException : rethrownExceptions) {
+                    this.checkThrownException(
+                        ts,                                                        // locatable
+                        rethrownException,                                         // type
+                        ts.getEnclosingScope(),                                    // scope
+                        this.legacyUncheckedExceptions.contains(rethrownException) // legacyUnchecked
+                    );
+                }
+                this.athrow(ts);
+                return false;
+            }
+        }
+
         // JLS7 11.2.2: "throw e;" with a multi-catch parameter "e" ("catch (A | B e)") throws the alternatives,
         // not their common supertype.
         CatchParameter multiCatchParameter = this.multiCatchParameter(ts.expression);
@@ -4067,6 +4088,80 @@ class UnitCompiler {
     }
 
     /**
+     * Compliance L-30, L-31, L-33: The checked exceptions that the TRY block of each TRY statement, including its
+     * resources, can throw (JLS8 11.2.2), as far as JANINO checks them; see {@link #checkThrownException(Locatable,
+     * IType, Scope, boolean)}. A TRY statement is removed when its compilation begins, because a TRY statement in a
+     * FINALLY clause is compiled more than once.
+     */
+    private final Map<TryStatement, Set<IClass>> tryBlockThrownExceptions = new HashMap<>();
+
+    /**
+     * Compliance L-33: The CATCH clauses that declare the local variables of the CATCH parameters; see {@link
+     * #buildLocalVariableMap(CatchClause, Map)}.
+     */
+    private final Map<LocalVariable, CatchClause> catchParameterClauses = new HashMap<>();
+
+    /**
+     * Compliance L-33: The exceptions that "{@code throw e;}" throws if "{@code e}" is a final or effectively final
+     * CATCH parameter (JLS8 11.2.2): for each checked exception that the TRY block can throw, the exception itself if
+     * an alternative of the CATCH clause is a superclass of it, or the alternative if it is a subclass of the
+     * exception; minus those that a preceding CATCH clause of the same TRY statement catches.
+     * <p>
+     *   "Effectively final" is conservative: the name of the parameter must not be assigned, incremented or
+     *   decremented in the body of the CATCH clause, including the bodies of nested classes (see {@link
+     *   #notEffectivelyFinalNames(Scope)}).
+     * </p>
+     *
+     * @return {@code null} if the <var>rv</var> is not such a CATCH parameter
+     */
+    @Nullable private Collection<IClass>
+    preciselyRethrownExceptions(Rvalue rv) throws CompileException {
+
+        while (rv instanceof ParenthesizedExpression) rv = ((ParenthesizedExpression) rv).value;
+        Atom a = rv instanceof AmbiguousName ? this.reclassify((AmbiguousName) rv) : rv;
+        if (!(a instanceof LocalVariableAccess)) return null;
+
+        CatchClause cc = (CatchClause) this.catchParameterClauses.get(((LocalVariableAccess) a).localVariable);
+        if (cc == null) return null;
+
+        CatchParameter cp = cc.catchParameter;
+        if (
+            !cp.finaL
+            && cp.types.length == 1
+            && (!(cc.body instanceof Block) || UnitCompiler.notEffectivelyFinalNames(cc.body).contains(cp.name))
+        ) return null;
+
+        TryStatement ts    = (TryStatement) cc.getEnclosingScope();
+        int          index = ts.catchClauses.indexOf(cc);
+
+        Set<IClass> result = new LinkedHashSet<>();
+
+        Set<IClass> thrownExceptions = (Set<IClass>) this.tryBlockThrownExceptions.get(ts);
+        if (thrownExceptions == null) return result;
+
+        for (IClass thrownException : thrownExceptions) {
+            for (Type t : cp.types) {
+                IClass alternative = this.getRawType(t);
+
+                IClass rethrownException;
+                if (alternative.isAssignableFrom(thrownException)) {
+                    rethrownException = thrownException;
+                } else
+                if (thrownException.isAssignableFrom(alternative)) {
+                    rethrownException = alternative;
+                } else
+                {
+                    continue;
+                }
+
+                if (!this.isCaughtByPrecedingCatchClause(ts, index, rethrownException)) result.add(rethrownException);
+            }
+        }
+
+        return result;
+    }
+
+    /**
      * Interface for delayed code generation.
      */
     interface Compilable2 { boolean compile() throws CompileException; }
@@ -4091,6 +4186,9 @@ class UnitCompiler {
 
     private boolean
     compile2(final TryStatement ts) throws CompileException {
+
+        // Compliance L-30, L-31, L-33: "checkThrownException()" records anew what the TRY block can throw.
+        if (this.compliant()) this.tryBlockThrownExceptions.remove(ts);
 
         final Compilable2 compileBody = new Compilable2() {
 
@@ -4502,6 +4600,9 @@ class UnitCompiler {
                     IClass[] caughtExceptionTypes = this.checkCatchParameter(catchParameter);
 
                     // Verify that the CATCH clause is reachable.
+                    if (this.compliant()) {
+                        this.checkCatchClauseReachability(tryStatement, i, caughtExceptionTypes);
+                    } else
                     if (!catchClause.reachable) {
                         this.compileError("Catch clause is unreachable", catchClause.getLocation());
                     }
@@ -4552,11 +4653,122 @@ class UnitCompiler {
                     this.getCodeContext().restoreLocalVariables();
                 }
             }
+        } else
+        if (this.compliant()) {
+
+            // Compliance L-30, L-31, L-32, L-51: The CATCH clauses after an empty TRY block are checked like all
+            // others; their code is not generated, because it can never be executed.
+            for (int i = 0; i < catchClauses.size(); ++i) {
+                this.getCodeContext().currentInserter().setStackMap(smBeforeBody);
+                this.fakeCompileCatchClause(tryStatement, i);
+            }
         }
 
         this.getCodeContext().currentInserter().setStackMap(smAfterBody);
 
         return bodyCcn | catchCcn;
+    }
+
+    /**
+     * Compliance L-30, L-31, L-32, L-51: Checks the CATCH clause with the given <var>index</var> of a TRY statement
+     * whose TRY block generates no code, and compiles its body without generating code, like {@link
+     * #fakeCompile(BlockStatement)}.
+     */
+    private void
+    fakeCompileCatchClause(TryStatement tryStatement, int index) throws CompileException {
+
+        CatchClause    catchClause    = (CatchClause) tryStatement.catchClauses.get(index);
+        CatchParameter catchParameter = catchClause.catchParameter;
+
+        this.checkCatchClauseReachability(tryStatement, index, this.checkCatchParameter(catchParameter));
+
+        Offset from = this.getCodeContext().newOffset();
+
+        this.getCodeContext().saveLocalVariables();
+        try {
+            LocalVariable exceptionVariable     = this.getLocalVariable(catchParameter);
+            IClass        exceptionVariableType = UnitCompiler.rawTypeOf(exceptionVariable.type);
+
+            this.getCodeContext().pushObjectOperand(exceptionVariableType.getDescriptor());
+
+            LocalVariableSlot
+            exceptionVarSlot = this.allocateLocalVariableSlot(exceptionVariableType, catchParameter.name);
+            exceptionVariable.setSlot(exceptionVarSlot);
+            this.store(catchClause, exceptionVariableType, exceptionVarSlot.getSlotIndex());
+
+            this.compile(catchClause.body);
+        } finally {
+            this.getCodeContext().restoreLocalVariables();
+        }
+
+        this.getCodeContext().removeCode(from, this.getCodeContext().newOffset());
+    }
+
+    /**
+     * Compliance L-30, L-31: Reports the alternatives of the CATCH clause with the given <var>index</var> that are
+     * unreachable, like JAVAC: an alternative that a preceding CATCH clause catches (JLS8 14.21), and a checked
+     * exception class other than {@link Exception} and its superclasses that is neither a subclass nor a superclass of
+     * an exception that the TRY block can throw (JLS8 11.2.3).
+     *
+     * @param alternatives The types of the CATCH parameter
+     */
+    private void
+    checkCatchClauseReachability(TryStatement tryStatement, int index, IClass[] alternatives)
+    throws CompileException {
+
+        CatchClause catchClause      = (CatchClause) tryStatement.catchClauses.get(index);
+        Set<IClass> thrownExceptions = (Set<IClass>) this.tryBlockThrownExceptions.get(tryStatement);
+
+        List<IClass> unreachable = new ArrayList<>();
+        for (IClass alternative : alternatives) {
+            if (
+                this.isCaughtByPrecedingCatchClause(tryStatement, index, alternative)
+                || !this.canCatchThrownException(alternative, thrownExceptions)
+            ) unreachable.add(alternative);
+        }
+
+        if (unreachable.size() == alternatives.length) {
+            this.compileError("Catch clause is unreachable", catchClause.getLocation());
+            return;
+        }
+
+        for (IClass alternative : unreachable) {
+            this.compileError(
+                "Alternative \""
+                + alternative
+                + "\" of multi-catch parameter \""
+                + catchClause.catchParameter.name
+                + "\" is unreachable",
+                catchClause.catchParameter.getLocation()
+            );
+        }
+    }
+
+    /**
+     * @param thrownExceptions The checked exceptions that the TRY block can throw, or {@code null}
+     * @return                 Whether a CATCH clause for the <var>caughtType</var> can catch an exception of the TRY
+     *                         block (JLS8 11.2.3): the type is a superclass or a subclass of {@link Error} or {@link
+     *                         RuntimeException} (that includes {@link Exception} and {@link Throwable}), or of one of
+     *                         the <var>thrownExceptions</var>
+     */
+    private boolean
+    canCatchThrownException(IClass caughtType, @Nullable Set<IClass> thrownExceptions) throws CompileException {
+
+        if (
+            UnitCompiler.isAssignableFrom(this.iClassLoader.TYPE_java_lang_Error, caughtType)
+            || UnitCompiler.isAssignableFrom(caughtType, this.iClassLoader.TYPE_java_lang_Error)
+            || UnitCompiler.isAssignableFrom(this.iClassLoader.TYPE_java_lang_RuntimeException, caughtType)
+            || UnitCompiler.isAssignableFrom(caughtType, this.iClassLoader.TYPE_java_lang_RuntimeException)
+        ) return true;
+
+        if (thrownExceptions == null) return false;
+
+        for (IClass thrownException : thrownExceptions) {
+            if (caughtType.isAssignableFrom(thrownException) || thrownException.isAssignableFrom(caughtType)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -5352,6 +5564,10 @@ class UnitCompiler {
         vars.putAll(localVars);
         LocalVariable lv = this.getLocalVariable(catchClause.catchParameter);
         vars.put(catchClause.catchParameter.name, lv);
+
+        // Compliance L-33: For the precise rethrow, see "preciselyRethrownExceptions()".
+        if (this.compliant()) this.catchParameterClauses.put(lv, catchClause);
+
         this.buildLocalVariableMap(catchClause.body, vars);
     }
 
@@ -11885,7 +12101,8 @@ class UnitCompiler {
     }
 
     /**
-     * @param functionOrInitializer A {@link FunctionDeclarator} or an {@link Initializer}
+     * @param functionOrInitializer A {@link FunctionDeclarator}, an {@link Initializer}, or a {@link Block} (the body
+     *                              of a CATCH clause, see {@link #preciselyRethrownExceptions(Rvalue)})
      * @return                      The names of the local variables that are declared without an initializer, or
      *                              assigned, incremented or decremented in the body, including nested class bodies
      */
@@ -11929,6 +12146,9 @@ class UnitCompiler {
         } else
         if (functionOrInitializer instanceof MethodDeclarator) {
             traverser.traverseMethodDeclarator((MethodDeclarator) functionOrInitializer);
+        } else
+        if (functionOrInitializer instanceof Block) {
+            traverser.traverseBlock((Block) functionOrInitializer);
         } else
         {
             traverser.traverseInitializer((Initializer) functionOrInitializer);
@@ -13578,11 +13798,27 @@ class UnitCompiler {
             || this.iClassLoader.TYPE_java_lang_Error.isAssignableFrom(rawType)
         ) return;
 
-        for (;; scope = scope.getEnclosingScope()) {
+        for (Scope previous = null;; previous = scope, scope = scope.getEnclosingScope()) {
 
             // Match against enclosing "try...catch" blocks.
             if (scope instanceof TryStatement) {
                 TryStatement ts = (TryStatement) scope;
+
+                if (this.compliant()) {
+
+                    // Compliance L-33: An exception that is thrown in a CATCH clause or in the FINALLY clause is not
+                    // caught by the CATCH clauses of the same TRY statement.
+                    if (previous instanceof CatchClause || (previous != null && previous == ts.finallY)) continue;
+
+                    // Compliance L-30, L-31, L-33: Record what the TRY block can throw. (The synthetic FINALLY
+                    // clause of a TRY-with-resources statement, which closes a resource, belongs to the TRY block.)
+                    Set<IClass> thrownExceptions = (Set<IClass>) this.tryBlockThrownExceptions.get(ts);
+                    if (thrownExceptions == null) {
+                        this.tryBlockThrownExceptions.put(ts, (thrownExceptions = new LinkedHashSet<>()));
+                    }
+                    thrownExceptions.add(rawType);
+                }
+
                 for (int i = 0; i < ts.catchClauses.size(); ++i) {
                     CatchClause cc         = (CatchClause) ts.catchClauses.get(i);
                     for (Type ct : cc.catchParameter.types) {
