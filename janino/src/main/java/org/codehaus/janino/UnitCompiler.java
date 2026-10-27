@@ -284,7 +284,8 @@ class UnitCompiler {
      * The exception classes with all-uppercase names that the methods of the compilation unit declare in their
      * THROWS clauses. Before 3.1.17, such a type was taken for a type parameter and ignored (see {@link
      * #thrownExceptionType(Type, Scope)}), so the invocations of the method needed neither catch nor declare the
-     * exception; for compatibility, they still need not (issue #65, JAVAC_DIFFERENCES.md, section 3).
+     * exception; for compatibility, they still need not (issue #65, JAVAC_DIFFERENCES.md, section 3). The
+     * compliance mode checks them like any other exception (L-34).
      */
     private final Set<IClass> legacyUncheckedExceptions = new HashSet<>();
 
@@ -4031,12 +4032,8 @@ class UnitCompiler {
             Collection<IClass> rethrownExceptions = this.preciselyRethrownExceptions(ts.expression);
             if (rethrownExceptions != null) {
                 for (IClass rethrownException : rethrownExceptions) {
-                    this.checkThrownException(
-                        ts,                                                        // locatable
-                        rethrownException,                                         // type
-                        ts.getEnclosingScope(),                                    // scope
-                        this.legacyUncheckedExceptions.contains(rethrownException) // legacyUnchecked
-                    );
+                    // Compliance L-34: No exception is exempt (see "legacyUncheckedExceptions").
+                    this.checkThrownException(ts, rethrownException, ts.getEnclosingScope());
                 }
                 this.athrow(ts);
                 return false;
@@ -5453,6 +5450,7 @@ class UnitCompiler {
         Map<String, LocalVariable> vars = new HashMap<>();
         vars.putAll(localVars);
         LocalVariable elementLv = this.getLocalVariable(fes.currentElement, false);
+        this.checkNotRedeclared(vars, fes.currentElement.name, fes.currentElement);
         vars.put(fes.currentElement.name, elementLv);
         fes.localVariables = vars;
         this.buildLocalVariableMap(fes.body, vars);
@@ -5509,8 +5507,9 @@ class UnitCompiler {
 
             // A resource variable with the name of a local variable in scope (JAVAC: "already defined") is not
             // reported, for compatibility with the earlier versions that did not see the resource variables; it
-            // shadows that variable, like a CATCH parameter.
+            // shadows that variable, like a CATCH parameter. The compliance mode reports it (L-14).
             LocalVariable lv = this.getLocalVariable(lvdr);
+            this.checkNotRedeclared(bodyVars, lvdr.variableDeclarator.name, lvdr.variableDeclarator);
             bodyVars.put(lvdr.variableDeclarator.name, lv);
             this.resourceVariables.add(lv);
         }
@@ -5546,13 +5545,27 @@ class UnitCompiler {
             LocalVariable prev = (LocalVariable) newVars.put(vd.name, lv);
 
             // A local variable with the name of a resource variable in scope (JAVAC: "already defined") is not
-            // reported, for compatibility with the earlier versions that did not see the resource variables.
-            if (prev != null && !this.resourceVariables.contains(prev)) {
+            // reported, for compatibility with the earlier versions that did not see the resource variables. The
+            // compliance mode reports it (L-14).
+            if (prev != null && (this.compliant() || !this.resourceVariables.contains(prev))) {
                 this.compileError("Redefinition of local variable \"" + vd.name + "\" ", vd.getLocation());
             }
         }
         lvds.localVariables = newVars;
         return newVars;
+    }
+
+    /**
+     * Compliance L-14: A CATCH parameter, the variable of an enhanced FOR statement or a resource variable must not
+     * have the name of a local variable or parameter in scope (JLS8 6.4), like JAVAC ("already defined"). The
+     * compatibility mode lets it shadow that variable.
+     */
+    private void
+    checkNotRedeclared(Map<String, LocalVariable> localVars, String name, Locatable locatable)
+    throws CompileException {
+        if (this.compliant() && localVars.containsKey(name)) {
+            this.compileError("Redefinition of local variable \"" + name + "\" ", locatable.getLocation());
+        }
     }
 
     /**
@@ -5563,6 +5576,7 @@ class UnitCompiler {
         Map<String, LocalVariable> vars = new HashMap<>();
         vars.putAll(localVars);
         LocalVariable lv = this.getLocalVariable(catchClause.catchParameter);
+        this.checkNotRedeclared(vars, catchClause.catchParameter.name, catchClause.catchParameter);
         vars.put(catchClause.catchParameter.name, lv);
 
         // Compliance L-33: For the precise rethrow, see "preciselyRethrownExceptions()".
@@ -9650,7 +9664,7 @@ class UnitCompiler {
      * compiler cannot infer the exception type that an invocation throws (JLS7 15.12.2.6), and the "Exceptions"
      * attribute cannot express it (see {@link #compile(FunctionDeclarator, ClassFile)}). Before 3.1.17, every
      * single all-uppercase identifier was taken for a type parameter (issue #65); for compatibility, such an
-     * identifier that does not denote a type is still ignored.
+     * identifier that does not denote a type is still ignored. The compliance mode reports it, like JAVAC (L-34).
      *
      * @param scope The function declaration
      * @return      The exception class, or {@code null} iff the type is ignored
@@ -9665,8 +9679,10 @@ class UnitCompiler {
 
                 if (UnitCompiler.findTypeParameter(name, scope) != null) return null;
 
+                // Compliance L-34: A name that is neither a type parameter nor a type is an error, like JAVAC.
                 if (
-                    UnitCompiler.LOOKS_LIKE_TYPE_PARAMETER.matcher(name).matches()
+                    !this.compliant()
+                    && UnitCompiler.LOOKS_LIKE_TYPE_PARAMETER.matcher(name).matches()
                     && this.findRawReferenceType(thrownException.getLocation(), name, scope) == null
                 ) return null;
             }
@@ -13756,11 +13772,14 @@ class UnitCompiler {
     checkThrownExceptions(Invocation in, IMethod iMethod) throws CompileException {
         IClass[] thrownExceptions = iMethod.getThrownExceptions();
         for (IClass thrownException : thrownExceptions) {
+
+            // Compliance L-34: An exception class with an all-uppercase name must be caught or declared like any
+            // other, like JAVAC.
             this.checkThrownException(
-                in,                                                      // locatable
-                thrownException,                                         // type
-                in.getEnclosingScope(),                                  // scope
-                this.legacyUncheckedExceptions.contains(thrownException) // legacyUnchecked
+                in,                                                                           // locatable
+                thrownException,                                                              // type
+                in.getEnclosingScope(),                                                       // scope
+                !this.compliant() && this.legacyUncheckedExceptions.contains(thrownException) // legacyUnchecked
             );
         }
     }

@@ -483,7 +483,8 @@ behaves as the source suggests (e.g. an assignment to a `final` local variable a
 #33](https://github.com/janino-lts/janino/issues/33) for the compatibility considerations. The compatibility mode keeps
 accepting all of it; the compliance mode rejects it once the respective check is implemented (today, it rejects L-20,
 L-27 to L-29 and L-35 to L-37 ([#177](https://github.com/janino-lts/janino/issues/177)), L-30 to L-33 and L-51
-([#182](https://github.com/janino-lts/janino/issues/182)), L-45 and L-46, see S-11, L-47, see S-04, L-48, see S-12,
+([#182](https://github.com/janino-lts/janino/issues/182)), L-14 and L-34
+([#188](https://github.com/janino-lts/janino/issues/188)), L-45 and L-46, see S-11, L-47, see S-04, L-48, see S-12,
 L-49, see S-02, and L-50, see S-14; all other entries of this section are open). One
 exception, registered as A-05 (section 5): the access to a `protected` member of a class in another package through an
 expression whose type is neither the accessing class nor a subclass of it (`((Object)
@@ -525,7 +526,8 @@ and assigns a parameterized type to a field with a different type argument
   try-with-resources statement with the name of a local variable or parameter in scope
   (`int e = 1; try { ... } catch (Exception e) {}`, `try (R r = ...)` with a local variable `r`), two resources with
   the same name, or a local variable in the block of a try-with-resources statement with the name of a resource
-  variable; the later declaration shadows the earlier one in its scope;
+  variable; the later declaration shadows the earlier one in its scope (the compliance mode rejects it,
+  [#188](https://github.com/janino-lts/janino/issues/188), development line);
 - L-15: `native strictfp` method (the JVM accepts the combination);
 - L-16: `static default` interface method; interface field without initializer: `interface I { int X; }`;
 - L-17: default method that overrides a method of `Object`: `default boolean equals(Object o) { ... }`;
@@ -574,7 +576,8 @@ and assigns a parameterized type to a field with a different type argument
   non-empty `try` block, this is rejected; the compliance mode rejects it,
   [#182](https://github.com/janino-lts/janino/issues/182), development line);
 - `catch` parameter that redeclares a local variable: `int e = 0; try { } catch (RuntimeException e) { }`, also a
-  multi-catch parameter (L-14);
+  multi-catch parameter (L-14; the compliance mode rejects it,
+  [#188](https://github.com/janino-lts/janino/issues/188), development line);
 - L-33: a checked exception that is thrown in a `catch` or `finally` clause and that a `catch` clause of the same `try`
   statement catches: `try { } catch (Exception e) { throw new IOException(); }`, also the rethrow of the parameter:
   `catch (IOException | SQLException e) { throw e; }` in a method that declares neither exception, and `catch (Exception
@@ -590,7 +593,8 @@ and assigns a parameterized type to a field with a different type argument
   X`, `throws IOEXC`), without catching or declaring the exception
   ([#65](https://github.com/janino-lts/janino/issues/65); before 3.1.17, such a type was taken for a type parameter
   and ignored; a `throw` statement and a constructor invocation are checked); a `throws` clause with an
-  all-uppercase name that denotes no type (`void m() throws T` without a type parameter `T`), which is ignored;
+  all-uppercase name that denotes no type (`void m() throws T` without a type parameter `T`), which is ignored (the
+  compliance mode rejects both, [#188](https://github.com/janino-lts/janino/issues/188), development line);
 - L-35: case label out of the range of the switch type: `switch (b) { case 1000: }` with `byte b`, also with a
   selector of a wrapper type: `case 128:` with `Byte b`, and `case 'a':` with `Integer i` (`javac`: `char cannot be
   converted to Integer`) (the compliance mode rejects it, [#177](https://github.com/janino-lts/janino/issues/177),
