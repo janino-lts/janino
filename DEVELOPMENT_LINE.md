@@ -37,6 +37,7 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#137](https://github.com/janino-lts/janino/issues/137) | The compliance mode: a field of a local or anonymous class shadows a variable of the enclosing method, like `javac` (S-15) | unchanged | only with the option |
 | [#177](https://github.com/janino-lts/janino/issues/177) | The compliance mode: statements like `javac` (L-27 to L-29, L-35 to L-37) | unchanged | only with the option |
 | [#182](https://github.com/janino-lts/janino/issues/182) | The compliance mode: `catch` clauses like `javac` (L-30 to L-33, L-51) | unchanged | only with the option |
+| [#185](https://github.com/janino-lts/janino/issues/185) | The compliance mode: `a \|\| false` and `a && true` compile into the same code as in the compatibility mode (S-01) | unchanged | unchanged |
 | [#107](https://github.com/janino-lts/janino/issues/107) | `<clinit>` with the access flags of `javac` (`ACC_STATIC`) | changed | unchanged |
 | [#108](https://github.com/janino-lts/janino/issues/108) | The compile error message for an instance member in a static initializer names the context | unchanged | message texts |
 
@@ -339,7 +340,10 @@ e) { throw QueryExecutionErrors.failedExecuteUserDefinedFunctionError(..., e); }
 compliance mode rejects it as well, the compatibility mode compiles it. The workflow "Spark" lists the six tests of
 `ScalaUDFSuite` that fail for this reason in the compliance mode as known failures.
 
-**Class files.** Unchanged in the compatibility mode.
+**Class files.** Unchanged in the compatibility mode. In the compliance mode, `a || false` and `a && true` compile
+into the same code as in the compatibility mode since #185; before, the correction of S-01 also applied to them, and the
+compliance mode compiled the constant operand into a conditional branch on the constant, which changed the class files
+of two of the 342 class bodies of `SparkCorpusTest` (`if (isNull_0 || ... || false)` in a sort-merge join).
 
 **Tests.** The record tests (`InvalidCodeTest`, `LanguageSupportTest`) run every case in both modes: a record
 describes the compatibility mode (`janino:`) and, where the compliance mode differs, the compliance mode

@@ -6081,9 +6081,10 @@ class UnitCompiler {
             }
             // Compliance S-01: The compatibility mode evaluates the LHS of "a || true" and "a && false" without
             // unboxing it, so a "null" Boolean does not throw a NullPointerException; the compliance mode compiles
-            // them like any other operands (below), which unboxes the LHS, like JAVAC (issue #40).
+            // them like any other operands (below), which unboxes the LHS, like JAVAC (issue #40). "a && true" and
+            // "a || false" unbox the LHS in both modes, and compile into the same code (issue #185).
             Object rhsCv = this.getConstantValue(bo.rhs);
-            if (rhsCv instanceof Boolean && !this.compliant()) {
+            if (rhsCv instanceof Boolean) {
                 if (((Boolean) rhsCv).booleanValue() ^ bo.operator == "||") { // SUPPRESS CHECKSTYLE StringLiteralEquality
                     // "a && true", "a || false"
                     this.compileBoolean(
@@ -6091,7 +6092,9 @@ class UnitCompiler {
                         dst,
                         orientation
                     );
-                } else {
+                    return;
+                }
+                if (!this.compliant()) {
                     // "a && false", "a || true"
 
                     // Compile the LHS ("a"), and discard the result.
@@ -6104,8 +6107,8 @@ class UnitCompiler {
                         dst,
                         orientation
                     );
+                    return;
                 }
-                return;
             }
 
             // SUPPRESS CHECKSTYLE StringLiteralEquality
