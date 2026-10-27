@@ -399,6 +399,11 @@ mode; L, 50 IDs, 13 rejected in the compliance mode, 37 open; D, 13 IDs, unchang
 scope); A, 8. Of the 1240 recorded cases, the compliance mode agrees with `javac` on 1105 (the compatibility mode on
 971).
 
+The development line, after #178 (from 3.1.x): S, 19 IDs, 11 corrected in the compliance mode; L, 50 IDs, 13 rejected
+in the compliance mode, 37 open; D, 14 IDs, 3 fixed (D-04 in 3.1.19 except for one form, see there; D-08 in 3.1.20;
+D-14 in 3.1.21), 5 corrected in the compliance mode only, 6 open; G, 9 and F, 11 (outside the scope); A, 8. Of the
+1247 recorded cases, the compliance mode agrees with `javac` on 1112 (the compatibility mode on 977).
+
 ## 8. Registered exceptions
 
 | ID | Change | Since | Compatibility mode per contract |
@@ -525,6 +530,11 @@ a package-private class `A`, was rejected from another package (D); now the acce
 the member is accessed counts (JLS 6.6.1), and the class file references the member through that type (JLS 13.1),
 like with `javac`. Only code that was rejected changes; the methods of `A` are considered only if no accessible
 method is applicable, so `p.B.s("x")` still selects `B.s(Object)` where `javac` selects `A.s(String)`.
+
+**3.1.21 (in development):** #178, found with #177 on the development line: an alternate constructor invocation
+`this(...)` in a constructor of an enum, e.g. `enum E { A, B(2); E() { this(1); } E(int i) { } }`, was an internal
+compiler error (D-14: `AssertionError: uninitializedThis`); now the synthetic name and ordinal parameters are passed on
+to the invoked constructor, like with `javac`. Only code that failed with an internal compiler error changes.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`

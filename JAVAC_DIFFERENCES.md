@@ -342,6 +342,13 @@ return c; } } }` is rejected (`Cannot access non-final local variable "c" from i
 `c` for the parameter (S-15); `javac` reads the field. The compatibility mode cannot accept this code without giving
 up the rule of S-15 that it keeps for legacy code; the compliance mode accepts it, like `javac` (development line).
 
+**D-14, `this(...)` in an enum constructor** ([#178](https://github.com/janino-lts/janino/issues/178), found with
+[#177](https://github.com/janino-lts/janino/issues/177), fixed in 3.1.21): Janino 3.1.20 and earlier fail with an
+internal compiler error on `enum E { A, B(2); E() { this(1); } E(int i) { } }` (`AssertionError: uninitializedThis`,
+also without `-ea`), because they do not pass the synthetic name and ordinal parameters of the enum constant on to the
+constructor that `this(...)` invokes; `javac` passes them on. Since 3.1.21, both modes compile it like `javac`, also a
+chain of `this(...)` invocations and an enum constant with a class body.
+
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions
 and method references; F-02 `switch` expressions, arrow labels and multiple labels in a `case`; F-03 pattern
@@ -435,6 +442,12 @@ method is applicable; so `p.B.s("x")` still invokes `B.s(Object)` when `A` decla
 Still rejected: a `protected static` member of `A` accessed from an inner class of a subclass of `B` (the
 synthetic accessor method references the member through `A`), and a resource of type `B` in a try-with-resources
 statement when `close()` is declared in `A`: Janino selects `AutoCloseable.close()`, which throws `Exception`.
+
+**`this(...)` in an enum constructor** (D-14, [#178](https://github.com/janino-lts/janino/issues/178), fixed in
+3.1.21): Janino 3.1.20 and earlier fail with an internal compiler error on `enum E { A, B(2); E() { this(1); } E(int
+i) { } }` (`AssertionError: uninitializedThis`, also without `-ea`), because they do not pass the synthetic name and
+ordinal parameters of the enum constant on to the constructor that `this(...)` invokes. Since 3.1.21, they are passed
+on, like with `javac`.
 
 ## 3. Invalid code that Janino accepts
 
@@ -546,8 +559,8 @@ and assigns a parameterized type to a field with a different type argument
   `case 4294967297L:` (which matches the value 1) (the compliance mode rejects it,
   [#177](https://github.com/janino-lts/janino/issues/177), development line);
 - L-37: recursive constructor invocation: `P() { this(); }`, also through other constructors (`P() { this(1); }
-  P(int i) { this(); }`) (the compliance mode rejects it, [#177](https://github.com/janino-lts/janino/issues/177),
-  development line).
+  P(int i) { this(); }`) and in an enum (`enum E { ; E() { this(); } }`, which 3.1.20 and earlier do not compile,
+  D-14) (the compliance mode rejects it, [#177](https://github.com/janino-lts/janino/issues/177), development line).
 
 **Expressions, names and imports:**
 

@@ -11195,13 +11195,20 @@ class UnitCompiler {
             this.consT(locatable, ordinal);
         } else
         if (
-            locatable instanceof SuperConstructorInvocation
-            && scope instanceof ConstructorDeclarator
-            && this.isEnumConstantBody(((ConstructorDeclarator) scope).getDeclaringClass())
+            scope instanceof ConstructorDeclarator
+            && (
+                locatable instanceof SuperConstructorInvocation
+                ? this.isEnumConstantBody(((ConstructorDeclarator) scope).getDeclaringClass())
+                : (
+                    locatable instanceof AlternateConstructorInvocation
+                    && ((ConstructorDeclarator) scope).getDeclaringClass() instanceof EnumDeclaration
+                )
+            )
         ) {
 
-            // Constructor of the class body of an enum constant: Pass the synthetic "$name" and "$ordinal"
-            // parameters on to the constructor of the enum.
+            // Constructor of the class body of an enum constant, or alternate constructor invocation "this(...)" in a
+            // constructor of an enum (issue #178): Pass the synthetic "$name" and "$ordinal" parameters on to the
+            // invoked constructor.
             ConstructorDeclarator cd = (ConstructorDeclarator) scope;
 
             LocalVariable nameLv = (LocalVariable) cd.syntheticParameters.get("$name");

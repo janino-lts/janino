@@ -199,6 +199,10 @@ class LanguageSupportTest extends CommonsCompilerTestSuite {
             return new Outcome(Outcome.Kind.REJECTED, LanguageSupportTest.LOCATION_PREFIX.matcher(message).replaceFirst(""));
         } catch (InternalCompilerException ice) {
             return new Outcome(Outcome.Kind.INVALID, "InternalCompilerException");
+        } catch (AssertionError ae) {
+
+            // JANINO 3.1.12 fails with an "AssertionError" on some valid code, also without "-ea" (issue #178).
+            return new Outcome(Outcome.Kind.INVALID, "AssertionError");
         } catch (VerifyError | ClassFormatError e) {
             return new Outcome(Outcome.Kind.INVALID, e.getClass().getSimpleName());
         } catch (InvocationTargetException ite) {
