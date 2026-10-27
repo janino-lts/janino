@@ -3006,11 +3006,10 @@ class JlsTest extends CommonsCompilerTestSuite {
     @Test public void
     test_14_20_1__Execution_of_try_catch__4() throws Exception {
 
-        // JAVAC does not detect this condition although, I believe, it should, according to the
-        // JLS.
-        Assume.assumeFalse(this.isJdk);
-
-        this.assertClassBodyUncookable(
+        // The CATCH clause for "IOException" is reachable (JLS8 14.21), because "FileNotFoundException" is assignable
+        // to "IOException", and no preceding CATCH clause catches "IOException" or a superclass of it; JAVAC only
+        // warns. Until 3.1.20, JANINO rejected it (issue #181).
+        this.assertClassBodyMainReturnsTrue(
             ""
             + "static void meth() throws java.io.FileNotFoundException {\n"
             + "}\n"
@@ -3020,7 +3019,7 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "        meth();\n"
             + "    } catch (java.io.FileNotFoundException fnfe) {\n"
             + "        return false;\n"
-            + "    } catch (java.io.IOException ioe) {\n" // <= Not thrown by 'meth()', but JDKs 6...8 don't detect that
+            + "    } catch (java.io.IOException ioe) {\n"
             + "        return false;\n"
             + "    } catch (Exception e) {\n"
             + "        return false;\n"

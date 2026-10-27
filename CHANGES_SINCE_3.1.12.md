@@ -42,7 +42,7 @@ marked with the version.
 
 All of these defects exist in 3.1.12, unless noted otherwise.
 
-**Code generation for `try` statements** (3.1.13, 3.1.14, 3.1.16):
+**`try` statements** (3.1.13, 3.1.14, 3.1.16, 3.1.21):
 
 - `VerifyError`s and internal compiler errors when a `finally` block cannot complete normally, or when a
   `return`, `break` or `continue` leaves a `try` block whose `finally` block contains a `try` or `synchronized`
@@ -56,6 +56,10 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 - Since 3.1.13, a local variable assigned in the body of a `do` statement, or in the right operand of `&&` or
   `||`, compiled into class files that the JVM rejects ([#57]); a variable assigned in the condition of a loop or
   of a conditional expression could not be read in the body or the operands (all versions).
+- 3.1.21 (in development): A `catch` clause for an exception class after a `catch` clause for a subclass, e.g.
+  `catch (FileNotFoundException e) { } catch (IOException e) { }`, was rejected as unreachable when the `try` block
+  throws only the subclass ([#181]); now it compiles, like with `javac`, unless a preceding clause catches that
+  class or a superclass of it.
 
 **Constants and conversions** (3.1.15, 3.1.20):
 
@@ -246,8 +250,8 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.20 needs 1.2 % less time and
   allocates 4.5 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 595 language
-  constructs, negative tests with 470 cases of invalid code, differential tests that compile generated expressions
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 599 language
+  constructs, negative tests with 473 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
   suites of Apache Calcite, Spark Catalyst, Apache Fory and Apache Drill every week and before every release
   ([Compatibility](COMPATIBILITY.md)).
@@ -316,3 +320,4 @@ affected.
 [#160]: https://github.com/janino-lts/janino/issues/160
 [#169]: https://github.com/janino-lts/janino/issues/169
 [#178]: https://github.com/janino-lts/janino/issues/178
+[#181]: https://github.com/janino-lts/janino/issues/181

@@ -434,7 +434,12 @@ method is applicable, so `p.B.s("x")` still selects `B.s(Object)` where `javac` 
 **3.1.21 (in development):** #178, found with #177 on the development line: an alternate constructor invocation
 `this(...)` in a constructor of an enum, e.g. `enum E { A, B(2); E() { this(1); } E(int i) { } }`, was an internal
 compiler error (D: `AssertionError: uninitializedThis`); now the synthetic name and ordinal parameters are passed on
-to the invoked constructor, like with `javac`. Only code that failed with an internal compiler error changes.
+to the invoked constructor, like with `javac`. Only code that failed with an internal compiler error changes. #181,
+found with #182 (the `catch` clauses of the compliance mode, development line): a `catch` clause for an exception class
+after a `catch` clause for a subclass, e.g. `catch (FileNotFoundException e) { } catch (IOException e) { }` with a
+`try` block that throws only `FileNotFoundException`, was rejected as unreachable (D); now it is accepted, like by
+`javac` (JLS 14.21), unless a preceding clause catches that class or a superclass of it. Only code that was rejected
+changes.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`
