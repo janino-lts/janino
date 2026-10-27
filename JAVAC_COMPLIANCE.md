@@ -431,6 +431,11 @@ the member is accessed counts (JLS 6.6.1), and the class file references the mem
 like with `javac`. Only code that was rejected changes; the methods of `A` are considered only if no accessible
 method is applicable, so `p.B.s("x")` still selects `B.s(Object)` where `javac` selects `A.s(String)`.
 
+**3.1.21 (in development):** #178, found with #177 on the development line: an alternate constructor invocation
+`this(...)` in a constructor of an enum, e.g. `enum E { A, B(2); E() { this(1); } E(int i) { } }`, was an internal
+compiler error (D: `AssertionError: uninitializedThis`); now the synthetic name and ordinal parameters are passed on
+to the invoked constructor, like with `javac`. Only code that failed with an internal compiler error changes.
+
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`
 entries and the `EnclosingMethod` attribute of local and anonymous classes, so that the reflection API recognizes

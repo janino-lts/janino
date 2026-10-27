@@ -770,6 +770,70 @@ public class P {
     public static Object run() { return String.valueOf(E.B.v); }
 }
 
+=== enum: alternate constructor invocation this(...) (issue #178)
+jls: 1,2,A0
+janino: OK
+public class P {
+    enum E { A, B(2); final int v; E() { this(1); } E(int v) { this.v = v; } }
+    public static Object run() { return E.A.v + "," + E.B.v + "," + E.A.name() + E.A.ordinal(); }
+}
+
+=== enum: chain of alternate constructor invocations (issue #178)
+jls: x1x2z3
+janino: OK
+public class P {
+    enum E {
+        A, B(2), C(3, "z");
+        final String s;
+        E() { this(1); }
+        E(int i) { this(i, "x"); }
+        E(int i, String t) { this.s = t + i; }
+    }
+    public static Object run() { return E.A.s + E.B.s + E.C.s; }
+}
+
+=== enum: alternate constructor invocation of a variable arity constructor (issue #178)
+jls: 3,2
+janino: OK
+public class P {
+    enum E { A, B(4, 5); final int n; E() { this(1, 2, 3); } E(int... a) { this.n = a.length; } }
+    public static Object run() { return E.A.n + "," + E.B.n; }
+}
+
+=== enum: alternate constructor invocation for a constant with a class body (issue #178)
+jls: a7b70B
+janino: OK
+public class P {
+    enum E {
+        A { String n() { return "a" + this.v; } }, B;
+        final int v;
+        E() { this(7); }
+        E(int v) { this.v = v; }
+        String n() { return "b" + this.v; }
+    }
+    public static Object run() { return E.A.n() + E.B.n() + E.A.ordinal() + E.B.name(); }
+}
+
+=== enum: alternate constructor invocation in an enum declared in an interface (issue #178)
+jls: ab
+janino: OK
+public class P {
+    interface I { enum E { A, B("b"); final String s; E() { this("a"); } E(String s) { this.s = s; } } }
+    public static Object run() { return I.E.A.s + I.E.B.s; }
+}
+
+=== enum: names and ordinals of constants initialized through this(...) (issue #178)
+jls: A00B10C299
+janino: OK
+public class P {
+    enum E { A, B, C(9); final int v; E() { this(0); } E(int v) { this.v = v; } }
+    public static Object run() {
+        String r = "";
+        for (E e : E.values()) r += e.name() + e.ordinal() + e.v;
+        return r + E.valueOf("C").v;
+    }
+}
+
 === enum: constants with class bodies implementing an abstract method
 janino: OK
 jls: b

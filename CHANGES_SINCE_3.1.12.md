@@ -82,7 +82,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   `static final` field of a class, e.g. `static final int K = DEBUG ? 1 : 2;`, was an internal compiler error; as
   the value of an annotation element, `@A(true ? 1 : 2)`, it was rejected, and so was `@B(X || Y)` ([#113]).
 
-**Annotations, enums and member types** (3.1.15, 3.1.16):
+**Annotations, enums and member types** (3.1.15, 3.1.16, 3.1.21):
 
 - Annotation element values and default values whose type differs from the element type could not be read through
   reflection ([#48]).
@@ -92,6 +92,9 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 - The member types of an interface were not `public` and `static`, and an `enum` in an interface was a syntax
   error ([#62]).
 - The class bodies of enum constants were ignored ([#44]).
+- 3.1.21 (in development): An alternate constructor invocation `this(...)` in a constructor of an enum, e.g.
+  `E() { this(1); }`, was an internal compiler error (`AssertionError: uninitializedThis`) ([#178]); now it
+  compiles, like with `javac`.
 
 **Inner classes, scopes and access** (3.1.16, 3.1.17, 3.1.19, 3.1.20):
 
@@ -243,8 +246,8 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.20 needs 1.2 % less time and
   allocates 4.5 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 589 language
-  constructs, negative tests with 469 cases of invalid code, differential tests that compile generated expressions
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 595 language
+  constructs, negative tests with 470 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
   suites of Apache Calcite, Spark Catalyst, Apache Fory and Apache Drill every week and before every release
   ([Compatibility](COMPATIBILITY.md)).
@@ -312,3 +315,4 @@ affected.
 [#157]: https://github.com/janino-lts/janino/issues/157
 [#160]: https://github.com/janino-lts/janino/issues/160
 [#169]: https://github.com/janino-lts/janino/issues/169
+[#178]: https://github.com/janino-lts/janino/issues/178

@@ -49,6 +49,19 @@ h5 {
 
     <a href="index.html">Back to the JANINO home page</a>
 
+    <h4>Version 3.1.21 (unreleased)</h4>
+    <ul>
+      <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/178">issue #178</a>: An alternate constructor
+        invocation <code>this(...)</code> in a constructor of an enum, e.g. <code>enum E { A, B(2); E() { this(1); }
+        E(int i) { } }</code>, failed with an internal error (<code>AssertionError: uninitializedThis</code>, also
+        without <code>-ea</code>): JANINO did not pass the synthetic name and ordinal parameters of the enum constant
+        on to the invoked constructor. Now it passes them, like JAVAC, also for a chain of <code>this(...)</code>
+        invocations and for constants with class bodies. Only code that failed with an internal error changes. The
+        class files of all other code are unchanged.
+      </li>
+    </ul>
+
     <h4>Version 3.1.20 2026-10-14</h4>
     <p>
       Fourteen fixes in the compiler, and JAR files without the dummy signature. The most important fixes concern
