@@ -38,6 +38,7 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#177](https://github.com/janino-lts/janino/issues/177) | The compliance mode: statements like `javac` (L-27 to L-29, L-35 to L-37) | unchanged | only with the option |
 | [#182](https://github.com/janino-lts/janino/issues/182) | The compliance mode: `catch` clauses like `javac` (L-30 to L-33, L-51) | unchanged | only with the option |
 | [#185](https://github.com/janino-lts/janino/issues/185) | The compliance mode: `a \|\| false` and `a && true` compile into the same code as in the compatibility mode (S-01) | unchanged | unchanged |
+| [#188](https://github.com/janino-lts/janino/issues/188) | The compliance mode: redeclared variables and all-uppercase exception names like `javac` (L-14, L-34) | unchanged | only with the option |
 | [#107](https://github.com/janino-lts/janino/issues/107) | `<clinit>` with the access flags of `javac` (`ACC_STATIC`) | changed | unchanged |
 | [#108](https://github.com/janino-lts/janino/issues/108) | The compile error message for an instance member in a static initializer names the context | unchanged | message texts |
 
@@ -340,6 +341,18 @@ e) { throw QueryExecutionErrors.failedExecuteUserDefinedFunctionError(..., e); }
 compliance mode rejects it as well, the compatibility mode compiles it. The workflow "Spark" lists the six tests of
 `ScalaUDFSuite` that fail for this reason in the compliance mode as known failures.
 
+With #188, the compliance mode rejects two more forms of invalid declarations that the compatibility mode accepts, like
+`javac`. A `catch` parameter, the variable of an enhanced `for` statement and a resource variable must not have the
+name of a local variable or parameter in scope (`int e = 1; try { ... } catch (Exception e) { }`), the resources of a
+try-with-resources statement must have different names, and a local variable in its block must not have the name of a
+resource variable (L-14); the message is the one for a redeclared local variable (`Redefinition of local variable
+"e"`). The variables of a method, a constructor or an initializer of a local or anonymous class are not affected, nor
+are those of sibling `catch` clauses and blocks. An exception class with an all-uppercase name (`static class X extends
+Exception { }`, `void m() throws X`) is checked like any other: an invocation of the method, also through `super` or an
+interface, and the precise rethrow must catch or declare it; and a single all-uppercase name in a `throws` clause that
+is neither a type parameter in scope nor a type (`void m() throws T`) is an error (L-34). The compatibility mode keeps
+accepting both (#65).
+
 **Class files.** Unchanged in the compatibility mode. In the compliance mode, `a || false` and `a && true` compile
 into the same code as in the compatibility mode since #185; before, the correction of S-01 also applied to them, and the
 compliance mode compiled the constant operand into a conditional branch on the constant, which changed the class files
@@ -366,7 +379,7 @@ makes this machine-checkable: it compiles every recorded case with 3.1.12 (loade
 loader of its own, with target version 8) and compares its behavior with the recorded behavior of the compatibility
 mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction that explains the
 difference (`id:`, an issue number or an ID of the register); a difference that no record states, e.g. a regression,
-fails the test. Today, 511 of the 1276 recorded cases differ from 3.1.12, each with its correction: the fixes of
+fails the test. Today, 511 of the 1307 recorded cases differ from 3.1.12, each with its correction: the fixes of
 classes D and V since 3.1.13, the registered exceptions A-04, A-05 and A-06, and the language features that 3.1.12
 did not compile (multi-catch, qualified superclass method invocations, effectively final variables, local classes
 with modifiers).

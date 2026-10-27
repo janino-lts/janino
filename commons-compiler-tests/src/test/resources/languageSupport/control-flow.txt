@@ -882,6 +882,205 @@ public class P {
     public static Object run() { int L = 0; L: while (L < 3) { L++; if (L == 2) break L; } return String.valueOf(L); }
 }
 
+=== variables of two consecutive enhanced for statements and a local variable after them with the same name
+jls: 133
+janino: OK
+public class P {
+    public static Object run() {
+        int[] a = { 1, 2 };
+        int n = 0;
+        for (int x : a) n += x;
+        for (int x : a) n += 10 * x;
+        int x = 100;
+        return String.valueOf(n + x);
+    }
+}
+
+=== catch parameter with the name of the resource variable of the same try statement
+jls: c
+janino: OK
+public class P {
+    static class R implements AutoCloseable { public void close() { } }
+    public static Object run() {
+        try (R r = new R()) {
+            throw new IllegalStateException("c");
+        } catch (IllegalStateException r) {
+            return r.getMessage();
+        }
+    }
+}
+
+=== local variable in the finally block and after the try statement with the name of the catch parameter
+jls: tfa
+janino: OK
+public class P {
+    public static Object run() {
+        StringBuilder sb = new StringBuilder();
+        try {
+            sb.append("t");
+        } catch (IllegalStateException e) {
+            sb.append(e.getMessage());
+        } finally {
+            String e = "f";
+            sb.append(e);
+        }
+        String e = "a";
+        return sb.append(e).toString();
+    }
+}
+
+=== catch parameter and local variable in a method of an anonymous class with the name of the enclosing catch parameter
+jls: oil
+janino: OK
+public class P {
+    public static Object run() {
+        try {
+            throw new IllegalStateException("o");
+        } catch (IllegalStateException e) {
+            return e.getMessage() + new Object() {
+                String g() {
+                    String r;
+                    try {
+                        throw new IllegalArgumentException("i");
+                    } catch (IllegalArgumentException e) {
+                        r = e.getMessage();
+                    }
+                    String e = "l";
+                    return r + e;
+                }
+            }.g();
+        }
+    }
+}
+
+=== parameter of a method of a local class with the name of a local variable of the enclosing method
+jls: 11
+janino: OK
+public class P {
+    public static Object run() {
+        int x = 1;
+        class L { int g(int x) { for (int y : new int[] { x }) { x += y; } return x; } }
+        return String.valueOf(new L().g(5) + x);
+    }
+}
+
+=== catch parameter with the name of a field
+jls: cf
+janino: OK
+public class P {
+    static String e = "f";
+    public static Object run() {
+        String r;
+        try { throw new IllegalStateException("c"); } catch (IllegalStateException e) { r = e.getMessage(); }
+        return r + e;
+    }
+}
+
+=== catch parameter with the name of a local variable of a block in a preceding switch block statement group
+jls: 1d
+janino: OK
+public class P {
+    static String f(int i) {
+        String r = null;
+        switch (i) {
+        case 0: { int x = 1; r = String.valueOf(x); break; }
+        default:
+            try { throw new IllegalStateException("d"); } catch (IllegalStateException x) { r = x.getMessage(); }
+        }
+        return r;
+    }
+    public static Object run() { return f(0) + f(1); }
+}
+
+=== resource variables and a local variable with the names of variables that are no longer in scope
+jls: abc
+janino: OK
+public class P {
+    static class R implements AutoCloseable { final String n; R(String n) { this.n = n; } public void close() { } }
+    public static Object run() {
+        String s = "";
+        for (String x : new String[] { "a" }) { try (R r = new R(x)) { s += x; } }
+        try (R x = new R("b")) { s += "b"; }
+        R r = new R("c");
+        return s + r.n;
+    }
+}
+
+=== catch parameter and local variable in an initializer of an anonymous class with the name of a local variable
+jls: oci
+janino: OK
+public class P {
+    public static Object run() {
+        String e = "o";
+        return e + new Object() {
+            String s;
+            {
+                try { throw new IllegalStateException("c"); } catch (IllegalStateException e) { s = e.getMessage(); }
+                String e = "i";
+                s += e;
+            }
+            public String toString() { return this.s; }
+        };
+    }
+}
+
+=== method of a member class whose throws clause names a type parameter of the enclosing class
+jls: i
+janino: OK
+public class P {
+    static class O<E extends Exception> {
+        class In { String g() throws E { return "i"; } }
+        String f() throws E { return new In().g(); }
+    }
+    public static Object run() { return new O<IllegalStateException>().f(); }
+}
+
+=== generic methods of a local and an anonymous class whose throws clauses name their type parameters
+jls: la
+janino: OK
+public class P {
+    public static Object run() {
+        class L { <E extends Exception> String g() throws E { return "l"; } }
+        Object a = new Object() {
+            <E extends Exception> String h() throws E { return "a"; }
+            public String toString() { return this.h(); }
+        };
+        return new L().g() + a;
+    }
+}
+
+=== method of a local class whose throws clause names a type parameter of the enclosing generic method
+jls: l
+janino: OK
+public class P {
+    static <E extends Exception> String f() throws E {
+        class L { String g() throws E { return "l"; } }
+        return new L().g();
+    }
+    public static Object run() { return f(); }
+}
+
+=== method of an anonymous class whose throws clause names a type parameter of the enclosing class
+jls: a
+janino: OK
+public class P {
+    static class O<E extends Exception> {
+        String f() throws E { return new Object() { String g() throws E { return "a"; } }.g(); }
+    }
+    public static Object run() { return new O<RuntimeException>().f(); }
+}
+
+=== implemented method of a generic interface whose throws clause names its type parameter
+jls: i
+janino: OK
+public class P {
+    interface I<EX extends Exception> { String g() throws EX; }
+    public static Object run() {
+        I<RuntimeException> i = new I<RuntimeException>() { public String g() { return "i"; } };
+        return i.g();
+    }
+}
+
 === synchronized on null cast to Object
 jls: throws java.lang.NullPointerException
 janino: OK

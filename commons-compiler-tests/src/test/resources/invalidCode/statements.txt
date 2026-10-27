@@ -263,6 +263,7 @@ public class P {
 
 === catch parameter redeclares local variable
 janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "e"
 recovery: ACCEPTED
 id: L-14
 public class P {
@@ -1043,6 +1044,7 @@ public class P {
 
 === multi-catch parameter redeclares a local variable
 janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "e"
 recovery: ACCEPTED
 legacy: REJECTED Multi-type CATCH parameters NYI
 id: L-14, #21
@@ -1064,6 +1066,7 @@ public class P {
 
 === checked exception with an all-uppercase class name is neither caught nor declared
 janino: ACCEPTED
+compliant: REJECTED Thrown exception of type "P$X" is neither caught
 recovery: ACCEPTED
 id: L-34
 public class P {
@@ -1098,6 +1101,7 @@ public class P {
 
 === resource variable with the name of a local variable
 janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "r"
 recovery: ACCEPTED
 id: L-14
 public class P {
@@ -1107,6 +1111,7 @@ public class P {
 
 === two resources with the same name
 janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "a"
 recovery: ACCEPTED
 id: L-14
 public class P {
@@ -1116,6 +1121,7 @@ public class P {
 
 === resource variable with the name of a parameter
 janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "r"
 recovery: ACCEPTED
 id: L-14
 public class P {
@@ -1125,6 +1131,7 @@ public class P {
 
 === local variable in the block with the name of the resource variable
 janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "r"
 recovery: ACCEPTED
 id: L-14
 public class P {
@@ -1155,6 +1162,7 @@ public class P {
 
 === catch parameter with the name of a local variable
 janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "e"
 recovery: ACCEPTED
 id: L-14
 public class P {
@@ -1163,14 +1171,100 @@ public class P {
 
 === variable of an enhanced for statement with the name of a local variable
 janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "x"
 recovery: ACCEPTED
 id: L-14
 public class P {
     void f() { int x = 1; for (int x : new int[0]) { } }
 }
 
+=== catch parameter with the name of a parameter
+janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "e"
+recovery: ACCEPTED
+id: L-14
+public class P {
+    void f(int e) { try { } catch (RuntimeException e) { } }
+}
+
+=== variable of an enhanced for statement with the name of a parameter
+janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "x"
+recovery: ACCEPTED
+id: L-14
+public class P {
+    void f(int[] a, int x) { for (int x : a) { } }
+}
+
+=== catch parameter in a catch clause with the name of the enclosing catch parameter
+janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "e"
+recovery: ACCEPTED
+id: L-14
+public class P {
+    void f() { try { } catch (RuntimeException e) { try { } catch (RuntimeException e) { } } }
+}
+
+=== catch parameter in the block of a try-with-resources statement with the name of the resource variable
+janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "r"
+recovery: ACCEPTED
+id: L-14
+public class P {
+    static class R implements AutoCloseable { public void close() { } }
+    void f() { try (R r = new R()) { try { } catch (RuntimeException r) { } } }
+}
+
+=== variable of an enhanced for statement in an enhanced for statement with the same name
+janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "x"
+recovery: ACCEPTED
+id: L-14
+public class P {
+    void f(int[] a) { for (int x : a) { for (int x : a) { } } }
+}
+
+=== resource variable with the name of the enclosing catch parameter
+janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "e"
+recovery: ACCEPTED
+id: L-14
+public class P {
+    static class R implements AutoCloseable { public void close() { } }
+    void f() { try { } catch (RuntimeException e) { try (R e = new R()) { } } }
+}
+
+=== catch parameter with the name of a local variable of a preceding switch block statement group
+janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "x"
+recovery: ACCEPTED
+id: L-14
+public class P {
+    void f(int i) { switch (i) { case 0: int x = 1; break; default: try { } catch (RuntimeException x) { } } }
+}
+
+=== catch parameter in an enhanced for statement with the name of its variable
+janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "x"
+recovery: ACCEPTED
+id: L-14
+public class P {
+    void f(int[] a) { for (int x : a) { try { } catch (RuntimeException x) { } } }
+}
+
+=== variable of an enhanced for statement in a try-with-resources block with the name of the resource variable
+janino: ACCEPTED
+compliant: REJECTED Redefinition of local variable "r"
+recovery: ACCEPTED
+id: L-14
+public class P {
+    static class R implements AutoCloseable { public void close() { } }
+    void f() { try (R r = new R()) { for (R r : new R[0]) { } } }
+}
+
 === throws clause with an undeclared all-uppercase type name
 janino: ACCEPTED
+compliant: REJECTED Cannot determine simple type name "T"
 recovery: ACCEPTED
 id: L-34
 public class P {
@@ -1179,6 +1273,7 @@ public class P {
 
 === throws clause with an undeclared all-uppercase type name in an interface
 janino: ACCEPTED
+compliant: REJECTED Cannot determine simple type name "EX"
 recovery: ACCEPTED
 id: L-34
 public class P {
@@ -1233,12 +1328,93 @@ public class P {
 
 === checked exception with an all-uppercase class name of a method invoked through a variable is not handled
 janino: ACCEPTED
+compliant: REJECTED Thrown exception of type "P$X" is neither caught
 recovery: ACCEPTED
 id: L-34
 public class P {
     static class X extends Exception { }
     void m() throws X { }
     void f(P p) { p.m(); }
+}
+
+=== precise rethrow of a checked exception with an all-uppercase class name that is not declared
+janino: ACCEPTED
+compliant: REJECTED Thrown exception of type "P$X" is neither caught
+recovery: ACCEPTED
+id: L-34
+public class P {
+    static class X extends Exception { }
+    static void m() throws X { }
+    void f() { try { m(); } catch (Exception e) { throw e; } }
+}
+
+=== checked exception with an all-uppercase class name of a superclass method invoked with super is not handled
+janino: ACCEPTED
+compliant: REJECTED Thrown exception of type "P$X" is neither caught
+recovery: ACCEPTED
+id: L-34
+public class P {
+    static class X extends Exception { }
+    static class Q { void m() throws X { } }
+    static class Q2 extends Q { void m() { super.m(); } }
+}
+
+=== checked exception with an all-uppercase class name of a static method invoked through the class name is not handled
+janino: ACCEPTED
+compliant: REJECTED Thrown exception of type "P$X" is neither caught
+recovery: ACCEPTED
+id: L-34
+public class P {
+    static class X extends Exception { }
+    static void m() throws X { }
+    void f() { P.m(); }
+}
+
+=== checked exception with an all-uppercase class name of an interface method is not handled
+janino: ACCEPTED
+compliant: REJECTED Thrown exception of type "P$X" is neither caught
+recovery: ACCEPTED
+id: L-34
+public class P {
+    static class X extends Exception { }
+    interface I { void m() throws X; }
+    void f(I i) { i.m(); }
+}
+
+=== throws clause of a constructor with an undeclared all-uppercase type name
+janino: ACCEPTED
+compliant: REJECTED Cannot determine simple type name "EX"
+recovery: ACCEPTED
+id: L-34
+public class P {
+    P() throws EX { }
+}
+
+=== throws clause of a method of a local class with an undeclared all-uppercase type name
+janino: ACCEPTED
+compliant: REJECTED Cannot determine simple type name "T"
+recovery: ACCEPTED
+id: L-34
+public class P {
+    void f() { class L { void m() throws T { } } }
+}
+
+=== throws clause of a method of an anonymous class with an undeclared all-uppercase type name
+janino: ACCEPTED
+compliant: REJECTED Cannot determine simple type name "T"
+recovery: ACCEPTED
+id: L-34
+public class P {
+    void f() { new Object() { void m() throws T { } }; }
+}
+
+=== throws clause with an undeclared all-uppercase type name after a declared type
+janino: ACCEPTED
+compliant: REJECTED Cannot determine simple type name "T"
+recovery: ACCEPTED
+id: L-34
+public class P {
+    void m() throws java.io.IOException, T { }
 }
 
 === final local array variable is assigned after its declaration
