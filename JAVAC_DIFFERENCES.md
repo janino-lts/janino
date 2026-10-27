@@ -481,8 +481,9 @@ Class L: `javac` rejects the following code, Janino compiles it, and the JVM loa
 behaves as the source suggests (e.g. an assignment to a `final` local variable assigns it). See [issue
 #33](https://github.com/janino-lts/janino/issues/33) for the compatibility considerations. The compatibility mode keeps
 accepting all of it; the compliance mode rejects it once the respective check is implemented (today, it rejects L-20,
-L-27 to L-29 and L-35 to L-37 ([#177](https://github.com/janino-lts/janino/issues/177)), L-45 and L-46, see S-11, L-47,
-see S-04, L-48, see S-12, L-49, see S-02, and L-50, see S-14; all other entries of this section are open). One
+L-27 to L-29 and L-35 to L-37 ([#177](https://github.com/janino-lts/janino/issues/177)), L-30 to L-33 and L-51
+([#182](https://github.com/janino-lts/janino/issues/182)), L-45 and L-46, see S-11, L-47, see S-04, L-48, see S-12,
+L-49, see S-02, and L-50, see S-14; all other entries of this section are open). One
 exception, registered as A-05 (section 5): the access to a `protected` member of a class in another package through an
 expression whose type is neither the accessing class nor a subclass of it (`((Object)
 this).clone()`, `Object o = new P(); o.clone()`) is rejected since 3.1.16, like by `javac`, although the JVM loaded
@@ -550,8 +551,9 @@ and assigns a parameterized type to a field with a different type argument
 **Statements:**
 
 - L-27: duplicate label: `L: while (true) { L: while (true) { break L; } }` (the compliance mode rejects it,
-  [#177](https://github.com/janino-lts/janino/issues/177), development line; not in a `catch` clause of a `try`
-  statement with an empty `try` block, which Janino does not compile, see L-32);
+  [#177](https://github.com/janino-lts/janino/issues/177), development line; since
+  [#182](https://github.com/janino-lts/janino/issues/182) also in a `catch` clause after an empty `try` block, see
+  L-51);
 - L-28: unreachable body of `while (false) { ... }` and `for (; false; ) { ... }`, in the compliance mode also with a
   constant variable as the condition (`final boolean y = false; while (y) { ... }`, S-17) (the compliance mode rejects
   it, [#177](https://github.com/janino-lts/janino/issues/177), development line; not with a condition that Janino does
@@ -559,19 +561,28 @@ and assigns a parameterized type to a field with a different type argument
 - L-29: `synchronized (null) {}`, also with another expression of the null type, e.g. `b ? null : null` (the
   compliance mode rejects it, [#177](https://github.com/janino-lts/janino/issues/177), development line);
 - L-30: `catch` of a checked exception that the `try` block cannot throw: `try { } catch (java.io.IOException e) { }`,
-  also as an alternative of a multi-catch clause: `catch (IOException | SQLException e)` with a `try` block that
-  throws only `IOException`;
+  also as an alternative of a multi-catch clause: `catch (IOException | SQLException e)` with a `try` block that throws
+  only `IOException` (the compliance mode rejects it, [#182](https://github.com/janino-lts/janino/issues/182),
+  development line);
 - L-31: `catch` clause after a `catch` of a superclass: `catch (Exception e) { } catch (RuntimeException e) { }`, also
-  of a superclass of an alternative of a multi-catch clause: `catch (Exception e) { } catch (IOException |
-  SQLException e) { }`;
+  of a superclass of an alternative of a multi-catch clause: `catch (Exception e) { } catch (IOException | SQLException
+  e) { }`, and an alternative that a preceding clause catches: `catch (IOException e) { } catch (IOException |
+  SQLException e) { }` (the compliance mode rejects it, [#182](https://github.com/janino-lts/janino/issues/182),
+  development line);
 - L-32: `catch` of a type that is not a `Throwable` with an empty `try` block: `try { } catch (String e) { }` (with a
-  non-empty `try` block, this is rejected);
+  non-empty `try` block, this is rejected; the compliance mode rejects it,
+  [#182](https://github.com/janino-lts/janino/issues/182), development line);
 - `catch` parameter that redeclares a local variable: `int e = 0; try { } catch (RuntimeException e) { }`, also a
   multi-catch parameter (L-14);
 - L-33: a checked exception that is thrown in a `catch` or `finally` clause and that a `catch` clause of the same `try`
   statement catches: `try { } catch (Exception e) { throw new IOException(); }`, also the rethrow of the parameter:
-  `catch (IOException | SQLException e) { throw e; }` in a method that declares neither exception, and
-  `catch (Exception e) { throw e; }` in a method that does not declare the checked exceptions of the `try` block;
+  `catch (IOException | SQLException e) { throw e; }` in a method that declares neither exception, and `catch (Exception
+  e) { throw e; }` in a method that does not declare the checked exceptions of the `try` block (the compliance mode
+  rejects it, [#182](https://github.com/janino-lts/janino/issues/182), development line; like `javac`, it takes `throw
+  e` with a final or effectively final `catch` parameter `e` to throw the checked exceptions that the `try` block can
+  throw and that the clause catches, minus those of the preceding clauses (JLS 11.2.2), so that `catch (Exception e) {
+  throw e; }` stays valid in a method that declares them; not in a local or anonymous class in the `catch` clause, see
+  D-16);
 - L-34: an invocation of a method that declares a checked exception whose class name is all uppercase (`void m() throws
   X`, `throws IOEXC`), without catching or declaring the exception
   ([#65](https://github.com/janino-lts/janino/issues/65); before 3.1.17, such a type was taken for a type parameter
@@ -586,7 +597,11 @@ and assigns a parameterized type to a field with a different type argument
   [#177](https://github.com/janino-lts/janino/issues/177), development line);
 - L-37: recursive constructor invocation: `P() { this(); }`, also through other constructors (`P() { this(1); }
   P(int i) { this(); }`) and in an enum (`enum E { ; E() { this(); } }`, which 3.1.20 and earlier do not compile,
-  D-14) (the compliance mode rejects it, [#177](https://github.com/janino-lts/janino/issues/177), development line).
+  D-14) (the compliance mode rejects it, [#177](https://github.com/janino-lts/janino/issues/177), development line);
+- L-51: an error in a `catch` clause after an empty `try` block, whose `catch` clauses Janino does not compile: `try { }
+  catch (RuntimeException e) { undefined(); }`, `int x = "s";`, a duplicate label (L-27), or a `throw` statement (L-33)
+  in such a clause (the compliance mode rejects it, [#182](https://github.com/janino-lts/janino/issues/182), development
+  line: it checks such clauses like all others, without generating their code, which can never be executed).
 
 **Expressions, names and imports:**
 

@@ -291,7 +291,8 @@ logic has no error path, but silently does something else, the finding is of cla
   corrects D-10; S-04, which also rejects L-47 and accepts D-07; S-12, which also rejects L-48; S-13, which also
   accepts D-08, fixed in both modes since 3.1.20 (the development line); S-14, which also rejects L-50; S-15, which
   also accepts D-13; S-17, which also accepts D-09; and S-19, which also accepts D-11; and, as the first checks of
-  class L of their own, L-27, L-28, L-29, L-35, L-36 and L-37 (the statements); see
+  class L of their own, L-27, L-28, L-29, L-35, L-36 and L-37 (the statements), and L-30 to L-33 and L-51 (the
+  `catch` clauses, with the precise rethrow of JLS 11.2.2); see
   [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md) for what they do.
 
 ### 7.4 The system property
@@ -342,7 +343,7 @@ register is the public list; a deviation that is not in it is an unknown defect,
   its own (as `janino-benchmarks` loads its baseline), and compares its behavior with the recorded behavior of the
   compatibility mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction
   that explains the difference (`id:`); an unrecorded difference fails the test. This is the test that makes "legacy"
-  machine-checkable; without it, the records only protect against accidental changes. Today, 399 of the 1025 recorded
+  machine-checkable; without it, the records only protect against accidental changes. Today, 511 of the 1276 recorded
   cases differ from 3.1.12.
 - `SparkCorpusTest` (`janino-benchmarks`, job "Spark corpus in both modes" of the workflow "CI") compiles the code
   that Spark generated for twelve TPC-DS queries (342 class bodies) in both modes, and loads and instantiates every
@@ -408,6 +409,11 @@ The development line, after #181 (from 3.1.x): S and L unchanged; D, 16 IDs, 4 f
 form, see there; D-08 in 3.1.20; D-14 and D-15 in 3.1.21), 5 corrected in the compliance mode only, 7 open (with D-16,
 found with #182); G, 9 and F, 11 (outside the scope); A, 8. Of the 1254 recorded cases, the compliance mode agrees with
 `javac` on 1119 (the compatibility mode on 984).
+
+The development line, after #182 (the `catch` clauses of class L): S, 19 IDs, 11 corrected in the compliance mode; L,
+51 IDs, 18 rejected in the compliance mode (with L-51, found with #182), 33 open; D, 16 IDs, unchanged; G, 9 and F, 11
+(outside the scope); A, 8. Of the 1276 recorded cases, the compliance mode agrees with `javac` on 1149 (the
+compatibility mode on 995).
 
 ## 8. Registered exceptions
 
@@ -581,8 +587,9 @@ on the development line, 2026-10-09, which also rejects L-47 and accepts D-07), 
 of the compliance mode notice first (the differential tests found four more later, S-14 to S-17; S-14 and S-17 were
 done on the development line, 2026-10-13, with S-19, which was found with them, and S-15; S-16 is open).
 Next the cases of class L that need no data flow analysis, by area, one branch each: modifiers, declarations and
-annotations; overrides, hiding and `throws` clauses; `catch` clauses; imports and access; statements (done first, on
-the development line: L-27 to L-29 and L-35 to L-37, #177). In each branch, the `compliant:` entries of
+annotations; overrides, hiding and `throws` clauses; `catch` clauses (done on the development line: L-30 to L-33 and
+L-51, #182); imports and access; statements (done first, on the development line: L-27 to L-29 and L-35 to L-37,
+#177). In each branch, the `compliant:` entries of
 the area change from `ACCEPTED` to `REJECTED`. Then
 S-07, S-08 and S-09 (reflection and class file details) as needed, and the remaining areas of class L. S-05 (constant
 folding, #47) and S-06 with S-10 (the class file layout of `private` members) come last, because they are the largest.

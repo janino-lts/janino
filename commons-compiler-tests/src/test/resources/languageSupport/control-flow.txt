@@ -359,6 +359,193 @@ public class P {
     public static Object run() { return f(0) + f(1) + f(2); }
 }
 
+=== precise rethrow of a catch parameter in a method that declares the checked exception of the try block
+jls: I-
+janino: OK
+public class P {
+    static void g(boolean b) throws java.io.IOException { if (b) throw new java.io.IOException(); }
+    static String f(boolean b) throws java.io.IOException {
+        try { g(b); return "-"; } catch (Exception e) { throw e; }
+    }
+    public static Object run() throws Exception {
+        String r;
+        try { r = f(true); } catch (java.io.IOException e) { r = "I"; }
+        return r + f(false);
+    }
+}
+
+=== rethrow of a catch parameter whose try block throws only unchecked exceptions, without a throws clause
+jls: S-
+janino: OK
+public class P {
+    static String f(boolean b) {
+        try { if (b) throw new IllegalStateException(); return "-"; } catch (Exception e) { throw e; }
+    }
+    public static Object run() {
+        String r;
+        try { r = f(true); } catch (IllegalStateException e) { r = "S"; }
+        return r + f(false);
+    }
+}
+
+=== rethrow of a multi-catch parameter in a method that declares the subclasses that the try block throws
+jls: -FS
+janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
+public class P {
+    static void m(int x) throws java.io.FileNotFoundException, java.sql.SQLException {
+        if (x == 1) throw new java.io.FileNotFoundException();
+        if (x == 2) throw new java.sql.SQLException();
+    }
+    static String f(int x) throws java.io.FileNotFoundException, java.sql.SQLException {
+        try { m(x); return "-"; } catch (java.io.IOException | java.sql.SQLException e) { throw e; }
+    }
+    static String g(int x) {
+        try {
+            return f(x);
+        } catch (java.io.FileNotFoundException e) {
+            return "F";
+        } catch (java.sql.SQLException e) {
+            return "S";
+        }
+    }
+    public static Object run() { return g(0) + g(1) + g(2); }
+}
+
+=== precise rethrow of a parenthesized catch parameter
+jls: I-
+janino: OK
+public class P {
+    static void g(boolean b) throws java.io.IOException { if (b) throw new java.io.IOException(); }
+    static String f(boolean b) throws java.io.IOException {
+        try { g(b); return "-"; } catch (Exception e) { throw (e); }
+    }
+    public static Object run() throws Exception {
+        String r;
+        try { r = f(true); } catch (java.io.IOException e) { r = "I"; }
+        return r + f(false);
+    }
+}
+
+=== precise rethrow of a catch parameter after a catch clause that catches a part of the exceptions
+jls: -FS
+janino: OK
+public class P {
+    static void m(int x) throws java.io.FileNotFoundException, java.sql.SQLException {
+        if (x == 1) throw new java.io.FileNotFoundException();
+        if (x == 2) throw new java.sql.SQLException();
+    }
+    static String f(int x) throws java.sql.SQLException {
+        try {
+            m(x);
+            return "-";
+        } catch (java.io.FileNotFoundException e) {
+            return "F";
+        } catch (Exception e) {
+            throw e;
+        }
+    }
+    static String g(int x) { try { return f(x); } catch (java.sql.SQLException e) { return "S"; } }
+    public static Object run() { return g(0) + g(1) + g(2); }
+}
+
+=== precise rethrow of a final catch parameter
+jls: F-
+janino: OK
+public class P {
+    static void m(boolean b) throws java.io.FileNotFoundException { if (b) throw new java.io.FileNotFoundException(); }
+    static String f(boolean b) throws java.io.FileNotFoundException {
+        try { m(b); return "-"; } catch (final java.io.IOException e) { throw e; }
+    }
+    public static Object run() {
+        String r;
+        try { r = f(true); } catch (java.io.FileNotFoundException e) { r = "F"; }
+        try { return r + f(false); } catch (java.io.FileNotFoundException e) { return "?"; }
+    }
+}
+
+=== precise rethrow of a catch parameter, with a throw statement in an if (false) statement in the try block
+jls: -
+janino: OK
+public class P {
+    static String f() throws java.io.IOException {
+        try { if (false) throw new java.io.IOException(); return "-"; } catch (Exception e) { throw e; }
+    }
+    public static Object run() throws Exception { return f(); }
+}
+
+=== precise rethrow of a catch parameter in a try statement in the catch clause
+jls: XY
+janino: OK
+public class P {
+    static void g(boolean b) throws java.io.IOException { if (b) throw new java.io.IOException(); }
+    static String f() {
+        try {
+            g(true);
+            return "-";
+        } catch (java.io.IOException e) {
+            try { throw e; } catch (java.io.IOException x) { return "X"; }
+        }
+    }
+    static String h() throws java.io.IOException {
+        try { g(true); return "-"; } catch (Exception e) { try { throw e; } finally { } }
+    }
+    public static Object run() {
+        String r;
+        try { r = h(); } catch (java.io.IOException e) { r = "Y"; }
+        return f() + r;
+    }
+}
+
+=== catch clauses for unchecked exceptions and their superclasses after empty try blocks
+jls: ok
+janino: OK
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: #21
+public class P {
+    public static Object run() {
+        try { } catch (Exception e) { return "E"; }
+        try { } catch (Throwable t) { return "T"; }
+        try { } catch (RuntimeException e) { return "R"; }
+        try { } catch (Error e) { return "X"; }
+        try { } catch (IllegalStateException | IllegalArgumentException e) { return "M"; }
+        L: for (;;) { try { } catch (RuntimeException e) { break L; } break; }
+        return "ok";
+    }
+}
+
+=== checked exception thrown in a catch clause and caught by an enclosing try statement
+jls: I-
+janino: OK
+public class P {
+    static String f(boolean b) {
+        try {
+            try {
+                if (b) throw new IllegalStateException();
+                return "-";
+            } catch (RuntimeException e) {
+                throw new java.io.IOException();
+            }
+        } catch (java.io.IOException e) {
+            return "I";
+        }
+    }
+    public static Object run() { return f(true) + f(false); }
+}
+
+=== catch clause of a try-with-resources statement for the exception of the close method
+jls: C
+janino: OK
+legacy: REJECTED Catch clause is unreachable
+id: #4
+public class P {
+    static class R implements AutoCloseable {
+        public void close() throws java.io.IOException { throw new java.io.IOException(); }
+    }
+    public static Object run() { try (R r = new R()) { return "-"; } catch (java.io.IOException e) { return "C"; } }
+}
+
 === do statement that assigns a local variable which is read after it
 jls: 1
 janino: OK

@@ -36,6 +36,7 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#135](https://github.com/janino-lts/janino/issues/135) | The compliance mode: the most specific of two variable arity methods like `javac` (L-49) | unchanged | only with the option |
 | [#137](https://github.com/janino-lts/janino/issues/137) | The compliance mode: a field of a local or anonymous class shadows a variable of the enclosing method, like `javac` (S-15) | unchanged | only with the option |
 | [#177](https://github.com/janino-lts/janino/issues/177) | The compliance mode: statements like `javac` (L-27 to L-29, L-35 to L-37) | unchanged | only with the option |
+| [#182](https://github.com/janino-lts/janino/issues/182) | The compliance mode: `catch` clauses like `javac` (L-30 to L-33, L-51) | unchanged | only with the option |
 | [#107](https://github.com/janino-lts/janino/issues/107) | `<clinit>` with the access flags of `javac` (`ACC_STATIC`) | changed | unchanged |
 | [#108](https://github.com/janino-lts/janino/issues/108) | The compile error message for an instance member in a static initializer names the context | unchanged | message texts |
 
@@ -317,6 +318,22 @@ not assignable to the type of the selector: out of its range (`case 1000:` in a 
 P(int i) { this(); }`, L-37). `ConstantExpressionDifferentialTest` has no known differences of L-35 and L-36 any
 more.
 
+With #182, the compliance mode checks the `catch` clauses like `javac`. It records which checked exceptions the `try`
+block of each `try` statement can throw (JLS 11.2.2), including the `close()` methods of its resources, and rejects a
+`catch` clause, or an alternative of a multi-catch clause, for a checked exception class other than `Exception` and its
+superclasses that is neither a subclass nor a superclass of one of them (`try { } catch (IOException e) { }`, L-30), and
+one whose class, or a superclass of it, a preceding clause catches (`catch (Exception e) { } catch (RuntimeException e)
+{ }`, L-31). An exception that is thrown in a `catch` clause or in the `finally` clause is no longer taken for caught by
+the `catch` clauses of the same `try` statement (`try { g(); } catch (Exception e) { throw new IOException(); }`, L-33).
+`throw e` with a final or effectively final `catch` parameter `e` throws the exceptions that the `try` block can throw
+and that the clause catches, minus those of the preceding clauses (the precise rethrow), so that `catch (Exception e) {
+log(e); throw e; }` stays valid in a method that declares them; in a local or anonymous class in the `catch` clause, the
+type of the parameter counts (D-16). The `catch` clauses after an empty `try` block, which the compatibility mode does
+not compile, are checked like all others, without generating their code: a type that is not a `Throwable` (`catch
+(String e)`, L-32), and every error in their bodies, e.g. an undeclared method or a duplicate label (L-51). Unchanged:
+an exception class with an all-uppercase name in a `throws` clause (L-34) and a `catch` parameter with the name of a
+local variable (L-14).
+
 **Class files.** Unchanged in the compatibility mode.
 
 **Tests.** The record tests (`InvalidCodeTest`, `LanguageSupportTest`) run every case in both modes: a record
@@ -340,7 +357,7 @@ makes this machine-checkable: it compiles every recorded case with 3.1.12 (loade
 loader of its own, with target version 8) and compares its behavior with the recorded behavior of the compatibility
 mode. Where the two differ, the record states the behavior of 3.1.12 (`legacy:`) and the correction that explains the
 difference (`id:`, an issue number or an ID of the register); a difference that no record states, e.g. a regression,
-fails the test. Today, 399 of the 1025 recorded cases differ from 3.1.12, each with its correction: the fixes of
+fails the test. Today, 511 of the 1276 recorded cases differ from 3.1.12, each with its correction: the fixes of
 classes D and V since 3.1.13, the registered exceptions A-04, A-05 and A-06, and the language features that 3.1.12
 did not compile (multi-catch, qualified superclass method invocations, effectively final variables, local classes
 with modifiers).

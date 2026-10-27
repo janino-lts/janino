@@ -197,6 +197,7 @@ public class P {
 
 === catch of checked exception that is never thrown
 janino: ACCEPTED
+compliant: REJECTED Catch clause is unreachable
 recovery: ACCEPTED
 id: L-30
 public class P {
@@ -205,6 +206,7 @@ public class P {
 
 === catch clause is unreachable after catch of superclass
 janino: ACCEPTED
+compliant: REJECTED Catch clause is unreachable
 recovery: ACCEPTED
 id: L-31
 public class P {
@@ -215,6 +217,7 @@ public class P {
 
 === catch of non-throwable type
 janino: ACCEPTED
+compliant: REJECTED Catch parameter type "java.lang.String" is not assignable to "Throwable"
 recovery: ACCEPTED
 id: L-32
 public class P {
@@ -868,6 +871,7 @@ public class P {
 
 === multi-catch clause after a catch of a superclass of an alternative
 janino: ACCEPTED
+compliant: REJECTED Catch clause is unreachable
 recovery: ACCEPTED
 legacy: REJECTED Multi-type CATCH parameters NYI
 id: L-31, #21
@@ -881,6 +885,7 @@ public class P {
 
 === multi-catch of a checked exception that is never thrown
 janino: ACCEPTED
+compliant: REJECTED Alternative "java.sql.SQLException" of multi-catch parameter "e" is unreachable
 recovery: ACCEPTED
 legacy: REJECTED Multi-type CATCH parameters NYI
 id: L-30, #21
@@ -891,6 +896,7 @@ public class P {
 
 === rethrow of a multi-catch parameter whose alternatives are not declared
 janino: ACCEPTED
+compliant: REJECTED Thrown exception of type "java.io.IOException" is neither caught
 recovery: ACCEPTED
 legacy: REJECTED Multi-type CATCH parameters NYI
 id: L-33, #21
@@ -901,6 +907,7 @@ public class P {
 
 === exception thrown in a catch clause is caught by the same try statement
 janino: ACCEPTED
+compliant: REJECTED Thrown exception of type "java.io.IOException" is neither caught
 recovery: ACCEPTED
 id: L-33
 public class P {
@@ -909,10 +916,129 @@ public class P {
 
 === rethrow of a catch parameter whose type is not declared
 janino: ACCEPTED
+compliant: REJECTED Thrown exception of type "java.io.IOException" is neither caught
 recovery: ACCEPTED
 id: L-33
 public class P {
     void f() { try { if (false) throw new java.io.IOException(); } catch (Exception e) { throw e; } }
+}
+
+=== catch clause for a checked exception after a catch clause for its superclass, after an empty try block
+janino: ACCEPTED
+compliant: REJECTED Catch clause is unreachable
+recovery: ACCEPTED
+id: L-30, L-31
+public class P {
+    void f() { try { } catch (Exception e) { } catch (java.io.IOException e) { } }
+}
+
+=== catch clause for an unchecked exception after a catch clause for its superclass
+janino: ACCEPTED
+compliant: REJECTED Catch clause is unreachable
+recovery: ACCEPTED
+id: L-31
+public class P {
+    void f() { try { f(); } catch (RuntimeException e) { } catch (IllegalStateException e) { } }
+}
+
+=== multi-catch clause with an alternative that a preceding catch clause catches
+janino: ACCEPTED
+compliant: REJECTED Alternative "java.io.IOException" of multi-catch parameter "e" is unreachable
+recovery: ACCEPTED
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: L-31, #21
+public class P {
+    static void g() throws java.io.IOException, java.sql.SQLException { }
+    void f() {
+        try { g(); } catch (java.io.IOException e) { } catch (java.io.IOException | java.sql.SQLException e) { }
+    }
+}
+
+=== multi-catch of a non-throwable type after an empty try block
+janino: ACCEPTED
+compliant: REJECTED Catch parameter type "java.lang.String" is not assignable to "Throwable"
+recovery: ACCEPTED
+legacy: REJECTED Multi-type CATCH parameters NYI
+id: L-32, #21
+public class P {
+    void f() { try { } catch (String | RuntimeException e) { } }
+}
+
+=== exception thrown in the finally clause is caught by a catch clause of the same try statement
+janino: ACCEPTED
+compliant: REJECTED Thrown exception of type "java.io.IOException" is neither caught
+recovery: ACCEPTED
+id: L-33
+public class P {
+    static void g() throws java.io.IOException { }
+    void f(boolean b) {
+        try { g(); } catch (java.io.IOException e) { } finally { if (b) throw new java.io.IOException(); }
+    }
+}
+
+=== exception thrown in a catch clause is caught by a following catch clause of the same try statement
+janino: ACCEPTED
+compliant: REJECTED Thrown exception of type "java.sql.SQLException" is neither caught
+recovery: ACCEPTED
+id: L-33
+public class P {
+    static void g() throws java.io.IOException { }
+    void f() {
+        try {
+            g();
+        } catch (java.io.IOException e) {
+            throw new java.sql.SQLException();
+        } catch (java.sql.SQLException e) {
+        }
+    }
+}
+
+=== rethrow of a catch parameter that is assigned in the catch clause
+janino: ACCEPTED
+compliant: REJECTED Thrown exception of type "java.lang.Exception" is neither caught
+recovery: ACCEPTED
+id: L-33
+public class P {
+    static void g() throws java.io.IOException { }
+    void f() throws java.io.IOException { try { g(); } catch (Exception e) { e = new Exception(); throw e; } }
+}
+
+=== rethrow of a catch parameter, with a checked exception of the try block that the method does not declare
+janino: ACCEPTED
+compliant: REJECTED Thrown exception of type "java.sql.SQLException" is neither caught
+recovery: ACCEPTED
+id: L-33
+public class P {
+    static void g() throws java.io.IOException { }
+    static void s() throws java.sql.SQLException { }
+    void f() throws java.io.IOException { try { g(); s(); } catch (Exception e) { throw e; } }
+}
+
+=== undeclared method in a catch clause after an empty try block
+janino: ACCEPTED
+compliant: REJECTED A method named "undefined" is not declared
+recovery: ACCEPTED
+id: L-51
+public class P {
+    void f() { try { } catch (RuntimeException e) { undefined(); } }
+}
+
+=== type error in a catch clause after an empty try block
+janino: ACCEPTED
+compliant: REJECTED Assignment conversion not possible from type "java.lang.String" to type "int"
+recovery: ACCEPTED
+id: L-51
+public class P {
+    void f() { try { } catch (RuntimeException e) { int x = "s"; } }
+}
+
+=== duplicate label in a catch clause after an empty try block
+janino: ACCEPTED
+compliant: REJECTED Duplicate label "L"
+recovery: ACCEPTED
+id: L-51, L-27
+public class P {
+    void f() { L: { try { } catch (RuntimeException e) { L: ; } } }
 }
 
 === multi-catch parameter redeclares a local variable
