@@ -359,7 +359,8 @@ warns. Since 3.1.21, both modes accept it, like `javac`, unless a preceding clau
 superclass of it.
 
 **D-16, `throw e` of a `catch` parameter in a local or anonymous class in the `catch` clause**
-([#182](https://github.com/janino-lts/janino/issues/182)): `try { r(); } catch (Exception e) { new Object() { void h()
+([#187](https://github.com/janino-lts/janino/issues/187), found with
+[#182](https://github.com/janino-lts/janino/issues/182)): `try { r(); } catch (Exception e) { new Object() { void h()
 { throw e; } }.h(); }`, where the `try` block throws no checked exception, is rejected (`Thrown exception of type
 "java.lang.Exception" is neither caught ...`), because Janino takes the type of the parameter for the type of the
 thrown exception; `javac` applies the rule of JLS 11.2.2 for the rethrow of a final or effectively final `catch`
