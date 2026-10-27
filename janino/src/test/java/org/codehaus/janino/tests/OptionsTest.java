@@ -29,6 +29,7 @@ import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -186,6 +187,39 @@ class OptionsTest {
             se.getMethod().getDeclaringClass().getClassLoader().setDefaultAssertionStatus(true);
             Assert.assertEquals("thrown", se.evaluate());
         }
+    }
+
+    /**
+     * Tests that {@code a || false} and {@code a && true} compile into the same class file in both modes; only {@code
+     * a || true} and {@code a && false} depend on {@link JaninoOption#JAVAC_COMPLIANCE} (S-01, issue #185).
+     */
+    @Test public void
+    testJavacComplianceConstantRhsOperand() throws Exception {
+        String cu = (
+            ""
+            + "public class P {\n"
+            + "    public static int f(boolean a, boolean b) { if (a || b || false) return 1; return 2; }\n"
+            + "    public static int g(boolean a, boolean b) { if (a && b && true) return 1; return 2; }\n"
+            + "    public static boolean h(Boolean a) { return a || false; }\n"
+            + "    public static boolean i(Boolean a) { return a && true; }\n"
+            + "}\n"
+        );
+        Map<String, byte[]> compat    = OptionsTest.compileUnit(cu);
+        Map<String, byte[]> compliant = OptionsTest.compileUnit(cu, JaninoOption.JAVAC_COMPLIANCE);
+        Assert.assertEquals(compat.keySet(), compliant.keySet());
+        for (Map.Entry<String, byte[]> e : compat.entrySet()) {
+            Assert.assertArrayEquals(e.getKey(), e.getValue(), compliant.get(e.getKey()));
+        }
+    }
+
+    private static Map<String, byte[]>
+    compileUnit(String compilationUnit, JaninoOption... options) throws CompileException {
+        SimpleCompiler sc = new SimpleCompiler();
+        EnumSet<JaninoOption> optionSet = EnumSet.noneOf(JaninoOption.class);
+        optionSet.addAll(Arrays.asList(options));
+        sc.options(optionSet);
+        sc.cook(compilationUnit);
+        return sc.getBytecodes();
     }
 
     private static Object

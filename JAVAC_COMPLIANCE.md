@@ -347,7 +347,9 @@ register is the public list; a deviation that is not in it is an unknown defect,
   cases differ from 3.1.12.
 - `SparkCorpusTest` (`janino-benchmarks`, job "Spark corpus in both modes" of the workflow "CI") compiles the code
   that Spark generated for twelve TPC-DS queries (342 class bodies) in both modes, and loads and instantiates every
-  generated class: real generated code, with the constructs that a code generator actually produces.
+  generated class: real generated code, with the constructs that a code generator actually produces. It also lists
+  the class bodies whose class files differ between the two modes; since #185, there are none (before, two class
+  bodies with `... || false` differed, because the correction of S-01 also applied to `a || false`).
 - `JdtCorpusTest` (`commons-compiler-tests`, job "JDT corpus in both modes" of the workflow "CI") compiles and runs
   the programs of eight regression test classes of the Eclipse compiler (ECJ: variable arity methods, boxing, the
   conditional operator, constants, inner classes, `assert`, name lookup, the rules of Java 1.4) with `javac` and in

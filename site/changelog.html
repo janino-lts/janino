@@ -286,6 +286,15 @@ h5 {
         L-30, L-31, L-32, L-33 and L-51). The compatibility mode is unchanged.
       </li>
       <li>
+        <a href="https://github.com/janino-lts/janino/issues/185">Issue #185</a>: In the compliance mode,
+        <code>a || false</code> and <code>a &amp;&amp; true</code> compile into the same code as in the compatibility
+        mode. Since <a href="https://github.com/janino-lts/janino/issues/40">issue #40</a> (deviation S-01), the
+        compliance mode compiled the constant operand into a conditional branch on the constant (four bytes of code
+        more), because the correction applied to all four forms, where only <code>a || true</code> and <code>a
+        &amp;&amp; false</code> need it. The behavior is unchanged in both modes, and so are the class files of the
+        compatibility mode.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/107">issue #107</a>: The class and interface
         initialization method <code>&lt;clinit&gt;</code> had the access flags <code>ACC_PUBLIC, ACC_STATIC</code>
         (<code>0x0009</code>), in an interface <code>ACC_PUBLIC, ACC_STATIC, ACC_ABSTRACT</code>
