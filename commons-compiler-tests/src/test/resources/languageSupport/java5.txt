@@ -1286,3 +1286,67 @@ public class P {
         return Integer.toHexString(E.class.getModifiers()) + " " + Integer.toHexString(F.class.getModifiers());
     }
 }
+
+=== implemented method of a generic interface whose throws clause names its type parameter, with a checked type argument
+jls: m
+janino: OK
+interface I<EX extends Exception> { String m() throws EX; }
+public class P implements I<java.io.IOException> {
+    public String m() throws java.io.IOException { return "m"; }
+    public static Object run() throws Exception { return new P().m(); }
+}
+
+=== overridden method of a generic superclass whose throws clause names its type parameter
+jls: a
+janino: OK
+abstract class A<EX extends Exception> { abstract String m() throws EX; }
+public class P extends A<java.io.IOException> {
+    String m() throws java.io.IOException { return "a"; }
+    public static Object run() throws Exception { return new P().m(); }
+}
+
+=== overridden method of a member class of a generic class whose throws clause names the type parameter
+jls: s
+janino: OK
+class O<EX extends Exception> { abstract class In { abstract String m() throws EX; } }
+public class P extends O<java.io.IOException> {
+    class S extends In { String m() throws java.io.IOException { return "s"; } }
+    public static Object run() throws Exception { return new P().new S().m(); }
+}
+
+=== generic method whose throws clause names its type parameter, overridden without type parameters
+jls: p
+janino: OK
+class A { <X extends Exception> String f() throws X { return "a"; } }
+public class P extends A {
+    String f() throws Exception { return "p"; }
+    public static Object run() throws Exception { return new P().f(); }
+}
+
+=== throws clauses with Throwable, Error and a type parameter with an Exception bound
+jls: ok
+janino: OK
+public class P {
+    <T extends Exception> void f() throws T {}
+    void g() throws Throwable, Error {}
+    public static Object run() { return "ok"; }
+}
+
+=== unused static imports of a field inherited from an interface and of a method inherited from a superclass
+jls: ok
+janino: OK
+import static java.io.ObjectOutputStream.STREAM_MAGIC;
+import static javax.swing.JPanel.getDefaultLocale;
+public class P { public static Object run() { return "ok"; } }
+
+=== static import of a member type
+jls: null
+janino: OK
+import static java.util.Map.Entry;
+public class P { public static Object run() { Entry<String, String> e = null; return String.valueOf(e); } }
+
+=== static import of a method with static and instance overloads, not used
+jls: ok
+janino: OK
+import static java.lang.Double.isNaN;
+public class P { public static Object run() { return "ok"; } }

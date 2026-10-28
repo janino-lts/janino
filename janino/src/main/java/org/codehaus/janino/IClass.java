@@ -1223,6 +1223,14 @@ class IClass implements ITypeVariableOrIClass {
         isFinal() { return false; }
 
         /**
+         * @return Whether the THROWS clause of this method names a type parameter, which {@link
+         *         #getThrownExceptions()} does not return; {@code false} unless overridden. (Package-private, so that
+         *         implementations outside of this package need not implement it.)
+         */
+        boolean
+        throwsTypeParameter() { return false; }
+
+        /**
          * @return The return type of this method
          */
         public abstract IClass getReturnType() throws CompileException;

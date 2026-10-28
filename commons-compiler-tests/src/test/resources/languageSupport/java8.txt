@@ -430,3 +430,12 @@ public class P {
         return "-";
     }
 }
+
+=== static interface method with the signature of a static method of an implementing class
+jls: pi
+janino: OK
+interface I { static String f() { return "i"; } }
+public class P implements I {
+    static String f() throws Exception { return "p"; }
+    public static Object run() throws Exception { return f() + I.f(); }
+}

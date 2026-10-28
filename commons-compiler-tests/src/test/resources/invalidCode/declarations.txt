@@ -38,6 +38,7 @@ public class P extends A { void f() {} }
 
 === override with weaker access
 janino: ACCEPTED
+compliant: REJECTED The access of "default void P.f()" is weaker than that of "public void A.f()"
 recovery: ACCEPTED
 id: L-08
 class A { public void f() {} }
@@ -293,9 +294,18 @@ id: #32
 
 === private method with the signature of a final method of the superclass
 janino: ACCEPTED
+compliant: REJECTED The access of "private void P.f()" is weaker than that of "public void A.f()"
 recovery: ACCEPTED
 id: L-10
 class A { public final void f() {} }
+public class P extends A { private void f() {} }
+
+=== private method with the signature of a package-private final method of the superclass
+janino: ACCEPTED
+compliant: REJECTED The access of "private void P.f()" is weaker than that of "default void A.f()"
+recovery: ACCEPTED
+id: L-10
+class A { final void f() {} }
 public class P extends A { private void f() {} }
 
 === static method hides static final method
@@ -307,11 +317,42 @@ public class P extends A { static void f() {} }
 
 === duplicate field with different types
 janino: ACCEPTED
+compliant: REJECTED Redeclaration of field "x"
 recovery: ACCEPTED
 id: L-13
 public class P {
     int x;
     long x;
+}
+
+=== duplicate interface constant with different types
+janino: INVALID LinkageError
+compliant: REJECTED Redeclaration of field "X"
+recovery: ACCEPTED
+id: L-13
+public interface P {
+    int X = 1;
+    long X = 2;
+}
+
+=== enum constant and field with the same name
+janino: ACCEPTED
+compliant: REJECTED Redeclaration of field "A"
+recovery: ACCEPTED
+id: L-13
+public enum P {
+    A;
+    int A;
+}
+
+=== duplicate static and instance field with different types
+janino: ACCEPTED
+compliant: REJECTED Redeclaration of field "x"
+recovery: ACCEPTED
+id: L-13
+public class P {
+    static int x;
+    Object x;
 }
 
 === blank final field never assigned
@@ -332,6 +373,7 @@ public class P {
 
 === override throws a broader checked exception
 janino: ACCEPTED
+compliant: REJECTED The overridden method "default void A.f() throws java.io.IOException" does not throw
 recovery: ACCEPTED
 id: L-11
 class A { void f() throws java.io.IOException {} }
@@ -339,26 +381,176 @@ public class P extends A { void f() throws Exception {} }
 
 === override adds a checked exception
 janino: ACCEPTED
+compliant: REJECTED The overridden method "default void A.f()" does not throw
 recovery: ACCEPTED
 id: L-11
 class A { void f() {} }
 public class P extends A { void f() throws Exception {} }
 
+=== override throws a checked exception that one of two overridden interface methods does not throw
+janino: ACCEPTED
+compliant: REJECTED The overridden method "public abstract void I2.f() throws java.sql.SQLException" does not throw
+recovery: ACCEPTED
+id: L-11
+interface I1 { void f() throws java.io.IOException; }
+interface I2 { void f() throws java.sql.SQLException; }
+public class P implements I1, I2 {
+    public void f() throws java.io.IOException {}
+}
+
+=== override of a method that throws an unchecked exception adds a checked exception
+janino: ACCEPTED
+compliant: REJECTED The overridden method "default void A.f() throws java.lang.RuntimeException" does not throw
+recovery: ACCEPTED
+id: L-11
+class A { void f() throws RuntimeException {} }
+public class P extends A { void f() throws java.io.IOException {} }
+
+=== static method that hides a static method adds a checked exception
+janino: ACCEPTED
+compliant: REJECTED The overridden method "default static void A.f()" does not throw
+recovery: ACCEPTED
+id: L-11
+class A { static void f() {} }
+public class P extends A { static void f() throws Exception {} }
+
+=== method of an anonymous class adds a checked exception to an interface method
+janino: ACCEPTED
+compliant: REJECTED The overridden method "public abstract void java.lang.Runnable.run()" does not throw
+recovery: ACCEPTED
+id: L-11
+public class P {
+    Runnable r = new Runnable() { public void run() throws Exception {} };
+}
+
+=== interface method that overrides an interface method adds a checked exception
+janino: ACCEPTED
+compliant: REJECTED The overridden method "public abstract void I.f()" does not throw
+recovery: ACCEPTED
+id: L-11
+interface I { void f(); }
+public interface P extends I { void f() throws Exception; }
+
+=== method inherited from the superclass implements an interface method with a broader throws clause
+janino: ACCEPTED
+recovery: ACCEPTED
+id: L-11
+class A { public void f() throws Exception {} }
+interface I { void f(); }
+public class P extends A implements I {}
+
+=== override throws a broader checked exception than the type argument of a throws clause type parameter
+janino: ACCEPTED
+recovery: ACCEPTED
+id: L-11
+interface I<EX extends Exception> { void m() throws EX; }
+public class P implements I<java.io.IOException> {
+    public void m() throws Exception {}
+}
+
 === throws clause with a type that is not a Throwable
 janino: ACCEPTED
+compliant: REJECTED Thrown exception type "java.lang.String" is not assignable to "Throwable"
 recovery: ACCEPTED
 id: L-12
 public class P {
     void f() throws String {}
 }
 
+=== throws clause of a constructor with a type that is not a Throwable
+janino: ACCEPTED
+compliant: REJECTED Thrown exception type "java.lang.String" is not assignable to "Throwable"
+recovery: ACCEPTED
+id: L-12
+public class P {
+    P() throws String {}
+}
+
+=== throws clause of an interface method with a type that is not a Throwable
+janino: ACCEPTED
+compliant: REJECTED Thrown exception type "java.lang.Integer" is not assignable to "Throwable"
+recovery: ACCEPTED
+id: L-12
+public interface P {
+    void f() throws Integer;
+}
+
+=== throws clause with a type parameter without a Throwable bound
+janino: ACCEPTED
+recovery: ACCEPTED
+id: L-12
+public class P {
+    <T> void f() throws T {}
+}
+
 === interface method implemented with weaker access
 janino: ACCEPTED
+compliant: REJECTED The access of "default void P.run()" is weaker than that of "public abstract
 recovery: ACCEPTED
 id: L-08
 public class P implements Runnable {
     void run() {}
 }
+
+=== override of a protected method with package access
+janino: ACCEPTED
+compliant: REJECTED The access of "default void P.f()" is weaker than that of "protected void A.f()"
+recovery: ACCEPTED
+id: L-08
+class A { protected void f() {} }
+public class P extends A { void f() {} }
+
+=== override of a public method with protected access
+janino: ACCEPTED
+compliant: REJECTED The access of "protected void P.f()" is weaker than that of "public void A.f()"
+recovery: ACCEPTED
+id: L-08
+class A { public void f() {} }
+public class P extends A { protected void f() {} }
+
+=== override of Object.clone() with package access
+janino: ACCEPTED
+compliant: REJECTED The access of "default java.lang.Object P.clone()" is weaker than that of "protected
+recovery: ACCEPTED
+id: L-08
+public class P {
+    Object clone() { return null; }
+}
+
+=== interface method implemented with weaker access in an anonymous class
+janino: ACCEPTED
+compliant: REJECTED The access of "default void P$1.run()" is weaker than that of "public abstract
+recovery: ACCEPTED
+id: L-08
+public class P {
+    Object o = new Runnable() { void run() {} };
+}
+
+=== method of an enum constant body overrides a method of the enum with weaker access
+janino: ACCEPTED
+compliant: REJECTED The access of "default void P$1.f()" is weaker than that of "public void P.f()"
+recovery: ACCEPTED
+id: L-08
+public enum P {
+    A { void f() {} };
+    public void f() {}
+}
+
+=== static method hides a static method with weaker access
+janino: ACCEPTED
+compliant: REJECTED The access of "default static void P.f()" is weaker than that of "public static void A.f()"
+recovery: ACCEPTED
+id: L-08
+class A { public static void f() {} }
+public class P extends A { static void f() {} }
+
+=== method inherited from the superclass implements an interface method with weaker access
+janino: ACCEPTED
+recovery: ACCEPTED
+id: L-08
+class A { void f() {} }
+interface I { void f(); }
+public class P extends A implements I {}
 
 === default method overrides a method of Object
 janino: ACCEPTED

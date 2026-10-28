@@ -412,6 +412,9 @@ class UnitCompiler {
     private void
     compile2(CompilationUnit cu) throws CompileException {
 
+        // Compliance L-44: Like JAVAC, check the static imports, even if they are not used.
+        if (this.compliant()) this.checkStaticImports();
+
         for (PackageMemberTypeDeclaration pmtd : cu.packageMemberTypeDeclarations) {
             try {
                 this.compile(pmtd);
@@ -428,6 +431,77 @@ class UnitCompiler {
                 ), re);
             }
         }
+    }
+
+    /**
+     * Compliance L-44: Reports a compile error for each static import declaration of a type that does not exist, and
+     * for each single static import declaration that names no static member of the type or of its supertypes (JLS8
+     * 7.5.3, 7.5.4), like JAVAC. (Otherwise, a static import declaration is resolved only when a name is looked up
+     * through it.) Whether the member is accessible is not checked.
+     */
+    private void
+    checkStaticImports() throws CompileException {
+
+        for (SingleStaticImportDeclaration ssid : Iterables.filterByClass(
+            this.abstractCompilationUnit.importDeclarations,
+            SingleStaticImportDeclaration.class
+        )) {
+            String[] typeName   = UnitCompiler.allButLast(ssid.identifiers);
+            String   memberName = UnitCompiler.last(ssid.identifiers);
+
+            IClass type = this.findTypeByFullyQualifiedName(ssid.getLocation(), typeName);
+            if (type == null) {
+                this.compileError(
+                    "A class \"" + Java.join(typeName, ".") + "\" could not be found",
+                    ssid.getLocation()
+                );
+            } else
+            if (
+                type.findMemberType(memberName).length == 0
+                && !UnitCompiler.hasStaticFieldOrMethod(type, memberName, new HashSet<IClass>())
+            ) {
+                this.compileError(
+                    "\"" + type + "\" has no static member \"" + memberName + "\"",
+                    ssid.getLocation()
+                );
+            }
+        }
+
+        for (StaticImportOnDemandDeclaration siodd : Iterables.filterByClass(
+            this.abstractCompilationUnit.importDeclarations,
+            StaticImportOnDemandDeclaration.class
+        )) {
+            if (this.findTypeByFullyQualifiedName(siodd.getLocation(), siodd.identifiers) == null) {
+                this.compileError("Could not load \"" + Java.join(siodd.identifiers, ".") + "\"", siodd.getLocation());
+            }
+        }
+    }
+
+    /**
+     * @param seen The types that were already searched
+     * @return     Whether the <var>type</var> or one of its supertypes declares a static field or a static method
+     *             with the given <var>name</var>
+     */
+    private static boolean
+    hasStaticFieldOrMethod(IClass type, String name, Set<IClass> seen) throws CompileException {
+
+        if (!seen.add(type)) return false;
+
+        IField iField = type.getDeclaredIField(name);
+        if (iField != null && iField.isStatic()) return true;
+
+        for (IMethod iMethod : type.getDeclaredIMethods(name)) {
+            if (iMethod.isStatic()) return true;
+        }
+
+        IClass superclass = type.getSuperclass();
+        if (superclass != null && UnitCompiler.hasStaticFieldOrMethod(superclass, name, seen)) return true;
+
+        for (IClass i : type.getInterfaces()) {
+            if (UnitCompiler.hasStaticFieldOrMethod(i, name, seen)) return true;
+        }
+
+        return false;
     }
 
     private void
@@ -900,6 +974,9 @@ class UnitCompiler {
             }
         }
 
+        // Compliance L-08, L-11: Like JAVAC, check the access and the THROWS clauses of overriding methods.
+        if (this.compliant()) this.checkOverrides(cd);
+
         // Compile declared methods.
         this.compileDeclaredMethods(cd, cf);
 
@@ -1124,7 +1201,8 @@ class UnitCompiler {
 
     /**
      * Reports a compile error for fields with the same name <em>and</em> the same type, which the JVM rejects (JVMS8
-     * 4.5). (Fields with the same name and different types are accepted by the JVM, and thus by JANINO.)
+     * 4.5). (Fields with the same name and different types are accepted by the JVM, and thus by JANINO.) The
+     * compliance mode reports fields with the same name, like JAVAC (JLS8 8.3) (L-13).
      */
     private void
     checkDuplicateFields(AbstractTypeDeclaration td, ClassFile cf) throws CompileException {
@@ -1135,7 +1213,9 @@ class UnitCompiler {
         Set<String> namesAndDescriptors = new HashSet<String>();
         for (ClassFile.FieldInfo fi : fieldInfos) {
             String name = fi.getName(cf);
-            if (!namesAndDescriptors.add(name + ' ' + fi.getDescriptor(cf))) {
+
+            // Compliance L-13: Like JAVAC, two fields must not have the same name, even if their types differ.
+            if (!namesAndDescriptors.add(this.compliant() ? name : name + ' ' + fi.getDescriptor(cf))) {
                 this.compileError("Redeclaration of field \"" + name + "\"", td.getLocation());
             }
         }
@@ -1412,6 +1492,9 @@ class UnitCompiler {
 
             this.maybeCreateInitMethod(id, cf, statements);
         }
+
+        // Compliance L-08, L-11: Like JAVAC, check the access and the THROWS clauses of overriding methods.
+        if (this.compliant()) this.checkOverrides(id);
 
         this.compileDeclaredMethods(id, cf);
 
@@ -2103,6 +2186,114 @@ class UnitCompiler {
 
         // Check whether it overrides a method declared in a supertype.
         return this.overridesMethodFromSupertype(method, type);
+    }
+
+    /**
+     * Compliance L-08, L-11: Reports a compile error for each method of the <var>td</var> that overrides or hides a
+     * method with stronger access, or that throws a checked exception that such a method does not throw (JLS8
+     * 8.4.8.3), like JAVAC. Methods with a "$" in their names, e.g. the synthetic "access$000()", are not checked.
+     * Neither are the exceptions against a method whose THROWS clause names a type parameter (which {@link
+     * IMethod#getThrownExceptions()} does not return).
+     */
+    private void
+    checkOverrides(TypeDeclaration td) throws CompileException {
+
+        for (MethodDeclarator md : td.getMethodDeclarations()) {
+            if (md.name.indexOf('$') != -1) continue;
+
+            IMethod m = this.toIMethod(md);
+
+            List<IMethod> overriddenMethods = new ArrayList<>();
+            this.findOverriddenMethods(m, m.getDeclaringIClass(), new HashSet<IClass>(), overriddenMethods);
+
+            for (IMethod om : overriddenMethods) {
+
+                if (UnitCompiler.accessRank(m.getAccess()) < UnitCompiler.accessRank(om.getAccess())) {
+                    this.compileError(
+                        "The access of \"" + m + "\" is weaker than that of \"" + om + "\"",
+                        md.getLocation()
+                    );
+                }
+
+                if (om.throwsTypeParameter()) continue;
+
+                for (IClass te : m.getThrownExceptions()) {
+                    if (
+                        this.iClassLoader.TYPE_java_lang_RuntimeException.isAssignableFrom(te)
+                        || this.iClassLoader.TYPE_java_lang_Error.isAssignableFrom(te)
+                    ) continue;
+
+                    boolean thrown = false;
+                    for (IClass ote : om.getThrownExceptions()) {
+                        if (ote.isAssignableFrom(te)) {
+                            thrown = true;
+                            break;
+                        }
+                    }
+                    if (!thrown) {
+                        this.compileError(
+                            "The overridden method \"" + om + "\" does not throw \"" + te + "\"",
+                            md.getLocation()
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Adds the methods of the supertypes of the <var>type</var> that the <var>method</var> overrides or hides to the
+     * <var>result</var>: methods with the same name and parameter types that are neither private, nor static methods
+     * of an interface, nor package-private methods of another package, nor have a "$" in their names.
+     *
+     * @param seen The supertypes that were already searched
+     */
+    private void
+    findOverriddenMethods(IMethod method, IClass type, Set<IClass> seen, List<IMethod> result)
+    throws CompileException {
+
+        List<IClass> supertypes = new ArrayList<>();
+        IClass       superclass = type.getSuperclass();
+        if (superclass != null) supertypes.add(superclass);
+        supertypes.addAll(Arrays.asList(type.getInterfaces()));
+
+        for (IClass st : supertypes) {
+            if (!seen.add(st)) continue;
+
+            for (IMethod m : st.getDeclaredIMethods(method.getName())) {
+                if (
+                    m.getAccess() == Access.PRIVATE
+                    || (m.isStatic() && st.isInterface())
+                    || (
+                        m.getAccess() == Access.DEFAULT
+                        && !Descriptor.areInSamePackage(
+                            st.getDescriptor(),
+                            method.getDeclaringIClass().getDescriptor()
+                        )
+                    )
+                    || m.getName().indexOf('$') != -1
+                    || !Arrays.equals(method.getParameterTypes(), m.getParameterTypes())
+                ) continue;
+
+                result.add(m);
+            }
+
+            this.findOverriddenMethods(method, st, seen, result);
+        }
+    }
+
+    /**
+     * @return The rank of the <var>access</var>, from {@code PRIVATE} (the weakest) to {@code PUBLIC} (the strongest)
+     */
+    private static int
+    accessRank(Access access) {
+        switch (access) {
+        case PRIVATE:   return 0;
+        case DEFAULT:   return 1;
+        case PROTECTED: return 2;
+        case PUBLIC:    return 3;
+        default:        throw new AssertionError(access);
+        }
     }
 
     /**
@@ -4980,6 +5171,14 @@ class UnitCompiler {
                     // would cause compilation problems when the class is loaded later, e.g. by ClassFileIClass.
                     IClass te = this.thrownExceptionType(fd.thrownExceptions[i], fd);
                     if (te == null) continue;
+
+                    // Compliance L-12: Like JAVAC, the type must be a subclass of "Throwable" (JLS8 8.4.6).
+                    if (this.compliant() && !this.iClassLoader.TYPE_java_lang_Throwable.isAssignableFrom(te)) {
+                        this.compileError(
+                            "Thrown exception type \"" + te + "\" is not assignable to \"Throwable\"",
+                            fd.thrownExceptions[i].getLocation()
+                        );
+                    }
 
                     tecciis.add(classFile.addConstantClassInfo(te.getDescriptor()));
                 }
@@ -14763,6 +14962,19 @@ class UnitCompiler {
 
             @Override boolean
             isFinal() { return UnitCompiler.hasFinalModifier(methodDeclarator.getModifiers()); }
+
+            @Override boolean
+            throwsTypeParameter() {
+                for (Type te : methodDeclarator.thrownExceptions) {
+                    if (!(te instanceof ReferenceType)) continue;
+                    String[] identifiers = ((ReferenceType) te).identifiers;
+                    if (
+                        identifiers.length == 1
+                        && UnitCompiler.findTypeParameter(identifiers[0], methodDeclarator) != null
+                    ) return true;
+                }
+                return false;
+            }
 
             @Override public boolean
             isAbstract() {

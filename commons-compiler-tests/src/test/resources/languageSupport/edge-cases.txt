@@ -1257,3 +1257,12 @@ public class P {
     }
     public static Object run() { return t(8); }
 }
+
+=== field and method with the same name
+jls: fm
+janino: OK
+public class P {
+    String x = "f";
+    String x() { return "m"; }
+    public static Object run() { P p = new P(); return p.x + p.x(); }
+}
