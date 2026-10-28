@@ -305,6 +305,16 @@ h5 {
         (<code>void m() throws T</code>) is rejected (deviation L-34). The compatibility mode is unchanged.
       </li>
       <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/190">issue #190</a> in the compliance mode: A
+        method that overrides or hides a method with weaker access (<code>void run() { }</code> in a class that
+        implements <code>Runnable</code>), or that throws a checked exception that the overridden method does not
+        throw, is rejected, like with JAVAC (deviations L-08, L-10 and L-11), and so are a type in a
+        <code>throws</code> clause that is not a <code>Throwable</code> (L-12), two fields with the same name and
+        different types (L-13), and a static import of a type that does not exist or of a name that is no static
+        member of the type (<code>import static java.lang.Math.foo;</code>, L-44), even if it is not used. The
+        compatibility mode is unchanged.
+      </li>
+      <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/107">issue #107</a>: The class and interface
         initialization method <code>&lt;clinit&gt;</code> had the access flags <code>ACC_PUBLIC, ACC_STATIC</code>
         (<code>0x0009</code>), in an interface <code>ACC_PUBLIC, ACC_STATIC, ACC_ABSTRACT</code>

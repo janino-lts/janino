@@ -188,6 +188,7 @@ public class P {
 
 === static import of unknown member
 janino: ACCEPTED
+compliant: REJECTED "java.lang.Math" has no static member "foo"
 recovery: ACCEPTED
 id: L-44
 import static java.lang.Math.foo;
@@ -312,9 +313,49 @@ public class P {}
 
 === static import of an instance method
 janino: ACCEPTED
+compliant: REJECTED "java.lang.String" has no static member "length"
 recovery: ACCEPTED
 id: L-44
 import static java.lang.String.length;
+public class P {}
+
+=== static import of a member of a type that does not exist
+janino: ACCEPTED
+compliant: REJECTED A class "foo.Bar" could not be found
+recovery: ACCEPTED
+id: L-44
+import static foo.Bar.x;
+public class P {}
+
+=== static import on demand of a type that does not exist
+janino: ACCEPTED
+compliant: REJECTED Could not load "foo.Bar"
+recovery: ACCEPTED
+id: L-44
+import static foo.Bar.*;
+public class P {}
+
+=== static import of an instance field
+janino: ACCEPTED
+compliant: REJECTED "java.awt.Point" has no static member "x"
+recovery: ACCEPTED
+id: L-44
+import static java.awt.Point.x;
+public class P {}
+
+=== static import of an unknown member of an interface
+janino: ACCEPTED
+compliant: REJECTED "java.util.Map" has no static member "foo"
+recovery: ACCEPTED
+id: L-44
+import static java.util.Map.foo;
+public class P {}
+
+=== static import of an inaccessible static member
+janino: ACCEPTED
+recovery: ACCEPTED
+id: L-44
+import static java.lang.Integer.digits;
 public class P {}
 
 === protected method invoked on an instance of an unrelated type

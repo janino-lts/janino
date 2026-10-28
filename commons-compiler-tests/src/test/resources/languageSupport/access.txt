@@ -681,3 +681,60 @@ public class P extends other_package.PublicSubclass {
     class Q { String f() { return protectedStaticField; } }
     public static Object run() { return new P().new Q().f(); }
 }
+
+=== override with wider access and a narrower throws clause
+jls: fg
+janino: OK
+class A {
+    protected String f() throws java.io.IOException { return "a"; }
+    String g() throws Exception { return "b"; }
+}
+public class P extends A {
+    public String f() throws java.io.FileNotFoundException { return "f"; }
+    protected String g() { return "g"; }
+    public static Object run() throws Exception { P p = new P(); return p.f() + p.g(); }
+}
+
+=== interface method implemented public with unchecked exceptions in the throws clause
+jls: c
+janino: OK
+public class P implements java.util.concurrent.Callable<String> {
+    public String call() throws IllegalStateException, Error { return "c"; }
+    public static Object run() { return new P().call(); }
+}
+
+=== method with the signature of a private method of the superclass and a broader throws clause
+jls: p
+janino: OK
+class A { private String f() { return "a"; } }
+public class P extends A {
+    String f() throws Exception { return "p"; }
+    public static Object run() throws Exception { return new P().f(); }
+}
+
+=== static method that hides a static method with a narrower throws clause
+jls: p
+janino: OK
+class A { static String f() throws Exception { return "a"; } }
+public class P extends A {
+    static String f() { return "p"; }
+    public static Object run() { return f(); }
+}
+
+=== method of an anonymous class that overrides a package-private method with public access
+jls: x
+janino: OK
+class A { String f() { return "a"; } }
+public class P {
+    public static Object run() { return new A() { public String f() { return "x"; } }.f(); }
+}
+
+=== method that implements an interface method whose subinterface narrows the throws clause
+jls: j
+janino: OK
+interface I { String f() throws Exception; }
+interface J extends I { String f() throws java.io.IOException; }
+public class P implements J {
+    public String f() { return "j"; }
+    public static Object run() { return new P().f(); }
+}

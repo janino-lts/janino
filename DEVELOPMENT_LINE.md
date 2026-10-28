@@ -39,6 +39,7 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#182](https://github.com/janino-lts/janino/issues/182) | The compliance mode: `catch` clauses like `javac` (L-30 to L-33, L-51) | unchanged | only with the option |
 | [#185](https://github.com/janino-lts/janino/issues/185) | The compliance mode: `a \|\| false` and `a && true` compile into the same code as in the compatibility mode (S-01) | unchanged | unchanged |
 | [#188](https://github.com/janino-lts/janino/issues/188) | The compliance mode: redeclared variables and all-uppercase exception names like `javac` (L-14, L-34) | unchanged | only with the option |
+| [#190](https://github.com/janino-lts/janino/issues/190) | The compliance mode: overriding methods, `throws` clauses, fields with the same name and static imports like `javac` (L-08, L-10 to L-13, L-44) | unchanged | only with the option |
 | [#107](https://github.com/janino-lts/janino/issues/107) | `<clinit>` with the access flags of `javac` (`ACC_STATIC`) | changed | unchanged |
 | [#108](https://github.com/janino-lts/janino/issues/108) | The compile error message for an instance member in a static initializer names the context | unchanged | message texts |
 
@@ -352,6 +353,18 @@ Exception { }`, `void m() throws X`) is checked like any other: an invocation of
 interface, and the precise rethrow must catch or declare it; and a single all-uppercase name in a `throws` clause that
 is neither a type parameter in scope nor a type (`void m() throws T`) is an error (L-34). The compatibility mode keeps
 accepting both (#65).
+
+With #190, the compliance mode rejects more invalid declarations, like `javac`. A method that overrides or hides a
+method must not have weaker access (`void run() {}` in a class that implements `Runnable`, L-08; also a `private`
+method with the signature of a `final` method of the superclass, L-10), and must not throw a checked exception that
+is not a subclass of an exception in the `throws` clause of that method (L-11); the check is skipped against a method
+whose `throws` clause names a type parameter (`interface I<EX extends Exception> { void m() throws EX; }`), and a
+method inherited from the superclass that implements an interface method is not checked. A type in a `throws` clause
+must be a `Throwable` (`void f() throws String`, L-12). Two fields must not have the same name, even if their types
+differ (`int x; long x;`, L-13). Every static import is checked, even if it is not used: its type must exist, and a
+single static import must name a static member of the type or of a supertype (`import static java.lang.Math.foo;`,
+L-44). The on-demand import of a package that does not exist (`import foo.*;`, L-43) stays accepted: Janino loads
+classes through a class loader, which cannot tell whether a package exists.
 
 **Class files.** Unchanged in the compatibility mode. In the compliance mode, `a || false` and `a && true` compile
 into the same code as in the compatibility mode since #185; before, the correction of S-01 also applied to them, and the

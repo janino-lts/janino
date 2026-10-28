@@ -484,7 +484,8 @@ behaves as the source suggests (e.g. an assignment to a `final` local variable a
 accepting all of it; the compliance mode rejects it once the respective check is implemented (today, it rejects L-20,
 L-27 to L-29 and L-35 to L-37 ([#177](https://github.com/janino-lts/janino/issues/177)), L-30 to L-33 and L-51
 ([#182](https://github.com/janino-lts/janino/issues/182)), L-14 and L-34
-([#188](https://github.com/janino-lts/janino/issues/188)), L-45 and L-46, see S-11, L-47, see S-04, L-48, see S-12,
+([#188](https://github.com/janino-lts/janino/issues/188)), L-08, L-10 to L-13 and L-44
+([#190](https://github.com/janino-lts/janino/issues/190)), L-45 and L-46, see S-11, L-47, see S-04, L-48, see S-12,
 L-49, see S-02, and L-50, see S-14; all other entries of this section are open). One
 exception, registered as A-05 (section 5): the access to a `protected` member of a class in another package through an
 expression whose type is neither the accessing class nor a subclass of it (`((Object)
@@ -514,14 +515,25 @@ and assigns a parameterized type to a field with a different type argument
 
 **Declarations:**
 
-- L-08: override with weaker access, also of an interface method: `class P implements Runnable { void run() {} }`;
+- L-08: override with weaker access, also of an interface method: `class P implements Runnable { void run() {} }`, and a
+  static method that hides a static method with weaker access (the compliance mode rejects it,
+  [#190](https://github.com/janino-lts/janino/issues/190), development line, except for a method inherited from the
+  superclass that implements an interface method: `class A { void f() {} } class P extends A implements I {}`);
 - L-09: a static method that hides an instance method, an instance method that overrides a static method, a static
   method that hides a `static final` method;
-- L-10: a private method with the signature of a `final` method of the superclass;
+- L-10: a private method with the signature of a `final` method of the superclass (the compliance mode rejects it as an
+  override with weaker access, see L-08, [#190](https://github.com/janino-lts/janino/issues/190), development line);
 - L-11: override that throws a broader checked exception, or a checked exception that the overridden method does not
-  throw;
-- L-12: `throws` clause with a type that is not a `Throwable`: `void f() throws String {}`;
-- L-13: two fields with the same name and different types: `int x; long x;`;
+  throw (the compliance mode rejects it, [#190](https://github.com/janino-lts/janino/issues/190), development line,
+  except for a method inherited from the superclass that implements an interface method, and for an overridden method
+  whose `throws` clause names a type parameter: `public void m() throws Exception {}` in
+  `class P implements I<IOException>` with `interface I<EX extends Exception> { void m() throws EX; }`);
+- L-12: `throws` clause with a type that is not a `Throwable`: `void f() throws String {}` (the compliance mode rejects
+  it, [#190](https://github.com/janino-lts/janino/issues/190), development line, except for a type parameter without a
+  `Throwable` bound: `<T> void f() throws T {}`);
+- L-13: two fields with the same name and different types: `int x; long x;`; for two constants of an interface, the JVM
+  rejects the generated initialization (`VerifyError`) (the compliance mode rejects it,
+  [#190](https://github.com/janino-lts/janino/issues/190), development line);
 - L-14: a `catch` parameter, the variable of an enhanced `for` statement or the resource variable of a
   try-with-resources statement with the name of a local variable or parameter in scope
   (`int e = 1; try { ... } catch (Exception e) {}`, `try (R r = ...)` with a local variable `r`), two resources with
@@ -622,9 +634,13 @@ and assigns a parameterized type to a field with a different type argument
   `java.util.ArrayList.Itr.class` ([#33](https://github.com/janino-lts/janino/issues/33));
 - L-42: the binary name of a nested class (with `$`) in source position: `java.util.Map$Entry e;`,
   `new java.util.AbstractMap$SimpleEntry<String, String>("a", "b")`;
-- L-43: on-demand import of a package that does not exist: `import foo.*;`;
+- L-43: on-demand import of a package that does not exist: `import foo.*;` (open: Janino loads classes through a class
+  loader, which cannot tell whether a package exists);
 - L-44: static import of a member that does not exist, or is not static: `import static java.lang.Math.foo;`,
-  `import static java.lang.String.length;`;
+  `import static java.lang.String.length;`, and a static import of a type that does not exist:
+  `import static foo.Bar.x;`, `import static foo.Bar.*;`; Janino checks a static import only when a name is looked up
+  through it (the compliance mode rejects it, [#190](https://github.com/janino-lts/janino/issues/190), development
+  line, except for a member that is not accessible: `import static java.lang.Integer.digits;`);
 - L-45: access to a `private` member of a superclass through the subclass, which does not inherit it (JLS 8.2):
   `this.secret` and `this.sec()` in `class Q extends P` that is declared in `P`, or the simple name `secret` in a
   `static class S extends P` (where `P` has no instance); Janino accesses the member of the subclass instance
