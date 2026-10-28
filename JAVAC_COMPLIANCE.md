@@ -426,8 +426,9 @@ recorded cases, the compliance mode agrees with `javac` on 1192 (the compatibili
 
 The development line, after #190 (L-08, L-10 to L-13 and L-44): S, 19 IDs, 11 corrected in the compliance mode; L, 51
 IDs, 26 rejected in the compliance mode, 25 open (L-43 stays open: Janino loads classes through a class loader, which
-cannot tell whether a package exists); D, 16 IDs, unchanged; G, 9 and F, 11 (outside the scope); A, 8. Of the 1349
-recorded cases, the compliance mode agrees with `javac` on 1238 (the compatibility mode on 1025).
+cannot tell whether a package exists); D, 17 IDs, 8 open (with D-17, found with #190); G, 9 and F, 11 (outside the
+scope); A, 8. Of the 1349 recorded cases, the compliance mode agrees with `javac` on 1238 (the compatibility mode on
+1025).
 
 ## 8. Registered exceptions
 

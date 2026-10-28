@@ -368,6 +368,16 @@ parameter (it throws only the exceptions that the `try` block can throw) also in
 rejects the access to `e` (`Cannot access non-final local variable "e" from inner class`), which is not effectively
 final for it (D-03).
 
+**D-17, a statically imported method whose type also declares an instance method with the name**
+([#191](https://github.com/janino-lts/janino/issues/191), found with
+[#190](https://github.com/janino-lts/janino/issues/190)): `import static java.lang.Double.*;` with `isNaN(d)` is
+rejected (`method "public boolean java.lang.Double.isNaN()" of "java.lang.Double" must be static`), because Janino
+reports an error for every instance method with the name as soon as it looks the name up through a static import; by
+JLS 7.5.3 and 7.5.4, a static import imports only the static members, and `javac` invokes the static
+`Double.isNaN(double)`. The same for the single static import `import static java.lang.Double.isNaN;`, and for a name
+that another type imported on demand declares as an instance method (`abs(-1)` with `import static java.lang.Math.*;`
+and `import static java.math.BigInteger.*;`). Both modes; 3.1.12 rejects it, too.
+
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions
 and method references; F-02 `switch` expressions, arrow labels and multiple labels in a `case`; F-03 pattern
