@@ -194,7 +194,17 @@ class Descriptor {
         String res = (String) Descriptor.CLASS_NAME_TO_DESCRIPTOR.get(className);
         if (res != null) { return res; }
         if (className.startsWith("[")) return className.replace('.', '/');
-        return 'L' + className.replace('.', '/') + ';';
+
+        // Equivalent with "'L' + className.replace('.', '/') + ';'", but builds only one string.
+        int    len = className.length();
+        char[] ca  = new char[len + 2];
+        ca[0] = 'L';
+        className.getChars(0, len, ca, 1);
+        for (int i = 1; i <= len; i++) {
+            if (ca[i] == '.') ca[i] = '/';
+        }
+        ca[len + 1] = ';';
+        return new String(ca);
     }
 
     /**

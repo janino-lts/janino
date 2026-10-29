@@ -6674,6 +6674,7 @@ class Java {
     join(Object[] a, String separator, int off, int len) {
 //        if (a == null) return ("(null)");
         if (off >= len) return "";
+        if (off == len - 1) return a[off].toString();
         StringBuilder sb = new StringBuilder(a[off].toString());
         for (++off; off < len; ++off) {
             sb.append(separator);

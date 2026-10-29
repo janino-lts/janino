@@ -2414,13 +2414,14 @@ class UnitCompiler {
     private boolean
     fakeCompile(BlockStatement bs) throws CompileException {
 
-        Offset from = this.getCodeContext().newOffset();
+        CodeContext.Mark mark = this.getCodeContext().mark();
+        Offset           from = this.getCodeContext().newOffset();
 
         boolean ccn = this.compile(bs);
 
         Offset to = this.getCodeContext().newOffset();
 
-        this.getCodeContext().removeCode(from, to);
+        this.getCodeContext().removeCode(from, to, mark);
 
         return ccn;
     }
@@ -5859,15 +5860,16 @@ class UnitCompiler {
             return;
         }
 
-        final Offset from = this.getCodeContext().newOffset();
-        StackMap savedStackMap = this.getCodeContext().currentInserter().getStackMap();
+        CodeContext.Mark mark          = this.getCodeContext().mark();
+        final Offset     from          = this.getCodeContext().newOffset();
+        StackMap         savedStackMap = this.getCodeContext().currentInserter().getStackMap();
 
         this.compileContext(rv);
         this.compileGet(rv);
 
         Offset to = this.getCodeContext().newOffset();
 
-        this.getCodeContext().removeCode(from, to.next);
+        this.getCodeContext().removeCode(from, to.next, mark);
         this.getCodeContext().currentInserter().setStackMap(savedStackMap);
     }
 
@@ -8432,7 +8434,11 @@ class UnitCompiler {
     compileGetValue(Rvalue rv) throws CompileException {
         Object cv = this.getConstantValue(rv);
         if (cv != UnitCompiler.NOT_CONSTANT) {
-            this.fakeCompile(rv); // To check that, e.g., "a" compiles in "true || a".
+
+            // To check that, e.g., "a" compiles in "true || a". Not needed for a literal: Its compilation is the
+            // same "consT()" with the same constant value as below, and checks nothing that "getConstantValue()" did
+            // not check already.
+            if (!(rv instanceof Literal) && !(rv instanceof SimpleConstant)) this.fakeCompile(rv);
             this.consT(rv, cv);
             return this.getType(rv);
         }
@@ -12265,6 +12271,25 @@ class UnitCompiler {
     @Nullable private IClass
     findTypeByName(Location location, String className) throws CompileException {
 
+        // Within one compilation, the result for a name does not change: "findClass()" examines only the type
+        // declarations of the compilation unit, and "IClassLoader.loadIClass()" remembers every class that it found
+        // or did not find. Exceptions are not remembered.
+        IClass res = (IClass) this.typesByName.get(className);
+        if (res == null && !this.typesByName.containsKey(className)) {
+            res = this.findTypeByName2(location, className);
+            this.typesByName.put(className, res);
+        }
+        return res;
+    }
+
+    /**
+     * The results of {@link #findTypeByName(Location, String)}; a {@code null} value means "not found".
+     */
+    private final Map<String /*className*/, IClass> typesByName = new HashMap<>();
+
+    @Nullable private IClass
+    findTypeByName2(Location location, String className) throws CompileException {
+
         // Is the type defined in the same compilation unit?
         IClass res = this.findClass(className);
         if (res != null) return res;
@@ -15041,16 +15066,26 @@ class UnitCompiler {
      */
     @Nullable private IClass
     importSingleType(String simpleTypeName, Location location) throws CompileException {
+
+        IClass iClass = (IClass) this.singleTypeImportClasses.get(simpleTypeName);
+        if (iClass != null) return iClass;
+
         String[] ss = this.getSingleTypeImport(simpleTypeName, location);
         if (ss == null) return null;
 
-        IClass iClass = this.findTypeByFullyQualifiedName(location, ss);
+        iClass = this.findTypeByFullyQualifiedName(location, ss);
         if (iClass == null) {
             this.compileError("Imported class \"" + Java.join(ss, ".") + "\" could not be loaded", location);
             return this.iClassLoader.TYPE_java_lang_Object;
         }
+        this.singleTypeImportClasses.put(simpleTypeName, iClass);
         return iClass;
     }
+
+    /**
+     * The single type imports that {@link #importSingleType(String, Location)} resolved successfully.
+     */
+    private final Map<String /*simpleTypeName*/, IClass> singleTypeImportClasses = new HashMap<>();
 
     /**
      * Checks if the given simple name was imported through a single type import.
@@ -15122,8 +15157,9 @@ class UnitCompiler {
     @Nullable public IClass
     importTypeOnDemand(String simpleTypeName, Location location) throws CompileException {
 
+        // A null value means that the name cannot be imported on demand.
         IClass importedClass = (IClass) this.onDemandImportableTypes.get(simpleTypeName);
-        if (importedClass == null) {
+        if (importedClass == null && !this.onDemandImportableTypes.containsKey(simpleTypeName)) {
             importedClass = this.importTypeOnDemand2(simpleTypeName, location);
             this.onDemandImportableTypes.put(simpleTypeName, importedClass);
         }
