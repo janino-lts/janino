@@ -25,6 +25,9 @@
 
 package org.codehaus.janino;
 
+import java.util.Collections;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -32,11 +35,32 @@ import org.codehaus.commons.nullanalysis.Nullable;
 
 /**
  * An {@link IClassLoader} that loads {@link IClass}es through a reflection {@link ClassLoader}.
+ * <p>
+ *   The {@link IClass}es of the loaded classes are shared between all compilations, also concurrent ones, so that the
+ *   members of a class are read by reflection only once: There is one {@link IClass} per {@link Class}, which lives as
+ *   long as the {@link Class}, and does not keep a class loader alive. The classes that a loaded class references
+ *   (its superclass, interfaces, and the types of its members) are those that the JVM links, i.e. those that the
+ *   defining loader of the class determines. A name in the source code is still resolved through the {@link
+ *   ClassLoader} of this object. A name in the package {@code java.lang} that this {@link ClassLoader} does not find
+ *   is not looked up again, because these classes are the same for all class loaders (with the only exception of a
+ *   class that an agent adds to the boot class path at runtime, on Java 8).
+ * </p>
+ * <p>
+ *   The system property {@code org.codehaus.janino.sharedIClassCache=false} switches that off: Then each {@link
+ *   ClassLoaderIClassLoader} reads the members of the classes again, and also resolves the classes that a loaded class
+ *   references by name through its {@link ClassLoader}.
+ * </p>
  */
 public
 class ClassLoaderIClassLoader extends IClassLoader {
 
     private static final Logger LOGGER = Logger.getLogger(ClassLoaderIClassLoader.class.getName());
+
+    /**
+     * The names of the classes in the package {@code java.lang} and its subpackages that do not exist.
+     */
+    private static final Set<String>
+    MISSING_JAVA_LANG_CLASSES = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
 
     /**
      * @param classLoader The delegate that loads the classes
@@ -70,9 +94,13 @@ class ClassLoaderIClassLoader extends IClassLoader {
     findIClass(String descriptor) throws ClassNotFoundException {
         ClassLoaderIClassLoader.LOGGER.entering(null, "findIClass", descriptor);
 
+        String  className = Descriptor.toClassName(descriptor);
+        boolean javaLang  = ReflectionIClass.SHARED && className.startsWith("java.lang.");
+        if (javaLang && ClassLoaderIClassLoader.MISSING_JAVA_LANG_CLASSES.contains(className)) return null;
+
         Class<?> clazz;
         try {
-            clazz = this.classLoader.loadClass(Descriptor.toClassName(descriptor));
+            clazz = this.classLoader.loadClass(className);
         } catch (NoClassDefFoundError ncdfe) {
 
             // Handle a very special case here -- see issue #165:
@@ -95,7 +123,10 @@ class ClassLoaderIClassLoader extends IClassLoader {
             {
                 Throwable t = e.getCause();
                 while (t instanceof ClassNotFoundException) t = t.getCause();
-                if (t == null) return null;
+                if (t == null) {
+                    if (javaLang) ClassLoaderIClassLoader.MISSING_JAVA_LANG_CLASSES.add(className);
+                    return null;
+                }
             }
 
             throw e;
@@ -103,7 +134,7 @@ class ClassLoaderIClassLoader extends IClassLoader {
 
         ClassLoaderIClassLoader.LOGGER.log(Level.FINE, "clazz={0}", clazz);
 
-        IClass result = new ReflectionIClass(clazz, this);
+        IClass result = ReflectionIClass.SHARED ? ReflectionIClass.of(clazz) : new ReflectionIClass(clazz, this);
         this.defineIClass(result);
         return result;
     }

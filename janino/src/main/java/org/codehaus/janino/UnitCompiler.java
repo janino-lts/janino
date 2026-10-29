@@ -6374,7 +6374,7 @@ class UnitCompiler {
         IClass[]  parameterTypes = iMethod.getParameterTypes();
         Rvalue[]  adjustedArgs   = null;
         final int actualSize     = mi.arguments.length;
-        if (iMethod.isVarargs() && iMethod.argsNeedAdjust()) {
+        if (iMethod.isVarargs() && this.argsNeedAdjust(iMethod)) {
             adjustedArgs = new Rvalue[parameterTypes.length];
             Rvalue[]       lastArgs = new Rvalue[actualSize - parameterTypes.length + 1];
             final Location loc      = mi.getLocation();
@@ -6612,7 +6612,7 @@ class UnitCompiler {
         Rvalue[] arguments      = scmi.arguments;
         if (
             iMethod.isVarargs()
-            && iMethod.argsNeedAdjust()
+            && this.argsNeedAdjust(iMethod)
             && !(
                 arguments.length == parameterTypes.length
                 && this.getType(arguments[arguments.length - 1]) == IClass.NULL
@@ -10685,7 +10685,7 @@ class UnitCompiler {
         Rvalue[] adjustedArgs   = null;
         IClass[] parameterTypes = iConstructor.getParameterTypes();
         int      actualSize     = arguments.length;
-        if (iConstructor.isVarargs() && iConstructor.argsNeedAdjust()) {
+        if (iConstructor.isVarargs() && this.argsNeedAdjust(iConstructor)) {
             adjustedArgs = new Rvalue[parameterTypes.length];
             Rvalue[] lastArgs = new Rvalue[actualSize - parameterTypes.length + 1];
             for (int i = 0, j = parameterTypes.length - 1; i < lastArgs.length; ++i, ++j) {
@@ -11844,6 +11844,12 @@ class UnitCompiler {
     public void
     getIMethods(IClass type, String methodName, List<IMethod> v) throws CompileException {
 
+        // The methods of a loaded class and of its supertypes never change, so the class caches them.
+        if (type.hasFixedHierarchy()) {
+            for (IMethod im : type.getIMethods(methodName)) v.add(im);
+            return;
+        }
+
         // Check methods declared by this type.
         {
             IClass.IMethod[] ims = type.getDeclaredIMethods(methodName);
@@ -12285,6 +12291,7 @@ class UnitCompiler {
                 // Varargs has lower priority.
                 if (isVarargs) {
                     ii.setArgsNeedAdjust(argsNeedAdjust);
+                    this.argsNeedAdjustByInvocable.put(ii, argsNeedAdjust);
                     varargApplicables.add(ii);
                 } else {
                     applicableIInvocables.add(ii);
@@ -12482,7 +12489,7 @@ class UnitCompiler {
         // (issues #156 and #169). "isMoreSpecificThan()" stays as it is, because it also selects methods that JAVAC
         // reports as ambiguous, e.g. "f(int...)" for "f(1, 2)" with "f(Object...)".
         {
-            IClass.IInvocable ii = UnitCompiler.mostSpecificByVariableArity(
+            IClass.IInvocable ii = this.mostSpecificByVariableArity(
                 applicableIInvocables,
                 argumentTypes.length
             );
@@ -12511,17 +12518,30 @@ class UnitCompiler {
     }
 
     /**
+     * @return Whether the arguments of an invocation of the variable arity <var>ii</var> must be collected into an
+     *         array, as the latest method resolution of this compiler determined
+     */
+    private boolean
+    argsNeedAdjust(IClass.IInvocable ii) { return Boolean.TRUE.equals(this.argsNeedAdjustByInvocable.get(ii)); }
+
+    /**
+     * Not stored in the {@link IClass.IInvocable}, because the invocables of loaded classes are shared between
+     * compilations, also concurrent ones.
+     */
+    private final Map<IClass.IInvocable, Boolean> argsNeedAdjustByInvocable = new HashMap<>();
+
+    /**
      * Selects the most specific of the given invocables by JLS8 15.12.2.5, iff all of them are variable arity
      * invocables that are applicable by variable arity invocation (JLS8 15.12.2.4) to <var>k</var> arguments.
      *
      * @return The invocable that is more specific than all others, while none of the others is more specific than it,
      *         or {@code null}
      */
-    @Nullable private static IClass.IInvocable
+    @Nullable private IClass.IInvocable
     mostSpecificByVariableArity(List<IClass.IInvocable> invocables, int k) throws CompileException {
 
         for (IClass.IInvocable ii : invocables) {
-            if (!ii.isVarargs() || !ii.argsNeedAdjust()) return null;
+            if (!ii.isVarargs() || !this.argsNeedAdjust(ii)) return null;
         }
 
         IClass.IInvocable result = null;

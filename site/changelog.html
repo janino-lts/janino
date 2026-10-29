@@ -68,6 +68,19 @@ h5 {
         accepted, like by JAVAC (which warns), unless a preceding <code>catch</code> clause catches that class or a
         superclass of it. Only code that was rejected changes.
       </li>
+      <li>
+        <a href="https://github.com/janino-lts/janino/issues/193">Issue #193</a>: Compilations against the same class
+        loader share the information that JANINO reads by reflection about the loaded classes (one
+        <code>IClass</code> per <code>Class</code>, also for concurrent compilations), and the methods with a given
+        name that a loaded class and its supertypes declare are looked up only once. On the code that Apache Spark
+        generates for TPC-DS queries, this saves 17 % of the allocated memory and about 5 to 7 % of the time; a
+        compilation of a small class body needs about 40 % less time. The class files are unchanged. The shared
+        information lives as long as the classes and does not keep a class loader alive. The classes that a loaded
+        class references, e.g. the return type of a method, are now those that the JVM links, and no longer those
+        that the class loader of the compilation finds by name; with a class loader that hides classes on purpose,
+        code that uses such a type now compiles and fails when it runs, instead of being rejected. The system
+        property <code>org.codehaus.janino.sharedIClassCache=false</code> restores the former behavior.
+      </li>
     </ul>
 
     <h4>Version 3.1.20 2026-10-14</h4>
