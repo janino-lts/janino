@@ -426,6 +426,13 @@ class IClassLoader {
 
         if (this.parentIClassLoader != null) return this.parentIClassLoader.getArrayIClass(componentType);
 
+        // With the shared IClass of "java.lang.Object", the array types are shared, too, like the loaded classes (see
+        // "ReflectionIClass.of()"). ("TYPE_java_lang_Object" is null until "postConstruct()" has loaded it.)
+        @Nullable IClass objectType = this.TYPE_java_lang_Object;
+        if (objectType != null && ReflectionIClass.isShared(objectType)) {
+            return componentType.getArrayIClass(objectType);
+        }
+
         IClass result = (IClass) this.arrayIClasses.get(componentType);
         if (result != null) return result;
 
@@ -440,48 +447,8 @@ class IClassLoader {
     private IClass
     getArrayIClass2(final IClass componentType) {
 
-        return new IClass() {
-
-            @Override protected ITypeVariable[]    getITypeVariables2()        { return new ITypeVariable[0];       }
-            @Override public IClass.IConstructor[] getDeclaredIConstructors2() { return new IClass.IConstructor[0]; }
-
-            // Special trickery #17: Arrays override "Object.clone()", but without "throws
-            // CloneNotSupportedException"!
-            @Override public IClass.IMethod[]
-            getDeclaredIMethods2() {
-                return new IClass.IMethod[] {
-                    new IMethod() {
-                        @Override public IAnnotation[] getAnnotations()       { return new IAnnotation[0];                      }
-                        @Override public Access        getAccess()            { return Access.PUBLIC;                           }
-                        @Override public boolean       isStatic()             { return false;                                   }
-                        @Override public boolean       isAbstract()           { return false;                                   }
-                        @Override public IClass        getReturnType()        { return IClassLoader.this.TYPE_java_lang_Object; }
-                        @Override public String        getName()              { return "clone";                                 }
-                        @Override public IClass[]      getParameterTypes2()   { return new IClass[0];                           }
-                        @Override public boolean       isVarargs()            { return false;                                   }
-                        @Override public IClass[]      getThrownExceptions2() { return new IClass[0];                           }
-                    }
-                };
-            }
-
-            @Override public IClass.IField[]  getDeclaredIFields2()  { return new IClass.IField[0];                    }
-            @Override public IClass[]         getDeclaredIClasses2() { return new IClass[0];                           }
-            @Override @Nullable public IClass getDeclaringIClass2()  { return null;                                    }
-            @Override @Nullable public IClass getOuterIClass2()      { return null;                                    }
-            @Override public IClass           getSuperclass2()       { return IClassLoader.this.TYPE_java_lang_Object; }
-            @Override public IClass[]         getInterfaces2()       { return new IClass[0];                           }
-            @Override public String           getDescriptor2()       { return '[' + componentType.getDescriptor();     }
-            @Override public Access           getAccess()            { return componentType.getAccess();               }
-            @Override public boolean          isFinal()              { return true;                                    }
-            @Override public boolean          isEnum()               { return false;                                   }
-            @Override public boolean          isInterface()          { return false;                                   }
-            @Override public boolean          isAbstract()           { return false;                                   }
-            @Override public boolean          isArray()              { return true;                                    }
-            @Override public boolean          isPrimitive()          { return false;                                   }
-            @Override public boolean          isPrimitiveNumeric()   { return false;                                   }
-            @Override public IClass           getComponentType2()    { return componentType;                           }
-
-            @Override public String toString() { return componentType.toString() + "[]"; }
+        return new IClass.ArrayIClass(componentType) {
+            @Override IClass getObjectType() { return IClassLoader.this.TYPE_java_lang_Object; }
         };
     }
 

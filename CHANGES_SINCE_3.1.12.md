@@ -250,6 +250,15 @@ affected.
   equally fast within the measurement error; without the JIT compiler, 3.1.20 needs 1.2 % less time and
   allocates 4.5 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
+- 3.1.21 (in development): Compilations against the same class loader share the information that Janino reads by
+  reflection about the loaded classes, and the methods that a loaded class and its supertypes declare are looked
+  up only once per name ([#193]). On the Spark code, this saves 17 % of the allocated memory and about 5 to 7 %
+  of the time; a compilation of a small class body, e.g. an expression, needs about 40 % less time. The class
+  files are unchanged. The shared information lives as long as the classes and does not keep a class loader
+  alive. One difference: The classes that a loaded class references (e.g. the return type of a method) are now
+  those that the JVM links, and no longer those that the class loader of the compilation finds by name; with a
+  class loader that hides classes on purpose, code that uses such a type now compiles and fails when it runs,
+  instead of being rejected. `-Dorg.codehaus.janino.sharedIClassCache=false` restores the former behavior.
 - New tests: characterization tests that record the correct result and Janino's actual behavior for 599 language
   constructs, negative tests with 473 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
@@ -321,3 +330,4 @@ affected.
 [#169]: https://github.com/janino-lts/janino/issues/169
 [#178]: https://github.com/janino-lts/janino/issues/178
 [#181]: https://github.com/janino-lts/janino/issues/181
+[#193]: https://github.com/janino-lts/janino/issues/193

@@ -36,6 +36,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
 import org.codehaus.commons.compiler.CompileException;
@@ -46,6 +48,11 @@ import org.codehaus.commons.nullanalysis.Nullable;
  * <p>
  *   'JLS7' means a reference to the <a href="http://docs.oracle.com/javase/specs/">Java Language Specification, Java
  *   SE 7 Edition</a>.
+ * </p>
+ * <p>
+ *   The caches of an {@link IClass} and of its members are thread-safe, because the {@link IClass}es of loaded classes
+ *   are shared between compilations, also concurrent ones (see {@link ReflectionIClass#of(Class)}): A value is computed
+ *   without holding a lock, and the first value that is stored wins, so that all threads see the same objects.
  * </p>
  */
 public abstract
@@ -166,10 +173,17 @@ class IClass implements ITypeVariableOrIClass {
      */
     public final ITypeVariable[]
     getITypeVariables() throws CompileException {
-        if (this.iTypeVariablesCache != null) return this.iTypeVariablesCache;
-        return (this.iTypeVariablesCache = this.getITypeVariables2());
+        ITypeVariable[] result = this.iTypeVariablesCache;
+        if (result != null) return result;
+
+        result = this.getITypeVariables2();
+        synchronized (this) {
+            if (this.iTypeVariablesCache != null) return this.iTypeVariablesCache;
+            this.iTypeVariablesCache = result;
+        }
+        return result;
     }
-    @Nullable private ITypeVariable[] iTypeVariablesCache;
+    @Nullable private volatile ITypeVariable[] iTypeVariablesCache;
 
     /**
      * The uncached version of {@link #getDeclaredIConstructors()} which must be implemented by derived classes.
@@ -185,11 +199,17 @@ class IClass implements ITypeVariableOrIClass {
      */
     public final IConstructor[]
     getDeclaredIConstructors() {
-        if (this.declaredIConstructorsCache != null) return this.declaredIConstructorsCache;
+        IConstructor[] result = this.declaredIConstructorsCache;
+        if (result != null) return result;
 
-        return (this.declaredIConstructorsCache = this.getDeclaredIConstructors2());
+        result = this.getDeclaredIConstructors2();
+        synchronized (this) {
+            if (this.declaredIConstructorsCache != null) return this.declaredIConstructorsCache;
+            this.declaredIConstructorsCache = result;
+        }
+        return result;
     }
-    @Nullable private IConstructor[] declaredIConstructorsCache;
+    @Nullable private volatile IConstructor[] declaredIConstructorsCache;
 
     /**
      * The uncached version of {@link #getDeclaredIConstructors()} which must be implemented by derived classes.
@@ -205,10 +225,17 @@ class IClass implements ITypeVariableOrIClass {
      */
     public final IMethod[]
     getDeclaredIMethods() {
-        if (this.declaredIMethodsCache != null) return this.declaredIMethodsCache;
-        return (this.declaredIMethodsCache = this.getDeclaredIMethods2());
+        IMethod[] result = this.declaredIMethodsCache;
+        if (result != null) return result;
+
+        result = this.getDeclaredIMethods2();
+        synchronized (this) {
+            if (this.declaredIMethodsCache != null) return this.declaredIMethodsCache;
+            this.declaredIMethodsCache = result;
+        }
+        return result;
     }
-    @Nullable private IMethod[] declaredIMethodsCache;
+    @Nullable private volatile IMethod[] declaredIMethodsCache;
 
     /**
      * The uncached version of {@link #getDeclaredIMethods()} which must be implemented by derived classes.
@@ -258,13 +285,20 @@ class IClass implements ITypeVariableOrIClass {
                     me.setValue(l.toArray(new IMethod[l.size()]));
                 }
             }
-            this.declaredIMethodCache = dimc;
+            synchronized (this) {
+                Map<String, Object> winner = this.declaredIMethodCache;
+                if (winner != null) {
+                    dimc = winner;
+                } else {
+                    this.declaredIMethodCache = dimc;
+                }
+            }
         }
 
         IMethod[] methods = (IMethod[]) dimc.get(methodName);
         return methods == null ? IClass.NO_IMETHODS : methods;
     }
-    @Nullable private Map<String /*methodName*/, Object /*IMethod-or-List<IMethod>*/> declaredIMethodCache;
+    @Nullable private volatile Map<String /*methodName*/, Object /*IMethod-or-List<IMethod>*/> declaredIMethodCache;
 
     /**
      * Returns all methods declared in the class or interface, its superclasses and its superinterfaces.
@@ -274,13 +308,19 @@ class IClass implements ITypeVariableOrIClass {
     public final IMethod[]
     getIMethods() throws CompileException {
 
-        if (this.iMethodCache != null) return this.iMethodCache;
+        IMethod[] result = this.iMethodCache;
+        if (result != null) return result;
 
         List<IMethod> iMethods = new ArrayList<>();
         this.getIMethods(iMethods);
-        return (this.iMethodCache = (IMethod[]) iMethods.toArray(new IMethod[iMethods.size()]));
+        result = (IMethod[]) iMethods.toArray(new IMethod[iMethods.size()]);
+        synchronized (this) {
+            if (this.iMethodCache != null) return this.iMethodCache;
+            this.iMethodCache = result;
+        }
+        return result;
     }
-    @Nullable private IMethod[] iMethodCache;
+    @Nullable private volatile IMethod[] iMethodCache;
 
     private void
     getIMethods(List<IMethod> result) throws CompileException {
@@ -305,6 +345,62 @@ class IClass implements ITypeVariableOrIClass {
 
         for (IClass ii : this.getInterfaces()) ii.getIMethods(result);
     }
+
+    /**
+     * Returns the methods with the given name that this type declares, then those of its superclass, recursively, and
+     * then those of its interfaces, recursively, with duplicates; the same as {@link UnitCompiler#getIMethods(IClass,
+     * String, List)}. The result is cached iff this type {@link #hasFixedHierarchy() has a fixed hierarchy}.
+     *
+     * @return An array of {@link IMethod}s that must not be modified
+     */
+    final IMethod[]
+    getIMethods(String methodName) throws CompileException {
+
+        if (!this.hasFixedHierarchy()) return this.getIMethods2(methodName);
+
+        ConcurrentMap<String, IMethod[]> cache = this.iMethodsByNameCache;
+        if (cache == null) {
+            synchronized (this) {
+                cache = this.iMethodsByNameCache;
+                if (cache == null) this.iMethodsByNameCache = (cache = new ConcurrentHashMap<String, IMethod[]>());
+            }
+        }
+
+        IMethod[] result = (IMethod[]) cache.get(methodName);
+        if (result != null) return result;
+
+        result = this.getIMethods2(methodName);
+
+        IMethod[] winner = (IMethod[]) cache.putIfAbsent(methodName, result);
+        return winner != null ? winner : result;
+    }
+    @Nullable private volatile ConcurrentMap<String /*methodName*/, IMethod[]> iMethodsByNameCache;
+
+    private IMethod[]
+    getIMethods2(String methodName) throws CompileException {
+
+        List<IMethod> result = new ArrayList<>();
+        for (IMethod im : this.getDeclaredIMethods(methodName)) result.add(im);
+
+        IClass superclass = this.getSuperclass();
+        if (superclass != null) {
+            for (IMethod im : superclass.getIMethods(methodName)) result.add(im);
+        }
+
+        for (IClass interfacE : this.getInterfaces()) {
+            for (IMethod im : interfacE.getIMethods(methodName)) result.add(im);
+        }
+
+        return result.isEmpty() ? IClass.NO_IMETHODS : (IMethod[]) result.toArray(new IMethod[result.size()]);
+    }
+
+    /**
+     * Whether the members and the supertypes of this type, and those of all its supertypes, never change; then the
+     * lookups that span the type hierarchy are cached. This is the case for loaded classes, but not for the types that
+     * are being compiled, because methods are added to these during the compilation.
+     */
+    boolean
+    hasFixedHierarchy() { return false; }
 
     private static final IMethod[] NO_IMETHODS = new IMethod[0];
 
@@ -383,13 +479,18 @@ class IClass implements ITypeVariableOrIClass {
      */
     private Map<String /*fieldName*/, IField>
     getDeclaredIFieldsCache() {
-        if (this.declaredIFieldsCache != null) return this.declaredIFieldsCache;
+        Map<String /*fieldName*/, IField> result = this.declaredIFieldsCache;
+        if (result != null) return result;
 
         IField[] fields = this.getDeclaredIFields2();
 
-        Map<String /*fieldName*/, IField> m = new LinkedHashMap<>();
-        for (IField f : fields) m.put(f.getName(), f);
-        return (this.declaredIFieldsCache = m);
+        result = new LinkedHashMap<>();
+        for (IField f : fields) result.put(f.getName(), f);
+        synchronized (this) {
+            if (this.declaredIFieldsCache != null) return this.declaredIFieldsCache;
+            this.declaredIFieldsCache = result;
+        }
+        return result;
     }
 
     /**
@@ -407,7 +508,7 @@ class IClass implements ITypeVariableOrIClass {
     protected void
     clearIFieldCaches() { this.declaredIFieldsCache = null; }
 
-    @Nullable private Map<String /*fieldName*/, IField> declaredIFieldsCache;
+    @Nullable private volatile Map<String /*fieldName*/, IField> declaredIFieldsCache;
 
     /**
      * Uncached version of {@link #getDeclaredIFields()}.
@@ -429,10 +530,17 @@ class IClass implements ITypeVariableOrIClass {
      */
     public final IClass[]
     getDeclaredIClasses() throws CompileException {
-        if (this.declaredIClassesCache != null) return this.declaredIClassesCache;
-        return (this.declaredIClassesCache = this.getDeclaredIClasses2());
+        IClass[] result = this.declaredIClassesCache;
+        if (result != null) return result;
+
+        result = this.getDeclaredIClasses2();
+        synchronized (this) {
+            if (this.declaredIClassesCache != null) return this.declaredIClassesCache;
+            this.declaredIClassesCache = result;
+        }
+        return result;
     }
-    @Nullable private IClass[] declaredIClassesCache;
+    @Nullable private volatile IClass[] declaredIClassesCache;
 
     /**
      * @return The member types of this type
@@ -444,13 +552,17 @@ class IClass implements ITypeVariableOrIClass {
      */
     @Nullable public final IClass
     getDeclaringIClass() throws CompileException {
-        if (!this.declaringIClassIsCached) {
-            this.declaringIClassCache    = this.getDeclaringIClass2();
+        if (this.declaringIClassIsCached) return this.declaringIClassCache;
+
+        IClass result = this.getDeclaringIClass2();
+        synchronized (this) {
+            if (this.declaringIClassIsCached) return this.declaringIClassCache;
+            this.declaringIClassCache    = result;
             this.declaringIClassIsCached = true;
         }
-        return this.declaringIClassCache;
+        return result;
     }
-    private boolean          declaringIClassIsCached;
+    private volatile boolean declaringIClassIsCached;
     @Nullable private IClass declaringIClassCache;
 
     /**
@@ -473,10 +585,15 @@ class IClass implements ITypeVariableOrIClass {
     getOuterIClass() throws CompileException {
         if (this.outerIClassIsCached) return this.outerIClassCache;
 
-        this.outerIClassIsCached = true;
-        return (this.outerIClassCache = this.getOuterIClass2());
+        IClass result = this.getOuterIClass2();
+        synchronized (this) {
+            if (this.outerIClassIsCached) return this.outerIClassCache;
+            this.outerIClassCache    = result;
+            this.outerIClassIsCached = true;
+        }
+        return result;
     }
-    private boolean          outerIClassIsCached;
+    private volatile boolean outerIClassIsCached;
     @Nullable private IClass outerIClassCache;
 
     /**
@@ -502,10 +619,14 @@ class IClass implements ITypeVariableOrIClass {
                 null
             );
         }
-        this.superclassIsCached = true;
-        return (this.superclassCache = sc);
+        synchronized (this) {
+            if (this.superclassIsCached) return this.superclassCache;
+            this.superclassCache    = sc;
+            this.superclassIsCached = true;
+        }
+        return sc;
     }
-    private boolean          superclassIsCached;
+    private volatile boolean superclassIsCached;
     @Nullable private IClass superclassCache;
 
     /**
@@ -535,7 +656,10 @@ class IClass implements ITypeVariableOrIClass {
      */
     public final IClass[]
     getInterfaces() throws CompileException {
-        if (this.interfacesCache != null) return this.interfacesCache;
+        {
+            IClass[] result = this.interfacesCache;
+            if (result != null) return result;
+        }
 
         IClass[] is = this.getInterfaces2();
         for (IClass ii : is) {
@@ -546,9 +670,13 @@ class IClass implements ITypeVariableOrIClass {
                 );
             }
         }
-        return (this.interfacesCache = is);
+        synchronized (this) {
+            if (this.interfacesCache != null) return this.interfacesCache;
+            this.interfacesCache = is;
+        }
+        return is;
     }
-    @Nullable private IClass[] interfacesCache;
+    @Nullable private volatile IClass[] interfacesCache;
 
     /**
      * @see #getInterfaces()
@@ -567,10 +695,13 @@ class IClass implements ITypeVariableOrIClass {
      */
     public final String
     getDescriptor() {
-        if (this.descriptorCache != null) return this.descriptorCache;
+        String result = this.descriptorCache;
+        if (result != null) return result;
+
+        // Strings are immutable, so any of the equal results may win.
         return (this.descriptorCache = this.getDescriptor2());
     }
-    @Nullable private String descriptorCache;
+    @Nullable private volatile String descriptorCache;
 
     /**
      * @return The field descriptor for the type as defined by JVMS 4.3.2.
@@ -623,11 +754,15 @@ class IClass implements ITypeVariableOrIClass {
     getComponentType() {
         if (this.componentTypeIsCached) return this.componentTypeCache;
 
-        this.componentTypeCache    = this.getComponentType2();
-        this.componentTypeIsCached = true;
-        return this.componentTypeCache;
+        IClass result = this.getComponentType2();
+        synchronized (this) {
+            if (this.componentTypeIsCached) return this.componentTypeCache;
+            this.componentTypeCache    = result;
+            this.componentTypeIsCached = true;
+        }
+        return result;
     }
-    private boolean          componentTypeIsCached;
+    private volatile boolean componentTypeIsCached;
     @Nullable private IClass componentTypeCache;
 
     /**
@@ -635,6 +770,85 @@ class IClass implements ITypeVariableOrIClass {
      */
     @Nullable protected abstract IClass
     getComponentType2();
+
+    /**
+     * Returns the array type with this component type, for the compilations that share the {@link IClass}es of loaded
+     * classes (see {@link ReflectionIClass#of(Class)}), and caches it.
+     *
+     * @param objectType The {@link IClass} of {@link Object} of these compilations; the same on every invocation
+     */
+    final IClass
+    getArrayIClass(final IClass objectType) {
+        IClass result = this.arrayIClassCache;
+        if (result != null) return result;
+
+        result = new ArrayIClass(this) {
+            @Override IClass getObjectType() { return objectType; }
+        };
+        synchronized (this) {
+            if (this.arrayIClassCache != null) return this.arrayIClassCache;
+            this.arrayIClassCache = result;
+        }
+        return result;
+    }
+    @Nullable private volatile IClass arrayIClassCache;
+
+    /**
+     * An array type: Its superclass is {@link Object}, and it has one method, {@code Object clone()}.
+     */
+    abstract static
+    class ArrayIClass extends IClass {
+
+        private final IClass componentType;
+
+        ArrayIClass(IClass componentType) { this.componentType = componentType; }
+
+        /**
+         * @return The {@link IClass} of {@link Object}
+         */
+        abstract IClass getObjectType();
+
+        @Override protected ITypeVariable[]    getITypeVariables2()        { return new ITypeVariable[0];       }
+        @Override public IClass.IConstructor[] getDeclaredIConstructors2() { return new IClass.IConstructor[0]; }
+
+        // Special trickery #17: Arrays override "Object.clone()", but without "throws
+        // CloneNotSupportedException"!
+        @Override public IClass.IMethod[]
+        getDeclaredIMethods2() {
+            return new IClass.IMethod[] {
+                new IMethod() {
+                    @Override public IAnnotation[] getAnnotations()       { return new IAnnotation[0];               }
+                    @Override public Access        getAccess()            { return Access.PUBLIC;                    }
+                    @Override public boolean       isStatic()             { return false;                            }
+                    @Override public boolean       isAbstract()           { return false;                            }
+                    @Override public IClass        getReturnType()        { return ArrayIClass.this.getObjectType(); }
+                    @Override public String        getName()              { return "clone";                          }
+                    @Override public IClass[]      getParameterTypes2()   { return new IClass[0];                    }
+                    @Override public boolean       isVarargs()            { return false;                            }
+                    @Override public IClass[]      getThrownExceptions2() { return new IClass[0];                    }
+                }
+            };
+        }
+
+        @Override public IClass.IField[]  getDeclaredIFields2()  { return new IClass.IField[0];                     }
+        @Override public IClass[]         getDeclaredIClasses2() { return new IClass[0];                            }
+        @Override @Nullable public IClass getDeclaringIClass2()  { return null;                                     }
+        @Override @Nullable public IClass getOuterIClass2()      { return null;                                     }
+        @Override public IClass           getSuperclass2()       { return this.getObjectType();                     }
+        @Override public IClass[]         getInterfaces2()       { return new IClass[0];                            }
+        @Override public String           getDescriptor2()       { return '[' + this.componentType.getDescriptor(); }
+        @Override public Access           getAccess()            { return this.componentType.getAccess();           }
+        @Override public boolean          isFinal()              { return true;                                     }
+        @Override public boolean          isEnum()               { return false;                                    }
+        @Override public boolean          isInterface()          { return false;                                    }
+        @Override public boolean          isAbstract()           { return false;                                    }
+        @Override public boolean          isArray()              { return true;                                     }
+        @Override public boolean          isPrimitive()          { return false;                                    }
+        @Override public boolean          isPrimitiveNumeric()   { return false;                                    }
+        @Override public IClass           getComponentType2()    { return this.componentType;                       }
+
+        @Override public String toString() { return this.componentType.toString() + "[]"; }
+    }
 
     @Override public String
     toString() {
@@ -786,7 +1000,10 @@ class IClass implements ITypeVariableOrIClass {
      */
     IClass[]
     findMemberType(@Nullable String name) throws CompileException {
-        IClass[] res = (IClass[]) this.memberTypeCache.get(name);
+
+        // (The cache cannot store the key null, but no member type has the name "*".)
+        String   key = name == null ? "*" : name;
+        IClass[] res = (IClass[]) this.memberTypeCache.get(key);
         if (res == null) {
 
             // Notice: A type may be added multiply to the result set because we are in its scope
@@ -795,13 +1012,14 @@ class IClass implements ITypeVariableOrIClass {
             this.findMemberType(name, s);
             res = s.isEmpty() ? IClass.ZERO_ICLASSES : (IClass[]) s.toArray(new IClass[s.size()]);
 
-            this.memberTypeCache.put(name, res);
+            IClass[] winner = (IClass[]) this.memberTypeCache.putIfAbsent(key, res);
+            if (winner != null) res = winner;
         }
 
         return res;
     }
-    private final Map<String /*name*/, IClass[]> memberTypeCache = new HashMap<>();
-    private static final IClass[]                ZERO_ICLASSES   = new IClass[0];
+    private final ConcurrentMap<String /*name*/, IClass[]> memberTypeCache = new ConcurrentHashMap<>();
+    private static final IClass[]                          ZERO_ICLASSES   = new IClass[0];
     private void
     findMemberType(@Nullable String name, Collection<IClass> result) throws CompileException {
 
@@ -850,10 +1068,17 @@ class IClass implements ITypeVariableOrIClass {
      */
     public final IAnnotation[]
     getIAnnotations() throws CompileException {
-        if (this.iAnnotationsCache != null) return this.iAnnotationsCache;
-        return (this.iAnnotationsCache = this.getIAnnotations2());
+        IAnnotation[] result = this.iAnnotationsCache;
+        if (result != null) return result;
+
+        result = this.getIAnnotations2();
+        synchronized (this) {
+            if (this.iAnnotationsCache != null) return this.iAnnotationsCache;
+            this.iAnnotationsCache = result;
+        }
+        return result;
     }
-    @Nullable private IAnnotation[] iAnnotationsCache;
+    @Nullable private volatile IAnnotation[] iAnnotationsCache;
 
     /**
      * @throws CompileException
@@ -925,10 +1150,17 @@ class IClass implements ITypeVariableOrIClass {
          */
         public final IClass[]
         getParameterTypes() throws CompileException {
-            if (this.parameterTypesCache != null) return this.parameterTypesCache;
-            return (this.parameterTypesCache = this.getParameterTypes2());
+            IClass[] result = this.parameterTypesCache;
+            if (result != null) return result;
+
+            result = this.getParameterTypes2();
+            synchronized (this) {
+                if (this.parameterTypesCache != null) return this.parameterTypesCache;
+                this.parameterTypesCache = result;
+            }
+            return result;
         }
-        @Nullable private IClass[] parameterTypesCache;
+        @Nullable private volatile IClass[] parameterTypesCache;
 
         /**
          * Opposed to the {@link Constructor}, there is no magic "{@code this$0}" parameter.
@@ -948,10 +1180,13 @@ class IClass implements ITypeVariableOrIClass {
          */
         public final MethodDescriptor
         getDescriptor() throws CompileException {
-            if (this.descriptorCache != null) return this.descriptorCache;
+            MethodDescriptor result = this.descriptorCache;
+            if (result != null) return result;
+
+            // Method descriptors are immutable, so any of the equal results may win.
             return (this.descriptorCache = this.getDescriptor2());
         }
-        @Nullable private MethodDescriptor descriptorCache;
+        @Nullable private volatile MethodDescriptor descriptorCache;
 
         /**
          * Uncached implementation of {@link #getDescriptor()}.
@@ -964,10 +1199,17 @@ class IClass implements ITypeVariableOrIClass {
          */
         public final IClass[]
         getThrownExceptions() throws CompileException {
-            if (this.thrownExceptionsCache != null) return this.thrownExceptionsCache;
-            return (this.thrownExceptionsCache = this.getThrownExceptions2());
+            IClass[] result = this.thrownExceptionsCache;
+            if (result != null) return result;
+
+            result = this.getThrownExceptions2();
+            synchronized (this) {
+                if (this.thrownExceptionsCache != null) return this.thrownExceptionsCache;
+                this.thrownExceptionsCache = result;
+            }
+            return result;
         }
-        @Nullable private IClass[] thrownExceptionsCache;
+        @Nullable private volatile IClass[] thrownExceptionsCache;
 
         /**
          * @return The types thrown by this constructor or method
