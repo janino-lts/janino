@@ -1264,7 +1264,51 @@ class CodeContext {
      * existing in that range.
      */
     public void
-    removeCode(Offset from, Offset to) {
+    removeCode(Offset from, Offset to) { this.removeCode(from, to, null); }
+
+    /**
+     * The sizes and the last elements of the lists of relocatables, exception table entries and local variables at
+     * the time of its creation; see {@link CodeContext#mark()}.
+     */
+    final
+    class Mark {
+        final int              relocatablesSize          = CodeContext.this.relocatables.size();
+        final int              exceptionTableEntriesSize = CodeContext.this.exceptionTableEntries.size();
+        final int              localVarsSize             = CodeContext.this.allLocalVars.size();
+        @Nullable final Object lastRelocatable           = CodeContext.last(CodeContext.this.relocatables);
+        @Nullable final Object lastExceptionTableEntry   = CodeContext.last(CodeContext.this.exceptionTableEntries);
+        @Nullable final Object lastLocalVar              = CodeContext.last(CodeContext.this.allLocalVars);
+    }
+
+    /**
+     * Marks the current state of the relocatables, the exception table entries and the local variables. Code that is
+     * generated after the mark, and is then removed with {@link #removeCode(Offset, Offset, Mark)}, can only be the
+     * source of relocatables, exception table entries and local variables that were added after the mark, so only
+     * these need to be examined. This keeps the removal of code from a long method cheap.
+     */
+    Mark
+    mark() { return new Mark(); }
+
+    @Nullable private static Object
+    last(List<?> list) { return list.isEmpty() ? null : list.get(list.size() - 1); }
+
+    /**
+     * @return The index of the first element of <var>list</var> that was added after the mark, or 0 iff an element
+     *         that existed at the time of the mark was removed in the meantime
+     */
+    private static int
+    addedSince(List<?> list, int size, @Nullable Object last) {
+        return size > 0 && size <= list.size() && list.get(size - 1) == last ? size : 0;
+    }
+
+    /**
+     * Removes all code between <var>from</var> and <var>to</var>. Also removes any {@link CodeContext.Relocatable}s,
+     * exception table entries and local variables existing in that range. Iff <var>mark</var> is not {@code null},
+     * then only those that were added after the <var>mark</var> are examined; <var>from</var> must have been created
+     * after the <var>mark</var>.
+     */
+    void
+    removeCode(Offset from, Offset to, @Nullable Mark mark) {
 
         if (from == to) return;
 
@@ -1306,8 +1350,21 @@ class CodeContext {
             }
         }
 
+        int firstRelocatable, firstExceptionTableEntry, firstLocalVar;
+        if (mark == null) {
+            firstRelocatable = firstExceptionTableEntry = firstLocalVar = 0;
+        } else {
+            firstRelocatable = CodeContext.addedSince(this.relocatables, mark.relocatablesSize, mark.lastRelocatable);
+            firstExceptionTableEntry = CodeContext.addedSince(
+                this.exceptionTableEntries,
+                mark.exceptionTableEntriesSize,
+                mark.lastExceptionTableEntry
+            );
+            firstLocalVar = CodeContext.addedSince(this.allLocalVars, mark.localVarsSize, mark.lastLocalVar);
+        }
+
         // Invalidate all relocatables which originate or target a removed offset.
-        for (Iterator<Relocatable> it = this.relocatables.iterator(); it.hasNext();) {
+        for (Iterator<Relocatable> it = this.relocatables.listIterator(firstRelocatable); it.hasNext();) {
             Relocatable r = (Relocatable) it.next();
 
             if (r instanceof Branch) {
@@ -1331,7 +1388,10 @@ class CodeContext {
             }
         }
 
-        for (Iterator<ExceptionTableEntry> it = this.exceptionTableEntries.iterator(); it.hasNext();) {
+        for (
+            Iterator<ExceptionTableEntry> it = this.exceptionTableEntries.listIterator(firstExceptionTableEntry);
+            it.hasNext();
+        ) {
             ExceptionTableEntry ete = (ExceptionTableEntry) it.next();
 
             // Start, end and handler must either ALL lie IN the range to remove or ALL lie outside.
@@ -1347,7 +1407,7 @@ class CodeContext {
         }
 
         // Remove local variables in dead-code block.
-        for (Iterator<Java.LocalVariableSlot> it = this.allLocalVars.iterator(); it.hasNext();) {
+        for (Iterator<Java.LocalVariableSlot> it = this.allLocalVars.listIterator(firstLocalVar); it.hasNext();) {
             final Java.LocalVariableSlot var = (Java.LocalVariableSlot) it.next();
             if (invalidOffsets.contains(var.getStart())) {
                 assert invalidOffsets.contains(var.getEnd());

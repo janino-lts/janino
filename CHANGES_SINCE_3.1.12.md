@@ -259,6 +259,13 @@ affected.
   those that the JVM links, and no longer those that the class loader of the compilation finds by name; with a
   class loader that hides classes on purpose, code that uses such a type now compiles and fails when it runs,
   instead of being rejected. `-Dorg.codehaus.janino.sharedIClassCache=false` restores the former behavior.
+- 3.1.21 (in development): The scanner reads the source code from a buffer and decodes the unicode escapes
+  itself, instead of through two `Reader` calls per character, and builds each identifier only once; the results
+  of the name resolution (imported and qualified type names) are remembered per compilation; and literals are no
+  longer compiled on trial ([#195]). On the Spark code, this saves another 27 to 29 % of the allocated memory and
+  16 % of the time (27 % without the JIT compiler). The class files and the tokens are unchanged. One fix: a
+  `Reader` that returns fewer than three characters at once no longer causes a false "Incomplete escape
+  sequence" error in a unicode escape.
 - New tests: characterization tests that record the correct result and Janino's actual behavior for 599 language
   constructs, negative tests with 473 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
@@ -331,3 +338,4 @@ affected.
 [#178]: https://github.com/janino-lts/janino/issues/178
 [#181]: https://github.com/janino-lts/janino/issues/181
 [#193]: https://github.com/janino-lts/janino/issues/193
+[#195]: https://github.com/janino-lts/janino/issues/195

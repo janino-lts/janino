@@ -81,6 +81,16 @@ h5 {
         code that uses such a type now compiles and fails when it runs, instead of being rejected. The system
         property <code>org.codehaus.janino.sharedIClassCache=false</code> restores the former behavior.
       </li>
+      <li>
+        <a href="https://github.com/janino-lts/janino/issues/195">Issue #195</a>: The scanner reads the source code
+        from a buffer and decodes the unicode escapes itself, instead of through two <code>Reader</code> calls per
+        character, and builds each identifier only once; the results of the name resolution (imported and qualified
+        type names) are remembered per compilation; and literals are no longer compiled on trial. On the code that
+        Apache Spark generates for TPC-DS queries, this saves another 27 to 29 % of the allocated memory and 16 % of
+        the time (27 % without the JIT compiler). The class files and the tokens are unchanged. One fix: a
+        <code>Reader</code> that returns fewer than three characters at once no longer causes a false "Incomplete
+        escape sequence" error in a unicode escape.
+      </li>
     </ul>
 
     <h4>Version 3.1.20 2026-10-14</h4>
