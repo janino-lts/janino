@@ -33,9 +33,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.codehaus.commons.compiler.CompileException;
 import org.codehaus.commons.compiler.Location;
@@ -223,7 +222,7 @@ class Scanner {
         }
 
         this.fileName             = fileName;
-        this.in                   = new UnicodeUnescapeReader(in);
+        this.in                   = in;
         this.nextCharLineNumber   = initialLineNumber;
         this.nextCharColumnNumber = initialColumnNumber;
     }
@@ -300,20 +299,21 @@ class Scanner {
         this.tokenColumnNumber = this.nextCharColumnNumber;
 
         this.sb.setLength(0);
+        this.tokenValue = null;
 
         TokenType tokenType  = this.scan();
-        String    tokenValue = this.sb.toString();
-
-        // We want to be able to use REFERENCE EQUALITY for these...
-        if (
-            tokenType == TokenType.KEYWORD
-            || tokenType == TokenType.BOOLEAN_LITERAL
-            || tokenType == TokenType.NULL_LITERAL
-            || tokenType == TokenType.OPERATOR
-        ) tokenValue = tokenValue.intern();
+        String    tokenValue = this.tokenValue;
+        if (tokenValue == null) tokenValue = this.sb.toString();
 
         return this.token(tokenType, tokenValue);
     }
+
+    /**
+     * The value of the token that {@link #scan()} just scanned, or {@code null} to take the value from {@link #sb}.
+     * {@link #scan()} sets it for identifiers and, as interned strings, for keywords, boolean literals, the null
+     * literal and operators; we want to be able to use REFERENCE EQUALITY for these.
+     */
+    @Nullable private String tokenValue;
 
     private TokenType
     scan() throws CompileException, IOException {
@@ -329,9 +329,15 @@ class Scanner {
         // Scan a token that begins with "/".
         if (this.peekRead('/')) {
 
-            if (this.peekRead(-1)) return TokenType.OPERATOR; // E.g. "/"
+            if (this.peekRead(-1)) { // E.g. "/"
+                this.tokenValue = "/";
+                return TokenType.OPERATOR;
+            }
 
-            if (this.peekRead('=')) return TokenType.OPERATOR; // E.g. "/="
+            if (this.peekRead('=')) { // E.g. "/="
+                this.tokenValue = "/=";
+                return TokenType.OPERATOR;
+            }
 
             if (this.peekRead('/')) { // C++-style comment.
 
@@ -357,7 +363,8 @@ class Scanner {
                 }
             }
 
-            return TokenType.OPERATOR; // E.g. "/"
+            this.tokenValue = "/"; // E.g. "/"
+            return TokenType.OPERATOR;
         }
 
         // Scan identifier.
@@ -365,12 +372,26 @@ class Scanner {
             this.read();
             while (Character.isJavaIdentifierPart((char) this.peek())) this.read();
             String s = this.sb.toString();
-            if ("true".equals(s))  return TokenType.BOOLEAN_LITERAL;
-            if ("false".equals(s)) return TokenType.BOOLEAN_LITERAL;
-            if ("null".equals(s))  return TokenType.NULL_LITERAL;
+            if ("true".equals(s)) {
+                this.tokenValue = "true";
+                return TokenType.BOOLEAN_LITERAL;
+            }
+            if ("false".equals(s)) {
+                this.tokenValue = "false";
+                return TokenType.BOOLEAN_LITERAL;
+            }
+            if ("null".equals(s)) {
+                this.tokenValue = "null";
+                return TokenType.NULL_LITERAL;
+            }
 
-            if (Scanner.JAVA_KEYWORDS.contains(s)) return TokenType.KEYWORD;
+            String keyword = (String) Scanner.JAVA_KEYWORDS.get(s);
+            if (keyword != null) {
+                this.tokenValue = keyword;
+                return TokenType.KEYWORD;
+            }
 
+            this.tokenValue = s;
             return TokenType.IDENTIFIER;
         }
 
@@ -424,17 +445,96 @@ class Scanner {
         }
 
         // Scan operator (including what Java calls "separators").
-        if (Scanner.JAVA_OPERATORS.contains(String.valueOf((char) this.peek()))) {
-            do {
-                this.read();
-            } while (Scanner.JAVA_OPERATORS.contains(this.sb.toString() + (char) this.peek()));
-            return TokenType.OPERATOR;
+        {
+            String operator = this.scanOperator();
+            if (operator != null) {
+
+                // Decode the character after the operator now, so that an invalid unicode escape there is reported
+                // with the location of the operator, as it always was.
+                this.peek();
+
+                this.tokenValue = operator;
+                return TokenType.OPERATOR;
+            }
         }
 
         throw new CompileException(
             "Invalid character input \"" + (char) this.peek() + "\" (character code " + this.peek() + ")",
             this.location()
         );
+    }
+
+    /**
+     * Scans an operator or a separator (except "/" and "/=", which {@link #scan()} handles together with the
+     * comments). Like JLS8 3.2 requires, the longest operator is taken; because every prefix of an operator is itself
+     * an operator, the operator can be extended character by character.
+     *
+     * @return The operator as an interned string, or {@code null} iff the next character does not start an operator
+     *         (then no character is consumed)
+     */
+    @Nullable private String
+    scanOperator() throws CompileException, IOException {
+
+        switch (this.peek()) {
+
+        case '(': this.read(); return "(";
+        case ')': this.read(); return ")";
+        case '{': this.read(); return "{";
+        case '}': this.read(); return "}";
+        case '[': this.read(); return "[";
+        case ']': this.read(); return "]";
+        case ';': this.read(); return ";";
+        case ',': this.read(); return ",";
+        case '.': this.read(); return ".";
+        case '@': this.read(); return "@";
+        case '~': this.read(); return "~";
+        case '?': this.read(); return "?";
+
+        case ':': this.read(); return this.peekRead(':') ? "::" : ":";
+        case '=': this.read(); return this.peekRead('=') ? "==" : "=";
+        case '!': this.read(); return this.peekRead('=') ? "!=" : "!";
+        case '*': this.read(); return this.peekRead('=') ? "*=" : "*";
+        case '^': this.read(); return this.peekRead('=') ? "^=" : "^";
+        case '%': this.read(); return this.peekRead('=') ? "%=" : "%";
+
+        case '+':
+            this.read();
+            if (this.peekRead('+')) return "++";
+            return this.peekRead('=') ? "+=" : "+";
+
+        case '-':
+            this.read();
+            if (this.peekRead('-')) return "--";
+            if (this.peekRead('>')) return "->";
+            return this.peekRead('=') ? "-=" : "-";
+
+        case '&':
+            this.read();
+            if (this.peekRead('&')) return "&&";
+            return this.peekRead('=') ? "&=" : "&";
+
+        case '|':
+            this.read();
+            if (this.peekRead('|')) return "||";
+            return this.peekRead('=') ? "|=" : "|";
+
+        case '<':
+            this.read();
+            if (this.peekRead('=')) return "<=";
+            if (!this.peekRead('<')) return "<";
+            return this.peekRead('=') ? "<<=" : "<<";
+
+        case '>':
+            this.read();
+            if (this.peekRead('=')) return ">=";
+            if (!this.peekRead('>')) return ">";
+            if (this.peekRead('=')) return ">>=";
+            if (!this.peekRead('>')) return ">>";
+            return this.peekRead('=') ? ">>>=" : ">>>";
+
+        default:
+            return null;
+        }
     }
 
     private TokenType
@@ -761,11 +861,7 @@ class Scanner {
     private int
     peek() throws CompileException, IOException {
         if (this.nextChar != -1) return this.nextChar;
-        try {
-            return (this.nextChar = this.internalRead());
-        } catch (UnicodeUnescapeException ex) {
-            throw new CompileException(ex.getMessage(), this.location(), ex);
-        }
+        return (this.nextChar = this.internalRead());
     }
 
     /**
@@ -787,11 +883,7 @@ class Scanner {
     peekButOne() throws CompileException, IOException {
         if (this.nextButOneChar != -1) return this.nextButOneChar;
         this.peek();
-        try {
-            return (this.nextButOneChar = this.internalRead());
-        } catch (UnicodeUnescapeException ex) {
-            throw new CompileException(ex.getMessage(), this.location(), ex);
-        }
+        return (this.nextButOneChar = this.internalRead());
     }
 
     /**
@@ -854,17 +946,14 @@ class Scanner {
     }
 
     /**
+     * Reads the next character, decodes unicode escapes and counts lines and columns.
+     *
      * @return -1 iff there is no next character, i.e the input stream is at end-of-input
      */
     private int
     internalRead() throws IOException, CompileException {
 
-        int result;
-        try {
-            result = this.in.read();
-        } catch (UnicodeUnescapeException ex) {
-            throw new CompileException(ex.getMessage(), this.location(), ex);
-        }
+        int result = this.unescapeRead();
         if (result == '\r') {
             ++this.nextCharLineNumber;
             this.nextCharColumnNumber = 0;
@@ -890,8 +979,110 @@ class Scanner {
         return result;
     }
 
+    /**
+     * Reads the next character and decodes the "unicode escapes" (JLS8 3.3), exactly like {@link
+     * UnicodeUnescapeReader#read()} does, but without a {@link Reader} for each character.
+     *
+     * @return -1 iff there is no next character, i.e the input stream is at end-of-input
+     */
+    private int
+    unescapeRead() throws IOException, CompileException {
+        int c;
+
+        // Read next character.
+        if (this.unreadChar == -1) {
+            c = this.rawRead();
+        } else {
+            c               = this.unreadChar;
+            this.unreadChar = -1;
+        }
+
+        // Check for backslash-u escape sequence, preceded with an even number of backslashes.
+        if (c != '\\' || this.oddPrecedingBackslashes) {
+            this.oddPrecedingBackslashes = false;
+            return c;
+        }
+
+        // Read one character ahead and check if it is a "u".
+        c = this.rawRead();
+        if (c != 'u') {
+            this.unreadChar              = c;
+            this.oddPrecedingBackslashes = true;
+            return '\\';
+        }
+
+        // Skip redundant "u"s.
+        do {
+            c = this.rawRead();
+            if (c == -1) throw this.incompleteEscapeSequence();
+        } while (c == 'u');
+
+        // Decode escape sequence.
+        char[] ca = new char[4];
+        ca[0] = (char) c;
+        for (int i = 1; i < 4; i++) {
+            c = this.rawRead();
+            if (c == -1) throw this.incompleteEscapeSequence();
+            ca[i] = (char) c;
+        }
+        try {
+            return Integer.parseInt(new String(ca), 16);
+        } catch (NumberFormatException ex) {
+            throw this.unicodeUnescapeException(
+                new UnicodeUnescapeException("Invalid escape sequence \"\\u" + new String(ca) + "\"", ex)
+            );
+        }
+    }
+
+    private CompileException
+    incompleteEscapeSequence() {
+        return this.unicodeUnescapeException(new UnicodeUnescapeException("Incomplete escape sequence"));
+    }
+
+    private CompileException
+    unicodeUnescapeException(UnicodeUnescapeException uue) {
+        return new CompileException(uue.getMessage(), this.location(), uue);
+    }
+
+    /**
+     * Reads the next character from the {@link #buffer}, and fills it from {@link #in} when it is exhausted.
+     *
+     * @return -1 iff there is no next character, i.e the input stream is at end-of-input
+     */
+    private int
+    rawRead() throws IOException, CompileException {
+
+        if (this.bufferPosition == this.bufferLimit) {
+            if (this.endOfInput) return -1;
+
+            int n;
+            try {
+                do {
+                    n = this.in.read(this.buffer, 0, this.buffer.length);
+                } while (n == 0);
+            } catch (UnicodeUnescapeException uue) {
+
+                // The reader passed to the constructor decodes unicode escapes itself.
+                throw this.unicodeUnescapeException(uue);
+            }
+            if (n == -1) {
+                this.endOfInput = true;
+                return -1;
+            }
+            this.bufferPosition = 0;
+            this.bufferLimit    = n;
+        }
+
+        return this.buffer[this.bufferPosition++];
+    }
+
     @Nullable private final String fileName;
     private final Reader           in;
+    private final char[]           buffer = new char[256];
+    private int                    bufferPosition, bufferLimit;
+    private boolean                endOfInput;
+    private int                    unreadChar = -1; // -1 == none
+    private boolean                oddPrecedingBackslashes;
     private boolean                ignoreWhiteSpace;
     private int                    nextChar       = -1;
     private int                    nextButOneChar = -1;
@@ -915,40 +1106,31 @@ class Scanner {
      */
     @Nullable private Token pendingToken;
 
-    private static final Set<String> JAVA_KEYWORDS = new HashSet<>(Arrays.asList(
+    /**
+     * Maps each keyword to itself, so that the scanner can produce the interned string.
+     */
+    private static final Map<String, String> JAVA_KEYWORDS = new HashMap<>();
+    static {
+        for (String keyword : new String[] {
 
-        // SUPPRESS CHECKSTYLE WrapMethod:16
+            // SUPPRESS CHECKSTYLE WrapMethod:16
 
-        "abstract", "assert",
-        "boolean", "break", "byte",
-        "case", "catch", "char", "class", "const", "continue",
-        "default", "do", "double",
-        "else", "enum", "extends",
-        "final", "finally", "float", "for",
-        "goto",
-        "if", "implements", "import", "instanceof", "int", "interface",
-        "long",
-        "native", "new",
-        "package", "private", "protected", "public",
-        "return",
-        "short", "static", "strictfp", "super", "switch", "synchronized",
-        "this", "throw", "throws", "transient", "try",
-        "void", "volatile",
-        "while"
-    ));
-
-    private static final Set<String> JAVA_OPERATORS = new HashSet<>(Arrays.asList(
-
-        // SUPPRESS CHECKSTYLE WrapMethod:9
-
-        // Separators:
-        "(", ")", "{", "}", "[", "]", ";", ",", ".", "@",
-        "::",                                                                // <= Since Java 9
-
-        // Operators:
-        "=",  ">",  "<",  "!",  "~",  "?",  ":",  "->",
-        "==", "<=", ">=", "!=", "&&", "||", "++", "--",
-        "+",  "-",  "*",  "/",  "&",  "|",  "^",  "%",  "<<",  ">>",  ">>>",
-        "+=", "-=", "*=", "/=", "&=", "|=", "^=", "%=", "<<=", ">>=", ">>>=" // SUPPRESS CHECKSTYLE Wrap
-    ));
+            "abstract", "assert",
+            "boolean", "break", "byte",
+            "case", "catch", "char", "class", "const", "continue",
+            "default", "do", "double",
+            "else", "enum", "extends",
+            "final", "finally", "float", "for",
+            "goto",
+            "if", "implements", "import", "instanceof", "int", "interface",
+            "long",
+            "native", "new",
+            "package", "private", "protected", "public",
+            "return",
+            "short", "static", "strictfp", "super", "switch", "synchronized",
+            "this", "throw", "throws", "transient", "try",
+            "void", "volatile",
+            "while"
+        }) Scanner.JAVA_KEYWORDS.put(keyword, keyword);
+    }
 }

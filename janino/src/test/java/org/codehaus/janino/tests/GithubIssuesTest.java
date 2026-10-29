@@ -38,7 +38,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.codehaus.commons.compiler.CompileException;
+import org.codehaus.commons.compiler.ErrorHandler;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
+import org.codehaus.commons.compiler.Location;
 import org.codehaus.commons.compiler.util.reflect.ByteArrayClassLoader;
 import org.codehaus.commons.compiler.util.resource.MapResourceCreator;
 import org.codehaus.commons.compiler.util.resource.MapResourceFinder;
@@ -526,6 +528,84 @@ class GithubIssuesTest {
 
         GithubIssuesTest.assertParseUnparseEquals("BiConsumer<String, List<String>> a;");
         GithubIssuesTest.assertParseUnparseEquals("BiConsumer<List<String>, String> a;");
+    }
+
+    @Test public void
+    testErrorsInConstantExpressionsAreReported() throws Exception {
+
+        // The operands whose values a constant expression does not need are compiled on trial, and must be valid.
+        GithubIssuesTest.assertScriptCompileError("if (true || a) {}", "Expression \"a\" is not an rvalue");
+        GithubIssuesTest.assertScriptCompileError(
+            "int i = true ? 1 : unknown;",
+            "Unknown variable or type \"unknown\""
+        );
+        GithubIssuesTest.assertScriptCompileError(
+            "boolean b = false && unknown();",
+            "A method named \"unknown\" is not declared"
+        );
+
+        ScriptEvaluator se = new ScriptEvaluator();
+        se.setReturnType(String.class);
+        se.cook("return \"a\" + 1 + 'c' + 2.0 + true + null + (int) 1L + (char) 66 + -1;");
+        Assert.assertEquals("a1c2.0truenull1B-1", se.evaluate());
+    }
+
+    private static void
+    assertScriptCompileError(String script, String messageInfix) {
+        try {
+            new ScriptEvaluator().cook(script);
+            Assert.fail("CompileException expected");
+        } catch (CompileException ce) {
+            Assert.assertTrue(ce.getMessage(), ce.getMessage().contains(messageInfix));
+        }
+    }
+
+    @Test public void
+    testImportedTypesAreResolvedAtEachUse() throws Exception {
+        String cu = (
+            ""
+            + "import java.util.*;\n"
+            + "import java.util.concurrent.atomic.AtomicInteger;\n"
+            + "public class A {\n"
+            + "    public static String run() {\n"
+            + "        List<String> l = new ArrayList<String>();\n"
+            + "        l.add(\"x\");\n"
+            + "        Map<String, AtomicInteger> m = new HashMap<String, AtomicInteger>();\n"
+            + "        m.put(\"k\", new AtomicInteger(Collections.emptyList().size() + 2));\n"
+            + "        AtomicInteger ai = (AtomicInteger) m.get(\"k\");\n"
+            + "        return l + \"\" + m + ai.incrementAndGet();\n"
+            + "    }\n"
+            + "}\n"
+        );
+
+        SimpleCompiler sc = new SimpleCompiler();
+        sc.cook(cu);
+        Assert.assertEquals("[x]{k=2}3", sc.getClassLoader().loadClass("A").getMethod("run").invoke(null));
+
+        // A second compilation of the same source yields the same class files.
+        SimpleCompiler sc2 = new SimpleCompiler();
+        sc2.cook(cu);
+        Assert.assertEquals(sc.getBytecodes().keySet(), sc2.getBytecodes().keySet());
+        for (Map.Entry<String, byte[]> e : sc.getBytecodes().entrySet()) {
+            Assert.assertArrayEquals(e.getKey(), e.getValue(), sc2.getBytecodes().get(e.getKey()));
+        }
+
+        // A simple type name that cannot be resolved is reported at each use.
+        final List<String> errors = new LinkedList<>();
+        SimpleCompiler     sc3    = new SimpleCompiler();
+        sc3.setCompileErrorHandler(new ErrorHandler() {
+
+            @Override public void
+            handleError(String message, @Nullable Location location) { errors.add(message); }
+        });
+        try {
+            sc3.cook("import java.util.*; public class B { Unknown u1; List<String> l; Unknown u2; }");
+            Assert.fail("CompileException expected");
+        } catch (CompileException ce) {
+            ;
+        }
+        String message = "Cannot determine simple type name \"Unknown\"";
+        Assert.assertEquals(Arrays.asList(message, message), errors);
     }
 
     private static void
