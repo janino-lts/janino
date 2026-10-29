@@ -7453,7 +7453,7 @@ class UnitCompiler {
         IClass[]  parameterTypes = iMethod.getParameterTypes();
         Rvalue[]  adjustedArgs   = null;
         final int actualSize     = mi.arguments.length;
-        if (iMethod.isVarargs() && iMethod.argsNeedAdjust()) {
+        if (iMethod.isVarargs() && this.argsNeedAdjust(iMethod)) {
             adjustedArgs = new Rvalue[parameterTypes.length];
             Rvalue[]       lastArgs = new Rvalue[actualSize - parameterTypes.length + 1];
             final Location loc      = mi.getLocation();
@@ -7696,7 +7696,7 @@ class UnitCompiler {
         Rvalue[] arguments      = scmi.arguments;
         if (
             iMethod.isVarargs()
-            && iMethod.argsNeedAdjust()
+            && this.argsNeedAdjust(iMethod)
             && !(
                 arguments.length == parameterTypes.length
                 && this.getType(arguments[arguments.length - 1]) == IClass.NULL
@@ -11849,7 +11849,7 @@ class UnitCompiler {
         Rvalue[] adjustedArgs   = null;
         IClass[] parameterTypes = iConstructor.getParameterTypes();
         int      actualSize     = arguments.length;
-        if (iConstructor.isVarargs() && iConstructor.argsNeedAdjust()) {
+        if (iConstructor.isVarargs() && this.argsNeedAdjust(iConstructor)) {
             adjustedArgs = new Rvalue[parameterTypes.length];
             Rvalue[] lastArgs = new Rvalue[actualSize - parameterTypes.length + 1];
             for (int i = 0, j = parameterTypes.length - 1; i < lastArgs.length; ++i, ++j) {
@@ -13031,6 +13031,12 @@ class UnitCompiler {
     public void
     getIMethods(IClass type, String methodName, List<IMethod> v) throws CompileException {
 
+        // The methods of a loaded class and of its supertypes never change, so the class caches them.
+        if (type.hasFixedHierarchy()) {
+            for (IMethod im : type.getIMethods(methodName)) v.add(im);
+            return;
+        }
+
         // Check methods declared by this type.
         {
             IClass.IMethod[] ims = type.getDeclaredIMethods(methodName);
@@ -13418,6 +13424,7 @@ class UnitCompiler {
                 && this.isApplicableByFixedArity(parameterTypes, argumentTypes, boxingPermitted)
             ) {
                 ii.setArgsNeedAdjust(false);
+                this.argsNeedAdjustByInvocable.put(ii, false);
                 applicableIInvocables.add(ii);
                 continue;
             }
@@ -13511,6 +13518,7 @@ class UnitCompiler {
                 // Varargs has lower priority.
                 if (isVarargs) {
                     ii.setArgsNeedAdjust(argsNeedAdjust);
+                    this.argsNeedAdjustByInvocable.put(ii, argsNeedAdjust);
                     varargApplicables.add(ii);
                 } else {
                     applicableIInvocables.add(ii);
@@ -13553,7 +13561,7 @@ class UnitCompiler {
         // (JLS 15.12.2.5), not by the array type, so that neither "f(int...)" nor "f(Object...)" is more specific
         // than the other (issue #135).
         boolean compareVariableArity = !byFixedArity && this.compliant();
-        assert !compareVariableArity || UnitCompiler.allArgsNeedAdjust(applicableIInvocables);
+        assert !compareVariableArity || this.allArgsNeedAdjust(applicableIInvocables);
         List<IClass.IInvocable> maximallySpecificIInvocables = new ArrayList<>();
         for (IClass.IInvocable applicableIInvocable : applicableIInvocables) {
             int moreSpecific = 0, lessSpecific = 0;
@@ -13747,7 +13755,9 @@ class UnitCompiler {
 
             // The arguments of a variable arity invocation are expanded into an array like for "im", e.g. for the
             // same variable arity method in two superinterfaces in the compliance mode (issue #135).
-            result.setArgsNeedAdjust(im.argsNeedAdjust());
+            boolean argsNeedAdjust = this.argsNeedAdjust(im);
+            result.setArgsNeedAdjust(argsNeedAdjust);
+            this.argsNeedAdjustByInvocable.put(result, argsNeedAdjust);
             return result;
         }
 
@@ -13761,7 +13771,7 @@ class UnitCompiler {
         // Compliance S-02: Not in the compliance mode, which compares the variable arity methods like JAVAC above
         // already (issue #135).
         if (!compareVariableArity) {
-            IClass.IInvocable ii = UnitCompiler.mostSpecificByVariableArity(
+            IClass.IInvocable ii = this.mostSpecificByVariableArity(
                 applicableIInvocables,
                 argumentTypes.length
             );
@@ -13821,16 +13831,29 @@ class UnitCompiler {
     }
 
     /**
+     * @return Whether the arguments of an invocation of the variable arity <var>ii</var> must be collected into an
+     *         array, as the latest method resolution of this compiler determined
+     */
+    private boolean
+    argsNeedAdjust(IClass.IInvocable ii) { return Boolean.TRUE.equals(this.argsNeedAdjustByInvocable.get(ii)); }
+
+    /**
+     * Not stored in the {@link IClass.IInvocable}, because the invocables of loaded classes are shared between
+     * compilations, also concurrent ones.
+     */
+    private final Map<IClass.IInvocable, Boolean> argsNeedAdjustByInvocable = new HashMap<>();
+
+    /**
      * Selects the most specific of the given invocables by JLS8 15.12.2.5, iff all of them are variable arity
      * invocables that are applicable by variable arity invocation (JLS8 15.12.2.4) to <var>k</var> arguments.
      *
      * @return The invocable that is more specific than all others, while none of the others is more specific than it,
      *         or {@code null}
      */
-    @Nullable private static IClass.IInvocable
+    @Nullable private IClass.IInvocable
     mostSpecificByVariableArity(List<IClass.IInvocable> invocables, int k) throws CompileException {
 
-        if (!UnitCompiler.allArgsNeedAdjust(invocables)) return null;
+        if (!this.allArgsNeedAdjust(invocables)) return null;
 
         IClass.IInvocable result = null;
         for (IClass.IInvocable ii : invocables) {
@@ -13853,10 +13876,10 @@ class UnitCompiler {
      * @return Whether all of the <var>invocables</var> are variable arity invocables that are applicable by variable
      *         arity invocation (JLS8 15.12.2.4)
      */
-    private static boolean
+    private boolean
     allArgsNeedAdjust(List<IClass.IInvocable> invocables) {
         for (IClass.IInvocable ii : invocables) {
-            if (!ii.isVarargs() || !ii.argsNeedAdjust()) return false;
+            if (!ii.isVarargs() || !this.argsNeedAdjust(ii)) return false;
         }
         return true;
     }
