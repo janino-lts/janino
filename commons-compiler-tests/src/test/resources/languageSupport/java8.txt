@@ -57,6 +57,15 @@ public class P {
     public static Object run() { return I.m(); }
 }
 
+=== static interface method: the same variable arity method in an interface and its superinterface (issues #200, #202)
+jls: j2
+janino: WRONG i2
+interface I { static String f(String... s) { return "i" + s.length; } }
+interface J extends I { static String f(String... s) { return "j" + s.length; } }
+public class P {
+    public static Object run() { return J.f("x", "y"); }
+}
+
 === invocation of a superinterface default method (I.super.m())
 janino: OK
 jls: i

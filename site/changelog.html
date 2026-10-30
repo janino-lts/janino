@@ -80,6 +80,15 @@ h5 {
         changes.
       </li>
       <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/202">issue #202</a>: An invocation by variable
+        arity of a method that two interfaces declare was rejected, e.g. <code>k.f("x", "y")</code> with
+        <code>String f(String... s)</code> in <code>I1</code> and <code>I2</code> and <code>interface K extends I1,
+        I2 { }</code> (<code>Assignment conversion not possible from type "java.lang.String" to type
+        "java.lang.String[]"</code>), and <code>k.f()</code> failed with an internal error; likewise when a
+        subinterface redeclares the method. Now the variable arity arguments are collected into an array, like by
+        JAVAC. Only code that was rejected changes.
+      </li>
+      <li>
         <a href="https://github.com/janino-lts/janino/issues/193">Issue #193</a>: Compilations against the same class
         loader share the information that JANINO reads by reflection about the loaded classes (one
         <code>IClass</code> per <code>Class</code>, also for concurrent compilations), and the methods with a given
