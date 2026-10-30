@@ -411,13 +411,14 @@ When another static import provides the same name, Janino uses that one instead:
 form is of class V and is corrected with D-18. Both modes; 3.1.12 behaves the same way.
 
 **D-19, a variable arity method that two interfaces declare** ([#202](https://github.com/janino-lts/janino/issues/202),
-found with [#200](https://github.com/janino-lts/janino/issues/200)): with `String f(String... s)` in two interfaces
-`I1` and `I2` and `interface K extends I1, I2 { }`, `k.f("x", "y")` is rejected (`Assignment conversion not possible
-from type "java.lang.String" to type "java.lang.String[]"`), and `k.f()` is an internal compiler error (`Operand stack
-underflow`); likewise when a subinterface redeclares the method of its superinterface, and for an abstract class that
-implements both interfaces. When it chooses one of several maximally specific methods with the same signature (JLS
-15.12.2.5), Janino does not collect the variable arity arguments into an array. Only an array as the variable arity
-argument compiles. Both modes; 3.1.12 behaves the same way.
+found with [#200](https://github.com/janino-lts/janino/issues/200), fixed in 3.1.21): with `String f(String... s)` in
+two interfaces `I1` and `I2` and `interface K extends I1, I2 { }`, Janino 3.1.20 and earlier reject `k.f("x", "y")`
+(`Assignment conversion not possible from type "java.lang.String" to type "java.lang.String[]"`), and `k.f()` is an
+internal compiler error (`Operand stack underflow`); likewise when a subinterface redeclares the method of its
+superinterface, and for an abstract class that implements both interfaces, because they do not collect the variable
+arity arguments into an array when they choose one of several maximally specific methods with the same signature
+(JLS 15.12.2.5); 3.1.12 rejects it, too. The development line collects them, in both modes, since the changes for
+[#135](https://github.com/janino-lts/janino/issues/135); 3.1.x since 3.1.21.
 
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions
@@ -535,6 +536,17 @@ Since 3.1.21, such a clause is accepted, like by `javac`.
 method with the name as soon as they look the name up through a static import. By JLS 7.5.3 and 7.5.4, a static
 import imports only the static members; the instance members are simply not imported. Since 3.1.21, they are not
 imported, like with `javac`; a name that the static imports provide only as an instance member is still reported.
+
+**A variable arity method that two interfaces declare**
+(D-19, [#202](https://github.com/janino-lts/janino/issues/202), fixed in 3.1.21): with `String f(String... s)` in two
+interfaces `I1` and `I2` and `interface K extends I1, I2 { }`, Janino 3.1.20 and earlier reject `k.f("x", "y")`
+(`Assignment conversion not possible from type "java.lang.String" to type "java.lang.String[]"`), and `k.f()` is an
+internal compiler error (`Operand stack underflow`); likewise when a subinterface redeclares the method of its
+superinterface, and for an abstract class that implements both interfaces. When they choose one of several maximally
+specific methods with the same signature (JLS 15.12.2.5), they do not collect the variable arity arguments into an
+array (JLS 15.12.4.2). Since 3.1.21, they are collected, like with `javac`; an array as the variable arity argument
+is passed as the array, as before. The development line collected them already, in both modes, since the changes for
+[#135](https://github.com/janino-lts/janino/issues/135).
 
 ## 3. Invalid code that Janino accepts
 

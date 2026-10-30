@@ -13973,7 +13973,7 @@ class UnitCompiler {
             };
 
             // The arguments of a variable arity invocation are expanded into an array like for "im", e.g. for the
-            // same variable arity method in two superinterfaces in the compliance mode (issue #135).
+            // same variable arity method in two interfaces, in both modes (issues #135 and #202).
             boolean argsNeedAdjust = this.argsNeedAdjust(im);
             result.setArgsNeedAdjust(argsNeedAdjust);
             this.argsNeedAdjustByInvocable.put(result, argsNeedAdjust);

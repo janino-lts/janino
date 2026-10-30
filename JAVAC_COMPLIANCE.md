@@ -447,9 +447,11 @@ The development line, after D-18 (#201, from 3.1.x, found with #198, not fixed y
 fixed, 5 corrected in the compliance mode only, 8 open; G, 9 and F, 11 (outside the scope); A, 8. The recorded cases
 are unchanged.
 
-The development line, after D-19 (#202, from 3.1.x, found with #200, not fixed yet): S and L unchanged; D, 19 IDs, 5
-fixed, 5 corrected in the compliance mode only, 9 open; G, 9 and F, 11 (outside the scope); A, 8. The recorded cases
-are unchanged.
+The development line, after D-19 (#202, from 3.1.x, found with #200; fixed in 3.1.21, on the development line in both
+modes already since #135): S and L unchanged; D, 19 IDs, 6 fixed (D-04 in 3.1.19 except for one form, see there; D-08
+in 3.1.20; D-14, D-15, D-17 and D-19 in 3.1.21), 5 corrected in the compliance mode only, 8 open; G, 9 and F, 11
+(outside the scope); A, 8. Of the 1419 recorded cases, the compliance mode agrees with `javac` on 1295 (the
+compatibility mode on 1054).
 
 ## 8. Registered exceptions
 
