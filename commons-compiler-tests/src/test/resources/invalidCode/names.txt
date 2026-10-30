@@ -233,11 +233,49 @@ public class P {
 
 === private member type of another top-level class
 janino: ACCEPTED
+compliant: REJECTED Private member cannot be accessed from type "P".
 recovery: ACCEPTED
 id: L-41
 class A { private static class S {} }
 public class P {
     A.S s;
+}
+
+=== private member type of the superclass, by its simple name
+janino: ACCEPTED
+compliant: REJECTED Private member cannot be accessed from type "P".
+recovery: ACCEPTED
+id: L-41
+class A { private static class S {} }
+public class P extends A {
+    S s;
+}
+
+=== member type of a private member type of another top-level class
+janino: ACCEPTED
+compliant: REJECTED Private member cannot be accessed from type "P".
+recovery: ACCEPTED
+id: L-41
+class A { private static class S { static class T {} } }
+public class P {
+    A.S.T t;
+}
+
+=== private member type of another top-level class in an implements clause
+janino: ACCEPTED
+compliant: REJECTED Member type "A$S" is not accessible
+recovery: ACCEPTED
+id: L-41
+class A { private interface S {} }
+public class P implements A.S {}
+
+=== private member type of another top-level class in an expression
+janino: REJECTED No applicable constructor/method found for zero actual parameters
+compliant: REJECTED Private member cannot be accessed from type "P".
+id: L-41
+class A { private static class S { static void m() {} } }
+public class P {
+    void f() { A.S.m(); }
 }
 
 === private constructor of another top-level class
@@ -290,14 +328,138 @@ public class P {
 
 === private member type of a JDK class
 janino: ACCEPTED
+compliant: REJECTED Private member cannot be accessed from type "P".
 recovery: ACCEPTED
 id: L-41
 public class P {
     java.util.ArrayList.Itr x;
 }
 
+=== private member type of a JDK class in a cast and in an instanceof expression
+janino: ACCEPTED
+compliant: REJECTED Private member cannot be accessed from type "P".
+recovery: ACCEPTED
+id: L-41
+public class P {
+    boolean f(Object o) { return o instanceof java.util.ArrayList.Itr && ((java.util.ArrayList.Itr) o) != null; }
+}
+
+=== private member type of a JDK class as a type argument
+janino: ACCEPTED
+recovery: ACCEPTED
+id: L-41
+public class P {
+    java.util.List<java.util.ArrayList.Itr> l;
+}
+
+=== package-private member type of a JDK class in an array creation
+janino: ACCEPTED
+compliant: REJECTED Member with "package" access cannot be accessed from type "P".
+recovery: ACCEPTED
+id: L-41
+public class P {
+    Object o = new java.util.HashMap.Node[0];
+}
+
+=== private member type of a class in another package
+janino: ACCEPTED
+compliant: REJECTED Private member cannot be accessed from type "P".
+recovery: ACCEPTED
+id: L-41
+public class P {
+    other_package.Foo.PrivateStaticMemberClass x;
+}
+
+=== package-private member type of a class in another package
+janino: ACCEPTED
+compliant: REJECTED Member with "package" access cannot be accessed from type "P".
+recovery: ACCEPTED
+id: L-41
+public class P {
+    other_package.Foo.PackageStaticMemberClass x;
+}
+
+=== protected member type of a class in another package, outside a subclass
+janino: ACCEPTED
+compliant: REJECTED Protected member cannot be accessed from type "P", which is neither declared in the same package as nor is a subclass of "other_package.Foo".
+recovery: ACCEPTED
+id: L-41
+public class P {
+    other_package.Foo.ProtectedStaticMemberClass x;
+}
+
+=== single-type import of a private member type, not used
+janino: ACCEPTED
+compliant: REJECTED Member type "java.util.ArrayList$Itr" is not accessible
+recovery: ACCEPTED
+id: L-41
+import java.util.ArrayList.Itr;
+public class P {}
+
+=== single-type import of a protected member type of a class in another package, in a subclass
+janino: ACCEPTED
+compliant: REJECTED Member type "other_package.Foo$ProtectedStaticMemberClass" is not accessible
+recovery: ACCEPTED
+id: L-41
+import other_package.Foo.ProtectedStaticMemberClass;
+public class P extends other_package.Foo {
+    public P() { super(1); }
+}
+
+=== package-private class in another package
+janino: ACCEPTED
+compliant: REJECTED "other_package.PackagePrivateBase" is inaccessible from this package
+recovery: ACCEPTED
+id: L-52
+public class P {
+    other_package.PackagePrivateBase x;
+}
+
+=== array of a package-private class in another package
+janino: ACCEPTED
+compliant: REJECTED "other_package.PackagePrivateBase" is inaccessible from this package
+recovery: ACCEPTED
+id: L-52
+public class P {
+    Object o = new other_package.PackagePrivateBase[0];
+}
+
+=== class literal of a package-private class in another package
+janino: ACCEPTED
+compliant: REJECTED "other_package.PackagePrivateBase" is inaccessible from this package
+recovery: ACCEPTED
+id: L-52
+public class P {
+    Object o = other_package.PackagePrivateBase.class;
+}
+
+=== single-type import of a package-private class in another package, not used
+janino: ACCEPTED
+compliant: REJECTED "other_package.PackagePrivateBase" is inaccessible from this package
+recovery: ACCEPTED
+id: L-52
+import other_package.PackagePrivateBase;
+public class P {}
+
+=== static import of a member of a package-private class in another package
+janino: ACCEPTED
+compliant: REJECTED "other_package.PackagePrivateBase" is inaccessible from this package
+recovery: ACCEPTED
+id: L-52
+import static other_package.PackagePrivateBase.PUBLIC_CONSTANT;
+public class P {}
+
+=== static import on demand of a package-private class in another package
+janino: ACCEPTED
+compliant: REJECTED "other_package.PackagePrivateBase" is inaccessible from this package
+recovery: ACCEPTED
+id: L-52
+import static other_package.PackagePrivateBase.*;
+public class P {}
+
 === private member type of a class in another package, resolved at run time
 janino: INVALID LinkageError
+compliant: REJECTED Private member cannot be accessed from type "P".
 recovery: ACCEPTED
 id: L-41
 public class P {
@@ -353,9 +515,54 @@ public class P {}
 
 === static import of an inaccessible static member
 janino: ACCEPTED
+compliant: REJECTED "java.lang.Integer" has no accessible static member "digits"
 recovery: ACCEPTED
 id: L-44
 import static java.lang.Integer.digits;
+public class P {}
+
+=== static import of a protected static method of a class in another package
+janino: ACCEPTED
+compliant: REJECTED "java.lang.ClassLoader" has no accessible static member "registerAsParallelCapable"
+recovery: ACCEPTED
+id: L-44
+import static java.lang.ClassLoader.registerAsParallelCapable;
+public class P {}
+
+=== static import of a protected static method of a class in another package, in a subclass
+janino: ACCEPTED
+compliant: REJECTED "other_package.Foo" has no accessible static member "protectedStaticMethod"
+recovery: ACCEPTED
+id: L-44
+import static other_package.Foo.protectedStaticMethod;
+public class P extends other_package.Foo {
+    public P() { super(1); }
+}
+
+=== static import of an inherited protected static method of a class in another package
+janino: ACCEPTED
+compliant: REJECTED "other_package.PublicSubclass" has no accessible static member "protectedStaticMethod"
+recovery: ACCEPTED
+id: L-44
+import static other_package.PublicSubclass.protectedStaticMethod;
+public class P {}
+
+=== static import of a private member type
+janino: ACCEPTED
+compliant: REJECTED "java.util.ArrayList" has no accessible static member "Itr"
+recovery: ACCEPTED
+id: L-44
+import static java.util.ArrayList.Itr;
+public class P {}
+
+=== static import of a private static field of the same compilation unit
+janino: ACCEPTED
+compliant: REJECTED "p.A" has no accessible static member "X"
+recovery: ACCEPTED
+id: L-44
+package p;
+import static p.A.X;
+class A { private static int X = 1; }
 public class P {}
 
 === static import of an instance method, used
@@ -693,6 +900,8 @@ public class P {
 
 === member of a package-private class, accessed through a public member class of another package-private class
 janino: REJECTED "other_package.PackagePrivateBase" is inaccessible from this package
+compliant: REJECTED "other_package.PackagePrivateOuter" is inaccessible from this package
+id: L-52
 public class P {
     Object f() { return other_package.PackagePrivateOuter.PublicNested.publicStaticField; }
 }
