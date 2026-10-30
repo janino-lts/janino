@@ -32,6 +32,7 @@ below remain for that reason, or because they have not been fixed yet.
 | `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`) | [#73](https://github.com/janino-lts/janino/issues/73) |
 | `getName()` of a local class `L` declared in a class `P` (see below) | `"P$1L"` | `"P$L"` | |
 | `B.s("x")` with `static s(Object)` in a public class `B` and `static s(String)` in its package-private superclass `A`, from another package (see section 2) | invokes `A.s(String)` | invokes `B.s(Object)` | [#154](https://github.com/janino-lts/janino/issues/154) |
+| `J.f()` with `static String f()` in an interface `J` and in its superinterface `I` (also the simple name `f()` in the body of `J`) | invokes `J.f()` | invokes `I.f()` | [#200](https://github.com/janino-lts/janino/issues/200) |
 
 **The binary names of local classes** ([#143](https://github.com/janino-lts/janino/issues/143), fixed in 3.1.20):
 Janino names a local class `L` in a type `E` `E$L`, where `javac` inserts a number (`E$1L`, JLS 13.1). Since 3.1.20,
@@ -265,6 +266,26 @@ Since 3.1.21, such a clause is accepted, like by `javac`.
 method with the name as soon as they look the name up through a static import. By JLS 7.5.3 and 7.5.4, a static
 import imports only the static members; the instance members are simply not imported. Since 3.1.21, they are not
 imported, like with `javac`; a name that the static imports provide only as an instance member is still reported.
+
+**A static import of an inherited static member** ([#201](https://github.com/janino-lts/janino/issues/201)): a
+single static import `import static T.n;` and a static import on demand `import static T.*;` import the accessible
+static members of `T`, including the inherited ones (JLS 7.5.3, 7.5.4). Janino imports the inherited member types,
+but only the static fields and static methods that `T` declares itself, and therefore rejects, e.g.:
+
+- `short s = STREAM_MAGIC;` with `import static java.io.ObjectOutputStream.STREAM_MAGIC;` or
+  `import static java.io.ObjectOutputStream.*;` (the field is declared in the superinterface `ObjectStreamConstants`;
+  `Expression "STREAM_MAGIC" is not an rvalue`);
+- `getDefaultLocale()` with `import static javax.swing.JPanel.getDefaultLocale;` (declared in the superclass
+  `JComponent`; `A method named "getDefaultLocale" is not declared in any enclosing class nor any supertype, nor
+  through a static import`);
+- `m(1)` with `import static p.A.m;`, `static m(String)` in `A` and `static m(int)` in its superclass (`No applicable
+  constructor/method found`);
+- a `public` constant of a package-private class, imported through its public subclass
+  ([#154](https://github.com/janino-lts/janino/issues/154), see above).
+
+When another static import provides the same name, Janino uses that one instead: with `import static p.A.x;` and
+`import static p.B.*;`, where `A` inherits `x` and `B` declares `x`, the name `x` denotes `B.x`, where `javac` takes
+`A.x` (the single static import shadows the static import on demand, JLS 6.4.1); likewise for a static method.
 
 ## 3. Invalid code that Janino accepts
 
