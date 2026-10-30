@@ -4,7 +4,7 @@ ClassBodyEvaluator (whole-stage code generation, unsafe projections, orderings, 
 operation of the workload compiles all of them, like Spark does: each with a new ClassBodyEvaluator, Spark's
 default imports and Spark's GeneratedClass as the superclass, then loads the generated class and instantiates it.
 
-Origin: captured on 2026-10-07 with "tools/spark-corpus/capture.sh" (see there): Spark 4.2.0 in local mode runs
+Origin: captured with "tools/spark-corpus/capture.sh" (see there): Spark 4.2.0 in local mode runs
 the 103 TPC-DS query texts of its own test resources ("tpcds/q*.sql" in the "tests" JAR of spark-sql) against the
 24 TPC-DS tables, each a temporary view with 20 generated rows (CHAR and VARCHAR columns as STRING), adaptive query
 execution disabled, in two passes: with the default broadcast threshold (broadcast hash joins) and with broadcast

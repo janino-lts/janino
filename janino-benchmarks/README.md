@@ -136,9 +136,9 @@ The release notes of each version report its comparison with the previous versio
 
 ## The corpus
 
-The class bodies were captured on 2026-10-07 with [`tools/spark-corpus`](tools/spark-corpus): Spark 4.2.0 in local
-mode runs the 103 TPC-DS query texts of its own test resources against the 24 TPC-DS tables, each a temporary
-view with 20 generated rows, adaptive query execution disabled, in two passes (with and without broadcast joins),
+The class bodies were captured with [`tools/spark-corpus`](tools/spark-corpus): Spark 4.2.0 in local mode runs
+the 103 TPC-DS query texts of its own test resources against the 24 TPC-DS tables, each a temporary view with 20
+generated rows, adaptive query execution disabled, in two passes (with and without broadcast joins),
 and logs every class body that it compiles; the line number prefixes of Spark's `CodeFormatter` are removed, the
 indentation is the formatter's, duplicates are dropped. Of the 2,607 distinct class bodies (29.8 MB), the complete
 code of the twelve queries above is kept.
