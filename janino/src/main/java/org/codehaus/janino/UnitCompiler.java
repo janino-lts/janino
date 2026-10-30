@@ -12543,7 +12543,7 @@ class UnitCompiler {
 
             // Return a "dummy" method.
             final IClass[]       tes = (IClass[]) s.toArray(new IClass[s.size()]);
-            return im.getDeclaringIClass().new IMethod() {
+            IClass.IMethod       result = im.getDeclaringIClass().new IMethod() {
 
                 @Override public IAnnotation[] getAnnotations()                             { return im.getAnnotations();    }
                 @Override public Access        getAccess()                                  { return im.getAccess();         }
@@ -12556,6 +12556,13 @@ class UnitCompiler {
                 @Override public boolean       isVarargs()                                  { return im.isVarargs();         }
                 @Override public IClass[]      getThrownExceptions2()                       { return tes;                    }
             };
+
+            // The arguments of a variable arity invocation are expanded into an array like for "im", e.g. for the
+            // same variable arity method in two interfaces (issue #202).
+            boolean argsNeedAdjust = this.argsNeedAdjust(im);
+            result.setArgsNeedAdjust(argsNeedAdjust);
+            this.argsNeedAdjustByInvocable.put(result, argsNeedAdjust);
+            return result;
         }
 
         if (!boxingPermitted) return null; // To try again.

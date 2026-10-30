@@ -497,6 +497,60 @@ public class P {
     public static Object run() { J j = new X(); return j.a(1, 2, 3); }
 }
 
+=== varargs: the same method in two superinterfaces, invoked by variable arity (issue #202)
+jls: c2
+janino: OK
+interface I1 { String f(String... s); }
+interface I2 { String f(String... s); }
+interface K extends I1, I2 { }
+class C implements K { public String f(String... s) { return "c" + s.length; } }
+public class P {
+    public static Object run() { K k = new C(); return k.f("x", "y"); }
+}
+
+=== varargs: the same method in two superinterfaces, invoked without variable arity arguments (issue #202)
+jls: c0
+janino: OK
+interface I1 { String f(String... s); }
+interface I2 { String f(String... s); }
+interface K extends I1, I2 { }
+class C implements K { public String f(String... s) { return "c" + s.length; } }
+public class P {
+    public static Object run() { K k = new C(); return k.f(); }
+}
+
+=== varargs: the same method in two superinterfaces, invoked with an array
+jls: c3
+janino: OK
+interface I1 { String f(String... s); }
+interface I2 { String f(String... s); }
+interface K extends I1, I2 { }
+class C implements K { public String f(String... s) { return "c" + s.length; } }
+public class P {
+    public static Object run() { K k = new C(); return k.f(new String[] { "x", "y", "z" }); }
+}
+
+=== varargs: a method that a subinterface redeclares, invoked by variable arity (issue #202)
+jls: c2
+janino: OK
+interface I { String f(String... s); }
+interface J extends I { String f(String... s); }
+class C implements J { public String f(String... s) { return "c" + s.length; } }
+public class P {
+    public static Object run() { J j = new C(); return j.f("x", "y"); }
+}
+
+=== varargs: the same method in two interfaces of an abstract class, invoked by variable arity (issue #202)
+jls: c2
+janino: OK
+interface I1 { String f(String... s); }
+interface I2 { String f(String... s); }
+abstract class A implements I1, I2 { }
+class C extends A { public String f(String... s) { return "c" + s.length; } }
+public class P {
+    public static Object run() { A a = new C(); return a.f("x", "y"); }
+}
+
 === if: a condition of type Boolean with empty branches (if (b) {}, if (b);, if (b) {} else {})
 jls: 3
 janino: OK

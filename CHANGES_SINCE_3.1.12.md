@@ -142,7 +142,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   `p.B.s("x")` with `p.B.s(Object)` and `p.A.s(String)`, where `javac` selects `p.A.s(String)`. The class files of
   all other code are unchanged.
 
-**Arrays, expressions and literals** (3.1.17, 3.1.19, 3.1.20):
+**Arrays, expressions and literals** (3.1.17, 3.1.19, 3.1.20, 3.1.21):
 
 - `clone()` of an array had the type `Object` instead of the array type ([#58]).
 - A subscript on an expression that is not an array was an internal compiler error when the expression was a
@@ -179,6 +179,11 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   ambiguous, as before, and `m(1)` with `m(int, long...)`, `m(int...)` and `m(long...)` selects `m(int...)`
   ([#169]). Invocations that compiled before select the same method as before, also `g(1, 2)` with `g(int...)`
   and `g(Object...)`, which `javac` reports as ambiguous.
+- 3.1.21 (in development): An invocation by variable arity of a method that two interfaces declare was rejected,
+  e.g. `k.f("x", "y")` with `String f(String... s)` in `I1` and `I2` and `interface K extends I1, I2 { }`
+  (`Assignment conversion not possible from type "java.lang.String" to type "java.lang.String[]"`), and `k.f()`
+  was an internal compiler error ([#202]); likewise when a subinterface redeclares the method. Now the variable
+  arity arguments are collected into an array, like with `javac`. Only code that was rejected changes.
 
 **Imports** (3.1.20, 3.1.21):
 
@@ -346,3 +351,4 @@ affected.
 [#191]: https://github.com/janino-lts/janino/issues/191
 [#193]: https://github.com/janino-lts/janino/issues/193
 [#195]: https://github.com/janino-lts/janino/issues/195
+[#202]: https://github.com/janino-lts/janino/issues/202

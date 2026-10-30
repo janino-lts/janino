@@ -291,13 +291,15 @@ When another static import provides the same name, Janino uses that one instead:
 `import static p.B.*;`, where `A` inherits `x` and `B` declares `x`, the name `x` denotes `B.x`, where `javac` takes
 `A.x` (the single static import shadows the static import on demand, JLS 6.4.1); likewise for a static method.
 
-**A variable arity method that two interfaces declare** ([#202](https://github.com/janino-lts/janino/issues/202)):
-with `String f(String... s)` in two interfaces `I1` and `I2` and `interface K extends I1, I2 { }`, Janino rejects
-`k.f("x", "y")` (`Assignment conversion not possible from type "java.lang.String" to type "java.lang.String[]"`), and
-`k.f()` is an internal compiler error (`Operand stack underflow`); likewise when a subinterface redeclares the method
-of its superinterface, and for an abstract class that implements both interfaces. When it chooses one of several
-maximally specific methods with the same signature (JLS 15.12.2.5), Janino does not collect the variable arity
-arguments into an array. Only an array as the variable arity argument compiles. 3.1.12 behaves the same way.
+**A variable arity method that two interfaces declare**
+([#202](https://github.com/janino-lts/janino/issues/202), fixed in 3.1.21): with `String f(String... s)` in two
+interfaces `I1` and `I2` and `interface K extends I1, I2 { }`, Janino 3.1.20 and earlier reject `k.f("x", "y")`
+(`Assignment conversion not possible from type "java.lang.String" to type "java.lang.String[]"`), and `k.f()` is an
+internal compiler error (`Operand stack underflow`); likewise when a subinterface redeclares the method of its
+superinterface, and for an abstract class that implements both interfaces. When they choose one of several maximally
+specific methods with the same signature (JLS 15.12.2.5), they do not collect the variable arity arguments into an
+array (JLS 15.12.4.2). Since 3.1.21, they are collected, like with `javac`; an array as the variable arity argument
+is passed as the array, as before.
 
 ## 3. Invalid code that Janino accepts
 
