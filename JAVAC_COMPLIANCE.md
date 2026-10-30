@@ -443,6 +443,10 @@ L-52 stay open on purpose: Calcite, Drill and Fory generate code that names inac
 executes); D, 17 IDs, unchanged; G, 9 and F, 11 (outside the scope); A, 8. Of the 1413 recorded cases, the compliance
 mode agrees with `javac` on 1290 (the compatibility mode on 1049).
 
+The development line, after D-18 (#201, from 3.1.x, found with #198, not fixed yet): S and L unchanged; D, 18 IDs, 5
+fixed, 5 corrected in the compliance mode only, 8 open; G, 9 and F, 11 (outside the scope); A, 8. The recorded cases
+are unchanged.
+
 ## 8. Registered exceptions
 
 | ID | Change | Since | Compatibility mode per contract |

@@ -51,9 +51,11 @@ Every deviation belongs to one class, which determines what each mode does with 
 | **G** (sections 1 and 3) | any | any | erased types (outside the scope) | erased types (outside the scope) |
 | **A** (section 5) | loadable | any | as registered | like `javac` |
 
-Deviations of class V are corrected in both modes as soon as they are found, so the register holds none. Where
-the compliance mode already corrects a deviation, its entry says so; everywhere else, the compliance mode behaves
-like the compatibility mode (an open entry).
+Deviations of class V are corrected in both modes as soon as they are found, so the register holds none; one is not
+corrected yet: `J.f()` with `static String f()` in an interface `J` and in its superinterface `I` (also the simple
+name `f()` in the body of `J`) invokes `I.f()`, where `javac` invokes `J.f()`
+([#200](https://github.com/janino-lts/janino/issues/200)). Where the compliance mode already corrects a deviation, its
+entry says so; everywhere else, the compliance mode behaves like the compatibility mode (an open entry).
 
 ## 1. Valid code that behaves differently
 
@@ -379,6 +381,28 @@ members, and `javac` invokes the static `Double.isNaN(double)`. The same for the
 method (`abs(-1)` with `import static java.lang.Math.*;` and `import static java.math.BigInteger.*;`); 3.1.12 rejects
 it, too. Since 3.1.21, both modes import only the static members, like `javac`; a name that the static imports provide
 only as an instance member is still reported.
+
+**D-18, a static import of an inherited static member** ([#201](https://github.com/janino-lts/janino/issues/201),
+found with [#198](https://github.com/janino-lts/janino/issues/198)): a single static import `import static T.n;`
+and a static import on demand `import static T.*;` import the accessible static members of `T`, including the
+inherited ones (JLS 7.5.3, 7.5.4). Janino imports the inherited member types, but only the static fields and static
+methods that `T` declares itself, and therefore rejects, e.g.:
+
+- `short s = STREAM_MAGIC;` with `import static java.io.ObjectOutputStream.STREAM_MAGIC;` or
+  `import static java.io.ObjectOutputStream.*;` (the field is declared in the superinterface `ObjectStreamConstants`;
+  `Expression "STREAM_MAGIC" is not an rvalue`);
+- `getDefaultLocale()` with `import static javax.swing.JPanel.getDefaultLocale;` (declared in the superclass
+  `JComponent`; `A method named "getDefaultLocale" is not declared in any enclosing class nor any supertype, nor
+  through a static import`);
+- `m(1)` with `import static p.A.m;`, `static m(String)` in `A` and `static m(int)` in its superclass (`No applicable
+  constructor/method found`);
+- a `public` constant of a package-private class, imported through its public subclass
+  ([#154](https://github.com/janino-lts/janino/issues/154)).
+
+When another static import provides the same name, Janino uses that one instead: with `import static p.A.x;` and
+`import static p.B.*;`, where `A` inherits `x` and `B` declares `x`, the name `x` denotes `B.x`, where `javac` takes
+`A.x` (the single static import shadows the static import on demand, JLS 6.4.1); likewise for a static method. This
+form is of class V and is corrected with D-18. Both modes; 3.1.12 behaves the same way.
 
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions
