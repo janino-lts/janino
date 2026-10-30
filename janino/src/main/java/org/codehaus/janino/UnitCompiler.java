@@ -412,11 +412,8 @@ class UnitCompiler {
     private void
     compile2(CompilationUnit cu) throws CompileException {
 
-        // Compliance L-41, L-44, L-52: Like JAVAC, check the imports, even if they are not used.
-        if (this.compliant()) {
-            this.checkTypeImports(cu);
-            this.checkStaticImports(cu);
-        }
+        // Compliance L-44: Like JAVAC, check the static imports, even if they are not used.
+        if (this.compliant()) this.checkStaticImports(cu);
 
         for (PackageMemberTypeDeclaration pmtd : cu.packageMemberTypeDeclarations) {
             try {
@@ -437,35 +434,10 @@ class UnitCompiler {
     }
 
     /**
-     * Compliance L-41, L-52: Reports a compile error for each single-type-import declaration and each
-     * type-import-on-demand declaration that names a type that is not accessible (JLS8 7.5.1, 7.5.2), like JAVAC.
-     * (Otherwise, an import declaration is resolved only when a name is looked up through it, and the access to the
-     * type is not checked.) A type-import-on-demand declaration that names no type names a package, which is not
-     * checked (L-43).
-     */
-    private void
-    checkTypeImports(CompilationUnit cu) throws CompileException {
-
-        for (ImportDeclaration id : cu.importDeclarations) {
-            String[] identifiers = (
-                id instanceof SingleTypeImportDeclaration   ? ((SingleTypeImportDeclaration) id).identifiers   :
-                id instanceof TypeImportOnDemandDeclaration ? ((TypeImportOnDemandDeclaration) id).identifiers :
-                null
-            );
-            if (identifiers == null) continue;
-
-            IClass type = this.findTypeByFullyQualifiedName(id.getLocation(), identifiers);
-            if (type != null) this.checkTypeAndDeclaringTypesAccessible(type, cu, id.getLocation());
-        }
-    }
-
-    /**
-     * Compliance L-44: Reports a compile error for each static import declaration of a type that does not exist or is
-     * not accessible, and for each single static import declaration that names no accessible static member of the
-     * type or of its supertypes (JLS8 7.5.3, 7.5.4), like JAVAC. (Otherwise, a static import declaration is resolved
-     * only when a name is looked up through it.) Like in all import declarations, there is no enclosing class, so a
-     * member is accessible if it is public, or if it has package or protected access and the compilation unit is in
-     * the same package.
+     * Compliance L-44: Reports a compile error for each static import declaration of a type that does not exist, and
+     * for each single static import declaration that names no accessible static member of the type or of its
+     * supertypes (JLS8 7.5.3, 7.5.4), like JAVAC. (Otherwise, a static import declaration is resolved only when a name
+     * is looked up through it.) Whether the type itself is accessible is not checked (A-09).
      */
     private void
     checkStaticImports(CompilationUnit cu) throws CompileException {
@@ -485,8 +457,6 @@ class UnitCompiler {
                 );
                 continue;
             }
-
-            if (!this.checkTypeAndDeclaringTypesAccessible(type, cu, ssid.getLocation())) continue;
 
             boolean found = false, accessible = false;
             for (IClass memberType : type.findMemberType(memberName)) {
@@ -518,11 +488,8 @@ class UnitCompiler {
             cu.importDeclarations,
             StaticImportOnDemandDeclaration.class
         )) {
-            IClass type = this.findTypeByFullyQualifiedName(siodd.getLocation(), siodd.identifiers);
-            if (type == null) {
+            if (this.findTypeByFullyQualifiedName(siodd.getLocation(), siodd.identifiers) == null) {
                 this.compileError("Could not load \"" + Java.join(siodd.identifiers, ".") + "\"", siodd.getLocation());
-            } else {
-                this.checkTypeAndDeclaringTypesAccessible(type, cu, siodd.getLocation());
             }
         }
     }
@@ -8268,11 +8235,7 @@ class UnitCompiler {
             this.compileError("Cannot instantiate enum \"" + iType + "\"", nci.getLocation());
             return this.pushPlaceholder(nci, iType);
         }
-
-        // (In the compliance mode, "getType2(ReferenceType)" has already checked the access to the type, L-41.)
-        if (!this.compliant() || !(nci.type instanceof ReferenceType)) {
-            this.checkAccessible(rawType, nci.getEnclosingScope(), nci.getLocation());
-        }
+        this.checkAccessible(rawType, nci.getEnclosingScope(), nci.getLocation());
         if (rawType.isAbstract()) {
             this.compileError("Cannot instantiate abstract \"" + iType + "\"", nci.getLocation());
         }
@@ -9839,15 +9802,6 @@ class UnitCompiler {
             return this.iClassLoader.TYPE_java_lang_Object;
         }
 
-        // Compliance L-41, L-52: Like JAVAC, the type, and each type that declares it, must be accessible.
-        if (this.compliant()) {
-            this.checkTypeAndDeclaringTypesAccessible(
-                UnitCompiler.rawTypeOf(result),
-                rt.getEnclosingScope(),
-                rt.getLocation()
-            );
-        }
-
         return result;
     }
 
@@ -11261,75 +11215,10 @@ class UnitCompiler {
     }
 
     /**
-     * Compliance L-41, L-52: Reports a compile error iff the <var>type</var>, or a type that declares it, is not
-     * accessible in the <var>contextScope</var> (JLS8 6.6.1), like JAVAC: A top-level type of another package must be
-     * public, and a member type must be accessible like any other member of its declaring type. (Otherwise, the access
-     * to a type is checked only in a class instance creation expression and in an expression that names a static
-     * member.) In an EXTENDS or IMPLEMENTS clause, the context is the enclosing class; for a top-level class, there is
-     * none, and only the package counts, like in an import declaration.
-     *
-     * @return Whether the <var>type</var> and the types that declare it are accessible
-     */
-    private boolean
-    checkTypeAndDeclaringTypesAccessible(IClass type, Scope contextScope, Location location)
-    throws CompileException {
-
-        // Is there a class that declares the context?
-        boolean hasContextClass = false;
-        for (Scope s = contextScope; !(s instanceof CompilationUnit); s = s.getEnclosingScope()) {
-            if (s instanceof TypeDeclaration) {
-                hasContextClass = true;
-                break;
-            }
-        }
-
-        // Report the outermost type that is not accessible.
-        String message = null;
-        for (IClass t = type; t != null; t = t.getDeclaringIClass()) {
-            String m = (
-                hasContextClass
-                ? this.internalCheckAccessible(t, contextScope)
-                : this.internalCheckAccessibleFromCompilationUnit(t)
-            );
-            if (m != null) message = m;
-        }
-        if (message == null) return true;
-
-        // A qualified name may be classified more than once; report the error only once.
-        if (this.reportedTypeAccessErrors.add(location + ": " + message)) this.compileError(message, location);
-        return false;
-    }
-
-    /**
-     * The errors that {@link #checkTypeAndDeclaringTypesAccessible(IClass, Scope, Location)} has reported, with their
-     * locations.
-     */
-    private final Set<String> reportedTypeAccessErrors = new HashSet<>();
-
-    /**
-     * Checks whether the <var>type</var> is accessible in the compilation unit outside of its type declarations, see
-     * {@link #isAccessibleFromCompilationUnit(IClass, Access)}. The types that declare the <var>type</var> are not
-     * checked.
-     *
-     * @return An error message, or {@code null}
-     */
-    @Nullable private String
-    internalCheckAccessibleFromCompilationUnit(IClass type) throws CompileException {
-
-        if (this.isAccessibleFromCompilationUnit(type, type.getAccess())) return null;
-
-        return (
-            type.getDeclaringIClass() == null
-            ? "\"" + type + "\" is inaccessible from this package"
-            : "Member type \"" + type + "\" is not accessible"
-        );
-    }
-
-    /**
-     * Determines whether a top-level type of the package of the <var>type</var>, or a member of the <var>type</var>,
-     * with the given <var>access</var> is accessible in the compilation unit outside of its type declarations, e.g. in
-     * an import declaration (JLS8 7.5): There is no enclosing class, so only the package counts; a private member is
-     * never accessible, a type or a member with package or protected access only in the same package.
+     * Compliance L-44: Determines whether a member of the <var>type</var> with the given <var>access</var> is
+     * accessible in the compilation unit outside of its type declarations, i.e. in an import declaration (JLS8 7.5):
+     * There is no enclosing class, so only the package counts; a private member is never accessible, a member with
+     * package or protected access only in the same package.
      */
     private boolean
     isAccessibleFromCompilationUnit(IClass type, Access access) throws CompileException {
@@ -12467,12 +12356,7 @@ class UnitCompiler {
         if (lhs instanceof Package) {
             String className = ((Package) lhs).name + '.' + rhs;
             IClass result    = this.findTypeByName(location, className);
-            if (result != null) {
-
-                // Compliance L-41, L-52: Like JAVAC, the type must be accessible.
-                if (this.compliant()) this.checkTypeAndDeclaringTypesAccessible(result, scope, location);
-                return new SimpleType(location, result);
-            }
+            if (result != null) return new SimpleType(location, result);
 
             return new Package(location, className);
         }
@@ -12516,8 +12400,6 @@ class UnitCompiler {
 
                 // 6.5.2.2.2.3 TYPE.TYPE
                 // 6.5.2.2.3.3 EXPRESSION.TYPE
-                // Compliance L-41: Like JAVAC, the member type must be accessible.
-                if (this.compliant()) this.checkTypeAndDeclaringTypesAccessible(memberType, scope, location);
                 return new SimpleType(location, memberType);
             }
         }

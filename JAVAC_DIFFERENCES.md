@@ -506,7 +506,7 @@ accepting all of it; the compliance mode rejects it once the respective check is
 L-27 to L-29 and L-35 to L-37 ([#177](https://github.com/janino-lts/janino/issues/177)), L-30 to L-33 and L-51
 ([#182](https://github.com/janino-lts/janino/issues/182)), L-14 and L-34
 ([#188](https://github.com/janino-lts/janino/issues/188)), L-08, L-10 to L-13 and L-44
-([#190](https://github.com/janino-lts/janino/issues/190)), L-09, L-16, L-17, L-41 and L-52
+([#190](https://github.com/janino-lts/janino/issues/190)), L-09, L-16, L-17 and L-53
 ([#198](https://github.com/janino-lts/janino/issues/198)), L-45 and L-46, see S-11, L-47, see S-04, L-48, see S-12,
 L-49, see S-02, and L-50, see S-14; all other entries of this section are open). One
 exception, registered as A-05 (section 5): the access to a `protected` member of a class in another package through an
@@ -587,6 +587,10 @@ and assigns a parameterized type to a field with a different type argument
 - L-22: in a script (`IScriptEvaluator`) only ([#72](https://github.com/janino-lts/janino/issues/72)): any modifier on a
   local variable declaration (`static int x = 1;`, `public int x;`, `abstract int x;`); the modifiers are ignored.
   In a method body, only `final` and annotations are accepted, like by `javac`.
+- L-53: an abstract interface method with the signature of a `public` method of `Object` that overrides a `final`
+  method (`void notify();`, `Class<?> getClass();`, for which the JVM rejects the interface), or has an incompatible
+  return type (`int toString();`, `Object toString();`) (the compliance mode rejects it,
+  [#198](https://github.com/janino-lts/janino/issues/198), development line).
 
 **Annotations:**
 
@@ -665,11 +669,13 @@ and assigns a parameterized type to a field with a different type argument
 - L-41: `private` member type of another top-level class, also of a JDK class: `java.util.ArrayList.Itr x;`; for a class
   in another package, the JVM throws an `IllegalAccessError` when it resolves the reference, e.g. for
   `java.util.ArrayList.Itr.class` ([#33](https://github.com/janino-lts/janino/issues/33)); likewise a member type with
-  package or `protected` access of a class in another package, also in an import declaration (the compliance mode
-  rejects it, [#198](https://github.com/janino-lts/janino/issues/198), development line, except in a type argument,
-  which Janino does not resolve (G-08), and for a member type of a class that Janino loads from a class file, e.g. with
-  the `Compiler` and a class path: the `private` or `protected` access of a member type is only in the `InnerClasses`
-  attribute, which Janino does not read);
+  package or `protected` access of a class in another package, also in an import declaration. The compliance mode
+  keeps accepting it, on purpose: code generators depend on it. Calcite (also in Drill) names a `private` member type
+  of a class in another package as the type of a field and a constructor parameter of its generated metadata
+  handlers, and Fory names `private` member types of the classes that it serializes; the JVM executes that code,
+  because it does not check the access to the types in field and method descriptors
+  ([#198](https://github.com/janino-lts/janino/issues/198), development line: rejecting it failed most tests of
+  Calcite and Drill);
 - L-42: the binary name of a nested class (with `$`) in source position: `java.util.Map$Entry e;`,
   `new java.util.AbstractMap$SimpleEntry<String, String>("a", "b")`;
 - L-43: on-demand import of a package that does not exist: `import foo.*;` (open: Janino loads classes through a class
@@ -712,8 +718,8 @@ and assigns a parameterized type to a field with a different type argument
   [#140](https://github.com/janino-lts/janino/issues/140));
 - L-52: a package-private top-level class or interface of another package in a type, an import declaration or a static
   import declaration: `other_package.PackagePrivateBase x;`, `import other_package.PackagePrivateBase;`; Janino rejects
-  it only in an expression that names a member of it (the compliance mode rejects it,
-  [#198](https://github.com/janino-lts/janino/issues/198), development line, except in a type argument, like L-41).
+  it only in an expression that names a member of it (the compliance mode keeps accepting it, like L-41,
+  [#198](https://github.com/janino-lts/janino/issues/198), development line).
 
 **Generics, class G** (type arguments are not checked; outside the scope of both modes):
 

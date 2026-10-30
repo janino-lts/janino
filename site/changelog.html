@@ -320,11 +320,11 @@ h5 {
         overrides a static method, are rejected, like with JAVAC (deviation L-09), and so are a
         <code>static default</code> interface method and an interface field without an initializer (L-16), a default
         method with the signature of a public method of <code>Object</code> (<code>default boolean equals(Object
-        o)</code>, L-17), a type that is not accessible, i.e. a <code>private</code> member type of another top-level
-        class (<code>java.util.ArrayList.Itr x;</code>), a member type with package or <code>protected</code> access
-        of a class in another package (L-41) and a package-private class of another package (L-52), also in import
-        declarations, and a static import of a member that is not accessible
-        (<code>import static java.lang.Integer.digits;</code>, L-44). The compatibility mode is unchanged.
+        o)</code>, L-17), an abstract interface method with such a signature that overrides a <code>final</code>
+        method or has an incompatible return type (<code>int toString();</code>, L-53), and a static import of a
+        member that is not accessible (<code>import static java.lang.Integer.digits;</code>, L-44). The access to a
+        type that is named stays unchecked (L-41, L-52), because code generators depend on it. The compatibility
+        mode is unchanged.
       </li>
       <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/107">issue #107</a>: The class and interface

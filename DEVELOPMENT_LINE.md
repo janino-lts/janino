@@ -40,7 +40,7 @@ changes in behavior and what stays the same; the class file comparison of the
 | [#185](https://github.com/janino-lts/janino/issues/185) | The compliance mode: `a \|\| false` and `a && true` compile into the same code as in the compatibility mode (S-01) | unchanged | unchanged |
 | [#188](https://github.com/janino-lts/janino/issues/188) | The compliance mode: redeclared variables and all-uppercase exception names like `javac` (L-14, L-34) | unchanged | only with the option |
 | [#190](https://github.com/janino-lts/janino/issues/190) | The compliance mode: overriding methods, `throws` clauses, fields with the same name and static imports like `javac` (L-08, L-10 to L-13, L-44) | unchanged | only with the option |
-| [#198](https://github.com/janino-lts/janino/issues/198) | The compliance mode: static methods that hide or are overridden, interface modifiers and fields, default methods of `Object`, and the access to types and to statically imported members like `javac` (L-09, L-16, L-17, L-41, L-44, L-52) | unchanged | only with the option |
+| [#198](https://github.com/janino-lts/janino/issues/198) | The compliance mode: static methods that hide or are overridden, interface modifiers and fields, interface methods with the signature of a method of `Object`, and static imports of inaccessible members like `javac` (L-09, L-16, L-17, L-44, L-53) | unchanged | only with the option |
 | [#107](https://github.com/janino-lts/janino/issues/107) | `<clinit>` with the access flags of `javac` (`ACC_STATIC`) | changed | unchanged |
 | [#108](https://github.com/janino-lts/janino/issues/108) | The compile error message for an instance member in a static initializer names the context | unchanged | message texts |
 
@@ -367,21 +367,19 @@ single static import must name a static member of the type or of a supertype (`i
 L-44). The on-demand import of a package that does not exist (`import foo.*;`, L-43) stays accepted: Janino loads
 classes through a class loader, which cannot tell whether a package exists.
 
-With #198, the compliance mode rejects more invalid declarations and accesses, like `javac`. A static method must not
-hide an instance method, also of an interface or of `Object` (`public static void run() {}` in a class that
-implements `Runnable`), an instance method must not override a static method, and a static method must not hide a
-`final` method (L-09). An interface method must not be both `static` and `default`, and an interface field needs an
-initializer (`interface I { int X; }`, L-16). A default method must not have the signature of a `public` method of
-`Object` (`default boolean equals(Object o)`, L-17); `default Object clone()` and `default void finalize()` stay
-valid, like with `javac`. Every type that is named must be accessible, together with the types that declare it: a
-`private` member type of another top-level class (`java.util.ArrayList.Itr x;`), a member type with package or
-`protected` access of a class in another package (L-41), and a package-private class of another package
-(`other_package.PackagePrivateBase x;`, L-52, new in the register) are rejected in declarations, casts, `instanceof`,
-class literals, `new` expressions, `extends` and `implements` clauses, and in import declarations, even if they are not
-used. A single static import must name a static member that is accessible from the package of the compilation unit
-(`import static java.lang.Integer.digits;`, the rest of L-44). Not checked: type arguments, which Janino does not
-resolve (G-08), and the `private` or `protected` access of a member type of a class that Janino loads from a class
-file, which is only in the `InnerClasses` attribute.
+With #198, the compliance mode rejects more invalid declarations, like `javac`. A static method must not hide an
+instance method, also of an interface or of `Object` (`public static void run() {}` in a class that implements
+`Runnable`), an instance method must not override a static method, and a static method must not hide a `final` method
+(L-09). An interface method must not be both `static` and `default`, and an interface field needs an initializer
+(`interface I { int X; }`, L-16). A default method must not have the signature of a `public` method of `Object`
+(`default boolean equals(Object o)`, L-17), and an abstract interface method with such a signature must not override
+a `final` method (`void notify();`) and must have a compatible return type (`int toString();` is rejected, L-53, new
+in the register); `default Object clone()` and `default void finalize()` stay valid, like with `javac`. A single
+static import must name a static member that is accessible from the package of the compilation unit
+(`import static java.lang.Integer.digits;`, the rest of L-44). The access to a type that is named stays unchecked,
+also in the compliance mode: a `private` member type of another class (L-41) and a package-private class of another
+package (L-52, new in the register) are accepted, because code generators depend on it (Calcite, also in Drill, and
+Fory), and the JVM executes such code.
 
 **Class files.** Unchanged in the compatibility mode. In the compliance mode, `a || false` and `a && true` compile
 into the same code as in the compatibility mode since #185; before, the correction of S-01 also applied to them, and the
