@@ -10082,6 +10082,7 @@ class UnitCompiler {
     importStaticOnDemand(String simpleName) throws CompileException {
 
         List<Object> result = new ArrayList<>();
+        boolean      found  = false;
         for (StaticImportOnDemandDeclaration siodd : Iterables.filterByClass(
             this.abstractCompilationUnit.importDeclarations,
             StaticImportOnDemandDeclaration.class
@@ -10093,7 +10094,20 @@ class UnitCompiler {
                 continue;
             }
 
-            this.importStatic(iClass, simpleName, result, siodd.getLocation());
+            if (UnitCompiler.importStatic(iClass, simpleName, result)) found = true;
+        }
+        if (found) return result;
+
+        // None of the declarations imports a member with that name; report its instance members, if any.
+        for (StaticImportOnDemandDeclaration siodd : Iterables.filterByClass(
+            this.abstractCompilationUnit.importDeclarations,
+            StaticImportOnDemandDeclaration.class
+        )) {
+
+            IClass iClass = this.findTypeByFullyQualifiedName(siodd.getLocation(), siodd.identifiers);
+            if (iClass == null) continue;
+
+            this.importInstanceMembers(iClass, simpleName, result, siodd.getLocation());
         }
 
         return result;
@@ -12729,8 +12743,8 @@ class UnitCompiler {
                     ssid.getLocation(),
                     Java.join(UnitCompiler.allButLast(ssid.identifiers), ".")
                 );
-                if (declaringIClass != null) {
-                    this.importStatic(declaringIClass, simpleName, result, ssid.getLocation());
+                if (declaringIClass != null && !UnitCompiler.importStatic(declaringIClass, simpleName, result)) {
+                    this.importInstanceMembers(declaringIClass, simpleName, result, ssid.getLocation());
                 }
             }
         }
@@ -12742,46 +12756,83 @@ class UnitCompiler {
      * Finds all members (member classes, member interfaces, static fields and/or static methods) of the
      * <var>declaringIClass</var> with the given <var>simpleName</var> and adds them to the <var>result</var>. A member
      * that is already in the <var>result</var>, because the compilation unit imports it twice (JLS8 7.5.3, 7.5.4), is
-     * not added again.
+     * not added again. Instance fields and instance methods are not imported (JLS8 7.5.3, 7.5.4).
      *
      * @param declaringIClass The class or interface that declares the members
      * @param result          Results ({@link IClass}es, {@link IField}s and/or {@link IMethod}s) are added to this
      *                        collection
+     * @return                Whether the <var>declaringIClass</var> declares at least one member type, static field
+     *                        or static method with the <var>simpleName</var>, even if it is already in the
+     *                        <var>result</var>
      */
-    private void
-    importStatic(IClass declaringIClass, String simpleName, Collection<Object> result, Location location)
-    throws CompileException {
+    private static boolean
+    importStatic(IClass declaringIClass, String simpleName, Collection<Object> result) throws CompileException {
+
+        boolean found = false;
 
         // Member type?
         for (IClass memberIClass : declaringIClass.findMemberType(simpleName)) {
-            if (memberIClass.getDeclaringIClass() == declaringIClass && !result.contains(memberIClass)) {
-                result.add(memberIClass);
+            if (memberIClass.getDeclaringIClass() == declaringIClass) {
+                found = true;
+                if (!result.contains(memberIClass)) result.add(memberIClass);
             }
         }
 
         // Static field?
         {
             IField iField = declaringIClass.getDeclaredIField(simpleName);
-            if (iField != null) {
-                if (!iField.isStatic()) {
-                    this.compileError(
-                        "Field \"" + simpleName + "\" of \"" + declaringIClass + "\" must be static",
-                        location
-                    );
-                }
+            if (iField != null && iField.isStatic()) {
+                found = true;
                 if (!result.contains(iField)) result.add(iField);
             }
         }
 
         // Static method?
         for (IMethod iMethod : declaringIClass.getDeclaredIMethods(simpleName)) {
+            if (iMethod.isStatic()) {
+                found = true;
+                if (!result.contains(iMethod)) result.add(iMethod);
+            }
+        }
+
+        return found;
+    }
+
+    /**
+     * Reports an error for the instance field and for each instance method of the <var>declaringIClass</var> with the
+     * given <var>simpleName</var>, and adds them to the <var>result</var>. Is only invoked when a single static import
+     * declaration, or none of the static-import-on-demand declarations, imports a member with that
+     * <var>simpleName</var>.
+     *
+     * @param declaringIClass The class or interface that declares the members
+     * @param result          The instance fields and instance methods are added to this collection
+     * @param location        The location of the static import declaration
+     */
+    private void
+    importInstanceMembers(IClass declaringIClass, String simpleName, Collection<Object> result, Location location)
+    throws CompileException {
+
+        // Instance field?
+        {
+            IField iField = declaringIClass.getDeclaredIField(simpleName);
+            if (iField != null && !iField.isStatic()) {
+                this.compileError(
+                    "Field \"" + simpleName + "\" of \"" + declaringIClass + "\" must be static",
+                    location
+                );
+                if (!result.contains(iField)) result.add(iField);
+            }
+        }
+
+        // Instance method?
+        for (IMethod iMethod : declaringIClass.getDeclaredIMethods(simpleName)) {
             if (!iMethod.isStatic()) {
                 this.compileError(
                     "method \"" + iMethod + "\" of \"" + declaringIClass + "\" must be static",
                     location
                 );
+                if (!result.contains(iMethod)) result.add(iMethod);
             }
-            if (!result.contains(iMethod)) result.add(iMethod);
         }
     }
 

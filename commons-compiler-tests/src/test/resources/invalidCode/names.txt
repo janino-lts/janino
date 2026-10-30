@@ -358,6 +358,20 @@ id: L-44
 import static java.lang.Integer.digits;
 public class P {}
 
+=== static import of an instance method, used
+janino: REJECTED method "public int java.lang.String.length()" of "java.lang.String" must be static
+import static java.lang.String.length;
+public class P {
+    int f() { return length(); }
+}
+
+=== static import on demand of an instance method, used
+janino: REJECTED method "public int java.lang.String.length()" of "java.lang.String" must be static
+import static java.lang.String.*;
+public class P {
+    int f() { return length(); }
+}
+
 === protected method invoked on an instance of an unrelated type
 janino: REJECTED Protected member cannot be accessed through an expression of type "java.lang.Object"
 legacy: INVALID LinkageError

@@ -58,7 +58,7 @@ java -cp janino-benchmarks/target/benchmarks.jar org.codehaus.janino.benchmarks.
 
 Without a workload name, all workloads run. One operation of `SPARK_TPCDS` takes about one second with the JIT
 compiler and 25 seconds with `-Xint`, hence the longer rounds. To compare with another baseline, build with
-`-Djanino.baseline.version=3.1.16 -Djanino.baseline.groupId=io.github.janino-lts` (versions up to 3.1.14 have the
+`-Djanino.baseline.version=3.1.20 -Djanino.baseline.groupId=io.github.janino-lts` (versions up to 3.1.14 have the
 group ID `org.codehaus.janino`). JDK 24 and later warn about `sun.misc.Unsafe` when a class of Spark is loaded;
 `--sun-misc-unsafe-memory-access=allow` silences that.
 
@@ -75,7 +75,7 @@ mvn -f janino-benchmarks/pom.xml test
 
 ## Results: Janino 3.1.12 and 3.1.17 on the Spark corpus
 
-Measured on 2026-10-07 on a laptop with JDK 25.0.2; 3.1.17 contains all changes from 3.1.13 on. A is Janino
+Measured on a laptop with JDK 25.0.2; 3.1.17 contains all changes from 3.1.13 on. A is Janino
 3.1.12, B is 3.1.17 (in the A/A control, A is 3.1.17, too); the times and the allocation are per operation, i.e.
 per compilation of the whole corpus.
 
@@ -95,9 +95,9 @@ per compilation of the whole corpus.
 
 ## Results: Janino 3.1.16 and 3.1.17 on all workloads
 
-Measured on 2026-10-07 on the same laptop with JDK 25.0.2; A is Janino 3.1.16, B is 3.1.17. B/A is the
-median ratio of the compile times (p10 and p90 in brackets, rounded), "A/A" the same for the control run of B against
-itself, "alloc" the ratio of the memory that one operation allocates.
+Measured on the same laptop with JDK 25.0.2; A is Janino 3.1.16, B is 3.1.17. B/A is the median ratio of the
+compile times (p10 and p90 in brackets, rounded), "A/A" the same for the control run of B against itself, "alloc"
+the ratio of the memory that one operation allocates.
 
 | Workload | JIT B/A | JIT A/A | JIT alloc | `-Xint` B/A | `-Xint` A/A | `-Xint` alloc |
 |---|---|---|---:|---|---|---:|
@@ -112,6 +112,35 @@ itself, "alloc" the ratio of the memory that one operation allocates.
   whose `-Xint` run shows the same work (1.008, allocation 1.001).
 - The allocation, which is deterministic with `-Xint`, changes by less than 1 %: 0.1 to 0.9 % more on the
   synthetic workloads, 0.3 % more on Janino's own sources, 0.8 % less on the code that Spark generates.
+- The class files are byte-identical for all workloads (`CodeSizeReport`).
+
+## Results: Janino 3.1.20 and 3.1.21 on all workloads
+
+3.1.21 shares the class model of the classes that it loads through reflection between the compilations, caches
+the method lookup ([#193](https://github.com/janino-lts/janino/issues/193)), and has a faster scanner, caches the
+name resolution and skips the trial compilation of literals ([#195](https://github.com/janino-lts/janino/issues/195)).
+Measured on the same laptop; A is Janino 3.1.20, B is 3.1.21, the columns as above. JDK 25.0.2 with the JIT
+compiler: 10 warm-up and 20 measured rounds of 3 s; with `-Xint`: 2 warm-up and 8 measured rounds of 5 s (25 s for
+`SPARK_TPCDS`); JDK 17.0.8 with the JIT compiler, for two workloads: 6 warm-up and 12 measured rounds of 3 s.
+
+| Workload | JIT B/A | JIT alloc | `-Xint` B/A | `-Xint` alloc | JDK 17 B/A | JDK 17 alloc |
+|---|---|---:|---|---:|---|---:|
+| TINY | 0.671 (0.64..0.70) | 0.238 | 0.574 (0.56..0.58) | 0.272 | | |
+| GENERATED | 0.722 (0.65..0.98) | 0.729 | 0.735 (0.66..0.77) | 0.723 | 0.754 (0.71..0.78) | 0.720 |
+| CONTROL_FLOW | 0.840 (0.77..1.02) | 0.830 | 0.828 (0.62..0.86) | 0.825 | | |
+| SELF_COMPILE | 0.910 (0.76..1.13) | 0.868 | 0.866 (0.82..0.87) | 0.868 | | |
+| SPARK_TPCDS | 0.708 (0.66..0.77) | 0.579 | 0.671 (0.63..0.67) | 0.591 | 0.676 (0.64..0.74) | 0.586 |
+
+- On the code that Spark generates, 3.1.21 needs about 30 % less time and allocates about 41 % less memory per
+  operation: with the JIT compiler 0.83 s instead of 1.16 s and 433 MB instead of 748 MB, with `-Xint` 19.9 s
+  instead of 30.2 s and 508 MB instead of 860 MB. JDK 17 shows the same.
+- The A/A control with the JIT compiler gives 0.937 (0.89..1.07) for `SPARK_TPCDS` and 0.927 (0.86..0.95) for
+  `GENERATED`, with an allocation of 1.006 and 1.007; so the time ratios with the JIT compiler may overstate the
+  gain by up to about 6 percentage points. The `-Xint` ratios and the allocation do not have this bias and show
+  the same gains.
+- `TINY`, the fixed costs of a compiler instance, gains the most: one operation allocates 24 KB instead of 100 KB,
+  because the class model of the JDK classes that the expression needs is no longer built anew for each compiler
+  instance.
 - The class files are byte-identical for all workloads (`CodeSizeReport`).
 
 The release notes of each version report its comparison with the previous version, on all workloads.

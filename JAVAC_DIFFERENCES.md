@@ -486,6 +486,15 @@ clause that catches a thrown exception as reachable. By JLS 14.21, the second cl
 assignable to its type, and no preceding clause catches `IOException` or a superclass of it; `javac` only warns.
 Since 3.1.21, such a clause is accepted, like by `javac`.
 
+**A static import of a name with static and instance methods**
+([#191](https://github.com/janino-lts/janino/issues/191), fixed in 3.1.21): Janino 3.1.20 and earlier reject
+`isNaN(d)` with `import static java.lang.Double.*;` or `import static java.lang.Double.isNaN;`
+(`method "public boolean java.lang.Double.isNaN()" of "java.lang.Double" must be static`), and `abs(-1)` with
+`import static java.lang.Math.*;` and `import static java.math.BigInteger.*;`, because they report every instance
+method with the name as soon as they look the name up through a static import. By JLS 7.5.3 and 7.5.4, a static
+import imports only the static members; the instance members are simply not imported. Since 3.1.21, they are not
+imported, like with `javac`; a name that the static imports provide only as an instance member is still reported.
+
 ## 3. Invalid code that Janino accepts
 
 Class L: `javac` rejects the following code, Janino compiles it, and the JVM loads the generated classes. Most of it
