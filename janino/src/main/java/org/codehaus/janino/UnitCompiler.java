@@ -413,7 +413,7 @@ class UnitCompiler {
     compile2(CompilationUnit cu) throws CompileException {
 
         // Compliance L-44: Like JAVAC, check the static imports, even if they are not used.
-        if (this.compliant()) this.checkStaticImports();
+        if (this.compliant()) this.checkStaticImports(cu);
 
         for (PackageMemberTypeDeclaration pmtd : cu.packageMemberTypeDeclarations) {
             try {
@@ -435,15 +435,15 @@ class UnitCompiler {
 
     /**
      * Compliance L-44: Reports a compile error for each static import declaration of a type that does not exist, and
-     * for each single static import declaration that names no static member of the type or of its supertypes (JLS8
-     * 7.5.3, 7.5.4), like JAVAC. (Otherwise, a static import declaration is resolved only when a name is looked up
-     * through it.) Whether the member is accessible is not checked.
+     * for each single static import declaration that names no accessible static member of the type or of its
+     * supertypes (JLS8 7.5.3, 7.5.4), like JAVAC. (Otherwise, a static import declaration is resolved only when a name
+     * is looked up through it.) Whether the type itself is accessible is not checked (A-09).
      */
     private void
-    checkStaticImports() throws CompileException {
+    checkStaticImports(CompilationUnit cu) throws CompileException {
 
         for (SingleStaticImportDeclaration ssid : Iterables.filterByClass(
-            this.abstractCompilationUnit.importDeclarations,
+            cu.importDeclarations,
             SingleStaticImportDeclaration.class
         )) {
             String[] typeName   = UnitCompiler.allButLast(ssid.identifiers);
@@ -455,20 +455,37 @@ class UnitCompiler {
                     "A class \"" + Java.join(typeName, ".") + "\" could not be found",
                     ssid.getLocation()
                 );
-            } else
-            if (
-                type.findMemberType(memberName).length == 0
-                && !UnitCompiler.hasStaticFieldOrMethod(type, memberName, new HashSet<IClass>())
-            ) {
+                continue;
+            }
+
+            boolean found = false, accessible = false;
+            for (IClass memberType : type.findMemberType(memberName)) {
+                found = true;
+                if (this.isAccessibleFromCompilationUnit(memberType, memberType.getAccess())) accessible = true;
+            }
+            List<IClass.IMember> staticMembers = new ArrayList<>();
+            UnitCompiler.findStaticFieldsAndMethods(type, memberName, new HashSet<IClass>(), staticMembers);
+            for (IClass.IMember m : staticMembers) {
+                found = true;
+                if (this.isAccessibleFromCompilationUnit(m.getDeclaringIClass(), m.getAccess())) accessible = true;
+            }
+
+            if (!found) {
                 this.compileError(
                     "\"" + type + "\" has no static member \"" + memberName + "\"",
+                    ssid.getLocation()
+                );
+            } else
+            if (!accessible) {
+                this.compileError(
+                    "\"" + type + "\" has no accessible static member \"" + memberName + "\"",
                     ssid.getLocation()
                 );
             }
         }
 
         for (StaticImportOnDemandDeclaration siodd : Iterables.filterByClass(
-            this.abstractCompilationUnit.importDeclarations,
+            cu.importDeclarations,
             StaticImportOnDemandDeclaration.class
         )) {
             if (this.findTypeByFullyQualifiedName(siodd.getLocation(), siodd.identifiers) == null) {
@@ -478,30 +495,28 @@ class UnitCompiler {
     }
 
     /**
+     * Adds the static fields and the static methods with the given <var>name</var> that the <var>type</var> and its
+     * supertypes declare to the <var>result</var>.
+     *
      * @param seen The types that were already searched
-     * @return     Whether the <var>type</var> or one of its supertypes declares a static field or a static method
-     *             with the given <var>name</var>
      */
-    private static boolean
-    hasStaticFieldOrMethod(IClass type, String name, Set<IClass> seen) throws CompileException {
+    private static void
+    findStaticFieldsAndMethods(IClass type, String name, Set<IClass> seen, List<IClass.IMember> result)
+    throws CompileException {
 
-        if (!seen.add(type)) return false;
+        if (!seen.add(type)) return;
 
         IField iField = type.getDeclaredIField(name);
-        if (iField != null && iField.isStatic()) return true;
+        if (iField != null && iField.isStatic()) result.add(iField);
 
         for (IMethod iMethod : type.getDeclaredIMethods(name)) {
-            if (iMethod.isStatic()) return true;
+            if (iMethod.isStatic()) result.add(iMethod);
         }
 
         IClass superclass = type.getSuperclass();
-        if (superclass != null && UnitCompiler.hasStaticFieldOrMethod(superclass, name, seen)) return true;
+        if (superclass != null) UnitCompiler.findStaticFieldsAndMethods(superclass, name, seen, result);
 
-        for (IClass i : type.getInterfaces()) {
-            if (UnitCompiler.hasStaticFieldOrMethod(i, name, seen)) return true;
-        }
-
-        return false;
+        for (IClass i : type.getInterfaces()) UnitCompiler.findStaticFieldsAndMethods(i, name, seen, result);
     }
 
     private void
@@ -974,7 +989,8 @@ class UnitCompiler {
             }
         }
 
-        // Compliance L-08, L-11: Like JAVAC, check the access and the THROWS clauses of overriding methods.
+        // Compliance L-08, L-09, L-11: Like JAVAC, check the access, the THROWS clauses and the STATIC modifiers of
+        // overriding and hiding methods.
         if (this.compliant()) this.checkOverrides(cd);
 
         // Compile declared methods.
@@ -1493,8 +1509,13 @@ class UnitCompiler {
             this.maybeCreateInitMethod(id, cf, statements);
         }
 
-        // Compliance L-08, L-11: Like JAVAC, check the access and the THROWS clauses of overriding methods.
+        // Compliance L-08, L-09, L-11: Like JAVAC, check the access, the THROWS clauses and the STATIC modifiers of
+        // overriding and hiding methods.
         if (this.compliant()) this.checkOverrides(id);
+
+        // Compliance L-09, L-16, L-17, L-53: Like JAVAC, check the fields, and the methods against the methods of
+        // "Object".
+        if (this.compliant()) this.checkInterfaceMembers(id);
 
         this.compileDeclaredMethods(id, cf);
 
@@ -2189,9 +2210,11 @@ class UnitCompiler {
     }
 
     /**
-     * Compliance L-08, L-11: Reports a compile error for each method of the <var>td</var> that overrides or hides a
-     * method with stronger access, or that throws a checked exception that such a method does not throw (JLS8
-     * 8.4.8.3), like JAVAC. Methods with a "$" in their names, e.g. the synthetic "access$000()", are not checked.
+     * Compliance L-08, L-09, L-11: Reports a compile error for each method of the <var>td</var> that overrides or
+     * hides a method with stronger access, or that throws a checked exception that such a method does not throw (JLS8
+     * 8.4.8.3), for each static method that hides an instance method or a final method (JLS8 8.4.8.2, 8.4.3.3, 9.4.1),
+     * and for each instance method that overrides a static method (JLS8 8.4.8.1), like JAVAC. Methods with a "$" in
+     * their names, e.g. the synthetic "access$000()", are not checked.
      * Neither are the exceptions against a method whose THROWS clause names a type parameter (which {@link
      * IMethod#getThrownExceptions()} does not return).
      */
@@ -2207,6 +2230,30 @@ class UnitCompiler {
             this.findOverriddenMethods(m, m.getDeclaringIClass(), new HashSet<IClass>(), overriddenMethods);
 
             for (IMethod om : overriddenMethods) {
+
+                // Compliance L-09: Like JAVAC, a static method must not hide an instance method or a final method,
+                // and an instance method must not override a static method.
+                if (m.isStatic() && !om.isStatic()) {
+                    this.compileError(
+                        "The static method \"" + m + "\" hides the instance method \"" + om + "\"",
+                        md.getLocation()
+                    );
+                    continue;
+                }
+                if (!m.isStatic() && om.isStatic()) {
+                    this.compileError(
+                        "The instance method \"" + m + "\" overrides the static method \"" + om + "\"",
+                        md.getLocation()
+                    );
+                    continue;
+                }
+                if (m.isStatic() && om.isFinal()) {
+                    this.compileError(
+                        "The static method \"" + m + "\" hides the final method \"" + om + "\"",
+                        md.getLocation()
+                    );
+                    continue;
+                }
 
                 if (UnitCompiler.accessRank(m.getAccess()) < UnitCompiler.accessRank(om.getAccess())) {
                     this.compileError(
@@ -2279,6 +2326,67 @@ class UnitCompiler {
             }
 
             this.findOverriddenMethods(method, st, seen, result);
+        }
+    }
+
+    /**
+     * Compliance L-09, L-16, L-17, L-53: Reports a compile error for each field of the interface <var>id</var> without
+     * an initializer (JLS8 9.3), and for each method of the interface with the signature of a public method of {@link
+     * Object}, like JAVAC: a default method must not be override-equivalent with it (JLS8 9.4.1.2), a static method
+     * must not hide it (JLS8 8.4.8.2, 9.4.1), and an abstract method must not override it if it is final, and must
+     * have a compatible return type (JLS8 9.2, 9.4.1.3). ({@link #findOverriddenMethods(IMethod, IClass, Set, List)}
+     * does not search {@link Object}, because {@link IClass#getSuperclass()} returns {@code null} for an interface.)
+     * Like JAVAC, the protected methods of {@link Object} ({@code clone()}, {@code finalize()}) are not considered: an
+     * interface does not have them as members (JLS8 9.2).
+     */
+    private void
+    checkInterfaceMembers(InterfaceDeclaration id) throws CompileException {
+
+        for (FieldDeclaration fd : id.constantDeclarations) {
+            for (VariableDeclarator vd : fd.variableDeclarators) {
+                if (vd.initializer == null) {
+                    this.compileError("Interface field \"" + vd.name + "\" must have an initializer", vd.getLocation());
+                }
+            }
+        }
+
+        for (MethodDeclarator md : id.getMethodDeclarations()) {
+            if (md.getAccess() == Access.PRIVATE) continue;
+
+            IMethod m = this.toIMethod(md);
+            for (IMethod om : this.iClassLoader.TYPE_java_lang_Object.getDeclaredIMethods(md.name)) {
+                if (
+                    om.getAccess() != Access.PUBLIC
+                    || om.isStatic()
+                    || !Arrays.equals(m.getParameterTypes(), om.getParameterTypes())
+                ) continue;
+
+                if (md.isStatic()) {
+                    this.compileError(
+                        "The static method \"" + m + "\" hides the instance method \"" + om + "\"",
+                        md.getLocation()
+                    );
+                } else
+                if (md.isDefault()) {
+                    this.compileError(
+                        "The default method \"" + m + "\" overrides a method of \"java.lang.Object\"",
+                        md.getLocation()
+                    );
+                } else
+                if (om.isFinal()) {
+                    this.compileError("Cannot override the final method \"" + om + "\"", md.getLocation());
+                } else
+                {
+                    IClass rt  = m.getReturnType();
+                    IClass ort = om.getReturnType();
+                    if (rt != ort && (rt.isPrimitive() || ort.isPrimitive() || !ort.isAssignableFrom(rt))) {
+                        this.compileError(
+                            "The return type of \"" + m + "\" is incompatible with that of \"" + om + "\"",
+                            md.getLocation()
+                        );
+                    }
+                }
+            }
         }
     }
 
@@ -5027,6 +5135,21 @@ class UnitCompiler {
         ClassFile.MethodInfo mi;
 
         if (fd instanceof MethodDeclarator) this.checkMethodModifiers((MethodDeclarator) fd);
+
+        // Compliance L-16: Like JAVAC, an interface method must not be both static and default (JLS8 9.4). (The check
+        // below is reached only for an abstract or a native method.)
+        if (
+            this.compliant()
+            && fd instanceof MethodDeclarator
+            && fd.getDeclaringType() instanceof InterfaceDeclaration
+            && ((MethodDeclarator) fd).isStatic()
+            && ((MethodDeclarator) fd).isDefault()
+        ) {
+            this.compileError(
+                "Static interface method declarations must not have the \"default\" modifier",
+                fd.getLocation()
+            );
+        }
 
         if (this.getTargetVersion() < 8 && fd instanceof MethodDeclarator && ((MethodDeclarator) fd).isDefault()) {
             this.compileError((
@@ -11089,6 +11212,26 @@ class UnitCompiler {
 
         // "type" is a member type at this point.
         return this.internalCheckAccessible(iClassDeclaringType, type.getAccess(), contextScope);
+    }
+
+    /**
+     * Compliance L-44: Determines whether a member of the <var>type</var> with the given <var>access</var> is
+     * accessible in the compilation unit outside of its type declarations, i.e. in an import declaration (JLS8 7.5):
+     * There is no enclosing class, so only the package counts; a private member is never accessible, a member with
+     * package or protected access only in the same package.
+     */
+    private boolean
+    isAccessibleFromCompilationUnit(IClass type, Access access) throws CompileException {
+
+        if (access == Access.PUBLIC) return true;
+        if (access == Access.PRIVATE) return false;
+
+        AbstractCompilationUnit acu = this.abstractCompilationUnit;
+        PackageDeclaration      pd  = (
+            acu instanceof CompilationUnit ? ((CompilationUnit) acu).packageDeclaration : null
+        );
+        String                  pn  = Descriptor.getPackageName(type.getDescriptor());
+        return pd == null ? pn == null : pd.packageName.equals(pn);
     }
 
     private Type

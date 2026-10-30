@@ -506,7 +506,8 @@ accepting all of it; the compliance mode rejects it once the respective check is
 L-27 to L-29 and L-35 to L-37 ([#177](https://github.com/janino-lts/janino/issues/177)), L-30 to L-33 and L-51
 ([#182](https://github.com/janino-lts/janino/issues/182)), L-14 and L-34
 ([#188](https://github.com/janino-lts/janino/issues/188)), L-08, L-10 to L-13 and L-44
-([#190](https://github.com/janino-lts/janino/issues/190)), L-45 and L-46, see S-11, L-47, see S-04, L-48, see S-12,
+([#190](https://github.com/janino-lts/janino/issues/190)), L-09, L-16, L-17 and L-53
+([#198](https://github.com/janino-lts/janino/issues/198)), L-45 and L-46, see S-11, L-47, see S-04, L-48, see S-12,
 L-49, see S-02, and L-50, see S-14; all other entries of this section are open). One
 exception, registered as A-05 (section 5): the access to a `protected` member of a class in another package through an
 expression whose type is neither the accessing class nor a subclass of it (`((Object)
@@ -541,7 +542,13 @@ and assigns a parameterized type to a field with a different type argument
   [#190](https://github.com/janino-lts/janino/issues/190), development line, except for a method inherited from the
   superclass that implements an interface method: `class A { void f() {} } class P extends A implements I {}`);
 - L-09: a static method that hides an instance method, an instance method that overrides a static method, a static
-  method that hides a `static final` method;
+  method that hides a `static final` method; also a static method that hides an interface method
+  (`class P implements Runnable { public static void run() {} }`, a static method of a subinterface), and a static
+  interface method with the signature of a `public` method of `Object` (the compliance mode rejects it,
+  [#198](https://github.com/janino-lts/janino/issues/198), development line, except for a static method inherited from
+  the superclass with the signature of an interface method, like L-08, and for a method of a generic superclass whose
+  parameter types are equal only after the substitution of the type arguments:
+  `class P extends A<String> { static void f(String s) {} }` with `void f(T t)` in `A<T>`);
 - L-10: a private method with the signature of a `final` method of the superclass (the compliance mode rejects it as an
   override with weaker access, see L-08, [#190](https://github.com/janino-lts/janino/issues/190), development line);
 - L-11: override that throws a broader checked exception, or a checked exception that the overridden method does not
@@ -562,8 +569,13 @@ and assigns a parameterized type to a field with a different type argument
   variable; the later declaration shadows the earlier one in its scope (the compliance mode rejects it,
   [#188](https://github.com/janino-lts/janino/issues/188), development line);
 - L-15: `native strictfp` method (the JVM accepts the combination);
-- L-16: `static default` interface method; interface field without initializer: `interface I { int X; }`;
-- L-17: default method that overrides a method of `Object`: `default boolean equals(Object o) { ... }`;
+- L-16: `static default` interface method; interface field without initializer: `interface I { int X; }` (the
+  compliance mode rejects it, [#198](https://github.com/janino-lts/janino/issues/198), development line);
+- L-17: default method that overrides a method of `Object`: `default boolean equals(Object o) { ... }`, also a `final`
+  one: `default void notify() {}`, for which the JVM rejects the interface (the compliance mode rejects it,
+  [#198](https://github.com/janino-lts/janino/issues/198), development line; like `javac`, it accepts
+  `default Object clone()` and `default void finalize()`: an interface does not have the `protected` methods of
+  `Object` as members);
 - L-18: a class that inherits two default methods with the same signature from two interfaces;
 - L-19: `public` enum constructor; `final` modifier on an enum declaration (ignored);
 - L-20: an unqualified invocation of a `private` instance method of the enum from the class body of an enum constant
@@ -575,6 +587,10 @@ and assigns a parameterized type to a field with a different type argument
 - L-22: in a script (`IScriptEvaluator`) only ([#72](https://github.com/janino-lts/janino/issues/72)): any modifier on a
   local variable declaration (`static int x = 1;`, `public int x;`, `abstract int x;`); the modifiers are ignored.
   In a method body, only `final` and annotations are accepted, like by `javac`.
+- L-53: an abstract interface method with the signature of a `public` method of `Object` that overrides a `final`
+  method (`void notify();`, `Class<?> getClass();`, for which the JVM rejects the interface), or has an incompatible
+  return type (`int toString();`, `Object toString();`) (the compliance mode rejects it,
+  [#198](https://github.com/janino-lts/janino/issues/198), development line).
 
 **Annotations:**
 
@@ -652,7 +668,14 @@ and assigns a parameterized type to a field with a different type argument
   from an implementing class (`s()`);
 - L-41: `private` member type of another top-level class, also of a JDK class: `java.util.ArrayList.Itr x;`; for a class
   in another package, the JVM throws an `IllegalAccessError` when it resolves the reference, e.g. for
-  `java.util.ArrayList.Itr.class` ([#33](https://github.com/janino-lts/janino/issues/33));
+  `java.util.ArrayList.Itr.class` ([#33](https://github.com/janino-lts/janino/issues/33)); likewise a member type with
+  package or `protected` access of a class in another package, also in an import declaration. The compliance mode
+  keeps accepting it, on purpose: code generators depend on it. Calcite (also in Drill) names a `private` member type
+  of a class in another package as the type of a field and a constructor parameter of its generated metadata
+  handlers, and Fory names `private` member types of the classes that it serializes; the JVM executes that code,
+  because it does not check the access to the types in field and method descriptors
+  ([#198](https://github.com/janino-lts/janino/issues/198), development line: rejecting it failed most tests of
+  Calcite and Drill);
 - L-42: the binary name of a nested class (with `$`) in source position: `java.util.Map$Entry e;`,
   `new java.util.AbstractMap$SimpleEntry<String, String>("a", "b")`;
 - L-43: on-demand import of a package that does not exist: `import foo.*;` (open: Janino loads classes through a class
@@ -661,7 +684,8 @@ and assigns a parameterized type to a field with a different type argument
   `import static java.lang.String.length;`, and a static import of a type that does not exist:
   `import static foo.Bar.x;`, `import static foo.Bar.*;`; Janino checks a static import only when a name is looked up
   through it (the compliance mode rejects it, [#190](https://github.com/janino-lts/janino/issues/190), development
-  line, except for a member that is not accessible: `import static java.lang.Integer.digits;`);
+  line), and a static import of a member that is not accessible: `import static java.lang.Integer.digits;` (the
+  compliance mode rejects it, [#198](https://github.com/janino-lts/janino/issues/198), development line);
 - L-45: access to a `private` member of a superclass through the subclass, which does not inherit it (JLS 8.2):
   `this.secret` and `this.sec()` in `class Q extends P` that is declared in `P`, or the simple name `secret` in a
   `static class S extends P` (where `P` has no instance); Janino accesses the member of the subclass instance
@@ -691,7 +715,11 @@ and assigns a parameterized type to a field with a different type argument
   (S-14), where a constant expression is required, or as the condition of a `while` statement that must not complete
   normally: `case (false && z) ? 1 : 2:` and `int f() { while (true || z) { return 1; } }` with a `boolean z`
   (`javac`: `constant expression required`, `missing return statement`; the compliance mode rejects it, see S-14;
-  [#140](https://github.com/janino-lts/janino/issues/140)).
+  [#140](https://github.com/janino-lts/janino/issues/140));
+- L-52: a package-private top-level class or interface of another package in a type, an import declaration or a static
+  import declaration: `other_package.PackagePrivateBase x;`, `import other_package.PackagePrivateBase;`; Janino rejects
+  it only in an expression that names a member of it (the compliance mode keeps accepting it, like L-41,
+  [#198](https://github.com/janino-lts/janino/issues/198), development line).
 
 **Generics, class G** (type arguments are not checked; outside the scope of both modes):
 

@@ -738,3 +738,46 @@ public class P implements J {
     public String f() { return "j"; }
     public static Object run() { return new P().f(); }
 }
+
+=== static method with the name of an instance method of the superclass and other parameter types
+jls: p
+janino: OK
+class A { String f() { return "a"; } }
+public class P extends A {
+    static String f(int i) { return "p"; }
+    public static Object run() { return f(1); }
+}
+
+=== static method with the signature of a private instance method of the superclass
+jls: p
+janino: OK
+class A { private String f() { return "a"; } }
+public class P extends A {
+    static String f() { return "p"; }
+    public static Object run() { return f(); }
+}
+
+=== static method with the signature of a package-private instance method of a class in another package
+jls: p
+janino: OK
+public class P extends other_package.Foo {
+    public P() { super(1); }
+    static void packageMethod() {}
+    public static Object run() { packageMethod(); return "p"; }
+}
+
+=== instance method with the signature of a private static method of the superclass
+jls: p
+janino: OK
+class A { private static String f() { return "a"; } }
+public class P extends A {
+    String f() { return "p"; }
+    public static Object run() { return new P().f(); }
+}
+
+=== unused static imports of a public constant inherited from a package-private class and of a public member type
+jls: ok
+janino: OK
+import static other_package.PublicSubclass.PUBLIC_CONSTANT;
+import static other_package.Foo.PublicStaticMemberClass;
+public class P { public static Object run() { return "ok"; } }

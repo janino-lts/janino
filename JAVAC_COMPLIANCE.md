@@ -293,9 +293,11 @@ logic has no error path, but silently does something else, the finding is of cla
   also accepts D-13; S-17, which also accepts D-09; and S-19, which also accepts D-11; and, as the first checks of
   class L of their own, L-27, L-28, L-29, L-35, L-36 and L-37 (the statements), L-30 to L-33 and L-51 (the
   `catch` clauses, with the precise rethrow of JLS 11.2.2), L-14 and L-34 (redeclared variables and
-  all-uppercase names in `throws` clauses), and L-08, L-10 to L-13 and L-44 (the access and the `throws` clauses of
+  all-uppercase names in `throws` clauses), L-08, L-10 to L-13 and L-44 (the access and the `throws` clauses of
   overriding methods, `throws` clauses with a type that is not a `Throwable`, fields with the same name, and static
-  imports); see
+  imports), and L-09, L-16, L-17 and L-53 (static methods that hide or are overridden, `static default` methods and
+  fields without an initializer in interfaces, and interface methods with the signature of a method of `Object`;
+  with the rest of L-44, static imports of members that are not accessible); see
   [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md) for what they do.
 
 ### 7.4 The system property
@@ -434,6 +436,12 @@ The development line, after #191 (from 3.1.x): S and L unchanged; D, 17 IDs, 5 f
 form, see there; D-08 in 3.1.20; D-14, D-15 and D-17 in 3.1.21), 5 corrected in the compliance mode only, 7 open; G, 9
 and F, 11 (outside the scope); A, 8. Of the 1354 recorded cases, the compliance mode agrees with `javac` on 1243 (the
 compatibility mode on 1030).
+
+The development line, after #198 (L-09, L-16, L-17, L-53 and the rest of L-44): S, 19 IDs, 11 corrected in the
+compliance mode; L, 53 IDs, 30 rejected in the compliance mode, 23 open (with L-52 and L-53, found with #198; L-41 and
+L-52 stay open on purpose: Calcite, Drill and Fory generate code that names inaccessible types, which the JVM
+executes); D, 17 IDs, unchanged; G, 9 and F, 11 (outside the scope); A, 8. Of the 1413 recorded cases, the compliance
+mode agrees with `javac` on 1290 (the compatibility mode on 1049).
 
 ## 8. Registered exceptions
 
@@ -610,13 +618,15 @@ on the development line, 2026-10-09, which also rejects L-47 and accepts D-07), 
 of the compliance mode notice first (the differential tests found four more later, S-14 to S-17; S-14 and S-17 were
 done on the development line, 2026-10-13, with S-19, which was found with them, and S-15; S-16 is open).
 Next the cases of class L that need no data flow analysis, by area, one branch each: modifiers, declarations and
-annotations (L-14 done on the development line, #188, L-12 and L-13, #190); overrides, hiding and `throws` clauses
-(L-34 done on the development line, #188, L-08, L-10 and L-11, #190); `catch` clauses (done on the development line:
-L-30 to L-33 and L-51, #182); imports and access (L-44 done on the development line, #190; L-43 stays open, because
-the class loader cannot tell whether a package exists); statements (done first, on the development line: L-27 to
-L-29 and L-35 to L-37, #177). In each branch, the `compliant:` entries of the area change from `ACCEPTED` to
-`REJECTED`. Then S-07, S-08 and S-09 (reflection and class file details) as needed, and the remaining areas of class L. S-05 (constant
-folding, #47) and S-06 with S-10 (the class file layout of `private` members) come last, because they are the largest.
+annotations (L-14 done on the development line, #188, L-12 and L-13, #190, L-16, #198); overrides, hiding and
+`throws` clauses (L-34 done on the development line, #188, L-08, L-10 and L-11, #190, L-09, L-17 and L-53, #198);
+`catch` clauses (done on the development line: L-30 to L-33 and L-51, #182); imports and access (L-44 done on the
+development line, #190 and #198; L-43 stays open, because the class loader cannot tell whether a package exists; L-41
+and L-52 stay open, because code generators depend on them, #198); statements (done first, on the development
+line: L-27 to L-29 and L-35 to L-37, #177). In each branch, the `compliant:` entries of the area change from
+`ACCEPTED` to `REJECTED`. Then S-07, S-08 and S-09 (reflection and class file details) as needed, and the remaining
+areas of class L. S-05 (constant folding, #47) and S-06 with S-10 (the class file layout of `private` members) come
+last, because they are the largest.
 
 **Definite assignment and definite unassignment** (JLS 16) for the `final` cases of class L: the largest single piece
 of work. Definite assignment analysis might not be implemented at all.

@@ -439,3 +439,75 @@ public class P implements I {
     static String f() throws Exception { return "p"; }
     public static Object run() throws Exception { return f() + I.f(); }
 }
+
+=== static interface methods with the same signature in an interface and its subinterface
+jls: i
+janino: OK
+interface I { static String f() { return "i"; } }
+interface J extends I { static String f() { return "j"; } }
+public class P { public static Object run() { return I.f(); } }
+
+=== instance method with the signature of a static method of an implemented interface
+jls: p
+janino: OK
+interface I { static String f() { return "i"; } }
+public class P implements I {
+    String f() { return "p"; }
+    public static Object run() { return new P().f(); }
+}
+
+=== static method of a subinterface that overloads an instance method of the superinterface
+jls: j
+janino: OK
+interface I { String f(); }
+interface J extends I { static String f(int i) { return "j"; } }
+public class P { public static Object run() { return J.f(1); } }
+
+=== static and default interface methods, interface field with an initializer, annotation element with a default
+jls: s1
+janino: OK
+interface I {
+    int X = 1;
+    static String s() { return "s"; }
+    default String d() { return "d"; }
+}
+@interface A { int v() default 1; int Y = 2; }
+public class P { public static Object run() { return I.s() + I.X; } }
+
+=== abstract interface method with the signature of equals(Object), implemented by Object
+jls: true
+janino: OK
+interface I { boolean equals(Object o); }
+public class P implements I { public static Object run() { I i = new P(); return i.equals(i); } }
+
+=== default methods that overload methods of Object
+jls: es1
+janino: OK
+interface I {
+    default String equals(String s) { return "e"; }
+    default String toString(int i) { return "s" + i; }
+}
+public class P implements I { public static Object run() { P p = new P(); return p.equals("x") + p.toString(1); } }
+
+=== default methods and a static method with the signatures of protected methods of Object
+jls: ok
+janino: OK
+interface I {
+    default Object clone() { return "c"; }
+    default void finalize() {}
+}
+interface J { static void finalize() {} }
+public class P { public static Object run() { return "ok"; } }
+
+=== abstract interface methods with the signatures of public methods of Object, overloads and protected methods
+jls: ok
+janino: OK
+interface I {
+    int hashCode();
+    String toString();
+    int toString(int i);
+    void notify(int i);
+    Object clone() throws CloneNotSupportedException;
+    void finalize();
+}
+public class P { public static Object run() { return "ok"; } }

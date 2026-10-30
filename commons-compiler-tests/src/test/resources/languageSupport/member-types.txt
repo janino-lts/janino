@@ -511,3 +511,48 @@ public class P {
     static class Q { static String b() { class L { String l() { return "Q"; } } return new L().l(); } }
     public static Object run() { return a() + Q.b(); }
 }
+
+=== private member type used in a nested class of the same top-level class
+jls: s
+janino: OK
+public class P {
+    private static class S { public String toString() { return "s"; } }
+    static class N { S s = new S(); P.S t = this.s; }
+    public static Object run() { return new N().t; }
+}
+
+=== package-private member type of another class in the same compilation unit
+jls: s
+janino: OK
+class A { static class S { public String toString() { return "s"; } } }
+public class P {
+    A.S s = new A.S();
+    public static Object run() { return new P().s; }
+}
+
+=== protected member type of a class in another package, used in a subclass
+jls: ok
+janino: OK
+public class P extends other_package.Foo {
+    public P() { super(1); }
+    ProtectedStaticMemberClass x;
+    other_package.Foo.ProtectedStaticMemberClass y;
+    public static Object run() { return "ok"; }
+}
+
+=== public member type of a class in another package
+jls: ok
+janino: OK
+public class P {
+    other_package.Foo.PublicStaticMemberClass x;
+    public static Object run() { return "ok"; }
+}
+
+=== instance of a private member type of another class, obtained without naming the type
+jls: s
+janino: OK
+class A {
+    private static class S { public String toString() { return "s"; } }
+    static Object get() { return new S(); }
+}
+public class P { public static Object run() { return A.get(); } }

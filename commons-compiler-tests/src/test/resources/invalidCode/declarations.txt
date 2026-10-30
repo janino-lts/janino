@@ -46,6 +46,7 @@ public class P extends A { void f() {} }
 
 === static method hides instance method
 janino: ACCEPTED
+compliant: REJECTED The static method "default static void P.f()" hides the instance method "default void A.f()"
 recovery: ACCEPTED
 id: L-09
 class A { void f() {} }
@@ -53,10 +54,65 @@ public class P extends A { static void f() {} }
 
 === instance method overrides static method
 janino: ACCEPTED
+compliant: REJECTED The instance method "default void P.f()" overrides the static method "default static void A.f()"
 recovery: ACCEPTED
 id: L-09
 class A { static void f() {} }
 public class P extends A { void f() {} }
+
+=== static method hides an interface method
+janino: ACCEPTED
+compliant: REJECTED The static method "public static void P.run()" hides the instance method "public abstract void java.lang.Runnable.run()"
+recovery: ACCEPTED
+id: L-09
+public class P implements Runnable { public static void run() {} }
+
+=== static method hides a method of Object
+janino: ACCEPTED
+compliant: REJECTED The static method "public static java.lang.String P.toString()" hides the instance method "public java.lang.String java.lang.Object.toString()"
+recovery: ACCEPTED
+id: L-09
+public class P { public static String toString() { return ""; } }
+
+=== static method of a subinterface hides an instance method of the superinterface
+janino: ACCEPTED
+compliant: REJECTED The static method "public static void J.f()" hides the instance method "public abstract void I.f()"
+recovery: ACCEPTED
+id: L-09
+interface I { void f(); }
+interface J extends I { static void f() {} }
+public class P {}
+
+=== static interface method with the signature of a method of Object
+janino: ACCEPTED
+compliant: REJECTED The static method "public static int I.hashCode()" hides the instance method "public int java.lang.Object.hashCode()"
+recovery: ACCEPTED
+id: L-09
+interface I { static int hashCode() { return 0; } }
+public class P {}
+
+=== private instance method overrides static method
+janino: ACCEPTED
+compliant: REJECTED The instance method "private void P.f()" overrides the static method "default static void A.f()"
+recovery: ACCEPTED
+id: L-09
+class A { static void f() {} }
+public class P extends A { private void f() {} }
+
+=== static method inherited from the superclass with the signature of an interface method
+janino: ACCEPTED
+recovery: ACCEPTED
+id: L-09
+interface I { void f(); }
+abstract class A { public static void f() {} }
+public abstract class P extends A implements I {}
+
+=== static method hides an instance method of a generic superclass
+janino: ACCEPTED
+recovery: ACCEPTED
+id: L-09
+class A<T> { void f(T t) {} }
+public class P extends A<String> { static void f(String s) {} }
 
 === class extends final class
 janino: REJECTED "A" is final; classes cannot extend a final class
@@ -184,10 +240,20 @@ public class P {
 
 === static default interface method
 janino: ACCEPTED
+compliant: REJECTED Static interface method declarations must not have the "default" modifier
 recovery: ACCEPTED
 id: L-16
 interface I {
     static default void f() {}
+}
+
+=== default static interface method
+janino: ACCEPTED
+compliant: REJECTED Static interface method declarations must not have the "default" modifier
+recovery: ACCEPTED
+id: L-16
+interface I {
+    default static void f() {}
 }
 
 === default method without body
@@ -198,9 +264,28 @@ interface I {
 
 === interface field without initializer
 janino: ACCEPTED
+compliant: REJECTED Interface field "X" must have an initializer
 recovery: ACCEPTED
 id: L-16
 interface I {
+    int X;
+}
+
+=== interface field without initializer after one with initializer
+janino: ACCEPTED
+compliant: REJECTED Interface field "Y" must have an initializer
+recovery: ACCEPTED
+id: L-16
+interface I {
+    int X = 1, Y;
+}
+
+=== annotation type field without initializer
+janino: ACCEPTED
+compliant: REJECTED Interface field "X" must have an initializer
+recovery: ACCEPTED
+id: L-16
+@interface A {
     int X;
 }
 
@@ -310,10 +395,20 @@ public class P extends A { private void f() {} }
 
 === static method hides static final method
 janino: ACCEPTED
+compliant: REJECTED The static method "default static void P.f()" hides the final method "default static void A.f()"
 recovery: ACCEPTED
 id: L-09
 class A { static final void f() {} }
 public class P extends A { static void f() {} }
+
+=== static method hides static final method of a superclass of the superclass
+janino: ACCEPTED
+compliant: REJECTED The static method "default static void P.f()" hides the final method "default static void A.f()"
+recovery: ACCEPTED
+id: L-09
+class A { static final void f() {} }
+class B extends A {}
+public class P extends B { static void f() {} }
 
 === duplicate field with different types
 janino: ACCEPTED
@@ -554,9 +649,68 @@ public class P extends A implements I {}
 
 === default method overrides a method of Object
 janino: ACCEPTED
+compliant: REJECTED The default method "public boolean I.equals(java.lang.Object)" overrides a method of "java.lang.Object"
 recovery: ACCEPTED
 id: L-17
 interface I { default boolean equals(Object o) { return true; } }
+public class P {}
+
+=== default method of a subinterface overrides a method of Object
+janino: ACCEPTED
+compliant: REJECTED The default method "public java.lang.String J.toString()" overrides a method of "java.lang.Object"
+recovery: ACCEPTED
+id: L-17
+interface I {}
+interface J extends I { default String toString() { return ""; } }
+public class P {}
+
+=== default method of a generic interface overrides a method of Object
+janino: ACCEPTED
+compliant: REJECTED The default method "public int I.hashCode()" overrides a method of "java.lang.Object"
+recovery: ACCEPTED
+id: L-17
+interface I<T> { default int hashCode() { return 0; } }
+public class P {}
+
+=== default method overrides a final method of Object
+janino: INVALID LinkageError
+compliant: REJECTED The default method "public void I.notify()" overrides a method of "java.lang.Object"
+recovery: ACCEPTED
+id: L-17
+interface I { default void notify() {} }
+public class P {}
+
+=== abstract interface method overrides a final method of Object
+janino: INVALID LinkageError
+compliant: REJECTED Cannot override the final method "public void java.lang.Object.notify()"
+recovery: ACCEPTED
+id: L-53
+interface I { void notify(); }
+public class P {}
+
+=== abstract method of a generic interface overrides a final method of Object
+janino: INVALID LinkageError
+compliant: REJECTED Cannot override the final method "public java.lang.Class java.lang.Object.getClass()"
+recovery: ACCEPTED
+id: L-53
+interface I<T> { Class<?> getClass(); }
+public class P {}
+
+=== abstract interface method with the signature of a method of Object and another return type
+janino: ACCEPTED
+compliant: REJECTED The return type of "public abstract int I.toString()" is incompatible with that of "public java.lang.String java.lang.Object.toString()"
+recovery: ACCEPTED
+id: L-53
+interface I { int toString(); }
+public class P {}
+
+=== abstract method of a subinterface with the signature of a method of Object and a wider return type
+janino: ACCEPTED
+compliant: REJECTED The return type of "public abstract java.lang.Object J.toString()" is incompatible with that of "public java.lang.String java.lang.Object.toString()"
+recovery: ACCEPTED
+id: L-53
+interface I {}
+interface J extends I { Object toString(); }
 public class P {}
 
 === annotation element with a parameter
