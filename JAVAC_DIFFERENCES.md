@@ -51,10 +51,14 @@ Every deviation belongs to one class, which determines what each mode does with 
 | **G** (sections 1 and 3) | any | any | erased types (outside the scope) | erased types (outside the scope) |
 | **A** (section 5) | loadable | any | as registered | like `javac` |
 
-Deviations of class V are corrected in both modes as soon as they are found, so the register holds none; one is not
-corrected yet: `J.f()` with `static String f()` in an interface `J` and in its superinterface `I` (also the simple
-name `f()` in the body of `J`) invokes `I.f()`, where `javac` invokes `J.f()`
-([#200](https://github.com/janino-lts/janino/issues/200)). Where the compliance mode already corrects a deviation, its
+Deviations of class V are corrected in both modes as soon as they are found, so the register holds none; two with
+the same cause are not corrected yet: a static method of a superinterface `I` takes part in the method selection on
+a subtype, although it is not inherited (JLS 8.4.8, 9.4.1). `J.f()` with `static String f()` in an interface `J` and
+in `I` (also the simple name `f()` in the body of `J`, and `static Object f()` in `J`) invokes `I.f()`, where `javac`
+invokes `J.f()` ([#200](https://github.com/janino-lts/janino/issues/200)); `j.f()` with an abstract or `default`
+method `f()` in `J` invokes `I.f()` with `invokestatic` instead of the method of the object, and `J.f("x")` with
+`f(Object)` in `J` and `static f(String)` in `I` invokes `I.f(String)`
+([#203](https://github.com/janino-lts/janino/issues/203)). Where the compliance mode already corrects a deviation, its
 entry says so; everywhere else, the compliance mode behaves like the compatibility mode (an open entry).
 
 ## 1. Valid code that behaves differently
@@ -405,6 +409,15 @@ When another static import provides the same name, Janino uses that one instead:
 `import static p.B.*;`, where `A` inherits `x` and `B` declares `x`, the name `x` denotes `B.x`, where `javac` takes
 `A.x` (the single static import shadows the static import on demand, JLS 6.4.1); likewise for a static method. This
 form is of class V and is corrected with D-18. Both modes; 3.1.12 behaves the same way.
+
+**D-19, a variable arity method that two interfaces declare** ([#202](https://github.com/janino-lts/janino/issues/202),
+found with [#200](https://github.com/janino-lts/janino/issues/200)): with `String f(String... s)` in two interfaces
+`I1` and `I2` and `interface K extends I1, I2 { }`, `k.f("x", "y")` is rejected (`Assignment conversion not possible
+from type "java.lang.String" to type "java.lang.String[]"`), and `k.f()` is an internal compiler error (`Operand stack
+underflow`); likewise when a subinterface redeclares the method of its superinterface, and for an abstract class that
+implements both interfaces. When it chooses one of several maximally specific methods with the same signature (JLS
+15.12.2.5), Janino does not collect the variable arity arguments into an array. Only an array as the variable arity
+argument compiles. Both modes; 3.1.12 behaves the same way.
 
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions

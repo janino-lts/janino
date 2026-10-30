@@ -447,6 +447,10 @@ The development line, after D-18 (#201, from 3.1.x, found with #198, not fixed y
 fixed, 5 corrected in the compliance mode only, 8 open; G, 9 and F, 11 (outside the scope); A, 8. The recorded cases
 are unchanged.
 
+The development line, after D-19 (#202, from 3.1.x, found with #200, not fixed yet): S and L unchanged; D, 19 IDs, 5
+fixed, 5 corrected in the compliance mode only, 9 open; G, 9 and F, 11 (outside the scope); A, 8. The recorded cases
+are unchanged.
+
 ## 8. Registered exceptions
 
 | ID | Change | Since | Compatibility mode per contract |
