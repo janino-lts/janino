@@ -498,3 +498,16 @@ interface I {
 }
 interface J { static void finalize() {} }
 public class P { public static Object run() { return "ok"; } }
+
+=== abstract interface methods with the signatures of public methods of Object, overloads and protected methods
+jls: ok
+janino: OK
+interface I {
+    int hashCode();
+    String toString();
+    int toString(int i);
+    void notify(int i);
+    Object clone() throws CloneNotSupportedException;
+    void finalize();
+}
+public class P { public static Object run() { return "ok"; } }

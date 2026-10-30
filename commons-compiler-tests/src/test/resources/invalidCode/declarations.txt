@@ -680,6 +680,39 @@ id: L-17
 interface I { default void notify() {} }
 public class P {}
 
+=== abstract interface method overrides a final method of Object
+janino: INVALID LinkageError
+compliant: REJECTED Cannot override the final method "public void java.lang.Object.notify()"
+recovery: ACCEPTED
+id: L-53
+interface I { void notify(); }
+public class P {}
+
+=== abstract method of a generic interface overrides a final method of Object
+janino: INVALID LinkageError
+compliant: REJECTED Cannot override the final method "public java.lang.Class java.lang.Object.getClass()"
+recovery: ACCEPTED
+id: L-53
+interface I<T> { Class<?> getClass(); }
+public class P {}
+
+=== abstract interface method with the signature of a method of Object and another return type
+janino: ACCEPTED
+compliant: REJECTED The return type of "public abstract int I.toString()" is incompatible with that of "public java.lang.String java.lang.Object.toString()"
+recovery: ACCEPTED
+id: L-53
+interface I { int toString(); }
+public class P {}
+
+=== abstract method of a subinterface with the signature of a method of Object and a wider return type
+janino: ACCEPTED
+compliant: REJECTED The return type of "public abstract java.lang.Object J.toString()" is incompatible with that of "public java.lang.String java.lang.Object.toString()"
+recovery: ACCEPTED
+id: L-53
+interface I {}
+interface J extends I { Object toString(); }
+public class P {}
+
 === annotation element with a parameter
 janino: ACCEPTED
 recovery: ACCEPTED

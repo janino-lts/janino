@@ -1546,8 +1546,8 @@ class UnitCompiler {
         // overriding and hiding methods.
         if (this.compliant()) this.checkOverrides(id);
 
-        // Compliance L-09, L-16, L-17: Like JAVAC, check the fields, and the default and static methods against the
-        // methods of "Object".
+        // Compliance L-09, L-16, L-17, L-53: Like JAVAC, check the fields, and the methods against the methods of
+        // "Object".
         if (this.compliant()) this.checkInterfaceMembers(id);
 
         this.compileDeclaredMethods(id, cf);
@@ -2363,13 +2363,14 @@ class UnitCompiler {
     }
 
     /**
-     * Compliance L-09, L-16, L-17: Reports a compile error for each field of the interface <var>id</var> without an
-     * initializer (JLS8 9.3), for each default method that is override-equivalent with a public method of {@link
-     * Object} (JLS8 9.4.1.2), and for each static method that would hide a public method of {@link Object} (JLS8
-     * 8.4.8.2, 9.4.1), like JAVAC. ({@link #findOverriddenMethods(IMethod, IClass, Set, List)} does not search {@link
-     * Object}, because {@link IClass#getSuperclass()} returns {@code null} for an interface.) Like JAVAC, the protected
-     * methods of {@link Object} ({@code clone()}, {@code finalize()}) are not considered: an interface does not have
-     * them as members (JLS8 9.2).
+     * Compliance L-09, L-16, L-17, L-53: Reports a compile error for each field of the interface <var>id</var> without
+     * an initializer (JLS8 9.3), and for each method of the interface with the signature of a public method of {@link
+     * Object}, like JAVAC: a default method must not be override-equivalent with it (JLS8 9.4.1.2), a static method
+     * must not hide it (JLS8 8.4.8.2, 9.4.1), and an abstract method must not override it if it is final, and must
+     * have a compatible return type (JLS8 9.2, 9.4.1.3). ({@link #findOverriddenMethods(IMethod, IClass, Set, List)}
+     * does not search {@link Object}, because {@link IClass#getSuperclass()} returns {@code null} for an interface.)
+     * Like JAVAC, the protected methods of {@link Object} ({@code clone()}, {@code finalize()}) are not considered: an
+     * interface does not have them as members (JLS8 9.2).
      */
     private void
     checkInterfaceMembers(InterfaceDeclaration id) throws CompileException {
@@ -2383,7 +2384,7 @@ class UnitCompiler {
         }
 
         for (MethodDeclarator md : id.getMethodDeclarations()) {
-            if (!md.isDefault() && !md.isStatic()) continue;
+            if (md.getAccess() == Access.PRIVATE) continue;
 
             IMethod m = this.toIMethod(md);
             for (IMethod om : this.iClassLoader.TYPE_java_lang_Object.getDeclaredIMethods(md.name)) {
@@ -2393,12 +2394,31 @@ class UnitCompiler {
                     || !Arrays.equals(m.getParameterTypes(), om.getParameterTypes())
                 ) continue;
 
-                this.compileError(
-                    md.isStatic()
-                    ? "The static method \"" + m + "\" hides the instance method \"" + om + "\""
-                    : "The default method \"" + m + "\" overrides a method of \"java.lang.Object\"",
-                    md.getLocation()
-                );
+                if (md.isStatic()) {
+                    this.compileError(
+                        "The static method \"" + m + "\" hides the instance method \"" + om + "\"",
+                        md.getLocation()
+                    );
+                } else
+                if (md.isDefault()) {
+                    this.compileError(
+                        "The default method \"" + m + "\" overrides a method of \"java.lang.Object\"",
+                        md.getLocation()
+                    );
+                } else
+                if (om.isFinal()) {
+                    this.compileError("Cannot override the final method \"" + om + "\"", md.getLocation());
+                } else
+                {
+                    IClass rt  = m.getReturnType();
+                    IClass ort = om.getReturnType();
+                    if (rt != ort && (rt.isPrimitive() || ort.isPrimitive() || !ort.isAssignableFrom(rt))) {
+                        this.compileError(
+                            "The return type of \"" + m + "\" is incompatible with that of \"" + om + "\"",
+                            md.getLocation()
+                        );
+                    }
+                }
             }
         }
     }
