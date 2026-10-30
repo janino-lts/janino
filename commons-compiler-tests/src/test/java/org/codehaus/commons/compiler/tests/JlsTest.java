@@ -896,7 +896,38 @@ class JlsTest extends CommonsCompilerTestSuite {
             + "import static java.lang.Math.*;"
             + "abs(-1) == 1"
         );
+
+        // Instance members with the name are not imported (issue #191; before, "must be static").
+        this.assertExpressionEvaluatesTrue("import static java.lang.Double.*; isNaN(0.0 / 0.0)");
+        this.assertExpressionEvaluatesTrue("import static java.lang.Double.isNaN; isNaN(0.0 / 0.0)");
+        this.assertExpressionEvaluatesTrue(
+            "import static java.lang.Float.*;"
+            + "isNaN(0.0F / 0.0F) && isInfinite(1.0F / 0.0F)"
+        );
+        this.assertExpressionEvaluatesTrue(
+            "import static java.lang.Math.*;"
+            + "import static java.math.BigInteger.*;"
+            + "abs(-1) == 1"
+        );
+        this.assertExpressionEvaluatesTrue(
+            "import static org.codehaus.commons.compiler.tests.JlsTest.InstanceValue.*;"
+            + "import static org.codehaus.commons.compiler.tests.JlsTest.StaticValue.*;"
+            + "value == 7"
+        );
+
+        // Only instance members with the name.
+        String script = (
+            "import static org.codehaus.commons.compiler.tests.JlsTest.InstanceValue.*;"
+            + "int i = value;"
+        );
+        if (this.isJdk) {
+            this.assertScriptUncookable(script);
+        } else {
+            this.assertScriptUncookable(script, "must be static");
+        }
     }
+    public static class InstanceValue { public int        value = 7; } // SUPPRESS CHECKSTYLE Javadoc|Align:2
+    public static class StaticValue   { public static int value = 7; }
 
     @Test public void
     test_8_1_1__Class_Modifiers() throws Exception {

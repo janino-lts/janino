@@ -731,6 +731,25 @@ import static java.util.Arrays.asList;
 import static java.util.Arrays.asList;
 public class P { public static Object run() { return String.valueOf(asList(new String[] { "a", "b" }).size()); } }
 
+=== static import on demand: a method with static and instance overloads (isNaN)
+jls: true
+janino: OK
+import static java.lang.Double.*;
+public class P { public static Object run() { return String.valueOf(isNaN(0.0 / 0.0)); } }
+
+=== static import: a method with static and instance overloads (isNaN)
+jls: true
+janino: OK
+import static java.lang.Double.isNaN;
+public class P { public static Object run() { return String.valueOf(isNaN(0.0 / 0.0)); } }
+
+=== static import on demand: the name is an instance method in one of the classes (abs)
+jls: 1
+janino: OK
+import static java.lang.Math.*;
+import static java.math.BigInteger.*;
+public class P { public static Object run() { return String.valueOf(abs(-1)); } }
+
 === covariant return type
 jls: s
 janino: OK

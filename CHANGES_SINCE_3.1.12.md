@@ -180,11 +180,17 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   ([#169]). Invocations that compiled before select the same method as before, also `g(1, 2)` with `g(int...)`
   and `g(Object...)`, which `javac` reports as ambiguous.
 
-**Imports** (3.1.20):
+**Imports** (3.1.20, 3.1.21):
 
 - 3.1.20: A static method that the compilation unit imports twice, e.g. with
   `import static java.lang.Math.abs;` twice or `import static java.lang.Math.*;` twice, was an internal compiler
   error when it was invoked ([#133]); now the code compiles, like with `javac`.
+- 3.1.21 (in development): A statically imported method was rejected when the class also declares an instance
+  method with the same name, e.g. `isNaN(d)` with `import static java.lang.Double.*;` or
+  `import static java.lang.Double.isNaN;` (`method "..." of "java.lang.Double" must be static`), also when another
+  class that is imported on demand declares the instance method, e.g. `abs(-1)` with `import static java.lang.Math.*;`
+  and `import static java.math.BigInteger.*;` ([#191]). Now instance fields and instance methods are not imported,
+  like with `javac`; a name that the static imports provide only as an instance member is still reported as before.
 
 **Invalid code that crashed the compiler or compiled into class files that the JVM rejects** is rejected with a
 compile error now: overriding a `final` method, extending a `final` class, duplicate fields or member types,
@@ -337,5 +343,6 @@ affected.
 [#169]: https://github.com/janino-lts/janino/issues/169
 [#178]: https://github.com/janino-lts/janino/issues/178
 [#181]: https://github.com/janino-lts/janino/issues/181
+[#191]: https://github.com/janino-lts/janino/issues/191
 [#193]: https://github.com/janino-lts/janino/issues/193
 [#195]: https://github.com/janino-lts/janino/issues/195
