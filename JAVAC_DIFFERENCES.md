@@ -32,7 +32,9 @@ below remain for that reason, or because they have not been fixed yet.
 | `new Object() {}.getClass().getModifiers()` | `0` (JDK 9 and later) | `0x10` (`final`) | [#73](https://github.com/janino-lts/janino/issues/73) |
 | `getName()` of a local class `L` declared in a class `P` (see below) | `"P$1L"` | `"P$L"` | |
 | `B.s("x")` with `static s(Object)` in a public class `B` and `static s(String)` in its package-private superclass `A`, from another package (see section 2) | invokes `A.s(String)` | invokes `B.s(Object)` | [#154](https://github.com/janino-lts/janino/issues/154) |
-| `J.f()` with `static String f()` in an interface `J` and in its superinterface `I` (also the simple name `f()` in the body of `J`) | invokes `J.f()` | invokes `I.f()` | [#200](https://github.com/janino-lts/janino/issues/200) |
+| `J.f()` with `static String f()` in an interface `J` and in its superinterface `I` (also the simple name `f()` in the body of `J`, and `static Object f()` in `J`) | invokes `J.f()` | invokes `I.f()` | [#200](https://github.com/janino-lts/janino/issues/200) |
+| `j.f()` with an abstract or `default` method `String f()` in an interface `J` and `static String f()` in its superinterface `I` (also with an abstract class that implements `I` instead of `J`) | invokes the method of the object | invokes `I.f()` (`invokestatic`) | [#203](https://github.com/janino-lts/janino/issues/203) |
+| `J.f("x")` with `static f(Object)` in `J` (also an instance method `f(Object)` of `J`, or of a class that implements `I`) and `static f(String)` in its superinterface `I`; likewise `J.f(1)` with `f(Integer)` in `J` and `f(int)` in `I` | invokes `J.f(Object)`, `J.f(Integer)` (or the method of the object) | invokes `I.f(String)`, `I.f(int)` | [#203](https://github.com/janino-lts/janino/issues/203) |
 
 **The binary names of local classes** ([#143](https://github.com/janino-lts/janino/issues/143), fixed in 3.1.20):
 Janino names a local class `L` in a type `E` `E$L`, where `javac` inserts a number (`E$1L`, JLS 13.1). Since 3.1.20,
@@ -288,6 +290,14 @@ fields and static methods that `T` declares itself, and therefore rejects, e.g.:
 When another static import provides the same name, Janino uses that one instead: with `import static p.A.x;` and
 `import static p.B.*;`, where `A` inherits `x` and `B` declares `x`, the name `x` denotes `B.x`, where `javac` takes
 `A.x` (the single static import shadows the static import on demand, JLS 6.4.1); likewise for a static method.
+
+**A variable arity method that two interfaces declare** ([#202](https://github.com/janino-lts/janino/issues/202)):
+with `String f(String... s)` in two interfaces `I1` and `I2` and `interface K extends I1, I2 { }`, Janino rejects
+`k.f("x", "y")` (`Assignment conversion not possible from type "java.lang.String" to type "java.lang.String[]"`), and
+`k.f()` is an internal compiler error (`Operand stack underflow`); likewise when a subinterface redeclares the method
+of its superinterface, and for an abstract class that implements both interfaces. When it chooses one of several
+maximally specific methods with the same signature (JLS 15.12.2.5), Janino does not collect the variable arity
+arguments into an array. Only an array as the variable arity argument compiles. 3.1.12 behaves the same way.
 
 ## 3. Invalid code that Janino accepts
 
