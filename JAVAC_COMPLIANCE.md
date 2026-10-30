@@ -430,6 +430,11 @@ cannot tell whether a package exists); D, 17 IDs, 8 open (with D-17, found with 
 scope); A, 8. Of the 1349 recorded cases, the compliance mode agrees with `javac` on 1238 (the compatibility mode on
 1025).
 
+The development line, after #191 (from 3.1.x): S and L unchanged; D, 17 IDs, 5 fixed (D-04 in 3.1.19 except for one
+form, see there; D-08 in 3.1.20; D-14, D-15 and D-17 in 3.1.21), 5 corrected in the compliance mode only, 7 open; G, 9
+and F, 11 (outside the scope); A, 8. Of the 1354 recorded cases, the compliance mode agrees with `javac` on 1243 (the
+compatibility mode on 1030).
+
 ## 8. Registered exceptions
 
 | ID | Change | Since | Compatibility mode per contract |
@@ -566,7 +571,7 @@ after a `catch` clause for a subclass, e.g. `catch (FileNotFoundException e) { }
 `try` block that throws only `FileNotFoundException`, was rejected as unreachable (D-15); now it is accepted, like by
 `javac` (JLS 14.21), unless a preceding clause catches that class or a superclass of it. Only code that was rejected
 changes. #191, found with #190 on the development line: a statically imported method was rejected when the class
-also declares an instance method with the same name, e.g. `isNaN(d)` with `import static java.lang.Double.*;` (D:
+also declares an instance method with the same name, e.g. `isNaN(d)` with `import static java.lang.Double.*;` (D-17:
 `must be static`); now instance members are not imported (JLS 7.5.3, 7.5.4), like with `javac`. A name that the
 static imports provide only as an instance member is still reported. Only code that was rejected changes.
 

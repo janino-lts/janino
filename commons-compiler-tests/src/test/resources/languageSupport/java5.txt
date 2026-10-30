@@ -861,18 +861,24 @@ public class P { public static Object run() { return String.valueOf(asList(new S
 === static import on demand: a method with static and instance overloads (isNaN)
 jls: true
 janino: OK
+legacy: REJECTED method "public boolean java.lang.Double.isNaN()" of "java.lang.Double" must be static
+id: D-17
 import static java.lang.Double.*;
 public class P { public static Object run() { return String.valueOf(isNaN(0.0 / 0.0)); } }
 
 === static import: a method with static and instance overloads (isNaN)
 jls: true
 janino: OK
+legacy: REJECTED method "public boolean java.lang.Double.isNaN()" of "java.lang.Double" must be static
+id: D-17
 import static java.lang.Double.isNaN;
 public class P { public static Object run() { return String.valueOf(isNaN(0.0 / 0.0)); } }
 
 === static import on demand: the name is an instance method in one of the classes (abs)
 jls: 1
 janino: OK
+legacy: REJECTED of "java.math.BigInteger" must be static
+id: D-17
 import static java.lang.Math.*;
 import static java.math.BigInteger.*;
 public class P { public static Object run() { return String.valueOf(abs(-1)); } }

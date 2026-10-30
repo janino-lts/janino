@@ -370,13 +370,15 @@ final for it (D-03).
 
 **D-17, a statically imported method whose type also declares an instance method with the name**
 ([#191](https://github.com/janino-lts/janino/issues/191), found with
-[#190](https://github.com/janino-lts/janino/issues/190)): `import static java.lang.Double.*;` with `isNaN(d)` is
-rejected (`method "public boolean java.lang.Double.isNaN()" of "java.lang.Double" must be static`), because Janino
-reports an error for every instance method with the name as soon as it looks the name up through a static import; by
-JLS 7.5.3 and 7.5.4, a static import imports only the static members, and `javac` invokes the static
-`Double.isNaN(double)`. The same for the single static import `import static java.lang.Double.isNaN;`, and for a name
-that another type imported on demand declares as an instance method (`abs(-1)` with `import static java.lang.Math.*;`
-and `import static java.math.BigInteger.*;`). Both modes; 3.1.12 rejects it, too.
+[#190](https://github.com/janino-lts/janino/issues/190), fixed in 3.1.21): Janino 3.1.20 and earlier reject
+`import static java.lang.Double.*;` with `isNaN(d)` (`method "public boolean java.lang.Double.isNaN()" of
+"java.lang.Double" must be static`), because they report an error for every instance method with the name as soon as
+they look the name up through a static import; by JLS 7.5.3 and 7.5.4, a static import imports only the static
+members, and `javac` invokes the static `Double.isNaN(double)`. The same for the single static import
+`import static java.lang.Double.isNaN;`, and for a name that another type imported on demand declares as an instance
+method (`abs(-1)` with `import static java.lang.Math.*;` and `import static java.math.BigInteger.*;`); 3.1.12 rejects
+it, too. Since 3.1.21, both modes import only the static members, like `javac`; a name that the static imports provide
+only as an instance member is still reported.
 
 **Language features that Janino does not implement, class F** (see
 [Limitations](https://janino-lts.github.io/janino/#limitations); both modes reject them): F-01 lambda expressions
@@ -487,7 +489,7 @@ assignable to its type, and no preceding clause catches `IOException` or a super
 Since 3.1.21, such a clause is accepted, like by `javac`.
 
 **A static import of a name with static and instance methods**
-([#191](https://github.com/janino-lts/janino/issues/191), fixed in 3.1.21): Janino 3.1.20 and earlier reject
+(D-17, [#191](https://github.com/janino-lts/janino/issues/191), fixed in 3.1.21): Janino 3.1.20 and earlier reject
 `isNaN(d)` with `import static java.lang.Double.*;` or `import static java.lang.Double.isNaN;`
 (`method "public boolean java.lang.Double.isNaN()" of "java.lang.Double" must be static`), and `abs(-1)` with
 `import static java.lang.Math.*;` and `import static java.math.BigInteger.*;`, because they report every instance

@@ -360,6 +360,8 @@ public class P {}
 
 === static import of an instance method, used
 janino: REJECTED method "public int java.lang.String.length()" of "java.lang.String" must be static
+compliant: REJECTED "java.lang.String" has no static member "length"
+id: L-44
 import static java.lang.String.length;
 public class P {
     int f() { return length(); }
