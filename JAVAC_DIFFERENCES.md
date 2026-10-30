@@ -269,9 +269,11 @@ imported, like with `javac`; a name that the static imports provide only as an i
 
 **A static import of an inherited static member** ([#201](https://github.com/janino-lts/janino/issues/201)): a
 single static import `import static T.n;` and a static import on demand `import static T.*;` import the accessible
-static members of `T`, including the inherited ones (JLS 7.5.3, 7.5.4). Janino imports the inherited member types,
-but only the static fields and static methods that `T` declares itself, and therefore rejects, e.g.:
+static members of `T`, including the inherited ones (JLS 7.5.3, 7.5.4). Janino imports only the member types, static
+fields and static methods that `T` declares itself, and therefore rejects, e.g.:
 
+- `Entry<String, String> e` with `import static java.util.HashMap.Entry;` or `import static java.util.HashMap.*;`
+  (the member type is declared in the superinterface `Map`; `Cannot determine simple type name "Entry"`);
 - `short s = STREAM_MAGIC;` with `import static java.io.ObjectOutputStream.STREAM_MAGIC;` or
   `import static java.io.ObjectOutputStream.*;` (the field is declared in the superinterface `ObjectStreamConstants`;
   `Expression "STREAM_MAGIC" is not an rvalue`);
