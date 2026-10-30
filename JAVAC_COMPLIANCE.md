@@ -439,7 +439,10 @@ found with #182 (the `catch` clauses of the compliance mode, development line): 
 after a `catch` clause for a subclass, e.g. `catch (FileNotFoundException e) { } catch (IOException e) { }` with a
 `try` block that throws only `FileNotFoundException`, was rejected as unreachable (D); now it is accepted, like by
 `javac` (JLS 14.21), unless a preceding clause catches that class or a superclass of it. Only code that was rejected
-changes.
+changes. #191, found with #190 on the development line: a statically imported method was rejected when the class
+also declares an instance method with the same name, e.g. `isNaN(d)` with `import static java.lang.Double.*;` (D:
+`must be static`); now instance members are not imported (JLS 7.5.3, 7.5.4), like with `javac`. A name that the
+static imports provide only as an instance member is still reported. Only code that was rejected changes.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`

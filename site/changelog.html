@@ -69,6 +69,17 @@ h5 {
         superclass of it. Only code that was rejected changes.
       </li>
       <li>
+        Fixed <a href="https://github.com/janino-lts/janino/issues/191">issue #191</a>: A statically imported method
+        was rejected when the class also declares an instance method with the same name, e.g. <code>isNaN(d)</code>
+        with <code>import static java.lang.Double.*;</code> or <code>import static java.lang.Double.isNaN;</code>
+        (<code>method "public boolean java.lang.Double.isNaN()" of "java.lang.Double" must be static</code>), also
+        when another class that is imported on demand declares the instance method, e.g. <code>abs(-1)</code> with
+        <code>import static java.lang.Math.*;</code> and <code>import static java.math.BigInteger.*;</code>. Now
+        instance fields and instance methods are not imported, like by JAVAC (JLS 7.5.3, 7.5.4). A name that the
+        static imports provide only as an instance member is still reported as before. Only code that was rejected
+        changes.
+      </li>
+      <li>
         <a href="https://github.com/janino-lts/janino/issues/193">Issue #193</a>: Compilations against the same class
         loader share the information that JANINO reads by reflection about the loaded classes (one
         <code>IClass</code> per <code>Class</code>, also for concurrent compilations), and the methods with a given
