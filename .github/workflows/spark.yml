@@ -37,7 +37,7 @@ on:
       spark-version:
         description: Spark version on Maven Central whose Catalyst test suites run
         type: string
-        default: '4.2.0'
+        default: '4.3.0'
       baseline:
         description: Baseline, a version of org.codehaus.janino:janino, or none (the candidate must then be green)
         type: string
@@ -63,7 +63,7 @@ permissions:
   contents: read
 
 env:
-  SPARK_VERSION: ${{ inputs.spark-version || '4.2.0' }}
+  SPARK_VERSION: ${{ inputs.spark-version || '4.3.0' }}
   BASELINE: ${{ inputs.baseline || '3.1.9' }}   # "none" = no baseline run
   CANDIDATE: ${{ inputs.candidate || '' }}
   SUITES: ${{ inputs.suites || 'org.apache.spark' }}

@@ -2,12 +2,14 @@
 # "javac-compliance" of the workflow "Spark"), because the compliance mode rejects the code that Spark generates for
 # them, like "javac" does; see ".github/calcite/compare_junit.py", option "--known-failures".
 #
-# L-33 (JAVAC_DIFFERENCES.md): ScalaUDF generates "try { ... } catch (Throwable e) { throw
+# None for Spark 4.3.0 (the default of the workflow). With Spark 4.2.x and earlier, six tests of ScalaUDFSuite fail
+# (L-33, JAVAC_DIFFERENCES.md): ScalaUDF generates "try { ... } catch (Throwable e) { throw
 # QueryExecutionErrors.failedExecuteUserDefinedFunctionError(..., e); }", where the method returns "Throwable"; javac
-# rejects the undeclared "Throwable" ("unreported exception"), and so does the compliance mode since #182.
-org.apache.spark.sql.catalyst.expressions.ScalaUDFSuite > SPARK-28369: honor nullOnOverflow config for ScalaUDF
-org.apache.spark.sql.catalyst.expressions.ScalaUDFSuite > basic
-org.apache.spark.sql.catalyst.expressions.ScalaUDFSuite > better error message for NPE
-org.apache.spark.sql.catalyst.expressions.ScalaUDFSuite > variant basic input output
-org.apache.spark.sql.catalyst.expressions.ScalaUDFSuite > variant basic output string
-org.apache.spark.sql.catalyst.expressions.ScalaUDFSuite > variant basic output variant
+# rejects the undeclared "Throwable" ("unreported exception"), and so does the compliance mode since #182. Spark 4.3.0
+# passes the exception to "Platform.throwException" instead. For a run with such a Spark, add these lines:
+#   org.apache.spark.sql.catalyst.expressions.ScalaUDFSuite > SPARK-28369: honor nullOnOverflow config for ScalaUDF
+#   org.apache.spark.sql.catalyst.expressions.ScalaUDFSuite > basic
+#   org.apache.spark.sql.catalyst.expressions.ScalaUDFSuite > better error message for NPE
+#   org.apache.spark.sql.catalyst.expressions.ScalaUDFSuite > variant basic input output
+#   org.apache.spark.sql.catalyst.expressions.ScalaUDFSuite > variant basic output string
+#   org.apache.spark.sql.catalyst.expressions.ScalaUDFSuite > variant basic output variant

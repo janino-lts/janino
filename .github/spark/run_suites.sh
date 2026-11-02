@@ -12,9 +12,13 @@
 # With the environment variable JANINO_COMPLIANCE=true, the suites run with JANINO's compliance mode (the system
 # property "org.codehaus.janino.javacCompliance"; the development line only).
 #
+# The environment variable SPARK_VERSION selects the Spark release whose suites run (the property "spark.version"
+# of "pom.xml"; without it, the version in "pom.xml").
+#
 # Exit status: 0 = the run completed and all tests passed; 3 = the run completed, but tests failed (the comparison
 # decides); 2 = the ScalaTest run aborted, e.g. because of a LinkageError in a suite (the aborting suite is printed;
-# exclude it); 1 = wrong arguments, or the class path does not contain exactly the expected JANINO.
+# exclude it); 1 = wrong arguments, or the class path does not contain exactly the expected JANINO, or not the
+# tests jar of SPARK_VERSION.
 
 set -u
 cd "$(dirname "$0")" || exit 1
@@ -26,8 +30,10 @@ java=${JAVA_HOME:+$JAVA_HOME/bin/java}; java=${java:-java}
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) sep=';' ;; *) sep=':' ;; esac
 mkdir -p reports logs home
 
-# 1. The class path with the selected JANINO ("|" as separator, because ":" is part of Windows paths).
-mvn -B -q -f pom.xml -Djanino.groupId="$group" -Djanino.version="$version" dependency:build-classpath \
+# 1. The class path with the selected JANINO and Spark ("|" as separator, because ":" is part of Windows paths).
+spark=()
+[ -n "${SPARK_VERSION:-}" ] && spark=(-Dspark.version="$SPARK_VERSION")
+mvn -B -q -f pom.xml "${spark[@]}" -Djanino.groupId="$group" -Djanino.version="$version" dependency:build-classpath \
     -Dmdep.outputFile="cp-$label.txt" -Dmdep.pathSeparator='|' > "logs/$label-mvn.log" 2>&1 \
     || { echo "mvn failed, see logs/$label-mvn.log"; exit 1; }
 entries=$(tr '|' '\n' < "cp-$label.txt" | tr '\\' '/')
@@ -45,6 +51,10 @@ echo "JANINO_COMPLIANCE $mode"
 # 2. The tests jar as the runpath for the suite discovery; copied, because the runpath is split at spaces.
 tests_jar=$(echo "$entries" | grep -E '/spark-catalyst_2\.13-[^/]*-tests\.jar$' | head -1)
 [ -n "$tests_jar" ] || { echo "spark-catalyst tests jar not found on the class path"; exit 1; }
+echo "SPARK_TESTS_JAR ${tests_jar##*/}"
+if [ -n "${SPARK_VERSION:-}" ] && [ "${tests_jar##*/}" != "spark-catalyst_2.13-$SPARK_VERSION-tests.jar" ]; then
+    echo "spark-catalyst_2.13-$SPARK_VERSION-tests.jar is not on the class path"; exit 1
+fi
 cp "$tests_jar" catalyst-tests.jar
 suites=$("$py" suites.py catalyst-tests.jar "$prefix" "$excluded") || exit 1
 [ -n "$suites" ] || { echo "no suites for the package prefix $prefix"; exit 1; }

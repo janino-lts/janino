@@ -338,10 +338,11 @@ not compile, are checked like all others, without generating their code: a type 
 an exception class with an all-uppercase name in a `throws` clause (L-34) and a `catch` parameter with the name of a
 local variable (L-14).
 
-The code that Spark generates for a `ScalaUDF` throws an undeclared `Throwable` in a `catch` clause (`catch (Throwable
-e) { throw QueryExecutionErrors.failedExecuteUserDefinedFunctionError(..., e); }`, L-33), which `javac` rejects; the
-compliance mode rejects it as well, the compatibility mode compiles it. The workflow "Spark" lists the six tests of
-`ScalaUDFSuite` that fail for this reason in the compliance mode as known failures.
+The code that Spark 4.2.x and earlier generate for a `ScalaUDF` throws an undeclared `Throwable` in a `catch` clause
+(`catch (Throwable e) { throw QueryExecutionErrors.failedExecuteUserDefinedFunctionError(..., e); }`, L-33), which
+`javac` rejects; the compliance mode rejects it as well, the compatibility mode compiles it, and six tests of
+`ScalaUDFSuite` fail for this reason in the compliance mode. Spark 4.3.0 generates valid code there, so that the
+workflow "Spark", which runs the suites of Spark 4.3.0, has no known failures in the compliance mode.
 
 With #188, the compliance mode rejects two more forms of invalid declarations that the compatibility mode accepts, like
 `javac`. A `catch` parameter, the variable of an enhanced `for` statement and a resource variable must not have the
