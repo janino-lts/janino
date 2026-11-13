@@ -431,7 +431,7 @@ the member is accessed counts (JLS 6.6.1), and the class file references the mem
 like with `javac`. Only code that was rejected changes; the methods of `A` are considered only if no accessible
 method is applicable, so `p.B.s("x")` still selects `B.s(Object)` where `javac` selects `A.s(String)`.
 
-**3.1.21 (in development):** #178, found with #177 on the development line: an alternate constructor invocation
+**3.1.21 (in preparation):** #178, found with #177 on the development line: an alternate constructor invocation
 `this(...)` in a constructor of an enum, e.g. `enum E { A, B(2); E() { this(1); } E(int i) { } }`, was an internal
 compiler error (D: `AssertionError: uninitializedThis`); now the synthetic name and ordinal parameters are passed on
 to the invoked constructor, like with `javac`. Only code that failed with an internal compiler error changes. #181,
@@ -442,7 +442,11 @@ after a `catch` clause for a subclass, e.g. `catch (FileNotFoundException e) { }
 changes. #191, found with #190 on the development line: a statically imported method was rejected when the class
 also declares an instance method with the same name, e.g. `isNaN(d)` with `import static java.lang.Double.*;` (D:
 `must be static`); now instance members are not imported (JLS 7.5.3, 7.5.4), like with `javac`. A name that the
-static imports provide only as an instance member is still reported. Only code that was rejected changes.
+static imports provide only as an instance member is still reported. Only code that was rejected changes. #202,
+found with #200: an invocation by variable arity of a method that two interfaces declare, e.g. `k.f("x", "y")`
+with `String f(String... s)` in `I1` and `I2` and `interface K extends I1, I2 { }`, was rejected, and `k.f()` was an
+internal compiler error (D); now the variable arity arguments are collected into an array (JLS 15.12.4.2), like
+with `javac`. Only code that was rejected changes.
 
 **The development line (`master`, not released)**, see
 [Development line](https://github.com/janino-lts/janino/blob/master/DEVELOPMENT_LINE.md): #73, the `InnerClasses`
