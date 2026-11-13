@@ -1,9 +1,9 @@
 # Changes since 3.1.12
 
 For projects that depend on Janino 3.1.12, the last release of the original project, and consider an upgrade:
-what the releases 3.1.13 to 3.1.20 of this continuation change, in short. The
+what the releases 3.1.13 to 3.1.21 of this continuation change, in short. The
 [change log](https://janino-lts.github.io/janino/changelog.html) has the complete entries, with details and
-examples; this page summarizes it. State: 3.1.20, released on 2026-10-14. The entries of 3.1.17 and later are
+examples; this page summarizes it. State: 3.1.21, released on 2026-11-13. The entries of 3.1.17 and later are
 marked with the version.
 
 ## What stays the same
@@ -16,7 +16,7 @@ marked with the version.
   [#33]), with the exceptions listed under "Code that is now rejected" below.
 - Code that compiled correctly with 3.1.12 compiles into the same class files, except where a fix changes them
   (the change log names these cases) and except for the class file version (below). For the code that Apache
-  Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.20 differ from those of 3.1.12
+  Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.21 differ from those of 3.1.12
   only in the class file version ([benchmarks](janino-benchmarks/README.md)).
 
 ## What changes for every user
@@ -56,7 +56,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 - Since 3.1.13, a local variable assigned in the body of a `do` statement, or in the right operand of `&&` or
   `||`, compiled into class files that the JVM rejects ([#57]); a variable assigned in the condition of a loop or
   of a conditional expression could not be read in the body or the operands (all versions).
-- 3.1.21 (in development): A `catch` clause for an exception class after a `catch` clause for a subclass, e.g.
+- 3.1.21: A `catch` clause for an exception class after a `catch` clause for a subclass, e.g.
   `catch (FileNotFoundException e) { } catch (IOException e) { }`, was rejected as unreachable when the `try` block
   throws only the subclass ([#181]); now it compiles, like with `javac`, unless a preceding clause catches that
   class or a superclass of it.
@@ -96,7 +96,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 - The member types of an interface were not `public` and `static`, and an `enum` in an interface was a syntax
   error ([#62]).
 - The class bodies of enum constants were ignored ([#44]).
-- 3.1.21 (in development): An alternate constructor invocation `this(...)` in a constructor of an enum, e.g.
+- 3.1.21: An alternate constructor invocation `this(...)` in a constructor of an enum, e.g.
   `E() { this(1); }`, was an internal compiler error (`AssertionError: uninitializedThis`) ([#178]); now it
   compiles, like with `javac`.
 
@@ -179,7 +179,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
   ambiguous, as before, and `m(1)` with `m(int, long...)`, `m(int...)` and `m(long...)` selects `m(int...)`
   ([#169]). Invocations that compiled before select the same method as before, also `g(1, 2)` with `g(int...)`
   and `g(Object...)`, which `javac` reports as ambiguous.
-- 3.1.21 (in development): An invocation by variable arity of a method that two interfaces declare was rejected,
+- 3.1.21: An invocation by variable arity of a method that two interfaces declare was rejected,
   e.g. `k.f("x", "y")` with `String f(String... s)` in `I1` and `I2` and `interface K extends I1, I2 { }`
   (`Assignment conversion not possible from type "java.lang.String" to type "java.lang.String[]"`), and `k.f()`
   was an internal compiler error ([#202]); likewise when a subinterface redeclares the method. Now the variable
@@ -190,7 +190,7 @@ All of these defects exist in 3.1.12, unless noted otherwise.
 - 3.1.20: A static method that the compilation unit imports twice, e.g. with
   `import static java.lang.Math.abs;` twice or `import static java.lang.Math.*;` twice, was an internal compiler
   error when it was invoked ([#133]); now the code compiles, like with `javac`.
-- 3.1.21 (in development): A statically imported method was rejected when the class also declares an instance
+- 3.1.21: A statically imported method was rejected when the class also declares an instance
   method with the same name, e.g. `isNaN(d)` with `import static java.lang.Double.*;` or
   `import static java.lang.Double.isNaN;` (`method "..." of "java.lang.Double" must be static`), also when another
   class that is imported on demand declares the instance method, e.g. `abs(-1)` with `import static java.lang.Math.*;`
@@ -255,13 +255,15 @@ affected.
 ## Performance and tests
 
 - The compilation of Janino's own sources is about 6 % faster than with 3.1.12 and allocates about 16 % less
-  memory ([#26], 3.1.15). Code with many nested `try` / `finally` statements compiles somewhat slower, because the
-  code that Janino generates for them since 3.1.14 is correct, but larger.
-- On the code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, 3.1.20 and 3.1.12 compile
-  equally fast within the measurement error; without the JIT compiler, 3.1.20 needs 1.2 % less time and
-  allocates 4.5 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
+  memory ([#26], 3.1.15); with the changes of 3.1.21 below, it needs 15 % less time than with 3.1.12 (26 % without
+  the JIT compiler) and allocates 26 % less memory. Code with many nested `try` / `finally` statements compiled
+  somewhat slower from 3.1.14 on, because the code that Janino generates for them is correct, but larger; 3.1.21
+  compiles it about as fast as 3.1.12.
+- On the code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, 3.1.20 and 3.1.12 compile equally fast
+  within the measurement error; 3.1.21 needs 29 % less time than 3.1.12 (34 % without the JIT compiler) and
+  allocates 44 % less memory. See the [benchmarks](janino-benchmarks/README.md) for the method and the numbers
   of 3.1.17; every release is measured against its predecessor the same way.
-- 3.1.21 (in development): Compilations against the same class loader share the information that Janino reads by
+- 3.1.21: Compilations against the same class loader share the information that Janino reads by
   reflection about the loaded classes, and the methods that a loaded class and its supertypes declare are looked
   up only once per name ([#193]). On the Spark code, this saves 17 % of the allocated memory and about 5 to 7 %
   of the time; a compilation of a small class body, e.g. an expression, needs about 40 % less time. The class
@@ -270,15 +272,15 @@ affected.
   those that the JVM links, and no longer those that the class loader of the compilation finds by name; with a
   class loader that hides classes on purpose, code that uses such a type now compiles and fails when it runs,
   instead of being rejected. `-Dorg.codehaus.janino.sharedIClassCache=false` restores the former behavior.
-- 3.1.21 (in development): The scanner reads the source code from a buffer and decodes the unicode escapes
+- 3.1.21: The scanner reads the source code from a buffer and decodes the unicode escapes
   itself, instead of through two `Reader` calls per character, and builds each identifier only once; the results
   of the name resolution (imported and qualified type names) are remembered per compilation; and literals are no
   longer compiled on trial ([#195]). On the Spark code, this saves another 27 to 29 % of the allocated memory and
   16 % of the time (27 % without the JIT compiler). The class files and the tokens are unchanged. One fix: a
   `Reader` that returns fewer than three characters at once no longer causes a false "Incomplete escape
   sequence" error in a unicode escape.
-- New tests: characterization tests that record the correct result and Janino's actual behavior for 599 language
-  constructs, negative tests with 473 cases of invalid code, differential tests that compile generated expressions
+- New tests: characterization tests that record the correct result and Janino's actual behavior for 608 language
+  constructs, negative tests with 475 cases of invalid code, differential tests that compile generated expressions
   and control flow with Janino and with `javac` and compare the results, and four workflows that run the test
   suites of Apache Calcite, Spark Catalyst, Apache Fory and Apache Drill every week and before every release
   ([Compatibility](COMPATIBILITY.md)).

@@ -49,7 +49,15 @@ h5 {
 
     <a href="index.html">Back to the JANINO home page</a>
 
-    <h4>Version 3.1.21 (unreleased)</h4>
+    <h4>Version 3.1.21 2026-11-13</h4>
+    <p>
+      Four fixes in the compiler, and faster compilation: on the code that Apache Spark generates for TPC-DS queries,
+      JANINO needs about 30 % less time and allocates about 41 % less memory than 3.1.20 (issues #193 and #195). The
+      fixes concern code that was rejected or crashed the compiler: an alternate constructor invocation in an enum
+      constructor (issue #178), a <code>catch</code> clause for a superclass after one for a subclass (issue #181), a
+      static import of a name with static and instance methods (issue #191), and an invocation by variable arity of a
+      method that two interfaces declare (issue #202). No code that 3.1.20 compiled is rejected now.
+    </p>
     <ul>
       <li>
         Fixed <a href="https://github.com/janino-lts/janino/issues/178">issue #178</a>: An alternate constructor
@@ -110,6 +118,18 @@ h5 {
         the time (27 % without the JIT compiler). The class files and the tokens are unchanged. One fix: a
         <code>Reader</code> that returns fewer than three characters at once no longer causes a false "Incomplete
         escape sequence" error in a unicode escape.
+      </li>
+      <li>
+        New test cases: 19 cases of valid code and 6 cases of invalid code for the fixes of this release; the
+        characterization tests now record 608 cases of valid code, the negative tests 475 cases of invalid code.
+      </li>
+      <li>
+        Compatibility: The class files are unchanged: the code of the four fixed issues did not compile before, and for
+        all workloads of the benchmarks, including JANINO's own sources and the code that Apache Spark generates, the
+        class files are the same as with 3.1.20, byte for byte. One change of behavior comes with issue #193: the
+        classes that a loaded class references are those that the JVM links; see there. The test suites of Apache
+        Calcite, Spark Catalyst (Spark 4.3.0) and Apache Fory, and about 4800 tests of Apache Drill, pass with this
+        release as with the JANINO that the projects declare.
       </li>
     </ul>
 
