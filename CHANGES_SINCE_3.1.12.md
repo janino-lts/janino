@@ -3,7 +3,7 @@
 For projects that depend on Janino 3.1.12, the last release of the original project, and consider an upgrade:
 what the releases 3.1.13 to 3.1.21 of this continuation change, in short. The
 [change log](https://janino-lts.github.io/janino/changelog.html) has the complete entries, with details and
-examples; this page summarizes it. State: 3.1.21 is in preparation. The entries of 3.1.17 and later are
+examples; this page summarizes it. State: 3.1.21, released on 2026-11-13. The entries of 3.1.17 and later are
 marked with the version.
 
 ## What stays the same
