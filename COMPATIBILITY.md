@@ -30,8 +30,8 @@ Janino, not against `javac`; this page is written for them.
   was clearly wrong: a wrong value, an exception, a class file that the JVM rejects. Otherwise the class files
   are unchanged, byte for byte; where a fix changes them, the change log says so, and the release notes report the
   result of the class file comparison of the [benchmarks](janino-benchmarks/README.md) (`CodeSizeReport`). For the
-  code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.20 differ from
-  those of 3.1.12 only in the class file version, and are identical to those of 3.1.19.
+  code that Apache Spark 4.2.0 generates for twelve TPC-DS queries, the class files of 3.1.21 differ from
+  those of 3.1.12 only in the class file version, and are identical to those of 3.1.20.
 - **Class resolution.** The compiler resolves the classes that the compiled code references through the parent
   class loader that the application sets (`setParentClassLoader()`), by reflection: also classes that exist only
   in that class loader and nowhere as a file, e.g. the classes of a REPL session, and also by their binary names
@@ -117,14 +117,14 @@ points of the API as well:
 ## How it is checked
 
 - **Downstream test suites.** Four workflows run the complete test suite of
-  [Apache Calcite](.github/workflows/calcite.yml), the 349 test suites of
+  [Apache Calcite](.github/workflows/calcite.yml), the 377 test suites of
   [Spark Catalyst](.github/workflows/spark.yml), the tests of all Java modules of
   [Apache Fory](.github/workflows/fory.yml) and about 4800 tests of the execution engine of
   [Apache Drill](.github/workflows/drill.yml) against the current sources every week, and against every release
   candidate before the release: once with the Janino that the project declares and once with this one, and
   compare the results. No release without all four being green.
-- **Recorded behavior.** The negative tests (`InvalidCodeTest`, 534 cases of invalid code) and the
-  characterization tests (`LanguageSupportTest`, 742 cases of valid code) record Janino's actual behavior, so that
+- **Recorded behavior.** The negative tests (`InvalidCodeTest`, 620 cases of invalid code) and the
+  characterization tests (`LanguageSupportTest`, 799 cases of valid code) record Janino's actual behavior, so that
   every change of it, intended or not, fails a test; on the development line, every case runs in both the
   compatibility mode and the compliance mode, and `LegacyDifferentialTest` compares every case with Janino 3.1.12,
   the reference of the compatibility mode. Differential tests compile generated expressions, control flow,
